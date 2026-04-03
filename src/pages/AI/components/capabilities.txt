@@ -1,0 +1,11 @@
+Notion AI Assistant Capabilities:
+- Create and update pages with rich HTML formatting.
+- Manage complex tasks by breaking them into parts.
+- Track task progress and complete individual parts.
+- Prune conversation context to maintain performance (Manual Caching).
+- Verify page content against specific criteria.
+- Replace specific content within pages using search and replace.
+- Support for multiple languages, including professional Bengali.
+- Real-time streaming responses via WebSocket.
+- Mention pages using '@' to provide context.
+- Export chat history for debugging and issue reporting.

@@ -1,0 +1,400 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { TagConverter } from '../../../utils/TagConverter';
+import { Clock, Plus, Send, Settings, Sparkles, User, Bot, Trash2, ChevronLeft, Download, CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import { ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
+
+interface InterfaceProps {
+  messages: ChatMessage[];
+  streamingMessage: string | null;
+  isLoading: boolean;
+  aiStatus: 'idle' | 'generating' | 'checking' | 'updating';
+  aiReason: string | null;
+  completionPercentage: number | null;
+  notes: Note[];
+  tasks: AITask[];
+  contextSummary: ContextSummary | null;
+  showClearConfirm: boolean;
+  setShowClearConfirm: (show: boolean) => void;
+  confirmClearHistory: () => void;
+  resetAIMemory: () => void;
+  exportChat: () => void;
+  navigateBack: () => void;
+  navigateToEditor: (id: string) => void;
+  setInput: (val: string) => void;
+  cleanAIText: (text: string) => string;
+  messagesEndRef: React.RefObject<HTMLDivElement>;
+  navigateToSettings: () => void;
+  selectedModel: string;
+}
+
+/**
+ * The main interface component for the AI Chat.
+ * Handles the display of messages, tasks, and the header.
+ */
+export const AIInterface: React.FC<InterfaceProps> = ({
+  messages,
+  streamingMessage,
+  isLoading,
+  aiStatus,
+  aiReason,
+  completionPercentage,
+  notes,
+  tasks,
+  contextSummary,
+  showClearConfirm,
+  setShowClearConfirm,
+  confirmClearHistory,
+  resetAIMemory,
+  exportChat,
+  navigateBack,
+  navigateToEditor,
+  setInput,
+  cleanAIText,
+  messagesEndRef,
+  navigateToSettings,
+  selectedModel
+}) => {
+  return (
+    <>
+      {/* Header */}
+      <header className="px-4 py-3 border-b border-white/10 flex justify-between items-center bg-[#191919]/80 backdrop-blur-xl sticky top-0 z-30">
+        <div className="flex items-center gap-3">
+          <button onClick={navigateBack} className="p-2 hover:bg-white/10 rounded-xl transition-all active:scale-95 text-white/60 hover:text-white">
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-500/20 border border-blue-500/30 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/5">
+              <Sparkles size={18} className="text-blue-400" />
+            </div>
+            <div>
+              <h1 className="font-bold text-sm text-white">Notion AI</h1>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">বেটা</p>
+                </div>
+                <span className="w-1 h-1 bg-white/10 rounded-full" />
+                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider bg-blue-400/10 px-1.5 py-0.5 rounded-md border border-blue-400/10">
+                  {selectedModel || 'ফ্রি'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={navigateToSettings}
+            className="p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
+            title="AI সেটিংস"
+          >
+            <Settings size={18} />
+          </button>
+          <button 
+            onClick={exportChat} 
+            className="p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
+            title="চ্যাট এক্সপোর্ট"
+          >
+            <Download size={18} />
+          </button>
+          <button 
+            onClick={() => setShowClearConfirm(true)} 
+            className="p-2.5 text-white/40 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all active:scale-95"
+            title="ইতিহাস মুছুন"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      </header>
+
+      {/* Clear Confirmation Modal */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#1c1c1c] border border-white/10 rounded-2xl p-6 w-full max-w-xs shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-white mb-2 text-center">চ্যাট ইতিহাস মুছবেন?</h3>
+              <p className="text-white/40 text-sm mb-6 text-center">এটি এই চ্যাটের সব মেসেজ মুছে ফেলবে। এটি আর ফিরে পাওয়া যাবে না।</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 px-4 py-3 bg-white/5 text-white/60 rounded-xl font-bold text-sm hover:bg-white/10 transition-colors"
+                >
+                  না
+                </button>
+                <button
+                  onClick={confirmClearHistory}
+                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-colors"
+                >
+                  হ্যাঁ
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Messages */}
+      <div className="flex-grow overflow-y-auto px-4 py-6 space-y-8 no-scrollbar">
+        {/* Active Tasks Section */}
+        {tasks.filter(t => t.status === 'in-progress').length > 0 && (
+          <div className="mb-8 space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <Clock size={14} className="text-white/40" />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-white/40">চলমান কাজ</span>
+            </div>
+            {tasks.filter(t => t.status === 'in-progress').map(task => (
+              <motion.div 
+                key={task.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-sm font-bold text-white/90">{task.title}</h3>
+                    <p className="text-[10px] text-white/40 mt-0.5">{task.description}</p>
+                  </div>
+                  <div className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-full text-[10px] font-bold">
+                    {task.parts.filter(p => p.status === 'completed').length}/{task.parts.length}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                  {task.parts.map(part => (
+                    <div 
+                      key={part.id}
+                      className={(() => {
+                        const base = "flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all";
+                        if (part.status === 'completed') return `${base} bg-green-500/10 border-green-500/20 text-green-400`;
+                        return `${base} bg-white/5 border-white/5 text-white/40`;
+                      })()}
+                    >
+                      {part.status === 'completed' ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                      <span className="text-[10px] font-bold whitespace-nowrap">{part.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {/* AI Status Overlay - Simplified */}
+        <AnimatePresence>
+          {aiStatus !== 'idle' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50"
+            >
+              <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-2 flex items-center gap-3 shadow-2xl">
+                <div className="flex items-center gap-2">
+                  {aiStatus === 'generating' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">তৈরি হচ্ছে</span>
+                    </>
+                  ) : aiStatus === 'checking' ? (
+                    <>
+                      <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
+                      <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">যাচাই হচ্ছে</span>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="w-4 h-4 text-green-400 animate-spin" />
+                      <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest">আপডেট হচ্ছে</span>
+                    </>
+                  )}
+                </div>
+
+                {completionPercentage !== null && completionPercentage > 0 && completionPercentage < 100 && (
+                  <div className="flex items-center gap-2 pl-3 border-l border-white/10">
+                    <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${completionPercentage}%` }}
+                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                      />
+                    </div>
+                    <span className="text-[9px] font-mono text-white/60">{completionPercentage}%</span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {messages.length === 0 && (
+          <div className="text-center py-20 space-y-6">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mx-auto"
+            >
+              <Sparkles size={40} className="text-white/80" />
+            </motion.div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold">আমি কীভাবে সাহায্য করতে পারি?</h2>
+              <p className="text-white/40 text-sm max-w-[240px] mx-auto leading-relaxed">
+                আমি আপনাকে লিখতে, আইডিয়া তৈরি করতে এবং আপনার স্পেস গুছিয়ে রাখতে সাহায্য করতে পারি।
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 max-w-[280px] mx-auto pt-4">
+              {['একটি টু-ডু লিস্ট তৈরি করো', 'মিটিং সামারি লেখো', 'নতুন আইডিয়া দাও'].map(suggestion => (
+                <button 
+                  key={suggestion}
+                  onClick={() => setInput(suggestion)}
+                  className="px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-xs font-bold text-white/60 hover:bg-white/10 hover:text-white transition-all text-left"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {messages.map((msg, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={(() => {
+              const base = "flex gap-4";
+              if (msg.role === 'user') return `${base} flex-row-reverse`;
+              return `${base} flex-row`;
+            })()}
+          >
+            <div className={(() => {
+              const base = "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0";
+              if (msg.role === 'user') return `${base} bg-white/10`;
+              return `${base} bg-white text-black`;
+            })()}
+            >
+              {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+            </div>
+              <div className={(() => {
+                const base = "max-w-[85%] px-4 py-3 rounded-2xl text-[15px] leading-relaxed relative group";
+                if (msg.role === 'user') return `${base} bg-white/5 text-white/90`;
+                return `${base} bg-white/10 text-white/90`;
+              })()}
+              >
+                {msg.role === 'model' && completionPercentage !== null && i === messages.length - 1 && (
+                  <div className="absolute -top-2 -right-2 px-2 py-1 bg-blue-600 text-white text-[9px] font-bold rounded-lg shadow-lg z-10">
+                    {completionPercentage}% সম্পন্ন
+                  </div>
+                )}
+                <div 
+                  className="text-sm leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: msg.role === 'model' ? cleanAIText(msg.text) : msg.text }}
+                />
+              
+              {msg.role === 'model' && (msg.text.includes('/create_page') || msg.text.includes('/update_page') || msg.text.includes('/create_task')) && (
+                <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
+                  {(() => {
+                    const createRegex = /\/create_page\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
+                    const updateRegex = /\/update_page\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
+                    const createTaskRegex = /\/create_task\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
+                    
+                    const buttons = [];
+                    let match;
+
+                    // Create Page Matches
+                    const text = msg.text;
+                    while ((match = createRegex.exec(text)) !== null) {
+                      const title = match[1].trim();
+                      const rawId = match[2].trim();
+                      const sanitizedId = rawId.replace(/[^a-z0-9-_]/gi, '_');
+                      const targetNote = notes.find(n => n.id === sanitizedId || n.id === rawId || n.title.toLowerCase() === title.toLowerCase());
+                      
+                      if (targetNote) {
+                        buttons.push(
+                          <button 
+                            key={`view-${targetNote.id}`}
+                            onClick={() => navigateToEditor(targetNote.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-xl text-xs font-bold hover:bg-white/90 transition-all shadow-lg"
+                          >
+                            <Plus size={14} />
+                            পেজ দেখুন: {targetNote.title}
+                          </button>
+                        );
+                      }
+                    }
+
+                    // Update Page Matches
+                    while ((match = updateRegex.exec(text)) !== null) {
+                      const idOrTitle = match[1].trim();
+                      const sanitizedId = idOrTitle.replace(/[^a-z0-9-_]/gi, '_');
+                      const targetNote = notes.find(n => n.id === sanitizedId || n.id === idOrTitle || n.title.toLowerCase() === idOrTitle.toLowerCase());
+                      
+                      if (targetNote) {
+                        buttons.push(
+                          <button 
+                            key={`update-${targetNote.id}`}
+                            onClick={() => navigateToEditor(targetNote.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-xl text-xs font-bold hover:bg-white/90 transition-all shadow-lg"
+                          >
+                            <Plus size={14} />
+                            আপডেট দেখুন: {targetNote.title}
+                          </button>
+                        );
+                      }
+                    }
+
+                    // Create Task Matches
+                    while ((match = createTaskRegex.exec(text)) !== null) {
+                      buttons.push(
+                        <div key={`task-${match.index}`} className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-400 rounded-xl text-[10px] font-bold border border-blue-500/20">
+                          <Clock size={12} />
+                          টাস্ক তৈরি হয়েছে: {match[1].trim()}
+                        </div>
+                      );
+                    }
+
+                    return buttons;
+                  })()}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        ))}
+        {(streamingMessage !== null || isLoading) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex gap-4"
+          >
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-black flex-shrink-0">
+              <Bot size={16} />
+            </div>
+            <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-white/10 text-white/90">
+              {streamingMessage ? (
+                <div 
+                  className="text-sm leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: cleanAIText(streamingMessage) }}
+                />
+              ) : (
+                <div className="flex items-center gap-2 py-2">
+                  <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:0.4s]" />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+        <div ref={messagesEndRef} className="h-12" />
+      </div>
+    </>
+  );
+};
