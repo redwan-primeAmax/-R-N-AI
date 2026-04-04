@@ -64,53 +64,23 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   return (
     <>
       {/* Header */}
-      <header className="px-4 py-3 border-b border-white/10 flex justify-between items-center bg-[#191919]/80 backdrop-blur-xl sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <button onClick={navigateBack} className="p-2 hover:bg-white/10 rounded-xl transition-all active:scale-95 text-white/60 hover:text-white">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-500/20 border border-blue-500/30 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/5">
-              <Sparkles size={18} className="text-blue-400" />
-            </div>
-            <div>
-              <h1 className="font-bold text-sm text-white">Notion AI</h1>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                  <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">বেটা</p>
-                </div>
-                <span className="w-1 h-1 bg-white/10 rounded-full" />
-                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider bg-blue-400/10 px-1.5 py-0.5 rounded-md border border-blue-400/10">
-                  {selectedModel || 'ফ্রি'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={navigateToSettings}
-            className="p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
-            title="AI সেটিংস"
-          >
-            <Settings size={18} />
-          </button>
-          <button 
-            onClick={exportChat} 
-            className="p-2.5 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
-            title="চ্যাট এক্সপোর্ট"
-          >
-            <Download size={18} />
-          </button>
-          <button 
-            onClick={() => setShowClearConfirm(true)} 
-            className="p-2.5 text-white/40 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all active:scale-95"
-            title="ইতিহাস মুছুন"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
+      <header className="px-6 py-6 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30">
+        <button 
+          onClick={navigateBack} 
+          className="w-11 h-11 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        
+        <h1 className="font-semibold text-[19px] text-white tracking-tight">AI Assistant</h1>
+        
+        <button 
+          onClick={navigateToSettings}
+          className="w-11 h-11 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+          title="AI সেটিংস"
+        >
+          <Settings size={22} />
+        </button>
       </header>
 
       {/* Clear Confirmation Modal */}
@@ -236,28 +206,38 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         </AnimatePresence>
 
         {messages.length === 0 && (
-          <div className="text-center py-20 space-y-6">
+          <div className="text-center py-16 space-y-12 relative">
+            {/* Subtle radial glow behind the icon */}
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-white/[0.02] blur-[100px] rounded-full pointer-events-none" />
+            
             <motion.div 
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mx-auto"
+              className="relative w-44 h-44 mx-auto flex flex-col items-center justify-center"
             >
-              <Sparkles size={40} className="text-white/80" />
+              <Sparkles size={96} className="text-white relative z-10" />
+              <span className="text-[38px] font-extrabold text-white relative z-10 mt-[-18px] tracking-tighter">AI</span>
             </motion.div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-bold">আমি কীভাবে সাহায্য করতে পারি?</h2>
-              <p className="text-white/40 text-sm max-w-[240px] mx-auto leading-relaxed">
-                আমি আপনাকে লিখতে, আইডিয়া তৈরি করতে এবং আপনার স্পেস গুছিয়ে রাখতে সাহায্য করতে পারি।
+            
+            <div className="space-y-5 relative z-10">
+              <h2 className="text-[52px] font-extrabold tracking-tight text-white px-6 leading-[1.05]">How can I help you today?</h2>
+              <p className="text-white/30 text-[19px] max-w-[380px] mx-auto leading-snug font-medium">
+                I can help you write, create ideas, and organize your space.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-2 max-w-[280px] mx-auto pt-4">
-              {['একটি টু-ডু লিস্ট তৈরি করো', 'মিটিং সামারি লেখো', 'নতুন আইডিয়া দাও'].map(suggestion => (
+            
+            <div className="flex flex-col items-center gap-5 pt-6 relative z-10">
+              {[
+                { en: 'Create a to-do list', bn: 'একটি টু-ডু লিস্ট তৈরি করো' },
+                { en: 'Summarize meeting notes', bn: 'মিটিং সামারি লেখো' },
+                { en: 'Generate new ideas', bn: 'নতুন আইডিয়া দাও' }
+              ].map(suggestion => (
                 <button 
-                  key={suggestion}
-                  onClick={() => setInput(suggestion)}
-                  className="px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-xs font-bold text-white/60 hover:bg-white/10 hover:text-white transition-all text-left"
+                  key={suggestion.en}
+                  onClick={() => setInput(suggestion.bn)}
+                  className="px-14 py-4.5 bg-[#222222] border border-white/10 rounded-full text-[19px] font-semibold text-white/90 hover:bg-[#2a2a2a] transition-all active:scale-[0.98] shadow-xl"
                 >
-                  {suggestion}
+                  {suggestion.en}
                 </button>
               ))}
             </div>
@@ -284,9 +264,9 @@ export const AIInterface: React.FC<InterfaceProps> = ({
               {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
             </div>
               <div className={(() => {
-                const base = "max-w-[85%] px-4 py-3 rounded-2xl text-[15px] leading-relaxed relative group";
-                if (msg.role === 'user') return `${base} bg-white/5 text-white/90`;
-                return `${base} bg-white/10 text-white/90`;
+                const base = "max-w-[85%] px-5 py-4 rounded-[24px] text-[16px] leading-relaxed relative group border";
+                if (msg.role === 'user') return `${base} bg-[#333333] border-[#444444] text-white`;
+                return `${base} bg-[#2a2a2a] border-[#3a3a3a] text-white`;
               })()}
               >
                 {msg.role === 'model' && completionPercentage !== null && i === messages.length - 1 && (

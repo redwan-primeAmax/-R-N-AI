@@ -188,7 +188,7 @@ const AIChat: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#191919] text-white">
+    <div className="flex flex-col h-screen bg-[#0d0d0d] text-white font-sans">
       <AIInterface
         messages={messages}
         streamingMessage={streamingMessage}
