@@ -100,7 +100,7 @@ function AppContent() {
           <Route path="/templates" element={<PageWrapper><BrowseTemplates /></PageWrapper>} />
         </Routes>
       </AnimatePresence>
-      {!isEditorPage && <Navigation />}
+      {!isFullPage && <Navigation />}
     </div>
   );
 }

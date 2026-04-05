@@ -7,14 +7,19 @@ import { DataManager } from '../utils/DataManager';
 
 export const AIService = {
   async suggestTitles(content: string, retries = 3): Promise<string[]> {
+    if (!content || content.trim().length < 5) {
+      return ["Empty"];
+    }
+
     const settings = await DataManager.getAISettings();
     const selectedProvider = settings.selectedProvider || 'picoapps';
     const selectedModels = settings.selectedModels || { chatgpt: 'gpt-4o', claude: 'claude-3-5-sonnet-20241022', gemini: 'gemini-3-flash-preview' };
     const apiKeys = settings.apiKeys || {};
-    const prompt = `Based on the following note content, suggest 10 creative and relevant titles. 
+    const prompt = `Based on the following note content, suggest 10 short, creative, and relevant titles. 
               RULES:
               - Return ONLY a JSON array of strings.
               - DO NOT use colons (:) in the titles.
+              - Titles should be very short (max 5-6 words).
               - Titles should be direct and clean (e.g., "A Letter to My Friend" instead of "Wishing You Well: A Letter").
               
               Content: ${content.substring(0, 2000)}`;
@@ -109,18 +114,24 @@ export const AIService = {
 
     try {
       const fullResponse = await callAI(prompt, retries);
+      
       // Try to extract JSON array from the response
-      const match = fullResponse.match(/\[.*\]/s);
+      // Use a more robust regex to find the JSON array
+      const match = fullResponse.match(/\[[\s\S]*\]/);
       if (match) {
-        const titles = JSON.parse(match[0]);
-        return titles.slice(0, 10);
-      } else {
-        // Fallback: split by lines if JSON parsing fails
-        const lines = fullResponse.split('\n')
-          .map(l => l.replace(/^\d+\.\s*/, '').trim())
-          .filter(l => l.length > 0);
-        return lines.slice(0, 10);
+        try {
+          const titles = JSON.parse(match[0]);
+          return Array.isArray(titles) ? titles.slice(0, 10) : [];
+        } catch (e) {
+          console.error("JSON parsing failed", e);
+        }
       }
+      
+      // Fallback: split by lines if JSON parsing fails
+      const lines = fullResponse.split('\n')
+        .map(l => l.replace(/^[-*•\d.]+\s*/, '').trim())
+        .filter(l => l.length > 0);
+      return lines.slice(0, 10);
     } catch (e) {
       console.error("AIService Error:", e);
       return [];

@@ -68,7 +68,7 @@ export const ChatInput: React.FC<InputAreaProps> = ({
             onChange={handleInputChange}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask AI or type @ to link page"
-            className="w-full pl-6 pr-14 py-5 bg-[#1a1a1a] border border-white/10 rounded-2xl outline-none font-medium text-white/90 placeholder:text-white/20 focus:bg-[#222] transition-all"
+            className="w-full pl-6 pr-14 py-4 bg-[#1a1a1a] border border-white/10 rounded-2xl outline-none font-medium text-white/90 placeholder:text-white/20 focus:bg-[#222] transition-all text-sm"
           />
           <button
             onClick={handleSend}
@@ -76,23 +76,6 @@ export const ChatInput: React.FC<InputAreaProps> = ({
             className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-20 transition-all active:scale-90"
           >
             {isLoading ? <Loader2 size={22} className="animate-spin" /> : <Send size={22} />}
-          </button>
-        </div>
-
-        {/* Bottom Action Bar */}
-        <div className="flex items-center justify-between px-2 pb-2">
-          <button className="p-2 text-white/30 hover:text-white transition-colors">
-            <Search size={26} />
-          </button>
-          
-          <button className="flex items-center gap-2 px-8 py-3 bg-[#2a2a2a] border border-white/5 rounded-full hover:bg-[#333] transition-all active:scale-95 group">
-            <Sparkles size={20} className="text-white" />
-            <span className="text-[16px] font-semibold text-white">Ask AI</span>
-          </button>
-          
-          <button className="flex items-center gap-2 p-2 text-white/30 hover:text-white transition-colors group">
-            <FileEdit size={24} />
-            <span className="text-[16px] font-medium">New Draft</span>
           </button>
         </div>
       </div>

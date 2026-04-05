@@ -4,7 +4,6 @@
  */
 
 import React from 'react';
-import { TagConverter } from '../../../utils/TagConverter';
 import { Clock, Plus, Send, Settings, Sparkles, User, Bot, Trash2, ChevronLeft, Download, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -64,22 +63,22 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   return (
     <>
       {/* Header */}
-      <header className="px-6 py-6 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30">
+      <header className="px-6 py-3 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
         <button 
           onClick={navigateBack} 
-          className="w-11 h-11 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+          className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={20} />
         </button>
         
-        <h1 className="font-semibold text-[19px] text-white tracking-tight">AI Assistant</h1>
+        <h1 className="font-semibold text-[17px] text-white tracking-tight">AI Assistant</h1>
         
         <button 
           onClick={navigateToSettings}
-          className="w-11 h-11 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+          className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
           title="AI সেটিংস"
         >
-          <Settings size={22} />
+          <Settings size={20} />
         </button>
       </header>
 
@@ -274,26 +273,37 @@ export const AIInterface: React.FC<InterfaceProps> = ({
                     {completionPercentage}% সম্পন্ন
                   </div>
                 )}
-                <div 
-                  className="text-sm leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: msg.role === 'model' ? cleanAIText(msg.text) : msg.text }}
-                />
+                <div className="text-sm leading-relaxed prose prose-invert max-w-none markdown-body">
+                  <ReactMarkdown>{msg.role === 'model' ? cleanAIText(msg.text) : msg.text}</ReactMarkdown>
+                </div>
               
-              {msg.role === 'model' && (msg.text.includes('/create_page') || msg.text.includes('/update_page') || msg.text.includes('/create_task')) && (
+              {msg.role === 'model' && (msg.text.includes('<create_page>') || msg.text.includes('<update_page>') || msg.text.includes('<create_task>')) && (
                 <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
                   {(() => {
-                    const createRegex = /\/create_page\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-                    const updateRegex = /\/update_page\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-                    const createTaskRegex = /\/create_task\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
+                    const extractTag = (tag: string, source: string) => {
+                      const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'gi');
+                      const matches = [];
+                      let match;
+                      while ((match = regex.exec(source)) !== null) {
+                        matches.push(match[1].trim());
+                      }
+                      return matches;
+                    };
+
+                    const extractNestedTag = (tag: string, source: string) => {
+                      const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
+                      const match = regex.exec(source);
+                      return match ? match[1].trim() : '';
+                    };
                     
                     const buttons = [];
-                    let match;
+                    const text = msg.text;
 
                     // Create Page Matches
-                    const text = msg.text;
-                    while ((match = createRegex.exec(text)) !== null) {
-                      const title = match[1].trim();
-                      const rawId = match[2].trim();
+                    const createPages = extractTag('create_page', text);
+                    for (const pageXml of createPages) {
+                      const title = extractNestedTag('title', pageXml);
+                      const rawId = extractNestedTag('id', pageXml);
                       const sanitizedId = rawId.replace(/[^a-z0-9-_]/gi, '_');
                       const targetNote = notes.find(n => n.id === sanitizedId || n.id === rawId || n.title.toLowerCase() === title.toLowerCase());
                       
@@ -312,8 +322,9 @@ export const AIInterface: React.FC<InterfaceProps> = ({
                     }
 
                     // Update Page Matches
-                    while ((match = updateRegex.exec(text)) !== null) {
-                      const idOrTitle = match[1].trim();
+                    const updatePages = extractTag('update_page', text);
+                    for (const pageXml of updatePages) {
+                      const idOrTitle = extractNestedTag('id', pageXml);
                       const sanitizedId = idOrTitle.replace(/[^a-z0-9-_]/gi, '_');
                       const targetNote = notes.find(n => n.id === sanitizedId || n.id === idOrTitle || n.title.toLowerCase() === idOrTitle.toLowerCase());
                       
@@ -332,11 +343,13 @@ export const AIInterface: React.FC<InterfaceProps> = ({
                     }
 
                     // Create Task Matches
-                    while ((match = createTaskRegex.exec(text)) !== null) {
+                    const createTasks = extractTag('create_task', text);
+                    for (const taskXml of createTasks) {
+                      const title = extractNestedTag('title', taskXml);
                       buttons.push(
-                        <div key={`task-${match.index}`} className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-400 rounded-xl text-[10px] font-bold border border-blue-500/20">
+                        <div key={`task-${title}`} className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-400 rounded-xl text-[10px] font-bold border border-blue-500/20">
                           <Clock size={12} />
-                          টাস্ক তৈরি হয়েছে: {match[1].trim()}
+                          টাস্ক তৈরি হয়েছে: {title}
                         </div>
                       );
                     }
@@ -359,10 +372,9 @@ export const AIInterface: React.FC<InterfaceProps> = ({
             </div>
             <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-white/10 text-white/90">
               {streamingMessage ? (
-                <div 
-                  className="text-sm leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: cleanAIText(streamingMessage) }}
-                />
+                <div className="text-sm leading-relaxed prose prose-invert max-w-none markdown-body">
+                  <ReactMarkdown>{cleanAIText(streamingMessage)}</ReactMarkdown>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 py-2">
                   <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" />

@@ -7,7 +7,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../utils/DataManager';
 import { exportChatHistory } from '../../utils/export';
-import { TagConverter } from '../../utils/TagConverter';
 import { AIInterface } from './components/ChatInterface';
 import { ChatInput } from './components/ChatInput';
 import { handleSendMessage } from './components/chatLogic';
@@ -101,10 +100,8 @@ const AIChat: React.FC = () => {
 
   const cleanAIText = (text: string) => {
     let cleaned = text
-      // Remove all commands
-      .replace(/\/(?:create|update|complete|prune|verify|replace)_\w+\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi, '')
-      .replace(/\/(?:create|update|complete|prune|verify|replace)_\w+\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi, '')
-      .replace(/\/(?:create|update|complete|prune|verify|replace)_\w+\s+([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi, '')
+      // Remove XML commands
+      .replace(/<(create_page|update_page|create_task|update_task_status|complete_part|prune_context|verify_page|replace_content)>[\s\S]*?<\/\1>/gi, '')
       
       // Remove common AI prefixes and meta-talk
       .replace(/^(User|AI|Model|Assistant|System|Bot|Verifier):\s*/gim, '')
@@ -122,11 +119,11 @@ const AIChat: React.FC = () => {
       // Final cleanup
       .trim();
     
-    if (cleaned === "" && text.includes('/')) {
+    if (cleaned === "" && text.includes('<')) {
       return "কাজটি সফলভাবে সম্পন্ন হয়েছে।";
     }
     
-    return TagConverter.toHTML(cleaned);
+    return cleaned; // Returning raw markdown now
   };
 
   const onSendMessage = () => {
@@ -188,7 +185,7 @@ const AIChat: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0d0d0d] text-white font-sans">
+    <div className="flex flex-col h-screen bg-[#0d0d0d] text-white font-sans text-[0.92rem]">
       <AIInterface
         messages={messages}
         streamingMessage={streamingMessage}

@@ -4,7 +4,10 @@
  */
 
 import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
-import { TagConverter } from '../../../utils/TagConverter';
+import { marked } from 'marked';
+import TurndownService from 'turndown';
+
+const turndownService = new TurndownService();
 
 /**
  * Handles the logic for sending messages and processing AI responses.
@@ -49,15 +52,15 @@ export const handleSendMessage = async (
   const selectedModels = settings.selectedModels || { chatgpt: 'gpt-4o', claude: 'claude-3-5-sonnet-20241022', gemini: 'gemini-3-flash-preview', openrouter: '' };
   const apiKeys = settings.apiKeys || {};
 
-  const context = notes.map(n => `Page: ${n.title} | ID: ${n.id}\nContent:\n${TagConverter.fromHTML(n.content)}`).join('\n\n---\n\n');
+  const context = notes.map(n => `Page: ${n.title} | ID: ${n.id}\nContent:\n${turndownService.turndown(n.content)}`).join('\n\n---\n\n');
   const historyLimit = 20; // Increased history for better memory
   const recentHistory = messages.slice(-historyLimit).map(m => 
     `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`
   ).join('\n');
 
   const autoCreateInstruction = settings.autoCreatePage 
-    ? "\nCRITICAL: You MUST automatically create or update a page for EVERY request, even if the user doesn't explicitly ask for it. Use /create_page or /update_page commands."
-    : "\nNOTE: Only create or update pages if the user explicitly asks for it. Otherwise, reply with plain text using custom tags.";
+    ? "\nCRITICAL: You MUST automatically create or update a page for EVERY request, even if the user doesn't explicitly ask for it. Use <create_page> or <update_page> XML blocks."
+    : "\nNOTE: Only create or update pages if the user explicitly asks for it. Otherwise, reply with plain Markdown.";
 
   const prompt = `${systemPrompt}${autoCreateInstruction}\n\n${contextSummary ? `Previous Context Summary: ${contextSummary.text}\n` : ''}Available Pages:\n${context}\n\nRecent Chat History:\n${recentHistory}\n\nUser: ${input}`;
 
@@ -309,31 +312,37 @@ export const handleSendMessage = async (
   };
 
   const processCommands = async (text: string) => {
-    const createRegex = /\/create_page\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const updateRegex = /\/update_page\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const createTaskRegex = /\/create_task\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const updateTaskStatusRegex = /\/update_task_status\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const completePartRegex = /\/complete_part\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const pruneContextRegex = /\/prune_context\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const verifyPageRegex = /\/verify_page\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
-    const replaceContentRegex = /\/replace_content\s+([^|]+)\|\s*([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
+    const extractTag = (tag: string, source: string) => {
+      const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'gi');
+      const matches = [];
+      let match;
+      while ((match = regex.exec(source)) !== null) {
+        matches.push(match[1].trim());
+      }
+      return matches;
+    };
 
-    let match;
-    
+    const extractNestedTag = (tag: string, source: string) => {
+      const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
+      const match = regex.exec(source);
+      return match ? match[1].trim() : '';
+    };
+
     // Create Page
-    while ((match = createRegex.exec(text)) !== null) {
-      const title = match[1].trim();
-      const rawId = match[2].trim();
+    const createPages = extractTag('create_page', text);
+    for (const pageXml of createPages) {
+      const title = extractNestedTag('title', pageXml);
+      const rawId = extractNestedTag('id', pageXml);
       const uniqueId = rawId.replace(/[^a-z0-9-_]/gi, '_');
-      let content = match[3].trim();
-      // Convert custom tags to HTML
-      content = TagConverter.toHTML(content);
+      let markdownContent = extractNestedTag('content', pageXml);
+      
+      const htmlContent = marked.parse(markdownContent) as string;
       
       const finalTitle = await DataManager.checkDuplicateTitle(title);
       const newNote: Note = {
         id: uniqueId,
         title: finalTitle,
-        content: content.startsWith('<') ? content : `<p>${content}</p>`,
+        content: htmlContent,
         emoji: '📄',
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -343,12 +352,13 @@ export const handleSendMessage = async (
     }
 
     // Update Page
-    while ((match = updateRegex.exec(text)) !== null) {
-      const idOrTitle = match[1].trim();
+    const updatePages = extractTag('update_page', text);
+    for (const pageXml of updatePages) {
+      const idOrTitle = extractNestedTag('id', pageXml);
       const sanitizedId = idOrTitle.replace(/[^a-z0-9-_]/gi, '_');
-      let newContent = match[2].trim();
-      // Convert custom tags to HTML
-      newContent = TagConverter.toHTML(newContent);
+      let newMarkdownContent = extractNestedTag('content', pageXml);
+
+      const htmlContent = marked.parse(newMarkdownContent) as string;
 
       const currentNotes = await DataManager.getAllNotes();
       const existingNote = currentNotes.find(n => 
@@ -357,22 +367,26 @@ export const handleSendMessage = async (
         n.title.toLowerCase() === idOrTitle.toLowerCase()
       );
       if (existingNote) {
-        existingNote.content = newContent.startsWith('<') ? newContent : `<p>${newContent}</p>`;
+        existingNote.content = htmlContent;
         existingNote.updatedAt = Date.now();
         await DataManager.saveNote(existingNote);
       }
     }
 
     // Create Task
-    while ((match = createTaskRegex.exec(text)) !== null) {
-      const title = match[1].trim();
-      const description = match[2].trim();
-      const partsStr = match[3].trim();
-      const parts = partsStr.split(',').map(p => ({
+    const createTasks = extractTag('create_task', text);
+    for (const taskXml of createTasks) {
+      const title = extractNestedTag('title', taskXml);
+      const description = extractNestedTag('description', taskXml);
+      const partsXml = extractNestedTag('parts', taskXml);
+      const partTitles = extractTag('part', partsXml);
+      
+      const parts = partTitles.map(p => ({
         id: crypto.randomUUID(),
-        title: p.trim(),
+        title: p,
         status: 'pending' as const
       }));
+      
       const newTask: AITask = {
         id: crypto.randomUUID(),
         title,
@@ -386,9 +400,10 @@ export const handleSendMessage = async (
     }
 
     // Update Task Status
-    while ((match = updateTaskStatusRegex.exec(text)) !== null) {
-      const taskId = match[1].trim();
-      const status = match[2].trim() as any;
+    const updateStatuses = extractTag('update_task_status', text);
+    for (const statusXml of updateStatuses) {
+      const taskId = extractNestedTag('id', statusXml);
+      const status = extractNestedTag('status', statusXml) as any;
       const allTasks = await DataManager.getTasks();
       const task = allTasks.find(t => t.id === taskId || t.title.toLowerCase() === taskId.toLowerCase());
       if (task) {
@@ -398,10 +413,11 @@ export const handleSendMessage = async (
     }
 
     // Complete Part
-    while ((match = completePartRegex.exec(text)) !== null) {
-      const taskId = match[1].trim();
-      const partId = match[2].trim();
-      const result = match[3].trim();
+    const completeParts = extractTag('complete_part', text);
+    for (const partXml of completeParts) {
+      const taskId = extractNestedTag('id', partXml);
+      const partId = extractNestedTag('part_id', partXml);
+      const result = extractNestedTag('result', partXml);
       const allTasks = await DataManager.getTasks();
       const task = allTasks.find(t => t.id === taskId || t.title.toLowerCase() === taskId.toLowerCase());
       if (task) {
@@ -415,9 +431,10 @@ export const handleSendMessage = async (
     }
 
     // Prune Context
-    while ((match = pruneContextRegex.exec(text)) !== null) {
-      const summary = match[1].trim();
-      const count = parseInt(match[2].trim());
+    const pruneContexts = extractTag('prune_context', text);
+    for (const pruneXml of pruneContexts) {
+      const summary = extractNestedTag('summary', pruneXml);
+      const count = parseInt(extractNestedTag('count', pruneXml));
       if (!isNaN(count)) {
         await DataManager.saveContextSummary({ text: summary, timestamp: Date.now() });
         await DataManager.deleteOldMessages(count);
@@ -425,10 +442,11 @@ export const handleSendMessage = async (
     }
 
     // Replace Content
-    while ((match = replaceContentRegex.exec(text)) !== null) {
-      const idOrTitle = match[1].trim();
-      const search = match[2].trim();
-      const replacement = match[3].trim();
+    const replaceContents = extractTag('replace_content', text);
+    for (const replaceXml of replaceContents) {
+      const idOrTitle = extractNestedTag('id', replaceXml);
+      const search = extractNestedTag('search', replaceXml);
+      const replacement = extractNestedTag('replacement', replaceXml);
       await DataManager.replaceContent(idOrTitle, search, replacement);
     }
 
@@ -537,13 +555,16 @@ export const handleSendMessage = async (
     setAiStatus('idle');
     setIsLoading(false);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Error:", error);
     setIsLoading(false);
     setAiStatus('idle');
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     setMessages(prev => [...prev, {
       role: 'model',
-      text: "Sorry, I encountered an error. Please try again later.",
+      text: `Error: ${errorMessage}`,
       timestamp: Date.now(),
     }]);
   }

@@ -285,7 +285,7 @@ export default function EditorPage() {
       }}
       className={cn(
         "p-2 rounded-lg flex-shrink-0 transition-colors duration-200",
-        isActive ? "bg-gray-200 text-black" : "text-gray-500 hover:bg-gray-100",
+        isActive ? "bg-[#333333] text-white" : "text-white/40 hover:bg-[#2a2a2a]",
         className
       )}
     >
@@ -294,29 +294,29 @@ export default function EditorPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white pb-32">
+    <div className="min-h-screen bg-[#0d0d0d] pb-32 text-white">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-2 flex items-center gap-3">
-        <button onClick={() => navigate('/')} className="p-1.5 text-gray-400 hover:text-black">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-[#0d0d0d] border-b border-white/10 px-4 py-2 flex items-center gap-3">
+        <button onClick={() => navigate('/')} className="p-1.5 text-white/40 hover:text-white">
           <ArrowLeft size={20} />
         </button>
         <div className="flex-grow flex items-center gap-2">
           <div className="relative">
-            <button onClick={() => setShowExportMenu(!showExportMenu)} className="p-1.5 text-gray-400 hover:text-black">
+            <button onClick={() => setShowExportMenu(!showExportMenu)} className="p-1.5 text-white/40 hover:text-white">
               <Menu size={20} />
             </button>
             {showExportMenu && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 z-50 min-w-[140px]">
+              <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl p-1.5 z-50 min-w-[140px]">
                 <button
                   onClick={handleExport}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 rounded-lg text-xs font-medium"
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium"
                 >
                   <Download size={16} />
                   Export (.redwan)
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-red-50 text-red-500 rounded-lg text-xs font-medium mt-1"
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-red-900/20 text-red-400 rounded-lg text-xs font-medium mt-1"
                 >
                   <Trash2 size={16} />
                   Delete Note
@@ -332,13 +332,13 @@ export default function EditorPage() {
             value={title}
             onChange={(e) => updateTitle(e.target.value)}
             placeholder="Untitled"
-            className="flex-grow bg-transparent font-bold text-base outline-none placeholder:text-gray-200 py-1"
+            className="flex-grow bg-transparent font-bold text-base outline-none placeholder:text-white/20 py-1 text-white"
           />
           {!hasSelectedTitle && (
             <button 
               onClick={handleSuggestTitles}
               disabled={isSuggestingTitle}
-              className="p-1.5 text-black hover:bg-gray-100 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+              className="p-1.5 text-white hover:bg-white/10 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
             >
               {isSuggestingTitle ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
               <span className="text-[10px] font-bold uppercase tracking-wider">Suggest Title</span>
@@ -418,12 +418,12 @@ export default function EditorPage() {
 
       {/* Sticky Toolbar for Keyboard */}
       <div 
-        className="fixed left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-2xl"
+        className="fixed left-0 right-0 z-50 bg-[#1a1a1a] border-t border-white/10 shadow-2xl"
         style={{ bottom: keyboardHeight > 0 ? keyboardHeight : '0px' }}
       >
         {/* Font & Color Submenus */}
         {showFontMenu && (
-          <div className="bg-white border-b border-gray-100 p-2 flex gap-2 overflow-x-auto no-scrollbar">
+          <div className="bg-[#1a1a1a] border-b border-white/10 p-2 flex gap-2 overflow-x-auto no-scrollbar">
             {FONTS.map((f) => (
               <button
                 key={f.value}
@@ -431,7 +431,7 @@ export default function EditorPage() {
                   editor.chain().focus().setFontFamily(f.value).run();
                   setShowFontMenu(false);
                 }}
-                className="px-4 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm whitespace-nowrap"
+                className="px-4 py-2 rounded-lg bg-[#2a2a2a] hover:bg-[#333333] text-sm whitespace-nowrap text-white"
                 style={{ fontFamily: f.value }}
               >
                 {f.name}
@@ -440,7 +440,7 @@ export default function EditorPage() {
           </div>
         )}
         {showColorMenu && (
-          <div className="bg-white border-b border-gray-100 p-2 flex gap-2 overflow-x-auto no-scrollbar">
+          <div className="bg-[#1a1a1a] border-b border-white/10 p-2 flex gap-2 overflow-x-auto no-scrollbar">
             {COLORS.map((c) => (
               <button
                 key={c.value}
@@ -448,14 +448,14 @@ export default function EditorPage() {
                   editor.chain().focus().setColor(c.value).run();
                   setShowColorMenu(false);
                 }}
-                className="w-8 h-8 rounded-full border border-gray-200 flex-shrink-0"
+                className="w-8 h-8 rounded-full border border-white/10 flex-shrink-0"
                 style={{ backgroundColor: c.value === 'inherit' ? '#fff' : c.value }}
               />
             ))}
           </div>
         )}
         {showHighlightMenu && (
-          <div className="bg-white border-b border-gray-100 p-2 flex gap-2 overflow-x-auto no-scrollbar">
+          <div className="bg-[#1a1a1a] border-b border-white/10 p-2 flex gap-2 overflow-x-auto no-scrollbar">
             {COLORS.map((c) => (
               <button
                 key={c.value}
@@ -467,7 +467,7 @@ export default function EditorPage() {
                   }
                   setShowHighlightMenu(false);
                 }}
-                className="w-8 h-8 rounded-full border border-gray-200 flex-shrink-0"
+                className="w-8 h-8 rounded-full border border-white/10 flex-shrink-0"
                 style={{ backgroundColor: c.value === 'inherit' ? '#fff' : c.value }}
               />
             ))}
@@ -475,7 +475,7 @@ export default function EditorPage() {
         )}
 
         {/* Main Toolbar */}
-        <div className="flex items-center gap-1 p-2 overflow-x-auto no-scrollbar bg-white">
+        <div className="flex items-center gap-1 p-2 overflow-x-auto no-scrollbar bg-[#1a1a1a]">
           <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')}>
             <Bold size={20} />
           </ToolbarButton>
