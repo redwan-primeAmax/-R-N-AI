@@ -62,6 +62,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
+  console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isFullPage = isEditorPage || location.pathname.startsWith('/ai');

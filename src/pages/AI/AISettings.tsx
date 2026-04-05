@@ -110,6 +110,13 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
   };
 
+  const handleCorsProxyChange = async (proxy: string) => {
+    if (!settings) return;
+    const newSettings = { ...settings, corsProxy: proxy };
+    setSettings(newSettings);
+    await DataManager.saveAISettings(newSettings);
+  };
+
   const handleDataCheckingModelChange = async (model: 'selected' | 'free') => {
     if (!settings) return;
     const newSettings = { ...settings, dataCheckingModel: model };
@@ -473,6 +480,27 @@ const AISettingsPage: React.FC = () => {
                 }`}
               />
             </button>
+          </div>
+        </section>
+
+        {/* CORS Proxy Setting */}
+        <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Info size={20} className="text-blue-400" />
+              CORS Proxy (অন্যান্য AI-এর জন্য)
+            </h2>
+            <p className="text-xs text-white/40">OpenAI বা Anthropic সরাসরি ব্রাউজার থেকে কাজ না করলে এটি ব্যবহার করুন।</p>
+          </div>
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={settings.corsProxy || ''}
+              onChange={(e) => handleCorsProxyChange(e.target.value)}
+              placeholder="যেমন: https://cors-anywhere.herokuapp.com/"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 transition-all"
+            />
+            <p className="text-[10px] text-white/20 italic">প্রক্সি ইউআরএল-এর শেষে স্ল্যাশ (/) দিতে ভুলবেন না।</p>
           </div>
         </section>
 

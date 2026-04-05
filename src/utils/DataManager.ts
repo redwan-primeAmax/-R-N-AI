@@ -4,6 +4,9 @@
  */
 
 import localforage from 'localforage';
+import { Index } from 'flexsearch';
+
+console.log('DataManager: File loaded');
 
 export interface Note {
   id: string;
@@ -64,6 +67,7 @@ export interface AISettings {
     errorCodes: string;
   };
   autoCreatePage: boolean;
+  corsProxy?: string;
 }
 
 // Configure localforage
@@ -72,6 +76,22 @@ localforage.config({
   storeName: 'notes_store'
 });
 
+// BroadcastChannel for multi-tab sync
+const syncChannel = new BroadcastChannel('notion_sync');
+
+// Initialize FlexSearch index
+let searchIndex: Index;
+try {
+  searchIndex = new Index({
+    preset: 'score',
+    tokenize: 'forward',
+    cache: true
+  });
+  console.log('FlexSearch index initialized successfully');
+} catch (e) {
+  console.error('Failed to initialize FlexSearch index:', e);
+}
+
 const NOTES_KEY = 'notes';
 const CHAT_HISTORY_KEY = 'chat_history';
 const TASKS_KEY = 'ai_tasks';
@@ -79,6 +99,58 @@ const CONTEXT_SUMMARY_KEY = 'context_summary';
 const USER_NAME_KEY = 'user_name';
 const AI_SETTINGS_KEY = 'ai_settings';
 const CUSTOM_EXTENSION = '.redwan';
+
+// Helper for background indexing to prevent battery drain and UI lag
+const scheduleIndexing = (note: Note) => {
+  const indexTask = () => {
+    if (searchIndex) {
+      searchIndex.add(note.id, `${note.title} ${note.content.replace(/<[^>]*>/g, '')}`);
+      console.log(`Note ${note.id} indexed in background`);
+    }
+  };
+
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(indexTask, { timeout: 2000 });
+  } else {
+    setTimeout(indexTask, 100);
+  }
+};
+
+// Simple encryption/decryption for API keys
+const ENCRYPTION_KEY = 'redwan-ai-secret-key';
+const encrypt = (text: string) => {
+  if (!text) return '';
+  const result = [];
+  for (let i = 0; i < text.length; i++) {
+    result.push(String.fromCharCode(text.charCodeAt(i) ^ ENCRYPTION_KEY.charCodeAt(i % ENCRYPTION_KEY.length)));
+  }
+  return btoa(result.join(''));
+};
+
+const decrypt = (encoded: string) => {
+  if (!encoded) return '';
+  try {
+    const text = atob(encoded);
+    const result = [];
+    for (let i = 0; i < text.length; i++) {
+      result.push(String.fromCharCode(text.charCodeAt(i) ^ ENCRYPTION_KEY.charCodeAt(i % ENCRYPTION_KEY.length)));
+    }
+    return result.join('');
+  } catch (e) {
+    return '';
+  }
+};
+
+// Request persistent storage
+if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then(persistent => {
+    if (persistent) {
+      console.log("Storage will not be cleared except by explicit user action");
+    } else {
+      console.log("Storage may be cleared by the UA under storage pressure.");
+    }
+  });
+}
 
 export const DataManager = {
   // --- User Operations ---
@@ -109,12 +181,22 @@ export const DataManager = {
         enabled: false,
         errorCodes: ''
       },
-      autoCreatePage: false
+      autoCreatePage: false,
+      corsProxy: ''
     };
 
     if (!settings) {
       await localforage.setItem(AI_SETTINGS_KEY, defaultSettings);
       return defaultSettings;
+    }
+
+    // Decrypt API keys
+    const decryptedKeys: any = {};
+    if (settings.apiKeys) {
+      Object.keys(settings.apiKeys).forEach(key => {
+        const val = (settings.apiKeys as any)[key];
+        decryptedKeys[key] = decrypt(val);
+      });
     }
 
     // Merge stored settings with defaults to handle migrations from older versions
@@ -125,20 +207,31 @@ export const DataManager = {
         ...defaultSettings.selectedModels,
         ...(settings.selectedModels || {})
       },
-      apiKeys: {
-        ...defaultSettings.apiKeys,
-        ...(settings.apiKeys || {})
-      },
+      apiKeys: decryptedKeys,
       enabledProviders: settings.enabledProviders || defaultSettings.enabledProviders,
       dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
       dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
       retrySettings: settings.retrySettings || defaultSettings.retrySettings,
-      autoCreatePage: settings.autoCreatePage !== undefined ? settings.autoCreatePage : defaultSettings.autoCreatePage
+      autoCreatePage: settings.autoCreatePage !== undefined ? settings.autoCreatePage : defaultSettings.autoCreatePage,
+      corsProxy: settings.corsProxy || defaultSettings.corsProxy
     };
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
-    await localforage.setItem(AI_SETTINGS_KEY, settings);
+    // Encrypt API keys before saving
+    const encryptedKeys: any = {};
+    if (settings.apiKeys) {
+      Object.keys(settings.apiKeys).forEach(key => {
+        const val = (settings.apiKeys as any)[key];
+        encryptedKeys[key] = encrypt(val);
+      });
+    }
+
+    const settingsToSave = {
+      ...settings,
+      apiKeys: encryptedKeys
+    };
+    await localforage.setItem(AI_SETTINGS_KEY, settingsToSave);
   },
 
   // --- Notes Operations ---
@@ -212,6 +305,12 @@ export const DataManager = {
     }
     
     await localforage.setItem(NOTES_KEY, notes);
+    
+    // Immediate indexing on save to prevent staleness
+    scheduleIndexing(note);
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'UPDATE_NOTE', id: note.id });
   },
 
   async checkDuplicateTitle(title: string): Promise<string> {
@@ -260,12 +359,34 @@ export const DataManager = {
     const notes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
     const filteredNotes = notes.filter(n => n.id !== id);
     await localforage.setItem(NOTES_KEY, filteredNotes);
+    
+    // Garbage Collection: Remove localStorage backup for this note
+    localStorage.removeItem(`note_backup_${id}`);
+    
+    // Remove from search index
+    if (searchIndex) {
+      searchIndex.remove(id);
+    }
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'DELETE_NOTE', id });
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
     const notes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
     const filteredNotes = notes.filter(n => !ids.includes(n.id));
     await localforage.setItem(NOTES_KEY, filteredNotes);
+    
+    // Garbage Collection: Remove localStorage backups for these notes
+    ids.forEach(id => {
+      localStorage.removeItem(`note_backup_${id}`);
+      if (searchIndex) {
+        searchIndex.remove(id);
+      }
+    });
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'DELETE_NOTES', ids });
   },
 
   async exportNote(note: Note): Promise<void> {
@@ -299,11 +420,35 @@ export const DataManager = {
 
   async searchNotes(query: string): Promise<Note[]> {
     const notes = await this.getAllNotes();
-    const lowerQuery = query.toLowerCase();
-    return notes.filter(n => 
-      n.title.toLowerCase().includes(lowerQuery) || 
-      n.content.toLowerCase().includes(lowerQuery)
-    );
+    if (!query) return notes;
+
+    // Build index if empty (simple way for now, could be optimized)
+    if (searchIndex) {
+      // Use requestIdleCallback for initial heavy indexing if needed
+      const indexAll = () => {
+        notes.forEach(n => {
+          searchIndex.add(n.id, `${n.title} ${n.content.replace(/<[^>]*>/g, '')}`);
+        });
+      };
+      
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(indexAll);
+      } else {
+        indexAll();
+      }
+
+      const results = searchIndex.search(query);
+      const resultIds = new Set(results);
+      
+      return notes.filter(n => resultIds.has(n.id));
+    } else {
+      // Fallback to simple search if index failed
+      const lowerQuery = query.toLowerCase();
+      return notes.filter(n => 
+        n.title.toLowerCase().includes(lowerQuery) || 
+        n.content.toLowerCase().includes(lowerQuery)
+      );
+    }
   },
 
   // --- Chat History Operations ---
@@ -317,11 +462,17 @@ export const DataManager = {
     const history = await this.getChatHistory();
     history.push(message);
     await localforage.setItem(CHAT_HISTORY_KEY, history);
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'UPDATE_CHAT' });
   },
 
   async clearChatHistory(): Promise<void> {
     await localforage.removeItem(CHAT_HISTORY_KEY);
     await localforage.removeItem(CONTEXT_SUMMARY_KEY);
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'CLEAR_CHAT' });
   },
 
   // --- AI Task Operations ---
@@ -340,12 +491,18 @@ export const DataManager = {
       tasks.push({ ...task, createdAt: Date.now(), updatedAt: Date.now() });
     }
     await localforage.setItem(TASKS_KEY, tasks);
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'UPDATE_TASKS' });
   },
 
   async deleteTask(id: string): Promise<void> {
     const tasks = await this.getTasks();
     const filtered = tasks.filter(t => t.id !== id);
     await localforage.setItem(TASKS_KEY, filtered);
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'DELETE_TASK', id });
   },
 
   // --- Context Summary Operations ---
@@ -366,5 +523,13 @@ export const DataManager = {
     } else {
       await this.clearChatHistory();
     }
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'UPDATE_CHAT' });
+  },
+
+  // Add listener for components to use
+  onSync(callback: (event: any) => void) {
+    syncChannel.onmessage = (event) => callback(event.data);
   }
 };

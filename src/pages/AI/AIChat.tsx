@@ -12,11 +12,14 @@ import { ChatInput } from './components/ChatInput';
 import { handleSendMessage } from './components/chatLogic';
 import { deleteChatHistory, resetAIMemory } from './components/chatActions';
 
+console.log('AIChat: File loaded');
+
 /**
  * Main AI Chat component (main.tsx).
  * Orchestrates the modular components and manages the overall state.
  */
 const AIChat: React.FC = () => {
+  console.log('AIChat: Rendering component');
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -74,16 +77,46 @@ const AIChat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadHistory();
-    loadNotes();
-    loadTasks();
-    loadContextSummary();
-    loadAISettings();
+    console.log('AIChat: Initializing...');
+    const init = async () => {
+      try {
+        await Promise.all([
+          loadHistory(),
+          loadNotes(),
+          loadTasks(),
+          loadContextSummary(),
+          loadAISettings()
+        ]);
+        console.log('AIChat: Data loaded successfully');
+      } catch (err) {
+        console.error('AIChat: Failed to load data:', err);
+      }
+    };
+    
+    init();
+
+    // Listen for sync events from other tabs
+    const handleSync = (data: any) => {
+      console.log('AIChat: Received sync event', data);
+      if (data.type === 'UPDATE_CHAT' || data.type === 'CLEAR_CHAT') {
+        loadHistory();
+      } else if (data.type === 'UPDATE_NOTE' || data.type === 'DELETE_NOTE' || data.type === 'DELETE_NOTES') {
+        loadNotes();
+      } else if (data.type === 'UPDATE_TASKS' || data.type === 'DELETE_TASK') {
+        loadTasks();
+      }
+    };
+    
+    DataManager.onSync(handleSync);
+
     fetch('/system_prompt.txt')
       .then(res => res.text())
-      .then(text => setSystemPrompt(text))
+      .then(text => {
+        console.log('AIChat: System prompt loaded');
+        setSystemPrompt(text);
+      })
       .catch(err => {
-        console.error('Failed to load system prompt:', err);
+        console.error('AIChat: Failed to load system prompt:', err);
         setSystemPrompt("You are a professional Content Creator and AI Assistant. Use custom tags [B], [I], [H1-H6], [LIST], [ITEM] for formatting. End every message with [COMPLETION: X%]. Reply in the user's language.");
       });
   }, [loadHistory, loadNotes, loadTasks, loadContextSummary, loadAISettings]);
@@ -99,6 +132,7 @@ const AIChat: React.FC = () => {
   }, [messages, streamingMessage, scrollToBottom]);
 
   const cleanAIText = (text: string) => {
+    if (!text) return "";
     let cleaned = text
       // Remove XML commands
       .replace(/<(create_page|update_page|create_task|update_task_status|complete_part|prune_context|verify_page|replace_content)>[\s\S]*?<\/\1>/gi, '')
@@ -184,8 +218,9 @@ const AIChat: React.FC = () => {
     setShowMentions(false);
   };
 
-  return (
-    <div className="flex flex-col h-screen bg-[#0d0d0d] text-white font-sans text-[0.92rem]">
+  try {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#0d0d0d] text-white font-sans text-[0.92rem]">
       <AIInterface
         messages={messages}
         streamingMessage={streamingMessage}
@@ -232,6 +267,10 @@ const AIChat: React.FC = () => {
       `}</style>
     </div>
   );
+  } catch (err) {
+    console.error('AIChat: Rendering error:', err);
+    return <div className="p-10 text-red-500">AI Page Error: {String(err)}</div>;
+  }
 };
 
 export default AIChat;

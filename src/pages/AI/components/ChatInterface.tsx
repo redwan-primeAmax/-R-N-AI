@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
 
+console.log('ChatInterface: File loaded');
+
 interface InterfaceProps {
   messages: ChatMessage[];
   streamingMessage: string | null;
@@ -60,8 +62,10 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   navigateToSettings,
   selectedModel
 }) => {
-  return (
-    <>
+  console.log('ChatInterface: Rendering AIInterface');
+  try {
+    return (
+      <>
       {/* Header */}
       <header className="px-6 py-3 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
         <button 
@@ -389,4 +393,8 @@ export const AIInterface: React.FC<InterfaceProps> = ({
       </div>
     </>
   );
+  } catch (err) {
+    console.error('AIInterface: Rendering error:', err);
+    return <div className="p-10 text-red-500">AI Interface Error: {String(err)}</div>;
+  }
 };

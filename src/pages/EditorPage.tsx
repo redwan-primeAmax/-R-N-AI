@@ -65,6 +65,10 @@ export default function EditorPage() {
   const [hasSelectedTitle, setHasSelectedTitle] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [currentHeading, setCurrentHeading] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // LocalStorage backup key
+  const BACKUP_KEY = `note_backup_${id}`;
 
   const editor = useEditor({
     extensions: [
@@ -84,10 +88,12 @@ export default function EditorPage() {
     ],
     content: '',
     onUpdate: ({ editor }) => {
-      if (note) {
-        saveNote(editor.getHTML());
+      const content = editor.getHTML();
+      // Backup to localStorage immediately on change
+      if (id) {
+        localStorage.setItem(BACKUP_KEY, content);
       }
-      
+
       // Handle '>>' shortcut for code block
       const { state } = editor;
       const { selection } = state;
@@ -208,6 +214,25 @@ export default function EditorPage() {
       loadNote(id);
     }
     
+    // Listen for sync events from other tabs
+    const handleSync = (data: any) => {
+      if (data.type === 'UPDATE_NOTE' && data.id === id) {
+        loadNote(id);
+      } else if (data.type === 'DELETE_NOTE' && data.id === id) {
+        navigate('/');
+      }
+    };
+    
+    DataManager.onSync(handleSync);
+
+    // Autosave every 5 seconds
+    const autosaveInterval = setInterval(() => {
+      if (editor && note) {
+        const content = editor.getHTML();
+        saveNote(content);
+      }
+    }, 5000);
+
     // Handle keyboard positioning
     const handleResize = () => {
       if (window.visualViewport) {
@@ -217,8 +242,14 @@ export default function EditorPage() {
     };
 
     window.visualViewport?.addEventListener('resize', handleResize);
-    return () => window.visualViewport?.removeEventListener('resize', handleResize);
-  }, [id]);
+    window.visualViewport?.addEventListener('scroll', handleResize);
+
+    return () => {
+      clearInterval(autosaveInterval);
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('scroll', handleResize);
+    };
+  }, [id, editor, note]);
 
   const loadNote = async (noteId: string) => {
     const fetchedNote = await DataManager.getNoteById(noteId);
@@ -226,7 +257,15 @@ export default function EditorPage() {
       setNote(fetchedNote);
       setTitle(fetchedNote.title);
       setEmoji(fetchedNote.emoji);
-      editor?.commands.setContent(fetchedNote.content);
+      
+      // Check for backup in localStorage
+      const backup = localStorage.getItem(BACKUP_KEY);
+      if (backup && backup !== fetchedNote.content) {
+        // If backup exists and is different, use it (or could ask user)
+        editor?.commands.setContent(backup);
+      } else {
+        editor?.commands.setContent(fetchedNote.content);
+      }
     } else {
       navigate('/');
     }
@@ -234,8 +273,12 @@ export default function EditorPage() {
 
   const saveNote = async (content: string) => {
     if (note) {
+      setIsSaving(true);
       const updatedNote = { ...note, title, content, emoji, updatedAt: Date.now() };
       await DataManager.saveNote(updatedNote);
+      // Clear backup after successful save
+      localStorage.removeItem(BACKUP_KEY);
+      setTimeout(() => setIsSaving(false), 1000);
     }
   };
 
@@ -334,6 +377,7 @@ export default function EditorPage() {
             placeholder="Untitled"
             className="flex-grow bg-transparent font-bold text-base outline-none placeholder:text-white/20 py-1 text-white"
           />
+          {isSaving && <div className="text-[8px] text-white/40 uppercase tracking-widest animate-pulse">Saving...</div>}
           {!hasSelectedTitle && (
             <button 
               onClick={handleSuggestTitles}
@@ -587,6 +631,14 @@ export default function EditorPage() {
         input[type="checkbox"] { width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 2px solid #ddd; appearance: none; cursor: pointer; position: relative; }
         input[type="checkbox"]:checked { background-color: #000; border-color: #000; }
         input[type="checkbox"]:checked::after { content: '✓'; position: absolute; color: white; font-size: 0.75rem; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        
+        .ProseMirror h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.2; }
+        .ProseMirror h2 { font-size: 1.875rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .ProseMirror h3 { font-size: 1.5rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .ProseMirror h4 { font-size: 1.25rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        .ProseMirror h5 { font-size: 1.125rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+        .ProseMirror h6 { font-size: 1rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+        .ProseMirror p { margin-bottom: 0.75rem; line-height: 1.6; color: rgba(255, 255, 255, 0.8); }
       `}</style>
     </div>
   );

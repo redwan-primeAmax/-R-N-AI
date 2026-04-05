@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
+import { FixedSizeList } from 'react-window';
 
 // Memoized Context Menu to prevent unnecessary re-renders
 const NoteContextMenu = memo(({ 
@@ -176,6 +177,80 @@ export default function HomePage() {
     loadData();
   }, [loadData]);
 
+  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const note = notes[index];
+    if (!note) return null;
+
+    return (
+      <div style={style}>
+        <motion.div
+          layout="position"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onMouseDown={() => startLongPress(note.id)}
+          onMouseUp={endLongPress}
+          onMouseLeave={endLongPress}
+          onTouchStart={() => startLongPress(note.id)}
+          onTouchEnd={endLongPress}
+          className={cn(
+            "group relative flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer mx-4",
+            selectedIds.includes(note.id) 
+              ? "bg-white/10" 
+              : "hover:bg-white/5 active:bg-white/5"
+          )}
+        >
+          <div 
+            className="flex-grow flex items-center gap-3 min-w-0"
+            onClick={() => handleNoteClick(note.id)}
+          >
+            <ChevronRight size={18} className="text-white/20 flex-shrink-0" />
+            <span className="text-xl flex-shrink-0">{note.emoji}</span>
+            <h3 className="font-medium text-[15px] truncate text-white/90">
+              {note.title || 'Untitled'}
+            </h3>
+          </div>
+
+          {!isSelectionMode && (
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuNote(note);
+                }}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+              >
+                <MoreHorizontal size={18} className="text-white/30" />
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  createNewNote();
+                }}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+              >
+                <Plus size={18} className="text-white/30" />
+              </button>
+            </div>
+          )}
+
+          {isSelectionMode && (
+            <div className="px-2">
+              <div className={cn(
+                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                selectedIds.includes(note.id) 
+                  ? "bg-white border-white" 
+                  : "border-white/20"
+              )}>
+                {selectedIds.includes(note.id) && <Check size={12} className="text-black font-bold" />}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden">
       {/* Top Bar */}
@@ -206,76 +281,22 @@ export default function HomePage() {
         </div>
 
         {/* Notes List */}
-        <div className="space-y-0.5">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {notes.map((note) => (
-              <motion.div
-                key={note.id}
-                layout="position"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onMouseDown={() => startLongPress(note.id)}
-                onMouseUp={endLongPress}
-                onMouseLeave={endLongPress}
-                onTouchStart={() => startLongPress(note.id)}
-                onTouchEnd={endLongPress}
-                className={cn(
-                  "group relative flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer",
-                  selectedIds.includes(note.id) 
-                    ? "bg-white/10" 
-                    : "hover:bg-white/5 active:bg-white/5"
-                )}
-              >
-                <div 
-                  className="flex-grow flex items-center gap-3 min-w-0"
-                  onClick={() => handleNoteClick(note.id)}
-                >
-                  <ChevronRight size={18} className="text-white/20 flex-shrink-0" />
-                  <span className="text-xl flex-shrink-0">{note.emoji}</span>
-                  <h3 className="font-medium text-[15px] truncate text-white/90">
-                    {note.title || 'Untitled'}
-                  </h3>
-                </div>
-
-                {!isSelectionMode && (
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuNote(note);
-                      }}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-                    >
-                      <MoreHorizontal size={18} className="text-white/30" />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        createNewNote();
-                      }}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-                    >
-                      <Plus size={18} className="text-white/30" />
-                    </button>
-                  </div>
-                )}
-
-                {isSelectionMode && (
-                  <div className="px-2">
-                    <div className={cn(
-                      "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                      selectedIds.includes(note.id) 
-                        ? "bg-white border-white" 
-                        : "border-white/20"
-                    )}>
-                      {selectedIds.includes(note.id) && <Check size={12} className="text-black font-bold" />}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
+        <div className="mt-2 flex-grow overflow-hidden">
+          {notes.length > 0 ? (
+            <FixedSizeList
+              height={window.innerHeight - 280} // Fill available space
+              itemCount={notes.length}
+              itemSize={52}
+              width="100%"
+              className="no-scrollbar"
+            >
+              {Row}
+            </FixedSizeList>
+          ) : (
+            <div className="py-10 text-center text-white/20 text-sm italic">
+              No notes found. Create one to get started!
+            </div>
+          )}
         </div>
 
         {/* Browse Templates Card */}
