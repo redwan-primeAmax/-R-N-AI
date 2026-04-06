@@ -77,13 +77,23 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         
         <h1 className="font-semibold text-[17px] text-white tracking-tight">AI Assistant</h1>
         
-        <button 
-          onClick={navigateToSettings}
-          className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
-          title="AI সেটিংস"
-        >
-          <Settings size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowClearConfirm(true)}
+            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+            title="চ্যাট মুছুন"
+          >
+            <Trash2 size={20} />
+          </button>
+          
+          <button 
+            onClick={navigateToSettings}
+            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+            title="AI সেটিংস"
+          >
+            <Settings size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Clear Confirmation Modal */}
