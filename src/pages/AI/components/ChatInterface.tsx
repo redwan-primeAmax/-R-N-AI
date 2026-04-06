@@ -9,8 +9,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
 
-console.log('ChatInterface: File loaded');
-
 interface InterfaceProps {
   messages: ChatMessage[];
   streamingMessage: string | null;
@@ -62,10 +60,8 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   navigateToSettings,
   selectedModel
 }) => {
-  console.log('ChatInterface: Rendering AIInterface');
-  try {
-    return (
-      <>
+  return (
+    <>
       {/* Header */}
       <header className="px-6 py-3 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
         <button 
@@ -77,23 +73,13 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         
         <h1 className="font-semibold text-[17px] text-white tracking-tight">AI Assistant</h1>
         
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setShowClearConfirm(true)}
-            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
-            title="চ্যাট মুছুন"
-          >
-            <Trash2 size={20} />
-          </button>
-          
-          <button 
-            onClick={navigateToSettings}
-            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
-            title="AI সেটিংস"
-          >
-            <Settings size={20} />
-          </button>
-        </div>
+        <button 
+          onClick={navigateToSettings}
+          className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+          title="AI সেটিংস"
+        >
+          <Settings size={20} />
+        </button>
       </header>
 
       {/* Clear Confirmation Modal */}
@@ -403,8 +389,4 @@ export const AIInterface: React.FC<InterfaceProps> = ({
       </div>
     </>
   );
-  } catch (err) {
-    console.error('AIInterface: Rendering error:', err);
-    return <div className="p-10 text-red-500">AI Interface Error: {String(err)}</div>;
-  }
 };

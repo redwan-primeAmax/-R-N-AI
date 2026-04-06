@@ -9,8 +9,6 @@ import TurndownService from 'turndown';
 
 const turndownService = new TurndownService();
 
-console.log('chatLogic: File loaded');
-
 /**
  * Handles the logic for sending messages and processing AI responses.
  */
@@ -54,28 +52,8 @@ export const handleSendMessage = async (
   const selectedModels = settings.selectedModels || { chatgpt: 'gpt-4o', claude: 'claude-3-5-sonnet-20241022', gemini: 'gemini-3-flash-preview', openrouter: '' };
   const apiKeys = settings.apiKeys || {};
 
-  // Context Pruning: Only include the most recently updated note and any mentioned notes
-  // Plus the last 5 chat messages for immediate context
-  const sortedNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
-  const currentNote = sortedNotes[0]; // Most recent note as "current"
-  
-  // Find mentioned notes in the input
-  const mentionedNotes = notes.filter(n => 
-    input.includes(`[${n.title}]`) || 
-    input.toLowerCase().includes(n.title.toLowerCase())
-  );
-
-  const relevantNotes = Array.from(new Set([currentNote, ...mentionedNotes])).filter(Boolean);
-  
-  const context = relevantNotes.map(n => `Page: ${n.title} | ID: ${n.id}\nContent:\n${turndownService.turndown(n.content)}`).join('\n\n---\n\n');
-  
-  // Also provide a list of other page titles for reference without content
-  const otherPages = notes
-    .filter(n => !relevantNotes.some(rn => rn.id === n.id))
-    .map(n => `- ${n.title} (ID: ${n.id})`)
-    .join('\n');
-
-  const historyLimit = 5; // Reduced history for performance on low-end devices
+  const context = notes.map(n => `Page: ${n.title} | ID: ${n.id}\nContent:\n${turndownService.turndown(n.content)}`).join('\n\n---\n\n');
+  const historyLimit = 20; // Increased history for better memory
   const recentHistory = messages.slice(-historyLimit).map(m => 
     `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`
   ).join('\n');
@@ -84,15 +62,12 @@ export const handleSendMessage = async (
     ? "\nCRITICAL: You MUST automatically create or update a page for EVERY request, even if the user doesn't explicitly ask for it. Use <create_page> or <update_page> XML blocks."
     : "\nNOTE: Only create or update pages if the user explicitly asks for it. Otherwise, reply with plain Markdown.";
 
-  const prompt = `${systemPrompt}${autoCreateInstruction}\n\n${contextSummary ? `Previous Context Summary: ${contextSummary.text}\n` : ''}Relevant Pages:\n${context}\n\nOther Available Pages:\n${otherPages}\n\nRecent Chat History:\n${recentHistory}\n\nUser: <user_data>${input}</user_data>`;
+  const prompt = `${systemPrompt}${autoCreateInstruction}\n\n${contextSummary ? `Previous Context Summary: ${contextSummary.text}\n` : ''}Available Pages:\n${context}\n\nRecent Chat History:\n${recentHistory}\n\nUser: ${input}`;
 
   const sendToAI = async (currentPrompt: string, retries = 3, forceFree = false) => {
     const effectiveProvider = forceFree ? 'picoapps' : selectedProvider;
     
     const executeAIRequest = async () => {
-      const corsProxy = settings.corsProxy || '';
-      const getUrl = (url: string) => corsProxy ? `${corsProxy}${url}` : url;
-
       if (effectiveProvider === 'picoapps') {
         return new Promise<string>((resolve, reject) => {
           const attempt = (remainingRetries: number) => {
@@ -157,14 +132,14 @@ export const handleSendMessage = async (
         if (!apiKey) throw new Error(`${isOpenRouter ? 'OpenRouter' : 'ChatGPT'} API Key is missing. Please add it in AI Settings.`);
         const model = isOpenRouter ? selectedModels.openrouter : selectedModels.chatgpt;
 
-        const response = await fetch(getUrl(`${baseUrl}/chat/completions`), {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
             ...(isOpenRouter ? {
               'HTTP-Referer': window.location.origin,
-              'X-Title': 'Redwan AI Assistant'
+              'X-Title': 'Notion AI Clone'
             } : {})
           },
           body: JSON.stringify({
@@ -213,7 +188,7 @@ export const handleSendMessage = async (
         if (!apiKey) throw new Error("Claude API Key is missing. Please add it in AI Settings.");
         const model = selectedModels.claude;
 
-        const response = await fetch(getUrl('https://api.anthropic.com/v1/messages'), {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -8,8 +8,6 @@ import { Send, Loader2, Search, Sparkles, FileEdit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Note } from '../../../utils/DataManager';
 
-console.log('ChatInput: File loaded');
-
 interface InputAreaProps {
   input: string;
   setInput: (val: string) => void;
@@ -34,7 +32,6 @@ export const ChatInput: React.FC<InputAreaProps> = ({
   filteredMentions,
   selectMention
 }) => {
-  console.log('ChatInput: Rendering ChatInput');
   return (
     <div className="p-4 bg-[#0d0d0d] border-t border-white/5">
       <div className="max-w-2xl mx-auto space-y-6">

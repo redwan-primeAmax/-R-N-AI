@@ -6,14 +6,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Settings, Key, Check, AlertCircle, Info, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronLeft, Settings, Key, Check, AlertCircle, Info, Sparkles } from 'lucide-react';
 import { DataManager, AISettings } from '../../utils/DataManager';
 
 const AISettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [showKeyModal, setShowKeyModal] = useState<{ model: string; key: string } | null>(null);
-  const [showClearConfirm, setShowClearConfirm] = useState<'chat' | 'memory' | null>(null);
   const [tempKey, setTempKey] = useState('');
 
   useEffect(() => {
@@ -111,13 +110,6 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
   };
 
-  const handleCorsProxyChange = async (proxy: string) => {
-    if (!settings) return;
-    const newSettings = { ...settings, corsProxy: proxy };
-    setSettings(newSettings);
-    await DataManager.saveAISettings(newSettings);
-  };
-
   const handleDataCheckingModelChange = async (model: 'selected' | 'free') => {
     if (!settings) return;
     const newSettings = { ...settings, dataCheckingModel: model };
@@ -143,20 +135,6 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
     setShowKeyModal(null);
     setTempKey('');
-  };
-
-  const handleResetMemory = async () => {
-    await DataManager.saveContextSummary({ text: "", timestamp: Date.now() });
-    setShowClearConfirm(null);
-  };
-
-  const handleClearChat = async () => {
-    await DataManager.clearChatHistory();
-    const allTasks = await DataManager.getTasks();
-    for (const task of allTasks) {
-      await DataManager.deleteTask(task.id);
-    }
-    setShowClearConfirm(null);
   };
 
   if (!settings) return null;
@@ -498,51 +476,6 @@ const AISettingsPage: React.FC = () => {
           </div>
         </section>
 
-        {/* CORS Proxy Setting */}
-        <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-6">
-          <div className="space-y-1">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <Info size={20} className="text-blue-400" />
-              CORS Proxy (অন্যান্য AI-এর জন্য)
-            </h2>
-            <p className="text-xs text-white/40">OpenAI বা Anthropic সরাসরি ব্রাউজার থেকে কাজ না করলে এটি ব্যবহার করুন।</p>
-          </div>
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={settings.corsProxy || ''}
-              onChange={(e) => handleCorsProxyChange(e.target.value)}
-              placeholder="যেমন: https://cors-anywhere.herokuapp.com/"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 transition-all"
-            />
-            <p className="text-[10px] text-white/20 italic">প্রক্সি ইউআরএল-এর শেষে স্ল্যাশ (/) দিতে ভুলবেন না।</p>
-          </div>
-        </section>
-
-        <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-3">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <Trash2 size={20} className="text-red-400" />
-            ডেটা ম্যানেজমেন্ট
-          </h2>
-          <p className="text-sm text-white/40 leading-relaxed mb-4">
-            আপনার চ্যাট ইতিহাস এবং AI মেমরি এখান থেকে মুছতে পারেন।
-          </p>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => setShowClearConfirm('chat')}
-              className="w-full py-3 bg-red-600/10 border border-red-600/20 text-red-400 rounded-xl font-bold text-sm hover:bg-red-600/20 transition-all"
-            >
-              চ্যাট ইতিহাস মুছুন
-            </button>
-            <button
-              onClick={() => setShowClearConfirm('memory')}
-              className="w-full py-3 bg-white/5 border border-white/10 text-white/60 rounded-xl font-bold text-sm hover:bg-white/10 transition-all"
-            >
-              AI মেমরি রিসেট করুন
-            </button>
-          </div>
-        </section>
-
         <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-3">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Key size={20} className="text-white/60" />
@@ -604,51 +537,6 @@ const AISettingsPage: React.FC = () => {
                     সেভ করুন
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Clear Confirmation Modal */}
-      <AnimatePresence>
-        {showClearConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[#222] border border-white/10 rounded-3xl p-6 w-full max-w-md shadow-2xl"
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-red-500/10 rounded-2xl">
-                  <Trash2 className="text-red-400" size={24} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">
-                    {showClearConfirm === 'chat' ? 'চ্যাট ইতিহাস মুছবেন?' : 'AI মেমরি রিসেট করবেন?'}
-                  </h2>
-                  <p className="text-white/50 text-sm">
-                    {showClearConfirm === 'chat' 
-                      ? 'এটি আপনার সব চ্যাট ইতিহাস এবং টাস্ক মুছে ফেলবে।' 
-                      : 'এটি AI-এর শর্ট-টার্ম মেমরি মুছে ফেলবে।'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowClearConfirm(null)}
-                  className="flex-1 py-3 rounded-2xl font-bold text-white/60 hover:bg-white/5 transition-all"
-                >
-                  বাতিল
-                </button>
-                <button
-                  onClick={showClearConfirm === 'chat' ? handleClearChat : handleResetMemory}
-                  className="flex-1 py-3 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all"
-                >
-                  নিশ্চিত করুন
-                </button>
               </div>
             </motion.div>
           </div>
