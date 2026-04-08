@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, useLocation, useRoutes } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -62,6 +62,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
+  console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isFullPage = isEditorPage || location.pathname.startsWith('/ai');
@@ -84,6 +85,15 @@ function AppContent() {
     setShowPopup(false);
   };
 
+  const routingElement = useRoutes([
+    { path: "/", element: <PageWrapper><HomePage /></PageWrapper> },
+    { path: "/search", element: <PageWrapper><SearchPage /></PageWrapper> },
+    { path: "/editor/:id", element: <PageWrapper><EditorPage /></PageWrapper> },
+    { path: "/ai", element: <PageWrapper><AIChat /></PageWrapper> },
+    { path: "/ai/settings", element: <PageWrapper><AISettings /></PageWrapper> },
+    { path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
+  ]);
+
   return (
     <div className={`min-h-screen bg-[#191919] text-white font-sans ${isFullPage ? '' : 'pb-24'}`}>
       <AnimatePresence mode="wait">
@@ -91,14 +101,7 @@ function AppContent() {
       </AnimatePresence>
       
       <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
-          <Route path="/search" element={<PageWrapper><SearchPage /></PageWrapper>} />
-          <Route path="/editor/:id" element={<PageWrapper><EditorPage /></PageWrapper>} />
-          <Route path="/ai" element={<PageWrapper><AIChat /></PageWrapper>} />
-          <Route path="/ai/settings" element={<PageWrapper><AISettings /></PageWrapper>} />
-          <Route path="/templates" element={<PageWrapper><BrowseTemplates /></PageWrapper>} />
-        </Routes>
+        {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
       </AnimatePresence>
       {!isFullPage && <Navigation />}
     </div>

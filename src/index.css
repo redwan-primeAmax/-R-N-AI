@@ -32,9 +32,6 @@
   .ProseMirror .task-list input { @apply mt-1.5; }
 
   /* Prevent White Flash */
-  * {
-    transition: none !important;
-  }
   .animate-all {
     transition: all 0.2s ease-in-out !important;
   }
