@@ -78,6 +78,7 @@ localforage.config({
 
 // BroadcastChannel for multi-tab sync
 const syncChannel = new BroadcastChannel('notion_sync');
+const clientId = crypto.randomUUID();
 
 // Initialize FlexSearch index
 let searchIndex: Index;
@@ -153,6 +154,7 @@ if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.p
 }
 
 export const DataManager = {
+  getClientId: () => clientId,
   // --- User Operations ---
   async getUserName(): Promise<string | null> {
     return await localforage.getItem<string>(USER_NAME_KEY);
@@ -310,7 +312,7 @@ export const DataManager = {
     scheduleIndexing(note);
     
     // Notify other tabs
-    syncChannel.postMessage({ type: 'UPDATE_NOTE', id: note.id });
+    syncChannel.postMessage({ type: 'UPDATE_NOTE', id: note.id, senderId: clientId });
   },
 
   async checkDuplicateTitle(title: string): Promise<string> {

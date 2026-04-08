@@ -29,68 +29,70 @@ export default function SearchPage() {
   }, [query]);
 
   return (
-    <div className="max-w-2xl mx-auto px-6 pt-12 pb-24">
-      <header className="mb-8">
-        <div className="relative group">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black transition-colors">
-            <SearchIcon size={20} />
-          </div>
-          <input
-            autoFocus
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search notes, content, everything..."
-            className="w-full pl-12 pr-12 py-4 bg-gray-50 border-2 border-transparent focus:border-black/5 rounded-2xl outline-none text-lg font-medium placeholder:text-gray-300"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute inset-y-0 right-4 flex items-center text-gray-400 hover:text-black transition-colors"
-            >
-              <X size={20} />
-            </button>
-          )}
-        </div>
-      </header>
-
-      <div className="space-y-4">
-        <AnimatePresence mode="popLayout">
-          {query && results.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-20 text-gray-400"
-            >
-              No results found for "{query}"
-            </motion.div>
-          ) : (
-            results.map((note) => (
-              <motion.div
-                key={note.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                onClick={() => navigate(`/editor/${note.id}`)}
-                className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-black/10 hover:shadow-sm transition-all cursor-pointer"
+    <div className="min-h-screen bg-[#191919] text-white">
+      <div className="max-w-2xl mx-auto px-6 pt-12 pb-24">
+        <header className="mb-8">
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/40 group-focus-within:text-white transition-colors">
+              <SearchIcon size={20} />
+            </div>
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search notes, content, everything..."
+              className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 focus:border-white/20 rounded-2xl outline-none text-lg font-medium placeholder:text-white/20 transition-all"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute inset-y-0 right-4 flex items-center text-white/40 hover:text-white transition-colors"
               >
-                <div className="flex-shrink-0 w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center text-xl">
-                  {note.emoji}
-                </div>
-                <div className="flex-grow min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">
-                    {note.title || 'Untitled'}
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-1 line-clamp-1">
-                    {note.content.replace(/<[^>]*>/g, '') || 'No content'}
-                  </p>
-                </div>
-                <ChevronRight size={18} className="text-gray-300" />
+                <X size={20} />
+              </button>
+            )}
+          </div>
+        </header>
+
+        <div className="space-y-4">
+          <AnimatePresence mode="popLayout">
+            {query && results.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-20 text-white/20"
+              >
+                No results found for "{query}"
               </motion.div>
-            ))
-          )}
-        </AnimatePresence>
+            ) : (
+              results.map((note) => (
+                <motion.div
+                  key={note.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  onClick={() => navigate(`/editor/${note.id}`)}
+                  className="flex items-center gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    {note.emoji}
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <h3 className="font-bold text-white/90 truncate">
+                      {note.title || 'Untitled'}
+                    </h3>
+                    <p className="text-xs text-white/40 mt-1 line-clamp-1">
+                      {note.content.replace(/<[^>]*>/g, '') || 'No content'}
+                    </p>
+                  </div>
+                  <ChevronRight size={18} className="text-white/20 group-hover:text-white/60 transition-colors" />
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

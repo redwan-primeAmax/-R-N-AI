@@ -216,7 +216,7 @@ export default function EditorPage() {
     
     // Listen for sync events from other tabs
     const handleSync = (data: any) => {
-      if (data.type === 'UPDATE_NOTE' && data.id === id) {
+      if (data.type === 'UPDATE_NOTE' && data.id === id && data.senderId !== DataManager.getClientId()) {
         loadNote(id);
       } else if (data.type === 'DELETE_NOTE' && data.id === id) {
         navigate('/');

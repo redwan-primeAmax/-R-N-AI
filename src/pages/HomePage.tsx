@@ -91,17 +91,129 @@ const NoteContextMenu = memo(({
 
 NoteContextMenu.displayName = 'NoteContextMenu';
 
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// Memoized Row component for react-window
+const NoteRow = memo(({ 
+  index, 
+  style, 
+  data 
+}: { 
+  index: number; 
+  style: React.CSSProperties; 
+  data: {
+    notes: Note[];
+    selectedIds: string[];
+    isSelectionMode: boolean;
+    handleNoteClick: (id: string) => void;
+    startLongPress: (id: string) => void;
+    endLongPress: () => void;
+    setActiveMenuNote: (note: Note) => void;
+    createNewNote: () => void;
+  }
+}) => {
+  const { notes, selectedIds, isSelectionMode, handleNoteClick, startLongPress, endLongPress, setActiveMenuNote, createNewNote } = data;
+  const note = notes[index];
+  if (!note) return null;
+
+  const isSelected = selectedIds.includes(note.id);
+
+  return (
+    <div style={style}>
+      <motion.div
+        layout="position"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onMouseDown={() => startLongPress(note.id)}
+        onMouseUp={endLongPress}
+        onMouseLeave={endLongPress}
+        onTouchStart={() => startLongPress(note.id)}
+        onTouchEnd={endLongPress}
+        className={cn(
+          "group relative flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer mx-4",
+          isSelected 
+            ? "bg-white/10" 
+            : "hover:bg-white/5 active:bg-white/5"
+        )}
+      >
+        <div 
+          className="flex-grow flex items-center gap-3 min-w-0"
+          onClick={() => handleNoteClick(note.id)}
+        >
+          <ChevronRight size={18} className={cn("transition-colors", isSelected ? "text-white/40" : "text-white/20")} />
+          <span className="text-xl flex-shrink-0">{note.emoji}</span>
+          <h3 className="font-medium text-[15px] truncate text-white/90">
+            {note.title || 'Untitled'}
+          </h3>
+        </div>
+
+        {!isSelectionMode && (
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuNote(note);
+              }}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+            >
+              <MoreHorizontal size={18} className="text-white/30" />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                createNewNote();
+              }}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+            >
+              <Plus size={18} className="text-white/30" />
+            </button>
+          </div>
+        )}
+
+        {isSelectionMode && (
+          <div className="px-2">
+            <div className={cn(
+              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+              isSelected 
+                ? "bg-white border-white" 
+                : "border-white/20"
+            )}>
+              {isSelected && <Check size={12} className="text-black font-bold" />}
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+});
+
+NoteRow.displayName = 'NoteRow';
+
 export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [userName, setUserName] = useState<string>('User');
   const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [listHeight, setListHeight] = useState(window.innerHeight - 280);
   const navigate = useNavigate();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadData();
+    
+    const handleResize = () => {
+      setListHeight(window.innerHeight - 280);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const loadData = useCallback(async () => {
@@ -177,79 +289,6 @@ export default function HomePage() {
     loadData();
   }, [loadData]);
 
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const note = notes[index];
-    if (!note) return null;
-
-    return (
-      <div style={style}>
-        <motion.div
-          layout="position"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onMouseDown={() => startLongPress(note.id)}
-          onMouseUp={endLongPress}
-          onMouseLeave={endLongPress}
-          onTouchStart={() => startLongPress(note.id)}
-          onTouchEnd={endLongPress}
-          className={cn(
-            "group relative flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer mx-4",
-            selectedIds.includes(note.id) 
-              ? "bg-white/10" 
-              : "hover:bg-white/5 active:bg-white/5"
-          )}
-        >
-          <div 
-            className="flex-grow flex items-center gap-3 min-w-0"
-            onClick={() => handleNoteClick(note.id)}
-          >
-            <ChevronRight size={18} className="text-white/20 flex-shrink-0" />
-            <span className="text-xl flex-shrink-0">{note.emoji}</span>
-            <h3 className="font-medium text-[15px] truncate text-white/90">
-              {note.title || 'Untitled'}
-            </h3>
-          </div>
-
-          {!isSelectionMode && (
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveMenuNote(note);
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-              >
-                <MoreHorizontal size={18} className="text-white/30" />
-              </button>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  createNewNote();
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-              >
-                <Plus size={18} className="text-white/30" />
-              </button>
-            </div>
-          )}
-
-          {isSelectionMode && (
-            <div className="px-2">
-              <div className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                selectedIds.includes(note.id) 
-                  ? "bg-white border-white" 
-                  : "border-white/20"
-              )}>
-                {selectedIds.includes(note.id) && <Check size={12} className="text-black font-bold" />}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden">
@@ -284,13 +323,23 @@ export default function HomePage() {
         <div className="mt-2 flex-grow overflow-hidden">
           {notes.length > 0 ? (
             <FixedSizeList
-              height={window.innerHeight - 280} // Fill available space
+              height={listHeight}
               itemCount={notes.length}
               itemSize={52}
               width="100%"
               className="no-scrollbar"
+              itemData={{
+                notes,
+                selectedIds,
+                isSelectionMode,
+                handleNoteClick,
+                startLongPress,
+                endLongPress,
+                setActiveMenuNote,
+                createNewNote
+              }}
             >
-              {Row}
+              {NoteRow}
             </FixedSizeList>
           ) : (
             <div className="py-10 text-center text-white/20 text-sm italic">
@@ -342,7 +391,7 @@ export default function HomePage() {
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-28 left-4 right-4 z-50 bg-white text-black p-4 rounded-2xl flex justify-between items-center shadow-2xl border border-black/5"
+            className="fixed bottom-[100px] left-4 right-4 z-50 bg-white text-black p-4 rounded-2xl flex justify-between items-center shadow-2xl border border-black/5"
           >
             <span className="font-bold text-sm ml-2">{selectedIds.length} selected</span>
             <div className="flex gap-2">
@@ -367,6 +416,3 @@ export default function HomePage() {
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
-}
