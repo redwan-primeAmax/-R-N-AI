@@ -9,7 +9,7 @@ CRITICAL RULES:
 5. CONTEXT AWARENESS: You will only be provided with specific notes that the user has explicitly mentioned or are highly relevant. Base your updates ONLY on these provided notes.
 
 XML COMMANDS (MANDATORY FOR ACTIONS):
-When you need to create, update, or manipulate data, you MUST use the following XML blocks. Do NOT use slash commands (like /create_page).
+When you need to create, update, or manipulate data, or generate ANY content (summaries, lists, articles, code), you MUST use the following XML blocks. Do NOT just reply in plain text for content generation.
 
 To create a new page:
 <create_page>

@@ -164,38 +164,27 @@ const AISettingsPage: React.FC = () => {
   const providers = [
     { 
       id: 'picoapps', 
-      name: 'PicoApps AI', 
-      description: 'ফ্রি মডেল, কোনো কনফিগারেশন প্রয়োজন নেই।', 
+      name: 'PicoApps AI (Free AI)', 
+      description: 'ফ্রি মডেল, কোনো কনফিগারেশন প্রয়োজন নেই। এটি বর্তমানে সক্রিয় আছে।', 
       isFree: true,
-      models: []
-    },
-    { 
-      id: 'chatgpt', 
-      name: 'OpenAI ChatGPT', 
-      description: 'OpenAI-এর লেটেস্ট মডেল। আপনার নিজস্ব API কী প্রয়োজন।', 
-      isFree: false,
-      models: ['gpt-4o', 'gpt-4o-mini', 'o1-preview', 'o1-mini']
-    },
-    { 
-      id: 'claude', 
-      name: 'Anthropic Claude', 
-      description: 'Anthropic-এর লেটেস্ট মডেল। আপনার নিজস্ব API কী প্রয়োজন।', 
-      isFree: false,
-      models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229']
+      models: [],
+      isComingSoon: false
     },
     { 
       id: 'gemini', 
       name: 'Google Gemini', 
-      description: 'গুগলের লেটেস্ট মডেল। আপনার নিজস্ব API কী প্রয়োজন।', 
+      description: 'গুগলের লেটেস্ট মডেল। (শীঘ্রই আসছে)', 
       isFree: false,
-      models: ['gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview']
+      models: ['gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
+      isComingSoon: true
     },
     { 
       id: 'openrouter', 
       name: 'OpenRouter', 
-      description: 'OpenRouter-এর মাধ্যমে যেকোনো মডেল ব্যবহার করুন। আপনার নিজস্ব API কী প্রয়োজন।', 
+      description: 'OpenRouter-এর মাধ্যমে যেকোনো মডেল ব্যবহার করুন। (শীঘ্রই আসছে)', 
       isFree: false,
-      models: [] // Manual entry
+      models: [],
+      isComingSoon: true
     },
   ];
 
@@ -232,14 +221,19 @@ const AISettingsPage: React.FC = () => {
                   isSelected 
                     ? 'bg-white/10 border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.05)]' 
                     : 'bg-white/5 border-white/5 hover:border-white/10'
-                }`}
+                } ${provider.isComingSoon ? 'opacity-60 grayscale' : ''}`}
               >
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1 cursor-pointer" onClick={() => isEnabled && handleSelectProvider(provider.id)}>
+                  <div className="flex-1 cursor-pointer" onClick={() => !provider.isComingSoon && isEnabled && handleSelectProvider(provider.id)}>
                     <div className="flex items-center gap-3">
                       <h3 className={`font-bold text-lg transition-colors ${isSelected ? 'text-white' : 'text-white/70'}`}>
                         {provider.name}
                       </h3>
+                      {provider.isComingSoon && (
+                        <span className="bg-white/10 text-white/40 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-white/10">
+                          Soon
+                        </span>
+                      )}
                       {isSelected && (
                         <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                           Active
@@ -255,7 +249,7 @@ const AISettingsPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {!provider.isFree && (
+                    {!provider.isFree && !provider.isComingSoon && (
                       <button 
                         onClick={() => {
                           setTempKey(settings.apiKeys[provider.id as keyof typeof settings.apiKeys] || '');
@@ -270,28 +264,30 @@ const AISettingsPage: React.FC = () => {
                       </button>
                     )}
                     
-                    <button
-                      onClick={() => handleToggleProvider(provider.id)}
-                      className={`relative w-14 h-7 rounded-full transition-all duration-500 border-2 ${
-                        isEnabled 
-                          ? 'bg-blue-500 border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
-                          : 'bg-white/5 border-white/10'
-                      }`}
-                    >
-                      <div className={`absolute top-1 left-1 text-[8px] font-bold transition-opacity duration-300 ${isEnabled ? 'opacity-100' : 'opacity-0'}`}>
-                        ON
-                      </div>
-                      <div className={`absolute top-1 right-1 text-[8px] font-bold transition-opacity duration-300 ${!isEnabled ? 'opacity-100' : 'opacity-0'}`}>
-                        OFF
-                      </div>
-                      <motion.div
-                        animate={{ x: isEnabled ? 28 : 0 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-lg transition-colors duration-300 ${
-                          isEnabled ? 'bg-white' : 'bg-white/20'
+                    {!provider.isComingSoon && (
+                      <button
+                        onClick={() => handleToggleProvider(provider.id)}
+                        className={`relative w-14 h-7 rounded-full transition-all duration-500 border-2 ${
+                          isEnabled 
+                            ? 'bg-blue-500 border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
+                            : 'bg-white/5 border-white/10'
                         }`}
-                      />
-                    </button>
+                      >
+                        <div className={`absolute top-1 left-1 text-[8px] font-bold transition-opacity duration-300 ${isEnabled ? 'opacity-100' : 'opacity-0'}`}>
+                          ON
+                        </div>
+                        <div className={`absolute top-1 right-1 text-[8px] font-bold transition-opacity duration-300 ${!isEnabled ? 'opacity-100' : 'opacity-0'}`}>
+                          OFF
+                        </div>
+                        <motion.div
+                          animate={{ x: isEnabled ? 28 : 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-lg transition-colors duration-300 ${
+                            isEnabled ? 'bg-white' : 'bg-white/20'
+                          }`}
+                        />
+                      </button>
+                    )}
                   </div>
                 </div>
 

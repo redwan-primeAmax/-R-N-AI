@@ -23,6 +23,11 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+  debugInfo?: {
+    fullPrompt: string;
+    systemPrompt: string;
+    mentionedPages?: { id: string; title: string; content: string }[];
+  };
 }
 
 export interface AITask {
@@ -46,16 +51,12 @@ export interface ContextSummary {
 }
 
 export interface AISettings {
-  selectedProvider: 'picoapps' | 'chatgpt' | 'claude' | 'gemini' | 'openrouter';
+  selectedProvider: 'picoapps' | 'gemini' | 'openrouter';
   selectedModels: {
-    chatgpt: string;
-    claude: string;
     gemini: string;
     openrouter: string;
   };
   apiKeys: {
-    claude?: string;
-    chatgpt?: string;
     gemini?: string;
     openrouter?: string;
   };
@@ -170,8 +171,6 @@ export const DataManager = {
     const defaultSettings: AISettings = {
       selectedProvider: 'picoapps',
       selectedModels: {
-        chatgpt: 'gpt-4o',
-        claude: 'claude-3-5-sonnet-20241022',
         gemini: 'gemini-3-flash-preview',
         openrouter: ''
       },

@@ -115,8 +115,11 @@ export default function EditorPage() {
     
     setIsSuggestingTitle(true);
     try {
-      const { AIService } = await import('../services/aiService');
-      const suggestions = await AIService.suggestTitles(editor.getText());
+      const { AIServiceFactory } = await import('./AI/services/serviceFactory');
+      const settings = await DataManager.getAISettings();
+      const provider = settings.selectedProvider || 'picoapps';
+      const service = AIServiceFactory.getService(provider);
+      const suggestions = await service.suggestTitles(editor.getText());
       setTitleSuggestions(suggestions);
       setShowTitleSuggestions(true);
     } catch (err) {

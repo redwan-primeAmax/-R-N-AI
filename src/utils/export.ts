@@ -20,33 +20,35 @@ export const exportChatHistory = (messages: ChatMessage[]) => {
     
     // Determine tag based on content
     let tags: string[] = [];
-    if (msg.text.includes('/create_page')) tags.push("[PAGE_CREATE]");
-    if (msg.text.includes('/update_page')) tags.push("[PAGE_UPDATE]");
-    if (msg.text.includes('/create_task')) tags.push("[TASK_CREATE]");
-    if (msg.text.includes('/update_task_status')) tags.push("[TASK_UPDATE]");
-    if (msg.text.includes('/complete_part')) tags.push("[TASK_PART]");
-    if (msg.text.includes('/prune_context')) tags.push("[CONTEXT_PRUNE]");
-    if (msg.text.includes('/replace_content')) tags.push("[CONTENT_REPLACE]");
+    if (msg.text.includes('<create_page>')) tags.push("[PAGE_CREATE]");
+    if (msg.text.includes('<update_page>')) tags.push("[PAGE_UPDATE]");
+    if (msg.text.includes('<create_task>')) tags.push("[TASK_CREATE]");
+    if (msg.text.includes('<update_task_status>')) tags.push("[TASK_UPDATE]");
+    if (msg.text.includes('<complete_part>')) tags.push("[TASK_PART]");
+    if (msg.text.includes('<prune_context>')) tags.push("[CONTEXT_PRUNE]");
+    if (msg.text.includes('<replace_content>')) tags.push("[CONTENT_REPLACE]");
     if (msg.text.toLowerCase().includes('error')) tags.push("[ERROR]");
     
     const tagStr = tags.length > 0 ? ` ${tags.join(' ')}` : "";
     let output = `[${time}] ${role}${tagStr}:\n`;
     
     if (msg.role === 'model') {
-      const commandRegex = /\/(create|update|complete|prune|verify|replace)_\w+\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi;
+      const commandTags = ['create_page', 'update_page', 'create_task', 'update_task_status', 'complete_part', 'prune_context', 'replace_content'];
       const commands: string[] = [];
-      let match;
       
-      const rawText = msg.text;
-      while ((match = commandRegex.exec(rawText)) !== null) {
-        commands.push(match[0].trim());
+      let textWithoutCommands = msg.text;
+      for (const tag of commandTags) {
+        const regex = new RegExp(`<${tag}>[\\s\\S]*?<\\/${tag}>`, 'gi');
+        let match;
+        while ((match = regex.exec(msg.text)) !== null) {
+          commands.push(match[0].trim());
+        }
+        textWithoutCommands = textWithoutCommands.replace(regex, '');
       }
       
-      const textWithoutCommands = rawText.replace(/\/(create|update|complete|prune|verify|replace)_\w+\s+([^|]+)\|\s*([\s\S]+?)(?=\s*\/(?:create|update|complete|prune|verify|replace)_\w+|$)/gi, '').trim();
-      
       if (commands.length > 0) {
-        if (textWithoutCommands) {
-          output += `MESSAGE:\n${textWithoutCommands}\n\n`;
+        if (textWithoutCommands.trim()) {
+          output += `MESSAGE:\n${textWithoutCommands.trim()}\n\n`;
         }
         output += `EXECUTED COMMANDS:\n${commands.map(c => `>>> ${c}`).join('\n\n')}\n`;
       } else {

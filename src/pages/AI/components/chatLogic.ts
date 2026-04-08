@@ -6,6 +6,7 @@
 import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
 import { marked } from 'marked';
 import TurndownService from 'turndown';
+import { AIServiceFactory } from '../services/serviceFactory';
 
 const turndownService = new TurndownService();
 
@@ -30,9 +31,24 @@ export const handleSendMessage = async (
   loadNotes: () => void,
   loadTasks: () => void,
   loadContextSummary: () => void,
-  loadHistory: () => void
+  loadHistory: () => void,
+  attachedNotes: Note[] = []
 ) => {
-  if (!input.trim()) return;
+  if (!input.trim() && attachedNotes.length === 0) return;
+
+  // Ambiguity Check
+  if (input.trim().length > 0 && input.trim().length < 2) {
+    const botMessage: ChatMessage = {
+      role: 'model',
+      text: "আপনার ইনপুটটি অস্পষ্ট। আপনি কি বলতে চাচ্ছেন তা দয়া করে বিস্তারিত লিখুন।",
+      timestamp: Date.now()
+    };
+    setMessages(prev => [...prev, { role: 'user', text: input, timestamp: Date.now() }, botMessage]);
+    setInput('');
+    await DataManager.saveChatMessage({ role: 'user', text: input, timestamp: Date.now() });
+    await DataManager.saveChatMessage(botMessage);
+    return;
+  }
 
   const userMessage: ChatMessage = {
     role: 'user',
@@ -51,289 +67,72 @@ export const handleSendMessage = async (
 
   const settings = await DataManager.getAISettings();
   const selectedProvider = settings.selectedProvider || 'picoapps';
-  const selectedModels = settings.selectedModels || { chatgpt: 'gpt-4o', claude: 'claude-3-5-sonnet-20241022', gemini: 'gemini-3-flash-preview', openrouter: '' };
-  const apiKeys = settings.apiKeys || {};
-
-  // Context Pruning: Only include the most recently updated note and any mentioned notes
-  // Plus the last 5 chat messages for immediate context
-  const sortedNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
-  const currentNote = sortedNotes[0]; // Most recent note as "current"
   
-  // Find mentioned notes in the input
+  // Context Pruning
+  const sortedNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
+  const currentNote = sortedNotes[0];
   const mentionedNotes = notes.filter(n => 
     input.includes(`[${n.title}]`) || 
     input.toLowerCase().includes(n.title.toLowerCase())
   );
+  
+  // Combine mentioned notes and explicitly attached notes with uniqueness check
+  const allRelevantNotes = [
+    ...(attachedNotes || []),
+    ...mentionedNotes,
+    currentNote
+  ].filter((note, index, self) => 
+    note && self.findIndex(n => n?.id === note.id) === index
+  ) as Note[];
 
-  const relevantNotes = Array.from(new Set([currentNote, ...mentionedNotes])).filter(Boolean);
+  console.log('chatLogic: allRelevantNotes', allRelevantNotes.map(n => n.title));
   
-  const context = relevantNotes.map(n => `Page: ${n.title} | ID: ${n.id}\nContent:\n${turndownService.turndown(n.content)}`).join('\n\n---\n\n');
-  
-  // Also provide a list of other page titles for reference without content
+  const context = allRelevantNotes.map(n => {
+    const markdownContent = n.content ? turndownService.turndown(n.content) : "(No content)";
+    return `Page: ${n.title} | ID: ${n.id}\nContent:\n${markdownContent}`;
+  }).join('\n\n---\n\n');
   const otherPages = notes
-    .filter(n => !relevantNotes.some(rn => rn.id === n.id))
+    .filter(n => !allRelevantNotes.some(rn => rn.id === n.id))
     .map(n => `- ${n.title} (ID: ${n.id})`)
     .join('\n');
 
-  const historyLimit = 5; // Reduced history for performance on low-end devices
+  const historyLimit = 5;
   const recentHistory = messages.slice(-historyLimit).map(m => 
     `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`
   ).join('\n');
 
+  // Chat vs Task Logic
+  const isTaskRequest = /লিখ|তৈরি কর|create|write|generate|paragraph|essay|code|list|translate|অনুবাদ/i.test(input);
+  const modeInstruction = isTaskRequest 
+    ? "\nMODE: TASK. You are performing a specific task. You MUST use <create_task> to track progress and <create_page> or <update_page> to store the result. Use proper Markdown with NEW LINES for lists. DO NOT give extra conversational filler."
+    : "\nMODE: CHAT. You are just chatting. DO NOT create tasks or pages unless explicitly asked. Reply with plain Markdown. Keep it brief.";
+
   const autoCreateInstruction = settings.autoCreatePage 
-    ? "\nCRITICAL: You MUST automatically create or update a page for EVERY request, even if the user doesn't explicitly ask for it. Use <create_page> or <update_page> XML blocks."
-    : "\nNOTE: Only create or update pages if the user explicitly asks for it. Otherwise, reply with plain Markdown.";
+    ? "\nCRITICAL: Automatically create or update a page for this request if it involves content creation."
+    : "";
 
-  const prompt = `${systemPrompt}${autoCreateInstruction}\n\n${contextSummary ? `Previous Context Summary: ${contextSummary.text}\n` : ''}Relevant Pages:\n${context}\n\nOther Available Pages:\n${otherPages}\n\nRecent Chat History:\n${recentHistory}\n\nUser: <user_data>${input}</user_data>`;
+  const prompt = `${systemPrompt}${modeInstruction}${autoCreateInstruction}\n\n${contextSummary ? `Previous Context Summary: ${contextSummary.text}\n` : ''}Relevant Pages:\n${context}\n\nOther Available Pages:\n${otherPages}\n\nRecent Chat History:\n${recentHistory}\n\nUser: <user_data>${input}</user_data>`;
 
-  const sendToAI = async (currentPrompt: string, retries = 3, forceFree = false) => {
-    const effectiveProvider = forceFree ? 'picoapps' : selectedProvider;
+  console.log('chatLogic: Final Prompt Length:', prompt.length);
+  console.log('chatLogic: Context Section:', context);
+
+  const debugInfo = {
+    fullPrompt: prompt,
+    systemPrompt: systemPrompt,
+    mentionedPages: allRelevantNotes.map(n => ({ id: n.id, title: n.title, content: n.content }))
+  };
+
+  const sendToAI = async (currentPrompt: string, forceFree = false) => {
+    const provider = forceFree ? 'picoapps' : selectedProvider;
+    const service = AIServiceFactory.getService(provider);
     
-    const executeAIRequest = async () => {
-      const corsProxy = settings.corsProxy || '';
-      const getUrl = (url: string) => corsProxy ? `${corsProxy}${url}` : url;
-
-      if (effectiveProvider === 'picoapps') {
-        return new Promise<string>((resolve, reject) => {
-          const attempt = (remainingRetries: number) => {
-            const websocket = new WebSocket('wss://backend.buildpicoapps.com/ask_ai_streaming_v2');
-            let fullResponse = "";
-
-            websocket.addEventListener("open", () => {
-              websocket.send(JSON.stringify({ 
-                appId: "appear-major",
-                prompt: currentPrompt 
-              }));
-            });
-
-            websocket.addEventListener("message", (event) => {
-              fullResponse += event.data;
-              setStreamingMessage(fullResponse);
-            });
-
-            const connectionTimeout = setTimeout(() => {
-              if (websocket.readyState !== WebSocket.OPEN) {
-                websocket.close();
-                if (remainingRetries > 0) {
-                  console.warn(`WebSocket timeout, retrying... (${remainingRetries} left)`);
-                  attempt(remainingRetries - 1);
-                } else {
-                  reject(new Error("Connection timeout after multiple attempts"));
-                }
-              }
-            }, 20000);
-
-            websocket.addEventListener("close", async (event) => {
-              clearTimeout(connectionTimeout);
-              if (event.code !== 1000) {
-                if (remainingRetries > 0) {
-                  console.warn(`WebSocket closed unexpectedly (code: ${event.code}), retrying... (${remainingRetries} left)`);
-                  setTimeout(() => attempt(remainingRetries - 1), 1000);
-                } else {
-                  reject(new Error(`WebSocket closed unexpectedly (code: ${event.code})`));
-                }
-              } else {
-                resolve(fullResponse);
-              }
-            });
-
-            websocket.addEventListener("error", () => {
-              if (remainingRetries > 0) {
-                console.warn(`WebSocket error, retrying... (${remainingRetries} left)`);
-                setTimeout(() => attempt(remainingRetries - 1), 1000);
-              } else {
-                reject(new Error("WebSocket error"));
-              }
-            });
-          };
-
-          attempt(retries);
-        });
-      } else if (effectiveProvider === 'chatgpt' || effectiveProvider === 'openrouter') {
-        const isOpenRouter = effectiveProvider === 'openrouter';
-        const apiKey = isOpenRouter ? apiKeys.openrouter : apiKeys.chatgpt;
-        const baseUrl = isOpenRouter ? 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1';
-        
-        if (!apiKey) throw new Error(`${isOpenRouter ? 'OpenRouter' : 'ChatGPT'} API Key is missing. Please add it in AI Settings.`);
-        const model = isOpenRouter ? selectedModels.openrouter : selectedModels.chatgpt;
-
-        const response = await fetch(getUrl(`${baseUrl}/chat/completions`), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            ...(isOpenRouter ? {
-              'HTTP-Referer': window.location.origin,
-              'X-Title': 'Redwan AI Assistant'
-            } : {})
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: currentPrompt }
-            ],
-            stream: true
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message || `${effectiveProvider.toUpperCase()} API Error`);
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = "";
-
-        while (true) {
-          const { done, value } = await reader!.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
-          
-          for (const line of lines) {
-            const message = line.replace(/^data: /, '');
-            if (message === '[DONE]') break;
-            
-            try {
-              const parsed = JSON.parse(message);
-              const content = parsed.choices[0].delta.content;
-              if (content) {
-                fullResponse += content;
-                setStreamingMessage(fullResponse);
-              }
-            } catch (e) {}
-          }
-        }
-        return fullResponse;
-      } else if (effectiveProvider === 'claude') {
-        const apiKey = apiKeys.claude;
-        if (!apiKey) throw new Error("Claude API Key is missing. Please add it in AI Settings.");
-        const model = selectedModels.claude;
-
-        const response = await fetch(getUrl('https://api.anthropic.com/v1/messages'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify({
-            model: model,
-            max_tokens: 4096,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: currentPrompt }],
-            stream: true
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message || "Claude API Error");
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = "";
-
-        while (true) {
-          const { done, value } = await reader!.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const message = line.replace(/^data: /, '');
-              try {
-                const parsed = JSON.parse(message);
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  fullResponse += parsed.delta.text;
-                  setStreamingMessage(fullResponse);
-                }
-              } catch (e) {}
-            }
-          }
-        }
-        return fullResponse;
-      } else if (effectiveProvider === 'gemini') {
-        const apiKey = apiKeys.gemini;
-        if (!apiKey) throw new Error("Gemini API Key is missing. Please add it in AI Settings.");
-        const model = selectedModels.gemini;
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: currentPrompt }] }],
-            system_instruction: { parts: [{ text: systemPrompt }] }
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message || "Gemini API Error");
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = "";
-
-        while (true) {
-          const { done, value } = await reader!.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const message = line.replace(/^data: /, '');
-              try {
-                const parsed = JSON.parse(message);
-                const content = parsed.candidates[0].content.parts[0].text;
-                if (content) {
-                  fullResponse += content;
-                  setStreamingMessage(fullResponse);
-                }
-              } catch (e) {}
-            }
-          }
-        }
-        return fullResponse;
+    return await service.sendMessage(currentPrompt, {
+      settings,
+      systemPrompt,
+      onToken: (token) => {
+        setStreamingMessage(token);
       }
-      return "";
-    };
-
-    // Implement Retry Logic
-    let lastError: any = null;
-    let attemptCount = 0;
-    const maxAttempts = settings.retrySettings?.enabled ? 5 : 1;
-    const retryErrorCodes = settings.retrySettings?.errorCodes?.split(',').map(c => c.trim()).filter(c => c) || [];
-
-    while (attemptCount < maxAttempts) {
-      try {
-        return await executeAIRequest();
-      } catch (error: any) {
-        lastError = error;
-        attemptCount++;
-        
-        const errorMessage = error.message || String(error);
-        const shouldRetry = settings.retrySettings?.enabled && retryErrorCodes.some(code => errorMessage.includes(code));
-        
-        if (shouldRetry && attemptCount < maxAttempts) {
-          console.warn(`AI Request failed with specific error, retrying... (Attempt ${attemptCount + 1}/${maxAttempts})`);
-          await new Promise(r => setTimeout(r, 2000)); // Wait before retry
-          continue;
-        }
-        throw error;
-      }
-    }
-    throw lastError;
+    });
   };
 
   const processCommands = async (text: string) => {
@@ -488,7 +287,8 @@ export const handleSendMessage = async (
     const finalBotMessage: ChatMessage = {
       role: 'model',
       text: fullResponse,
-      timestamp: botMessageId
+      timestamp: botMessageId,
+      debugInfo
     };
     
     setMessages(prev => [...prev, finalBotMessage]);
@@ -514,7 +314,7 @@ export const handleSendMessage = async (
           AI CUMULATIVE OUTPUT: "${accumulatedResponse}"
           
           TASK: 
-          1. Count every single unique item (e.g., language translation) provided in the AI's commands (/create_page or /update_page).
+          1. Count every single unique item (e.g., language translation) provided in the AI's commands (<create_page> or <update_page>).
           2. ABSOLUTE COMPLETION: If the user asked for 100 and you count 34, the completion is 34%. Be extremely strict.
           3. NO LAZINESS: Look for laziness markers like "...", "more to come", "rest of the list", or "97 more items". If found, the completion is automatically below 10%.
           4. CONTINUATION PROMPT: If not 100%, generate a specific instruction for the AI to continue exactly from where it left off.
@@ -526,7 +326,7 @@ export const handleSendMessage = async (
           [CONTINUATION_PROMPT: The instruction for the next turn]
         `;
         
-        const verificationText = await sendToAI(verifierPrompt, 3, useFreeForChecking);
+        const verificationText = await sendToAI(verifierPrompt, useFreeForChecking);
         const countMatch = verificationText.match(/\[COUNT:\s*(\d+)\]/i);
         const realMatch = verificationText.match(/\[REAL_COMPLETION:\s*(\d+)%\]/i);
         const reasonMatch = verificationText.match(/\[REASON:\s*([^\]]+)\]/i);
@@ -551,8 +351,9 @@ export const handleSendMessage = async (
             
             RULES:
             1. You MUST provide at least 30-40 more items in this turn.
-            2. You MUST use /update_page and include the ENTIRE list (previous ${count} items + the new ones). 
-            3. DO NOT truncate. DO NOT say "more to come".
+            2. You MUST use <update_page> and include the ENTIRE list (previous ${count} items + the new ones). 
+            3. Use proper Markdown formatting. For lists, use a NEW LINE for each item.
+            4. DO NOT truncate. DO NOT say "more to come".
           `;
           
           const followUpResponse = await sendToAI(`${currentPrompt}\n\nAI CUMULATIVE: ${accumulatedResponse}\n\nUser: ${followUpPrompt}`);
@@ -560,7 +361,11 @@ export const handleSendMessage = async (
           const followUpBotMessage: ChatMessage = {
             role: 'model',
             text: followUpResponse,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            debugInfo: {
+              ...debugInfo,
+              fullPrompt: `${currentPrompt}\n\nAI CUMULATIVE: ${accumulatedResponse}\n\nUser: ${followUpPrompt}`
+            }
           };
           
           setMessages(prev => [...prev, followUpBotMessage]);

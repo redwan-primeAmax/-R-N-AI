@@ -31,7 +31,89 @@ interface InterfaceProps {
   messagesEndRef: React.RefObject<HTMLDivElement>;
   navigateToSettings: () => void;
   selectedModel: string;
+  onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
 }
+
+const DebugModal: React.FC<{ message: ChatMessage; onClose: () => void }> = ({ message, onClose }) => {
+  if (!message.debugInfo) return null;
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="bg-[#1a1a1a] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl"
+      >
+        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400">
+              <Sparkles size={18} />
+            </div>
+            <h3 className="text-lg font-bold text-white">AI Debug Information</h3>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-all"
+          >
+            <Plus size={24} className="rotate-45" />
+          </button>
+        </div>
+
+        <div className="flex-grow overflow-y-auto p-6 space-y-8 no-scrollbar">
+          {/* System Prompt */}
+          <section className="space-y-3">
+            <h4 className="text-[10px] uppercase tracking-widest font-bold text-white/30 flex items-center gap-2">
+              <div className="w-1 h-1 bg-blue-500 rounded-full" />
+              System Prompt
+            </h4>
+            <div className="bg-black/40 border border-white/5 rounded-2xl p-4 font-mono text-[11px] leading-relaxed text-white/60 whitespace-pre-wrap">
+              {message.debugInfo.systemPrompt}
+            </div>
+          </section>
+
+          {/* Included Pages (Attached/Mentioned) */}
+          {message.debugInfo.mentionedPages && message.debugInfo.mentionedPages.length > 0 && (
+            <section className="space-y-3">
+              <h4 className="text-[10px] uppercase tracking-widest font-bold text-white/30 flex items-center gap-2">
+                <div className="w-1 h-1 bg-purple-500 rounded-full" />
+                Included Pages (Attached/Mentioned)
+              </h4>
+              <div className="space-y-3">
+                {message.debugInfo.mentionedPages.map((page, idx) => (
+                  <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white/80">{page.title}</span>
+                      <span className="text-[9px] font-mono text-white/30">ID: {page.id}</span>
+                    </div>
+                    <div className="text-[10px] text-white/40 line-clamp-3 italic">
+                      {page.content.replace(/<[^>]*>/g, '')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Full Prompt Sent to AI */}
+          <section className="space-y-3">
+            <h4 className="text-[10px] uppercase tracking-widest font-bold text-white/30 flex items-center gap-2">
+              <div className="w-1 h-1 bg-green-500 rounded-full" />
+              Full Request Payload
+            </h4>
+            <div className="bg-black/40 border border-white/5 rounded-2xl p-4 font-mono text-[11px] leading-relaxed text-white/60 whitespace-pre-wrap">
+              {message.debugInfo.fullPrompt}
+            </div>
+          </section>
+        </div>
+
+        <div className="p-4 bg-white/[0.02] border-t border-white/5 text-center">
+          <p className="text-[10px] text-white/20">This information is for debugging AI behavior and context pruning.</p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 /**
  * The main interface component for the AI Chat.
@@ -58,8 +140,11 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   cleanAIText,
   messagesEndRef,
   navigateToSettings,
-  selectedModel
+  selectedModel,
+  onScroll
 }) => {
+  const [debugMessage, setDebugMessage] = React.useState<ChatMessage | null>(null);
+
   return (
     <>
       {/* Header */}
@@ -74,6 +159,14 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         <h1 className="font-semibold text-[17px] text-white tracking-tight">AI Assistant</h1>
         
         <div className="flex items-center gap-2">
+          <button 
+            onClick={exportChat}
+            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+            title="চ্যাট ইতিহাস ডাউনলোড করুন (Debug)"
+          >
+            <Download size={20} />
+          </button>
+
           <button 
             onClick={() => setShowClearConfirm(true)}
             className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
@@ -124,7 +217,10 @@ export const AIInterface: React.FC<InterfaceProps> = ({
       </AnimatePresence>
 
       {/* Messages */}
-      <div className="flex-grow overflow-y-auto px-4 py-6 space-y-8 no-scrollbar">
+      <div 
+        onScroll={onScroll}
+        className="flex-grow overflow-y-auto px-4 py-6 space-y-8 no-scrollbar"
+      >
         {/* Active Tasks Section */}
         {tasks.filter(t => t.status === 'in-progress').length > 0 && (
           <div className="mb-8 space-y-3">
@@ -287,6 +383,16 @@ export const AIInterface: React.FC<InterfaceProps> = ({
                   <ReactMarkdown>{msg.role === 'model' ? cleanAIText(msg.text) : msg.text}</ReactMarkdown>
                 </div>
               
+              {msg.role === 'model' && msg.debugInfo && (
+                <button 
+                  onClick={() => setDebugMessage(msg)}
+                  className="absolute -bottom-3 -right-3 w-8 h-8 bg-[#1a1a1a] border border-white/10 rounded-full flex items-center justify-center text-white/40 hover:text-blue-400 hover:border-blue-500/30 transition-all shadow-xl z-20"
+                  title="Debug Info"
+                >
+                  <Sparkles size={14} />
+                </button>
+              )}
+
               {msg.role === 'model' && (msg.text.includes('<create_page>') || msg.text.includes('<update_page>') || msg.text.includes('<create_task>')) && (
                 <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
                   {(() => {
@@ -397,6 +503,15 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         )}
         <div ref={messagesEndRef} className="h-12" />
       </div>
+
+      <AnimatePresence>
+        {debugMessage && (
+          <DebugModal 
+            message={debugMessage} 
+            onClose={() => setDebugMessage(null)} 
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };

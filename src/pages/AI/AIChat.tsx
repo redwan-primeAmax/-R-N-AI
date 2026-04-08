@@ -36,7 +36,15 @@ const AIChat: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [attachedNotes, setAttachedNotes] = useState<Note[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const isBottom = Math.abs(target.scrollHeight - target.clientHeight - target.scrollTop) < 100;
+    setIsAtBottom(isBottom);
+  };
 
   const loadHistory = useCallback(async () => {
     const history = await DataManager.getChatHistory();
@@ -117,7 +125,7 @@ const AIChat: React.FC = () => {
       })
       .catch(err => {
         console.error('AIChat: Failed to load system prompt:', err);
-        setSystemPrompt("You are a professional Content Creator and AI Assistant. Use custom tags [B], [I], [H1-H6], [LIST], [ITEM] for formatting. End every message with [COMPLETION: X%]. Reply in the user's language.");
+        setSystemPrompt("You are a professional Content Creator and AI Assistant. ALWAYS use standard Markdown for formatting. For any content generation (summaries, lists, articles), you MUST use <create_page> or <update_page> XML tags. End every message with [COMPLETION: X%]. Reply in the user's language.");
       });
 
     return () => {
@@ -126,10 +134,12 @@ const AIChat: React.FC = () => {
   }, [loadHistory, loadNotes, loadTasks, loadContextSummary, loadAISettings]);
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 100);
-  }, []);
+    if (isAtBottom) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+    }
+  }, [isAtBottom]);
 
   useEffect(() => {
     scrollToBottom();
@@ -141,10 +151,10 @@ const AIChat: React.FC = () => {
       // Remove XML commands
       .replace(/<(create_page|update_page|create_task|update_task_status|complete_part|prune_context|verify_page|replace_content)>[\s\S]*?<\/\1>/gi, '')
       
-      // Remove common AI prefixes and meta-talk
+      // Remove common AI prefixes and meta-talk (multiline)
       .replace(/^(User|AI|Model|Assistant|System|Bot|Verifier):\s*/gim, '')
-      .replace(/^(I'm processing|Processing|Generating|Sure, I can help|Certainly|Here is|I've created|I am creating|I will|Okay|Sure|I have updated|The page has been|I've added).*\.?/gi, '')
-      .replace(/^(এখানে আপনার|আমি আপনার|পেজটি তৈরি|আপডেট করা হয়েছে).*\.?/gi, '')
+      .replace(/^(I'm processing|Processing|Generating|Sure, I can help|Certainly|Here is|I've created|I am creating|I will|Okay|Sure|I have updated|The page has been|I've added).*\.?/gim, '')
+      .replace(/^(এখানে আপনার|আমি আপনার|পেজটি তৈরি|আপডেট করা হয়েছে|নিচে আপনার).*\.?/gim, '')
       
       // Remove templates and internal tags
       .replace(/\[(Task Title|Task Description|Part \d+ Title|Detailed HTML Content|NoteID or Title|Result\/Content|Summary of important context to keep|Number of messages to delete from start|Criteria)\]/gi, '')
@@ -158,14 +168,20 @@ const AIChat: React.FC = () => {
       .trim();
     
     if (cleaned === "" && text.includes('<')) {
+      if (text.includes('<create_page>')) return "নতুন পেজ তৈরি করা হয়েছে।";
+      if (text.includes('<update_page>')) return "পেজটি আপডেট করা হয়েছে।";
+      if (text.includes('<create_task>')) return "নতুন টাস্ক শুরু করা হয়েছে।";
       return "কাজটি সফলভাবে সম্পন্ন হয়েছে।";
     }
     
     return cleaned; // Returning raw markdown now
   };
 
-  const onSendMessage = () => {
-    handleSendMessage(
+  const onSendMessage = async () => {
+    const currentAttachments = [...attachedNotes];
+    setAttachedNotes([]); // Clear UI immediately for better UX
+    
+    await handleSendMessage(
       input,
       messages,
       systemPrompt,
@@ -181,7 +197,8 @@ const AIChat: React.FC = () => {
       loadNotes,
       loadTasks,
       loadContextSummary,
-      loadHistory
+      loadHistory,
+      currentAttachments
     );
   };
 
@@ -247,6 +264,7 @@ const AIChat: React.FC = () => {
         setInput={setInput}
         cleanAIText={cleanAIText}
         messagesEndRef={messagesEndRef}
+        onScroll={handleScroll}
       />
       <ChatInput
         input={input}
@@ -257,6 +275,9 @@ const AIChat: React.FC = () => {
         showMentions={showMentions}
         filteredMentions={filteredMentions}
         selectMention={selectMention}
+        notes={notes}
+        attachedNotes={attachedNotes}
+        setAttachedNotes={setAttachedNotes}
       />
       
       <style>{`
