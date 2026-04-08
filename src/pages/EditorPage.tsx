@@ -225,6 +225,12 @@ export default function EditorPage() {
     
     DataManager.onSync(handleSync);
     
+    return () => {
+      DataManager.offSync();
+    };
+  }, [id, editor]);
+
+  useEffect(() => {
     // Autosave every 5 seconds
     const autosaveInterval = setInterval(() => {
       if (editor && note) {
@@ -245,12 +251,11 @@ export default function EditorPage() {
     window.visualViewport?.addEventListener('scroll', handleResize);
 
     return () => {
-      DataManager.offSync();
       clearInterval(autosaveInterval);
       window.visualViewport?.removeEventListener('resize', handleResize);
       window.visualViewport?.removeEventListener('scroll', handleResize);
     };
-  }, [id, editor, note]);
+  }, [editor, note, title, emoji]);
 
   const loadNote = async (noteId: string) => {
     const fetchedNote = await DataManager.getNoteById(noteId);
