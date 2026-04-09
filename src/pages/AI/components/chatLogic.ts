@@ -102,7 +102,7 @@ export const handleSendMessage = async (
   ).join('\n');
 
   // Chat vs Task Logic
-  const isTaskRequest = /লিখ|তৈরি কর|create|write|generate|paragraph|essay|code|list|translate|অনুবাদ/i.test(input);
+  const isTaskRequest = /লিখ|তৈরি কর|ডিজাইন|ফরম্যাট|সাজাও|পরিবর্তন|সংশোধন|create|write|generate|paragraph|essay|code|list|translate|অনুবাদ|design|format|style|modify|update/i.test(input);
   const modeInstruction = isTaskRequest 
     ? "\nMODE: TASK. You are performing a specific task. You MUST use <create_task> to track progress and <create_page> or <update_page> to store the result. Use proper Markdown with NEW LINES for lists. DO NOT give extra conversational filler."
     : "\nMODE: CHAT. You are just chatting. DO NOT create tasks or pages unless explicitly asked. Reply with plain Markdown. Keep it brief.";

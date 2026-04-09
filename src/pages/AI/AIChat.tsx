@@ -154,7 +154,7 @@ const AIChat: React.FC = () => {
       // Remove common AI prefixes and meta-talk (multiline)
       .replace(/^(User|AI|Model|Assistant|System|Bot|Verifier):\s*/gim, '')
       .replace(/^(I'm processing|Processing|Generating|Sure, I can help|Certainly|Here is|I've created|I am creating|I will|Okay|Sure|I have updated|The page has been|I've added).*\.?/gim, '')
-      .replace(/^(এখানে আপনার|আমি আপনার|পেজটি তৈরি|আপডেট করা হয়েছে|নিচে আপনার).*\.?/gim, '')
+      .replace(/^(এখানে আপনার|আমি আপনার|পেজটি তৈরি|আপডেট করা হয়েছে|নিচে আপনার|প্রথাগত নিয়মোনুয়া|পেইজ ডিজাইন না করার জন্য নিজের যত্ন নেওয়া নিরাপদ).*\.?/gim, '')
       
       // Remove templates and internal tags
       .replace(/\[(Task Title|Task Description|Part \d+ Title|Detailed HTML Content|NoteID or Title|Result\/Content|Summary of important context to keep|Number of messages to delete from start|Criteria)\]/gi, '')

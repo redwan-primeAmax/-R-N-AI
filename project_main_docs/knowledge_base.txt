@@ -65,3 +65,4 @@ TEMPORARY FEATURES
 1. CHAT EXPORT: A button in the AI Chat header to download the full conversation history with debug tags.
 2. AI DEBUG INFO: A 'Sparkles' icon button at the bottom-right of each AI response that opens a modal showing the full prompt, system prompt, and mentioned pages context sent to the AI.
 3. FILE ATTACHMENT: A 'Paperclip' button in the chat input that allows users to explicitly select and attach notes to the AI context.
+4. HALLUCINATION FILTER: Enhanced system prompt and cleaning logic to prevent irrelevant "safety/traditional rules" talk in Bengali.
