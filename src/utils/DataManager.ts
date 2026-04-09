@@ -425,13 +425,15 @@ export const DataManager = {
 
       if (!response.ok) {
         const text = await response.text();
-        let errorMsg = 'Failed to publish';
+        let errorMsg = `Server Error (${response.status})`;
         try {
           const data = JSON.parse(text);
           errorMsg = data.error || errorMsg;
         } catch (e) {
           if (text.includes('<!doctype html>') || text.includes('<html>')) {
-            errorMsg = 'Server route not found or returned HTML. Please try again.';
+            errorMsg = 'API route not found (Server returned HTML).';
+          } else if (text) {
+            errorMsg = text.slice(0, 100);
           }
         }
         throw new Error(errorMsg);
@@ -454,14 +456,15 @@ export const DataManager = {
       
       if (!response.ok) {
         const text = await response.text();
-        let errorMsg = 'Note not found';
+        let errorMsg = `Import Failed (${response.status})`;
         try {
           const data = JSON.parse(text);
           errorMsg = data.error || errorMsg;
         } catch (e) {
-          // If not JSON, it might be a 404 HTML page
           if (text.includes('<!doctype html>') || text.includes('<html>')) {
-            errorMsg = 'Server route not found or returned HTML. Please try again.';
+            errorMsg = 'API route not found (Server returned HTML).';
+          } else if (text) {
+            errorMsg = text.slice(0, 100);
           }
         }
         throw new Error(errorMsg);
