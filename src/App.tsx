@@ -3,17 +3,33 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, useLocation, useRoutes } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import HomePage from './pages/HomePage';
-import SearchPage from './pages/SearchPage';
-import EditorPage from './pages/EditorPage';
-import AIChat from './pages/AI/AIChat';
-import AISettings from './pages/AI/AISettings';
-import BrowseTemplates from './pages/BrowseTemplates';
 import { DataManager } from './utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Lazy load components
+const HomePage = lazy(() => import('./pages/HomePage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const InboxPage = lazy(() => import('./pages/InboxPage'));
+const EditorPage = lazy(() => import('./pages/EditorPage'));
+const AIChat = lazy(() => import('./pages/AI/AIChat'));
+const AISettings = lazy(() => import('./pages/AI/AISettings'));
+const TitleGenerator = lazy(() => import('./pages/AI/TitleGenerator/TitleGenerator'));
+const BrowseTemplates = lazy(() => import('./pages/BrowseTemplates'));
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-[#191919]">
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full"
+      />
+    </div>
+  );
+}
 
 function UserNamePopup({ onSave }: { onSave: (name: string) => void }) {
   const [name, setName] = useState('');
@@ -87,10 +103,12 @@ function AppContent() {
 
   const routingElement = useRoutes([
     { path: "/", element: <PageWrapper><HomePage /></PageWrapper> },
+    { path: "/inbox", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/search", element: <PageWrapper><SearchPage /></PageWrapper> },
     { path: "/editor/:id", element: <PageWrapper><EditorPage /></PageWrapper> },
     { path: "/ai", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AISettings /></PageWrapper> },
+    { path: "/ai/title-generator", element: <PageWrapper><TitleGenerator /></PageWrapper> },
     { path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
   ]);
 
@@ -101,7 +119,9 @@ function AppContent() {
       </AnimatePresence>
       
       <AnimatePresence mode="wait">
-        {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
+        <Suspense fallback={<LoadingFallback />}>
+          {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
+        </Suspense>
       </AnimatePresence>
       {!isFullPage && <Navigation />}
     </div>

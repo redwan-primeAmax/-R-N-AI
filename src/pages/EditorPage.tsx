@@ -20,7 +20,7 @@ import {
   ArrowLeft, Bold, Italic, Underline as UnderlineIcon, 
   List, ListOrdered, CheckSquare, Quote, Code, 
   Highlighter, AlignLeft, AlignCenter, AlignRight, Type, 
-  Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2
+  Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2, UploadCloud
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -59,10 +59,6 @@ export default function EditorPage() {
   const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
-  const [titleSuggestions, setTitleSuggestions] = useState<string[]>([]);
-  const [isSuggestingTitle, setIsSuggestingTitle] = useState(false);
-  const [hasSelectedTitle, setHasSelectedTitle] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [currentHeading, setCurrentHeading] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
@@ -109,31 +105,16 @@ export default function EditorPage() {
     },
   });
 
-  // Title Suggestion Logic
-  const handleSuggestTitles = async () => {
-    if (!editor || isSuggestingTitle) return;
-    
-    setIsSuggestingTitle(true);
-    try {
-      const { AIServiceFactory } = await import('./AI/services/serviceFactory');
-      const settings = await DataManager.getAISettings();
-      const provider = settings.selectedProvider || 'picoapps';
-      const service = AIServiceFactory.getService(provider);
-      const suggestions = await service.suggestTitles(editor.getText());
-      setTitleSuggestions(suggestions);
-      setShowTitleSuggestions(true);
-    } catch (err) {
-      console.error("Failed to suggest titles", err);
-      alert("Failed to get title suggestions. Please try again.");
-    } finally {
-      setIsSuggestingTitle(false);
+  const handlePublish = async () => {
+    if (note) {
+      try {
+        await DataManager.publishToDB({ ...note, content: editor?.getHTML() || '' });
+        alert('Note published to SQLite DB successfully!');
+        setShowExportMenu(false);
+      } catch (e) {
+        alert('Failed to publish: ' + e);
+      }
     }
-  };
-
-  const selectTitle = (newTitle: string) => {
-    updateTitle(newTitle);
-    setShowTitleSuggestions(false);
-    setHasSelectedTitle(true);
   };
 
   // Speech to Text Logic
@@ -367,6 +348,13 @@ export default function EditorPage() {
                   Export (.redwan)
                 </button>
                 <button
+                  onClick={handlePublish}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium mt-1"
+                >
+                  <UploadCloud size={16} className="text-blue-400" />
+                  Publish to DB
+                </button>
+                <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-red-900/20 text-red-400 rounded-lg text-xs font-medium mt-1"
                 >
@@ -387,51 +375,8 @@ export default function EditorPage() {
             className="flex-grow bg-transparent font-bold text-base outline-none placeholder:text-white/20 py-1 text-white"
           />
           {isSaving && <div className="text-[8px] text-white/40 uppercase tracking-widest animate-pulse">Saving...</div>}
-          {!hasSelectedTitle && (
-            <button 
-              onClick={handleSuggestTitles}
-              disabled={isSuggestingTitle}
-              className="p-1.5 text-white hover:bg-white/10 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
-            >
-              {isSuggestingTitle ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              <span className="text-[10px] font-bold uppercase tracking-wider">Suggest Title</span>
-            </button>
-          )}
         </div>
       </header>
-
-      {/* Title Suggestions Popup */}
-      <AnimatePresence>
-        {showTitleSuggestions && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Suggest Title</h3>
-                <button onClick={() => setShowTitleSuggestions(false)} className="text-gray-400 hover:text-black">
-                  <Minus size={20} />
-                </button>
-              </div>
-              <p className="text-gray-500 text-sm mb-4">Choose a title suggested by AI based on your content:</p>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto no-scrollbar">
-                {titleSuggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => selectTitle(suggestion)}
-                    className="w-full text-left px-4 py-3 rounded-xl border border-gray-100 hover:border-black hover:bg-gray-50 transition-all text-sm font-medium"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>

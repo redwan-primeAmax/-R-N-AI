@@ -4,6 +4,7 @@
  */
 
 import { DataManager, AITask } from '../../../utils/DataManager';
+import { aiManager } from '../../../services/AIService';
 
 /**
  * Handles the logic for clearing chat history and associated tasks.
@@ -16,6 +17,7 @@ export const deleteChatHistory = async (
 ) => {
   try {
     await DataManager.clearChatHistory();
+    aiManager.cancelTask('chat-main');
     
     // Also clear tasks
     const allTasks = await DataManager.getTasks();

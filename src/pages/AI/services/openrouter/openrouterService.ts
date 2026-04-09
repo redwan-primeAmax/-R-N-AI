@@ -12,14 +12,12 @@ export class OpenRouterService extends AIService {
     const { settings, systemPrompt, onToken } = options;
     const apiKey = settings.apiKeys.openrouter;
     const model = settings.selectedModels.openrouter;
-    const corsProxy = settings.corsProxy || '';
-    const getUrl = (url: string) => corsProxy ? `${corsProxy}${url}` : url;
 
     if (!apiKey) {
       throw new Error("OpenRouter API Key is missing. Please add it in AI Settings.");
     }
 
-    const response = await fetch(getUrl(`https://openrouter.ai/api/v1/chat/completions`), {
+    const response = await fetch(`https://openrouter.ai/api/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

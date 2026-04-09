@@ -10,6 +10,7 @@ import { exportChatHistory } from '../../utils/export';
 import { AIInterface } from './components/ChatInterface';
 import { ChatInput } from './components/ChatInput';
 import { handleSendMessage } from './components/chatLogic';
+import { aiManager } from '../../services/AIService';
 import { deleteChatHistory, resetAIMemory } from './components/chatActions';
 
 console.log('AIChat: File loaded');
@@ -38,6 +39,7 @@ const AIChat: React.FC = () => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [attachedNotes, setAttachedNotes] = useState<Note[]>([]);
+  const [tokenUsage, setTokenUsage] = useState({ used: 0, total: 100000 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -133,6 +135,11 @@ const AIChat: React.FC = () => {
     };
   }, [loadHistory, loadNotes, loadTasks, loadContextSummary, loadAISettings]);
 
+  useEffect(() => {
+    const used = messages.reduce((acc, msg) => acc + (msg.text.length / 4), 0) + (systemPrompt.length / 4);
+    setTokenUsage(prev => ({ ...prev, used: Math.round(used) }));
+  }, [messages, systemPrompt]);
+
   const scrollToBottom = useCallback(() => {
     if (isAtBottom) {
       setTimeout(() => {
@@ -176,6 +183,27 @@ const AIChat: React.FC = () => {
     
     return cleaned; // Returning raw markdown now
   };
+
+  useEffect(() => {
+    const taskId = 'chat-main';
+    const unsubscribe = aiManager.subscribe((tasks) => {
+      const task = tasks.get(taskId);
+      if (task) {
+        setAiStatus(task.status as any);
+        setAiReason(task.reason);
+        setStreamingMessage(task.streamingText);
+        if (task.status === 'idle' || task.status === 'error') {
+          setIsLoading(false);
+          loadHistory();
+          loadNotes();
+          loadTasks();
+        } else {
+          setIsLoading(true);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [loadHistory, loadNotes, loadTasks]);
 
   const onSendMessage = async () => {
     const currentAttachments = [...attachedNotes];
@@ -241,7 +269,7 @@ const AIChat: React.FC = () => {
 
   try {
     return (
-      <div className="flex flex-col min-h-screen bg-[#0d0d0d] text-white font-sans text-[0.92rem]">
+      <div className="flex flex-col h-screen bg-[#0d0d0d] text-white font-sans text-[0.92rem] overflow-hidden">
       <AIInterface
         messages={messages}
         streamingMessage={streamingMessage}
@@ -265,20 +293,23 @@ const AIChat: React.FC = () => {
         cleanAIText={cleanAIText}
         messagesEndRef={messagesEndRef}
         onScroll={handleScroll}
+        tokenUsage={tokenUsage}
       />
-      <ChatInput
-        input={input}
-        setInput={setInput}
-        isLoading={isLoading}
-        handleSend={onSendMessage}
-        handleInputChange={handleInputChange}
-        showMentions={showMentions}
-        filteredMentions={filteredMentions}
-        selectMention={selectMention}
-        notes={notes}
-        attachedNotes={attachedNotes}
-        setAttachedNotes={setAttachedNotes}
-      />
+      <div className="flex-shrink-0">
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          handleSend={onSendMessage}
+          handleInputChange={handleInputChange}
+          showMentions={showMentions}
+          filteredMentions={filteredMentions}
+          selectMention={selectMention}
+          notes={notes}
+          attachedNotes={attachedNotes}
+          setAttachedNotes={setAttachedNotes}
+        />
+      </div>
       
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

@@ -17,7 +17,9 @@ import {
   Layout, 
   Copy, 
   Star,
-  MoreVertical
+  MoreVertical,
+  Sparkles,
+  UploadCloud
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,13 +31,15 @@ const NoteContextMenu = memo(({
   onClose, 
   onDuplicate, 
   onToggleFavorite, 
-  onDelete 
+  onDelete,
+  onPublish
 }: { 
   note: Note; 
   onClose: () => void;
   onDuplicate: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
+  onPublish: (note: Note) => void;
 }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-[2px]" onClick={onClose}>
@@ -72,6 +76,14 @@ const NoteContextMenu = memo(({
           >
             <Star size={20} className={note.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-white/60"} />
             <span className="font-medium">{note.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
+          </button>
+
+          <button 
+            onClick={() => { onPublish(note); onClose(); }}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          >
+            <UploadCloud size={20} className="text-blue-400" />
+            <span className="font-medium">Publish to DB</span>
           </button>
 
           <div className="h-px bg-white/5 my-2 mx-4" />
@@ -160,18 +172,9 @@ const NoteRow = memo(({
                 e.stopPropagation();
                 setActiveMenuNote(note);
               }}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-100"
             >
-              <MoreHorizontal size={18} className="text-white/30" />
-            </button>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                createNewNote();
-              }}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
-            >
-              <Plus size={18} className="text-white/30" />
+              <MoreHorizontal size={18} className="text-white/40 group-hover:text-white" />
             </button>
           </div>
         )}
@@ -201,7 +204,9 @@ export default function HomePage() {
   const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [listHeight, setListHeight] = useState(window.innerHeight - 280);
+  const [listHeight, setListHeight] = useState(window.innerHeight - 350);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [publishedId, setPublishedId] = useState<string | null>(null);
   const navigate = useNavigate();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -289,9 +294,65 @@ export default function HomePage() {
     loadData();
   }, [loadData]);
 
+  const handlePublish = useCallback(async (note: Note) => {
+    try {
+      const id = await DataManager.publishToDB(note);
+      setPublishedId(id);
+    } catch (e) {
+      alert('Failed to publish: ' + e);
+    }
+  }, []);
+
+  const filteredNotes = notes.filter(n => 
+    n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    n.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const displayNotes = searchQuery ? filteredNotes : notes.slice(0, 4);
+
 
   return (
     <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden">
+      {/* Published ID Modal */}
+      <AnimatePresence>
+        {publishedId && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <UploadCloud size={32} className="text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Note Published!</h3>
+              <p className="text-white/40 text-sm mb-6">Share this ID with others to let them import your note.</p>
+              
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-2xl tracking-widest font-bold text-blue-400">
+                {publishedId}
+              </div>
+
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(publishedId);
+                  alert('ID copied to clipboard!');
+                }}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold mb-3 transition-all"
+              >
+                Copy ID
+              </button>
+              <button 
+                onClick={() => setPublishedId(null)}
+                className="w-full py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-white/90 transition-all"
+              >
+                Done
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Top Bar */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between sticky top-0 bg-[#191919]/90 backdrop-blur-xl z-30 border-b border-white/5">
         <div className="flex items-center gap-2">
@@ -304,32 +365,82 @@ export default function HomePage() {
           </button>
         </div>
         <div className="flex items-center gap-4">
-          <Inbox size={22} className="text-white/60" />
+          <Inbox 
+            size={22} 
+            className="text-white/60 cursor-pointer hover:text-white transition-colors" 
+            onClick={() => navigate('/inbox')}
+          />
           <MoreHorizontal size={22} className="text-white/60" />
         </div>
       </div>
 
       <div className="px-4 mt-6">
+        {/* Top Cards Section */}
+        {!isSelectionMode && (
+          <div className="flex gap-3 mb-8">
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/templates')}
+              className="flex-[4] bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-white/10 transition-all border-dashed"
+            >
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                <Layout size={20} className="text-white/80" />
+              </div>
+              <div className="flex-grow min-w-0">
+                <h3 className="font-medium text-[15px] truncate">Templates</h3>
+                <p className="text-[10px] text-white/40 truncate">Start from a pre-made page</p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/ai/title-generator')}
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/10 transition-all border-dashed"
+            >
+              <Sparkles size={20} className="text-blue-400" />
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-white/60">Title AI</span>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <input 
+              type="text"
+              placeholder="Search your notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-11 py-3 text-sm outline-none focus:border-white/20 transition-all"
+            />
+            <Plus size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 rotate-45" />
+          </div>
+        </div>
+
         {/* Private Section Header */}
         <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-xs font-bold text-white/40 uppercase tracking-wider">Private</h2>
+          <h2 className="text-xs font-bold text-white/40 uppercase tracking-wider">
+            {searchQuery ? 'Search Results' : 'Recent'}
+          </h2>
           <div className="flex items-center gap-4">
-            <MoreHorizontal size={16} className="text-white/40" />
-            <Plus size={18} className="text-white/40" onClick={createNewNote} />
+            {!searchQuery && notes.length > 4 && (
+              <span className="text-[10px] text-white/20 italic">Showing 4 of {notes.length}</span>
+            )}
+            <Plus size={18} className="text-white/40 cursor-pointer hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); createNewNote(); }} />
           </div>
         </div>
 
         {/* Notes List */}
         <div className="mt-2 flex-grow overflow-hidden">
-          {notes.length > 0 ? (
+          {displayNotes.length > 0 ? (
             <FixedSizeList
               height={listHeight}
-              itemCount={notes.length}
+              itemCount={displayNotes.length}
               itemSize={52}
               width="100%"
               className="no-scrollbar"
               itemData={{
-                notes,
+                notes: displayNotes,
                 selectedIds,
                 isSelectionMode,
                 handleNoteClick,
@@ -343,32 +454,10 @@ export default function HomePage() {
             </FixedSizeList>
           ) : (
             <div className="py-10 text-center text-white/20 text-sm italic">
-              No notes found. Create one to get started!
+              {searchQuery ? 'No results found' : 'No notes found. Create one to get started!'}
             </div>
           )}
         </div>
-
-        {/* Browse Templates Card */}
-        {!isSelectionMode && (
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate('/templates')}
-            className="mt-8 bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-white/10 transition-all border-dashed"
-          >
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-              <Layout size={20} className="text-white/80" />
-            </div>
-            <div className="flex-grow">
-              <h3 className="font-medium text-[15px]">Browse templates</h3>
-              <p className="text-xs text-white/40">Start from a pre-made page</p>
-            </div>
-            <div className="flex flex-col gap-0.5 opacity-20">
-              <div className="w-6 h-0.5 bg-white rounded-full" />
-              <div className="w-4 h-0.5 bg-white rounded-full" />
-              <div className="w-6 h-0.5 bg-white rounded-full" />
-            </div>
-          </motion.div>
-        )}
       </div>
 
       {/* Context Menu Overlay */}
@@ -380,6 +469,7 @@ export default function HomePage() {
             onDuplicate={handleDuplicate}
             onToggleFavorite={handleToggleFavorite}
             onDelete={handleDelete}
+            onPublish={handlePublish}
           />
         )}
       </AnimatePresence>

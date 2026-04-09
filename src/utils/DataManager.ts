@@ -67,8 +67,6 @@ export interface AISettings {
     enabled: boolean;
     errorCodes: string;
   };
-  autoCreatePage: boolean;
-  corsProxy?: string;
 }
 
 // Configure localforage
@@ -181,9 +179,7 @@ export const DataManager = {
       retrySettings: {
         enabled: false,
         errorCodes: ''
-      },
-      autoCreatePage: false,
-      corsProxy: ''
+      }
     };
 
     if (!settings) {
@@ -201,7 +197,7 @@ export const DataManager = {
     }
 
     // Merge stored settings with defaults to handle migrations from older versions
-    return {
+    const mergedSettings: AISettings = {
       ...defaultSettings,
       ...settings,
       selectedModels: {
@@ -212,10 +208,25 @@ export const DataManager = {
       enabledProviders: settings.enabledProviders || defaultSettings.enabledProviders,
       dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
       dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
-      retrySettings: settings.retrySettings || defaultSettings.retrySettings,
-      autoCreatePage: settings.autoCreatePage !== undefined ? settings.autoCreatePage : defaultSettings.autoCreatePage,
-      corsProxy: settings.corsProxy || defaultSettings.corsProxy
+      retrySettings: settings.retrySettings || defaultSettings.retrySettings
     };
+
+    // One-time migration to fix multiple enabled providers
+    const MIGRATION_KEY = 'ai_provider_migration_v1';
+    const migrationDone = localStorage.getItem(MIGRATION_KEY);
+    
+    if (!migrationDone) {
+      if (mergedSettings.enabledProviders.length > 1) {
+        console.log('DataManager: Running one-time migration to fix multiple enabled providers');
+        mergedSettings.enabledProviders = ['picoapps'];
+        mergedSettings.selectedProvider = 'picoapps';
+        // Save the fixed settings immediately
+        await this.saveAISettings(mergedSettings);
+      }
+      localStorage.setItem(MIGRATION_KEY, 'true');
+    }
+
+    return mergedSettings;
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
@@ -401,6 +412,45 @@ export const DataManager = {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  },
+
+  // --- SQLite Publish Operations ---
+  async publishToDB(note: Note): Promise<string> {
+    try {
+      const response = await fetch('/api/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(note)
+      });
+      const data = await response.json();
+      if (data.success) {
+        return data.id;
+      }
+      throw new Error(data.error || 'Failed to publish');
+    } catch (e) {
+      console.error('Publish error:', e);
+      throw e;
+    }
+  },
+
+  async importById(id: string): Promise<Note> {
+    try {
+      const response = await fetch(`/api/import/${id}`);
+      const data = await response.json();
+      if (data.success) {
+        const note = {
+          ...data.note,
+          id: `imported-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          createdAt: Date.now()
+        };
+        await this.saveNote(note);
+        return note;
+      }
+      throw new Error(data.error || 'Note not found');
+    } catch (e) {
+      console.error('Import error:', e);
+      throw e;
+    }
   },
 
   async replaceContent(idOrTitle: string, search: string, replacement: string): Promise<void> {

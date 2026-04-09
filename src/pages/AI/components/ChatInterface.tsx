@@ -9,6 +9,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
 
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 interface InterfaceProps {
   messages: ChatMessage[];
   streamingMessage: string | null;
@@ -32,6 +39,7 @@ interface InterfaceProps {
   navigateToSettings: () => void;
   selectedModel: string;
   onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
+  tokenUsage: { used: number; total: number };
 }
 
 const DebugModal: React.FC<{ message: ChatMessage; onClose: () => void }> = ({ message, onClose }) => {
@@ -141,22 +149,44 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   messagesEndRef,
   navigateToSettings,
   selectedModel,
-  onScroll
+  onScroll,
+  tokenUsage
 }) => {
   const [debugMessage, setDebugMessage] = React.useState<ChatMessage | null>(null);
+
+  const tokenPercentage = Math.min(100, Math.round((tokenUsage.used / tokenUsage.total) * 100));
 
   return (
     <>
       {/* Header */}
       <header className="px-6 py-3 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
-        <button 
-          onClick={navigateBack} 
-          className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        
-        <h1 className="font-semibold text-[17px] text-white tracking-tight">AI Assistant</h1>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={navigateBack} 
+            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          
+          <div className="flex flex-col">
+            <h1 className="font-semibold text-[15px] text-white tracking-tight">AI Assistant</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${tokenPercentage}%` }}
+                  className={cn(
+                    "h-full transition-colors duration-500",
+                    tokenPercentage > 90 ? "bg-red-500" : tokenPercentage > 70 ? "bg-amber-500" : "bg-blue-500"
+                  )}
+                />
+              </div>
+              <span className="text-[8px] font-mono text-white/30 uppercase tracking-tighter">
+                Context: {tokenPercentage}%
+              </span>
+            </div>
+          </div>
+        </div>
         
         <div className="flex items-center gap-2">
           <button 

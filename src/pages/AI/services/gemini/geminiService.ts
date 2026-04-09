@@ -10,11 +10,13 @@ export class GeminiService extends AIService {
 
   async sendMessage(prompt: string, options: AIServiceOptions): Promise<string> {
     const { settings, systemPrompt, onToken } = options;
-    const apiKey = settings.apiKeys.gemini;
+    const userApiKey = settings.apiKeys.gemini;
+    const platformApiKey = process.env.GEMINI_API_KEY;
+    const apiKey = userApiKey || platformApiKey;
     const model = settings.selectedModels.gemini || 'gemini-3-flash-preview';
 
     if (!apiKey) {
-      throw new Error("Gemini API Key is missing. Please add it in AI Settings.");
+      throw new Error("Gemini API Key is missing. Please add it in AI Settings or ensure the platform key is available.");
     }
 
     // Prompt Caching & Structured Prompting System

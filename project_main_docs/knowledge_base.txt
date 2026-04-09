@@ -66,3 +66,5 @@ TEMPORARY FEATURES
 2. AI DEBUG INFO: A 'Sparkles' icon button at the bottom-right of each AI response that opens a modal showing the full prompt, system prompt, and mentioned pages context sent to the AI.
 3. FILE ATTACHMENT: A 'Paperclip' button in the chat input that allows users to explicitly select and attach notes to the AI context.
 4. HALLUCINATION FILTER: Enhanced system prompt and cleaning logic to prevent irrelevant "safety/traditional rules" talk in Bengali.
+5. DATA INTEGRITY: Strict rules in the system prompt to prevent overwriting user content with hallucinations during "design" or "format" tasks.
+6. SURGICAL UPDATE: Added <replace_content> command to allow the AI to update specific parts of a page without rewriting the entire content, reducing the risk of data loss.

@@ -40,7 +40,8 @@ const AISettingsPage: React.FC = () => {
         }
       }
 
-      const newEnabledProviders = [provider]; // Only this one is enabled
+      // Mutually exclusive: Only one provider can be enabled at a time
+      const newEnabledProviders = [provider]; 
       const newSettings = { 
         ...settings, 
         enabledProviders: newEnabledProviders, 
@@ -104,20 +105,6 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
   };
 
-  const handleToggleAutoCreatePage = async () => {
-    if (!settings) return;
-    const newSettings = { ...settings, autoCreatePage: !settings.autoCreatePage };
-    setSettings(newSettings);
-    await DataManager.saveAISettings(newSettings);
-  };
-
-  const handleCorsProxyChange = async (proxy: string) => {
-    if (!settings) return;
-    const newSettings = { ...settings, corsProxy: proxy };
-    setSettings(newSettings);
-    await DataManager.saveAISettings(newSettings);
-  };
-
   const handleDataCheckingModelChange = async (model: 'selected' | 'free') => {
     if (!settings) return;
     const newSettings = { ...settings, dataCheckingModel: model };
@@ -173,18 +160,18 @@ const AISettingsPage: React.FC = () => {
     { 
       id: 'gemini', 
       name: 'Google Gemini', 
-      description: 'গুগলের লেটেস্ট মডেল। (শীঘ্রই আসছে)', 
+      description: 'গুগলের লেটেস্ট মডেল। হাই-কোয়ালিটি আউটপুট এবং বড় কনটেক্সট উইন্ডো।', 
       isFree: false,
-      models: ['gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
-      isComingSoon: true
+      models: ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+      isComingSoon: false
     },
     { 
       id: 'openrouter', 
       name: 'OpenRouter', 
-      description: 'OpenRouter-এর মাধ্যমে যেকোনো মডেল ব্যবহার করুন। (শীঘ্রই আসছে)', 
+      description: 'OpenRouter-এর মাধ্যমে যেকোনো মডেল ব্যবহার করুন।', 
       isFree: false,
       models: [],
-      isComingSoon: true
+      isComingSoon: false
     },
   ];
 
@@ -457,62 +444,6 @@ const AISettingsPage: React.FC = () => {
               </div>
             </motion.div>
           )}
-        </section>
-
-        {/* Auto Create Page Setting */}
-        <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Sparkles size={20} className="text-purple-400" />
-                অটো পেজ তৈরি
-              </h2>
-              <p className="text-xs text-white/40">AI সরাসরি না বললেও অটোমেটিক পেজ তৈরি করবে।</p>
-            </div>
-            <button
-              onClick={handleToggleAutoCreatePage}
-              className={`relative w-14 h-7 rounded-full transition-all duration-500 border-2 ${
-                settings.autoCreatePage 
-                  ? 'bg-blue-500 border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
-                  : 'bg-white/5 border-white/10'
-              }`}
-            >
-              <div className={`absolute top-1 left-1 text-[8px] font-bold transition-opacity duration-300 ${settings.autoCreatePage ? 'opacity-100' : 'opacity-0'}`}>
-                YES
-              </div>
-              <div className={`absolute top-1 right-1 text-[8px] font-bold transition-opacity duration-300 ${!settings.autoCreatePage ? 'opacity-100' : 'opacity-0'}`}>
-                NO
-              </div>
-              <motion.div
-                animate={{ x: settings.autoCreatePage ? 28 : 0 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-lg transition-colors duration-300 ${
-                  settings.autoCreatePage ? 'bg-white' : 'bg-white/20'
-                }`}
-              />
-            </button>
-          </div>
-        </section>
-
-        {/* CORS Proxy Setting */}
-        <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-6">
-          <div className="space-y-1">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <Info size={20} className="text-blue-400" />
-              CORS Proxy (অন্যান্য AI-এর জন্য)
-            </h2>
-            <p className="text-xs text-white/40">OpenAI বা Anthropic সরাসরি ব্রাউজার থেকে কাজ না করলে এটি ব্যবহার করুন।</p>
-          </div>
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={settings.corsProxy || ''}
-              onChange={(e) => handleCorsProxyChange(e.target.value)}
-              placeholder="যেমন: https://cors-anywhere.herokuapp.com/"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 transition-all"
-            />
-            <p className="text-[10px] text-white/20 italic">প্রক্সি ইউআরএল-এর শেষে স্ল্যাশ (/) দিতে ভুলবেন না।</p>
-          </div>
         </section>
 
         <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-3">
