@@ -34,12 +34,14 @@ async function startServer() {
 
   // API Routes
   app.post("/api/publish", (req, res) => {
+    console.log("POST /api/publish", req.body?.title);
     const { title, content, emoji, createdAt, updatedAt } = req.body;
     const id = crypto.randomBytes(4).toString('hex').toUpperCase(); // Short readable ID
     
     try {
       const stmt = db.prepare("INSERT INTO published_notes (id, title, content, emoji, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)");
       stmt.run(id, title, content, emoji, createdAt, updatedAt);
+      console.log("Published note with ID:", id);
       res.json({ success: true, id });
     } catch (error) {
       console.error("Publish error:", error);
@@ -49,12 +51,15 @@ async function startServer() {
 
   app.get("/api/import/:id", (req, res) => {
     const { id } = req.params;
+    console.log("GET /api/import/", id);
     try {
       const stmt = db.prepare("SELECT * FROM published_notes WHERE id = ?");
       const note = stmt.get(id.toUpperCase());
       if (note) {
+        console.log("Found note for ID:", id);
         res.json({ success: true, note });
       } else {
+        console.log("Note not found for ID:", id);
         res.status(404).json({ success: false, error: "Note not found" });
       }
     } catch (error) {

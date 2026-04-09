@@ -151,15 +151,15 @@ const InboxPage: React.FC = () => {
           <ul className="space-y-3 text-xs text-white/40 leading-relaxed">
             <li className="flex gap-3">
               <span className="text-blue-400 font-bold">•</span>
-              <span>Publishing a note creates a standalone <b>SQLite (.db)</b> file containing your note data.</span>
+              <span>Publishing a note generates a unique <b>8-digit ID</b>.</span>
             </li>
             <li className="flex gap-3">
               <span className="text-blue-400 font-bold">•</span>
-              <span>You can share this file with others, and they can upload it here to import the note.</span>
+              <span>Share this ID with others to let them import your note directly into their space.</span>
             </li>
             <li className="flex gap-3">
               <span className="text-blue-400 font-bold">•</span>
-              <span>Share codes are lightweight text versions of your notes that can be copied and pasted easily.</span>
+              <span>Imported notes are saved locally and can be edited or deleted independently.</span>
             </li>
           </ul>
         </section>

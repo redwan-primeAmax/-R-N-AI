@@ -422,6 +422,21 @@ export const DataManager = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(note)
       });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMsg = 'Failed to publish';
+        try {
+          const data = JSON.parse(text);
+          errorMsg = data.error || errorMsg;
+        } catch (e) {
+          if (text.includes('<!doctype html>') || text.includes('<html>')) {
+            errorMsg = 'Server route not found or returned HTML. Please try again.';
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
       const data = await response.json();
       if (data.success) {
         return data.id;
@@ -436,6 +451,22 @@ export const DataManager = {
   async importById(id: string): Promise<Note> {
     try {
       const response = await fetch(`/api/import/${id}`);
+      
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMsg = 'Note not found';
+        try {
+          const data = JSON.parse(text);
+          errorMsg = data.error || errorMsg;
+        } catch (e) {
+          // If not JSON, it might be a 404 HTML page
+          if (text.includes('<!doctype html>') || text.includes('<html>')) {
+            errorMsg = 'Server route not found or returned HTML. Please try again.';
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
       const data = await response.json();
       if (data.success) {
         const note = {
