@@ -5,7 +5,7 @@
 
 import localforage from 'localforage';
 import { Index } from 'flexsearch';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { LogManager } from './LogManager';
 
 console.log('DataManager: File loaded');
@@ -471,6 +471,9 @@ export const DataManager = {
 
   // --- Supabase Publish Operations ---
   async publishToSupabase(note: Note): Promise<string> {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment settings.');
+    }
     try {
       const shortCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       
@@ -501,6 +504,9 @@ export const DataManager = {
   },
 
   async importFromSupabase(shortCode: string): Promise<Note> {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment settings.');
+    }
     try {
       const { data, error } = await supabase
         .from('published_notes')
