@@ -242,6 +242,10 @@ const AIChat: React.FC = () => {
     exportChatHistory(messages);
   };
 
+  const onExportAuditLogs = async () => {
+    await DataManager.exportAuditLogs();
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
@@ -285,6 +289,7 @@ const AIChat: React.FC = () => {
         confirmClearHistory={onClearHistory}
         resetAIMemory={onResetMemory}
         exportChat={onExportChat}
+        exportAuditLogs={onExportAuditLogs}
         navigateBack={() => navigate('/')}
         navigateToEditor={(id) => navigate(`/editor/${id}`)}
         navigateToSettings={() => navigate('/ai/settings')}

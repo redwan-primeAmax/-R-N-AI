@@ -95,15 +95,21 @@ const TitleGenerator: React.FC = () => {
         </div>
         
         {settings && (
-          <select 
-            value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-white/20"
-          >
-            <option value="picoapps">PicoApps (Free)</option>
-            {settings.enabledProviders.includes('gemini') && <option value="gemini">Gemini</option>}
-            {settings.enabledProviders.includes('openrouter') && <option value="openrouter">OpenRouter</option>}
-          </select>
+          <div className="flex items-center gap-2">
+            <select 
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider focus:outline-none focus:border-white/20 appearance-none cursor-pointer hover:bg-white/10 transition-all"
+            >
+              <option value="picoapps">PicoApps (Free)</option>
+              {settings.enabledProviders.includes('gemini') && <option value="gemini">Gemini</option>}
+              {settings.enabledProviders.includes('openrouter') && <option value="openrouter">OpenRouter</option>}
+              {settings.enabledProviders.includes('mistral') && <option value="mistral">Mistral AI</option>}
+            </select>
+            <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-md text-[8px] font-black text-blue-400 uppercase tracking-tighter">
+              {settings.selectedModels[selectedProvider as keyof typeof settings.selectedModels] || 'Default'}
+            </div>
+          </div>
         )}
       </header>
 
@@ -183,43 +189,76 @@ const TitleGenerator: React.FC = () => {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <AnimatePresence mode="popLayout">
               {isLoading && titles.length === 0 && (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <motion.div
-                    key={`skeleton-${i}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5, repeat: Infinity, repeatType: 'reverse', delay: i * 0.1 }}
-                    className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl"
-                  />
-                ))
+                <div className="space-y-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <motion.div
+                      key={`skeleton-${i}`}
+                      initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+                      animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+                      transition={{ 
+                        duration: 0.8, 
+                        repeat: Infinity, 
+                        repeatType: 'reverse', 
+                        delay: i * 0.1,
+                        ease: "easeInOut"
+                      }}
+                      className="w-full h-16 bg-gradient-to-r from-white/5 via-white/10 to-white/5 border border-white/5 rounded-2xl relative overflow-hidden"
+                    >
+                      <motion.div 
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+                      />
+                    </motion.div>
+                  ))}
+                </div>
               )}
               {titles.map((title, index) => (
                 <motion.button
                   key={`${title}-${index}`}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  initial={{ opacity: 0, y: 20, rotateX: -45, filter: 'blur(10px)' }}
+                  animate={{ opacity: 1, y: 0, rotateX: 0, filter: 'blur(0px)' }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 100,
+                    damping: 15,
+                    delay: index * 0.08 
+                  }}
+                  whileHover={{ scale: 1.02, x: 5 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleApplyTitle(title)}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left group ${
+                  className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all text-left group relative overflow-hidden ${
                     selectedNote?.title === title
-                      ? 'bg-green-500/10 border-green-500/30'
-                      : 'bg-white/5 border-white/5 hover:border-white/10'
+                      ? 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]'
+                      : 'bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/[0.07]'
                   }`}
                 >
-                  <span className={`text-sm font-medium ${selectedNote?.title === title ? 'text-green-400' : 'text-white/80'}`}>
-                    {title}
-                  </span>
-                  {selectedNote?.title === title ? (
-                    <Check size={16} className="text-green-400" />
-                  ) : (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white/20 text-[10px] font-bold uppercase">
-                      Apply
-                    </div>
-                  )}
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className={`w-2 h-2 rounded-full transition-all duration-500 ${selectedNote?.title === title ? 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]' : 'bg-white/10'}`} />
+                    <span className={`text-sm font-semibold truncate ${selectedNote?.title === title ? 'text-blue-400' : 'text-white/80 group-hover:text-white'}`}>
+                      {title}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    {selectedNote?.title === title ? (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center"
+                      >
+                        <Check size={14} className="text-white" />
+                      </motion.div>
+                    ) : (
+                      <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 text-[9px] font-black text-blue-400 uppercase tracking-tighter bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">
+                        Use Title
+                      </div>
+                    )}
+                  </div>
                 </motion.button>
               ))}
             </AnimatePresence>

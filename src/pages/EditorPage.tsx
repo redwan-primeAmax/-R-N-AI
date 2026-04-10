@@ -20,7 +20,7 @@ import {
   ArrowLeft, Bold, Italic, Underline as UnderlineIcon, 
   List, ListOrdered, CheckSquare, Quote, Code, 
   Highlighter, AlignLeft, AlignCenter, AlignRight, Type, 
-  Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2, UploadCloud
+  Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2, UploadCloud, Copy
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -293,8 +293,16 @@ export default function EditorPage() {
 
   const handleExport = () => {
     if (note) {
-      DataManager.exportNote({ ...note, title, content: editor?.getHTML() || '' });
+      DataManager.exportNoteAsTxt({ ...note, title, content: editor?.getHTML() || '' });
       setShowExportMenu(false);
+    }
+  };
+
+  const handleCopyContent = () => {
+    if (editor) {
+      const content = editor.getText();
+      navigator.clipboard.writeText(content);
+      // Optional: Show a toast or brief feedback
     }
   };
 
@@ -345,7 +353,7 @@ export default function EditorPage() {
                   className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium"
                 >
                   <Download size={16} />
-                  Export (.redwan)
+                  Export (.txt)
                 </button>
                 <button
                   onClick={handlePublish}
@@ -374,6 +382,13 @@ export default function EditorPage() {
             placeholder="Untitled"
             className="flex-grow bg-transparent font-bold text-base outline-none placeholder:text-white/20 py-1 text-white"
           />
+          <button 
+            onClick={handleCopyContent}
+            className="p-1.5 text-white/40 hover:text-white transition-colors"
+            title="Copy Content"
+          >
+            <Copy size={18} />
+          </button>
           {isSaving && <div className="text-[8px] text-white/40 uppercase tracking-widest animate-pulse">Saving...</div>}
         </div>
       </header>

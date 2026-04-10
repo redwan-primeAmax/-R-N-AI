@@ -102,13 +102,42 @@ class AIManager {
     onComplete: (result: string) => void
   ) {
     this.updateTask(taskId, { status: 'generating' });
+    const startTime = Date.now();
     try {
       const settings = await DataManager.getAISettings();
       const fullResponse = await this.sendWithRetry(taskId, prompt, provider, settings, systemPrompt);
+      
+      // Log Task
+      await DataManager.addLog({
+        type: 'task',
+        prompt,
+        response: fullResponse,
+        metadata: {
+          taskId,
+          provider,
+          duration: Date.now() - startTime,
+          status: 'completed'
+        }
+      });
+
       onComplete(fullResponse);
       this.updateTask(taskId, { status: 'idle', streamingText: null });
     } catch (error: any) {
       console.error("Task Error:", error);
+      
+      // Log Error
+      await DataManager.addLog({
+        type: 'error',
+        prompt,
+        error: error.message,
+        metadata: {
+          taskId,
+          provider,
+          duration: Date.now() - startTime,
+          status: 'failed'
+        }
+      });
+
       this.updateTask(taskId, { status: 'error', reason: error.message });
     }
   }
@@ -222,15 +251,28 @@ class AIManager {
     attachedNotes: Note[] = []
   ) {
     this.updateTask(taskId, { status: 'generating' });
+    const startTime = Date.now();
 
     try {
       const settings = await DataManager.getAISettings();
       const selectedProvider = settings.selectedProvider || 'picoapps';
       
+      // Log User Prompt
+      await DataManager.addLog({
+        type: 'chat',
+        prompt: input,
+        metadata: {
+          taskId,
+          provider: selectedProvider,
+          attachedNotesCount: attachedNotes.length
+        }
+      });
+
       // Load Provider-Specific System Prompt
       let activeSystemPrompt = systemPrompt;
       const promptPath = selectedProvider === 'openrouter' ? '/prompts/openrouter.txt' : 
-                         selectedProvider === 'picoapps' ? '/prompts/pico.txt' : null;
+                         selectedProvider === 'picoapps' ? '/prompts/pico.txt' : 
+                         selectedProvider === 'mistral' ? '/prompts/mistral.txt' : null;
       
       if (promptPath) {
         try {
@@ -270,6 +312,17 @@ USER: ${input}
 
       const fullResponse = await this.sendWithRetry(taskId, prompt, selectedProvider, settings, activeSystemPrompt);
       
+      // Log AI Response
+      await DataManager.addLog({
+        type: 'chat',
+        response: fullResponse,
+        metadata: {
+          taskId,
+          provider: selectedProvider,
+          duration: Date.now() - startTime
+        }
+      });
+
       const botMessage: ChatMessage = {
         role: 'model',
         text: fullResponse,

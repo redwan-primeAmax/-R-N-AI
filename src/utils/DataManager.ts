@@ -5,6 +5,7 @@
 
 import localforage from 'localforage';
 import { Index } from 'flexsearch';
+import { LogManager } from './LogManager';
 
 console.log('DataManager: File loaded');
 
@@ -51,18 +52,21 @@ export interface ContextSummary {
 }
 
 export interface AISettings {
-  selectedProvider: 'picoapps' | 'gemini' | 'openrouter';
+  selectedProvider: 'picoapps' | 'gemini' | 'openrouter' | 'mistral';
   selectedModels: {
     gemini: string;
     openrouter: string;
+    mistral: string;
   };
   apiKeys: {
     gemini?: string;
     openrouter?: string;
+    mistral?: string;
   };
   enabledProviders: string[];
   dataCheckingEnabled: boolean;
-  dataCheckingModel: 'selected' | 'free';
+  dataCheckingModel: 'selected' | 'free' | 'custom';
+  dataCheckingCustomProvider?: 'gemini' | 'openrouter' | 'mistral';
   retrySettings: {
     enabled: boolean;
     errorCodes: string;
@@ -170,7 +174,8 @@ export const DataManager = {
       selectedProvider: 'picoapps',
       selectedModels: {
         gemini: 'gemini-3-flash-preview',
-        openrouter: ''
+        openrouter: '',
+        mistral: 'mistral-large-latest'
       },
       apiKeys: {},
       enabledProviders: ['picoapps'],
@@ -208,28 +213,24 @@ export const DataManager = {
       enabledProviders: settings.enabledProviders || defaultSettings.enabledProviders,
       dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
       dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
+      dataCheckingCustomProvider: settings.dataCheckingCustomProvider || 'gemini',
       retrySettings: settings.retrySettings || defaultSettings.retrySettings
     };
 
-    // One-time migration to fix multiple enabled providers
-    const MIGRATION_KEY = 'ai_provider_migration_v1';
-    const migrationDone = localStorage.getItem(MIGRATION_KEY);
-    
-    if (!migrationDone) {
-      if (mergedSettings.enabledProviders.length > 1) {
-        console.log('DataManager: Running one-time migration to fix multiple enabled providers');
-        mergedSettings.enabledProviders = ['picoapps'];
-        mergedSettings.selectedProvider = 'picoapps';
-        // Save the fixed settings immediately
-        await this.saveAISettings(mergedSettings);
-      }
-      localStorage.setItem(MIGRATION_KEY, 'true');
-    }
+    // RN AI 2.3 Temporary Lock: Force picoapps (Free Model)
+    mergedSettings.selectedProvider = 'picoapps';
+    mergedSettings.enabledProviders = ['picoapps'];
+    mergedSettings.dataCheckingModel = 'free';
 
     return mergedSettings;
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
+    // RN AI 2.3 Temporary Lock: Prevent changing provider
+    settings.selectedProvider = 'picoapps';
+    settings.enabledProviders = ['picoapps'];
+    settings.dataCheckingModel = 'free';
+
     // Encrypt API keys before saving
     const encryptedKeys: any = {};
     if (settings.apiKeys) {
@@ -282,7 +283,42 @@ export const DataManager = {
         updatedAt: Date.now(),
         isFavorite: false,
       };
-      notes = [welcomeNote];
+
+      const suiterNote: Note = {
+        id: 'suiter-integration-note',
+        title: '🛠️ Suiter Integration Guide',
+        content: `
+          <h1>Suiter Integration Instructions</h1>
+          <p>এই নোটটি Mistral AI এবং Suiter Integration-এর জন্য তৈরি করা হয়েছে।</p>
+          
+          <h3>১. Suiter App ID Call:</h3>
+          <p>Suiter Integration এখন App ID-তে কল সাপোর্ট করে। এটি ব্যবহার করতে আপনার App ID এবং প্রয়োজনীয় প্যারামিটারগুলো কনফিগার করুন।</p>
+          
+          <h3>২. Mistral AI JSON Output:</h3>
+          <p>Mistral AI এখন থেকে JSON ফরম্যাটে আউটপুট প্রদান করবে। নিচের প্রম্পটটি কপি করে Mistral সার্ভারে পেস্ট করুন:</p>
+          
+          <pre style="background: #1a1a1a; color: #4ade80; padding: 1rem; border-radius: 0.5rem; border: 1px solid #333;">
+{
+  "instruction": "Generate response in valid JSON format based on the provided schema.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "answer": { "type": "string" },
+      "status": { "type": "string" }
+    }
+  }
+}
+          </pre>
+          
+          <p>উপরে দেওয়া কপি বাটনটি ব্যবহার করে এই নোটের কন্টেন্ট দ্রুত কপি করতে পারেন।</p>
+        `,
+        emoji: '🛠️',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isFavorite: false,
+      };
+
+      notes = [welcomeNote, suiterNote];
       await localforage.setItem(NOTES_KEY, notes);
     }
     return notes;
@@ -408,6 +444,21 @@ export const DataManager = {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${note.title || 'untitled'}${CUSTOM_EXTENSION}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  async exportNoteAsTxt(note: Note): Promise<void> {
+    const plainText = note.content.replace(/<[^>]*>/g, ''); // Strip HTML
+    const content = `${note.emoji} ${note.title || 'Untitled'}\n${'='.repeat(40)}\n\n${plainText}`;
+    
+    const blob = new Blob(["\ufeff", content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${note.title || 'untitled'}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -611,6 +662,15 @@ export const DataManager = {
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'UPDATE_CHAT' });
+  },
+
+  // --- Audit Log Operations (RN AI 2.3) ---
+  async addLog(log: any) {
+    await LogManager.addLog(log);
+  },
+
+  async exportAuditLogs() {
+    await LogManager.exportLogs();
   },
 
   // Add listener for components to use

@@ -31,6 +31,7 @@ interface InterfaceProps {
   confirmClearHistory: () => void;
   resetAIMemory: () => void;
   exportChat: () => void;
+  exportAuditLogs: () => void;
   navigateBack: () => void;
   navigateToEditor: (id: string) => void;
   setInput: (val: string) => void;
@@ -142,6 +143,7 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   confirmClearHistory,
   resetAIMemory,
   exportChat,
+  exportAuditLogs,
   navigateBack,
   navigateToEditor,
   setInput,
@@ -190,9 +192,9 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         
         <div className="flex items-center gap-2">
           <button 
-            onClick={exportChat}
-            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
-            title="চ্যাট ইতিহাস ডাউনলোড করুন (Debug)"
+            onClick={exportAuditLogs}
+            className="w-9 h-9 flex items-center justify-center bg-blue-600/20 border border-blue-500/30 rounded-full transition-all active:scale-95 text-blue-400 hover:bg-blue-600/30 shadow-sm"
+            title="Download Analysis (.txt)"
           >
             <Download size={20} />
           </button>
@@ -206,9 +208,9 @@ export const AIInterface: React.FC<InterfaceProps> = ({
           </button>
           
           <button 
-            onClick={navigateToSettings}
-            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
-            title="AI সেটিংস"
+            disabled
+            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full opacity-20 cursor-not-allowed text-white/80 shadow-sm"
+            title="Settings Disabled (RN AI 2.3)"
           >
             <Settings size={20} />
           </button>

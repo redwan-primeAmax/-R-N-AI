@@ -105,9 +105,16 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
   };
 
-  const handleDataCheckingModelChange = async (model: 'selected' | 'free') => {
+  const handleDataCheckingModelChange = async (model: 'selected' | 'free' | 'custom') => {
     if (!settings) return;
     const newSettings = { ...settings, dataCheckingModel: model };
+    setSettings(newSettings);
+    await DataManager.saveAISettings(newSettings);
+  };
+
+  const handleDataCheckingCustomProviderChange = async (provider: 'gemini' | 'openrouter' | 'mistral') => {
+    if (!settings) return;
+    const newSettings = { ...settings, dataCheckingCustomProvider: provider };
     setSettings(newSettings);
     await DataManager.saveAISettings(newSettings);
   };
@@ -173,6 +180,14 @@ const AISettingsPage: React.FC = () => {
       models: [],
       isComingSoon: false
     },
+    { 
+      id: 'mistral', 
+      name: 'Mistral AI', 
+      description: 'Mistral AI-এর শক্তিশালী ওপেন-সোর্স মডেলগুলো ব্যবহার করুন।', 
+      isFree: false,
+      models: ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'open-mistral-7b', 'open-mixtral-8x7b'],
+      isComingSoon: false
+    },
   ];
 
   return (
@@ -188,7 +203,26 @@ const AISettingsPage: React.FC = () => {
         <h1 className="text-xl font-bold">AI সেটিংস</h1>
       </header>
 
-      <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8">
+      <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8 relative">
+        {/* Maintenance Overlay */}
+        <div className="absolute inset-0 z-20 bg-[#191919]/60 backdrop-blur-[2px] flex items-start justify-center pt-20 px-6">
+          <div className="bg-blue-600/20 border border-blue-500/30 p-6 rounded-3xl max-w-sm text-center space-y-4 shadow-2xl">
+            <Sparkles className="mx-auto text-blue-400" size={40} />
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-white">Maintenance Mode</h2>
+              <p className="text-sm text-blue-100/70 leading-relaxed">
+                RN AI 2.3 টেস্টিং চলছে। সাময়িকভাবে মডেল পরিবর্তন ডিজেবল করা হয়েছে। বর্তমানে সবাই <span className="text-white font-bold uppercase">Free Model</span> ব্যবহার করছেন।
+              </p>
+            </div>
+            <button 
+              onClick={() => navigate('/ai')}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm transition-all active:scale-95"
+            >
+              ফিরে যান
+            </button>
+          </div>
+        </div>
+
         <section className="space-y-4">
           <div className="flex items-center gap-2 text-white/40 mb-2">
             <Info size={16} />
@@ -364,7 +398,7 @@ const AISettingsPage: React.FC = () => {
               className="space-y-4 pt-4 border-t border-white/5"
             >
               <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">ভেরিফিকেশন মডেল</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => handleDataCheckingModelChange('selected')}
                   className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${
@@ -373,8 +407,8 @@ const AISettingsPage: React.FC = () => {
                       : 'bg-white/5 border-white/5 hover:border-white/10'
                   }`}
                 >
-                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'selected' ? 'text-white' : 'text-white/60'}`}>আপনার সিলেক্ট করা মডেল</p>
-                  <p className="text-[10px] text-white/30">আপনার সক্রিয় AI প্রোভাইডার ব্যবহার করবে</p>
+                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'selected' ? 'text-white' : 'text-white/60'}`}>সিলেক্টেড</p>
+                  <p className="text-[10px] text-white/30">অ্যাক্টিভ প্রোভাইডার</p>
                 </button>
                 <button
                   onClick={() => handleDataCheckingModelChange('free')}
@@ -385,9 +419,42 @@ const AISettingsPage: React.FC = () => {
                   }`}
                 >
                   <p className={`text-sm font-bold ${settings.dataCheckingModel === 'free' ? 'text-white' : 'text-white/60'}`}>ফ্রি মডেল</p>
-                  <p className="text-[10px] text-white/30">PicoApps AI ব্যবহার করবে (বিনামূল্যে)</p>
+                  <p className="text-[10px] text-white/30">PicoApps AI</p>
+                </button>
+                <button
+                  onClick={() => handleDataCheckingModelChange('custom')}
+                  className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${
+                    settings.dataCheckingModel === 'custom'
+                      ? 'bg-white/10 border-white/30'
+                      : 'bg-white/5 border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'custom' ? 'text-white' : 'text-white/60'}`}>কাস্টম</p>
+                  <p className="text-[10px] text-white/30">পছন্দমতো বেছে নিন</p>
                 </button>
               </div>
+
+              {settings.dataCheckingModel === 'custom' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="grid grid-cols-3 gap-2 mt-4"
+                >
+                  {['gemini', 'openrouter', 'mistral'].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => handleDataCheckingCustomProviderChange(p as any)}
+                      className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                        settings.dataCheckingCustomProvider === p
+                          ? 'bg-white text-black border-white'
+                          : 'bg-white/5 text-white/40 border-white/5 hover:border-white/10'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
             </motion.div>
           )}
         </section>

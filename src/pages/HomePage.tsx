@@ -19,7 +19,9 @@ import {
   Star,
   MoreVertical,
   Sparkles,
-  UploadCloud
+  UploadCloud,
+  Download,
+  Settings
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -151,7 +153,8 @@ const NoteRow = memo(({
           "group relative flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer mx-4",
           isSelected 
             ? "bg-white/10" 
-            : "hover:bg-white/5 active:bg-white/5"
+            : "hover:bg-white/5 active:bg-white/5",
+          isSelectionMode && "select-none"
         )}
       >
         <div 
@@ -207,6 +210,9 @@ export default function HomePage() {
   const [listHeight, setListHeight] = useState(window.innerHeight - 350);
   const [searchQuery, setSearchQuery] = useState('');
   const [publishedId, setPublishedId] = useState<string | null>(null);
+  const [showWelcomePopup, setShowWelcomePopup] = useState(false);
+  const [showNamePopup, setShowNamePopup] = useState(false);
+  const [tempName, setTempName] = useState('');
   const navigate = useNavigate();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -225,8 +231,21 @@ export default function HomePage() {
     const allNotes = await DataManager.getAllNotes();
     setNotes(allNotes.sort((a, b) => b.updatedAt - a.updatedAt));
     const name = await DataManager.getUserName();
-    if (name) setUserName(name);
+    if (name) {
+      setUserName(name);
+    } else {
+      // New user detected
+      setShowWelcomePopup(true);
+    }
   }, []);
+
+  const handleSaveName = async () => {
+    if (tempName.trim()) {
+      await DataManager.saveUserName(tempName.trim());
+      setUserName(tempName.trim());
+      setShowNamePopup(false);
+    }
+  };
 
   const createNewNote = useCallback(async () => {
     const newNote: Note = {
@@ -303,6 +322,10 @@ export default function HomePage() {
     }
   }, []);
 
+  const handleExportLogs = async () => {
+    await DataManager.exportAuditLogs();
+  };
+
   const filteredNotes = notes.filter(n => 
     n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
     n.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -313,6 +336,81 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden">
+      {/* Welcome Onboarding Popup */}
+      <AnimatePresence>
+        {showWelcomePopup && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-blue-500/20 rounded-3xl flex items-center justify-center mx-auto">
+                <Sparkles size={40} className="text-blue-400" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-white tracking-tight">Welcome to RNAI Note</h2>
+                <p className="text-blue-400 font-bold text-sm uppercase tracking-widest">Version 2.3</p>
+              </div>
+              <div className="space-y-4 text-white/70 text-sm leading-relaxed">
+                <p>আপনাকে আমাদের <span className="text-white font-bold">2.3 ভার্সনে</span> স্বাগতম।</p>
+                <p className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                  এটি এখন <span className="text-amber-400 font-bold">বিটা মোডে বা টেস্টিং মোডে</span> রয়েছে। তাই অনেক বাগ গ্লিচেস থাকতে পারে।
+                </p>
+                <p>আপনি যদি কোনো বাগ বা গ্লিচেস খুঁজে পান বা কোনো এরর বা ইস্যু পান তখন কিন্তু সঙ্গে সঙ্গে আমাদের জানাতে পারেন।</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowWelcomePopup(false);
+                  setShowNamePopup(true);
+                }}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-600/20"
+              >
+                শুরু করুন
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Name Input Popup */}
+      <AnimatePresence>
+        {showNamePopup && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl space-y-6"
+            >
+              <div className="text-center space-y-2">
+                <h2 className="text-xl font-bold text-white">আপনার নাম লিখুন</h2>
+                <p className="text-white/40 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার নাম প্রয়োজন।</p>
+              </div>
+              
+              <div className="space-y-4">
+                <input 
+                  type="text"
+                  placeholder="আপনার নাম..."
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  autoFocus
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all text-center font-bold text-lg"
+                />
+                <button 
+                  onClick={handleSaveName}
+                  disabled={!tempName.trim()}
+                  className="w-full py-4 bg-white text-black rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                >
+                  সেভ করুন
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Published ID Modal */}
       <AnimatePresence>
         {publishedId && (
@@ -365,12 +463,25 @@ export default function HomePage() {
           </button>
         </div>
         <div className="flex items-center gap-4">
+          <button 
+            onClick={handleExportLogs}
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
+            title="Download Audit Logs"
+          >
+            <Download size={20} />
+          </button>
           <Inbox 
             size={22} 
             className="text-white/60 cursor-pointer hover:text-white transition-colors" 
             onClick={() => navigate('/inbox')}
           />
-          <MoreHorizontal size={22} className="text-white/60" />
+          <button 
+            disabled
+            className="opacity-20 cursor-not-allowed"
+            title="Settings Disabled (RN AI 2.3)"
+          >
+            <Settings size={22} className="text-white/60" />
+          </button>
         </div>
       </div>
 
@@ -478,24 +589,30 @@ export default function HomePage() {
       <AnimatePresence>
         {isSelectionMode && (
           <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-[100px] left-4 right-4 z-50 bg-white text-black p-4 rounded-2xl flex justify-between items-center shadow-2xl border border-black/5"
+            initial={{ y: 100, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 100, opacity: 0, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed bottom-[100px] left-6 right-6 z-50 bg-[#222]/90 backdrop-blur-xl p-4 rounded-3xl flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10"
           >
-            <span className="font-bold text-sm ml-2">{selectedIds.length} selected</span>
+            <div className="flex items-center gap-3 ml-2">
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-black text-white shadow-lg shadow-blue-500/20">
+                {selectedIds.length}
+              </div>
+              <span className="font-bold text-sm text-white/90">Selected</span>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={cancelSelection}
-                className="px-4 py-2 bg-black/5 rounded-xl text-sm font-bold hover:bg-black/10 transition-colors"
+                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-2xl text-xs font-bold text-white/60 transition-all active:scale-95"
               >
                 Cancel
               </button>
               <button
                 onClick={deleteSelected}
-                className="px-4 py-2 bg-red-600 rounded-xl text-sm font-bold text-white hover:bg-red-700 transition-colors flex items-center gap-2 shadow-lg shadow-red-500/20"
+                className="px-5 py-2.5 bg-red-500 hover:bg-red-600 rounded-2xl text-xs font-bold text-white transition-all flex items-center gap-2 shadow-lg shadow-red-500/20 active:scale-95"
               >
-                <Trash2 size={16} />
+                <Trash2 size={14} />
                 Delete
               </button>
             </div>
