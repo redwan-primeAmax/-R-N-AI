@@ -20,7 +20,7 @@ import {
   ArrowLeft, Bold, Italic, Underline as UnderlineIcon, 
   List, ListOrdered, CheckSquare, Quote, Code, 
   Highlighter, AlignLeft, AlignCenter, AlignRight, Type, 
-  Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2, UploadCloud, Copy
+  Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2, UploadCloud, Copy, AlertCircle
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -62,6 +62,12 @@ export default function EditorPage() {
   const [isListening, setIsListening] = useState(false);
   const [currentHeading, setCurrentHeading] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedCode, setPublishedCode] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // LocalStorage backup key
   const BACKUP_KEY = `note_backup_${id}`;
@@ -107,12 +113,22 @@ export default function EditorPage() {
 
   const handlePublish = async () => {
     if (note) {
+      setIsPublishing(true);
+      setNotification({ message: 'Publishing to cloud...', type: 'info' });
       try {
-        await DataManager.publishToDB({ ...note, content: editor?.getHTML() || '' });
-        alert('Note published to SQLite DB successfully!');
+        const code = await DataManager.publishToSupabase({ ...note, content: editor?.getHTML() || '' });
+        setPublishedCode(code);
+        setNotification({ message: 'Published successfully!', type: 'success' });
+        setTimeout(() => setShowShareModal(true), 500);
         setShowExportMenu(false);
-      } catch (e) {
-        alert('Failed to publish: ' + e);
+      } catch (e: any) {
+        setErrorMessage(e.message || String(e));
+        setShowErrorModal(true);
+        setNotification(null);
+      } finally {
+        setIsPublishing(false);
+        // Clear notification after 3 seconds
+        setTimeout(() => setNotification(null), 3000);
       }
     }
   };
@@ -247,6 +263,7 @@ export default function EditorPage() {
       setNote(fetchedNote);
       setTitle(fetchedNote.title);
       setEmoji(fetchedNote.emoji);
+      setPublishedCode(fetchedNote.publishedCode || null);
       
       // Check for backup in localStorage
       const backup = localStorage.getItem(BACKUP_KEY);
@@ -357,10 +374,15 @@ export default function EditorPage() {
                 </button>
                 <button
                   onClick={handlePublish}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium mt-1"
+                  disabled={isPublishing}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium mt-1 disabled:opacity-50"
                 >
-                  <UploadCloud size={16} className="text-blue-400" />
-                  Publish to DB
+                  {isPublishing ? (
+                    <Loader2 size={16} className="animate-spin text-blue-400" />
+                  ) : (
+                    <UploadCloud size={16} className="text-blue-400" />
+                  )}
+                  {publishedCode ? 'Update Published' : 'Publish to Cloud'}
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
@@ -382,6 +404,16 @@ export default function EditorPage() {
             placeholder="Untitled"
             className="flex-grow bg-transparent font-bold text-base outline-none placeholder:text-white/20 py-1 text-white"
           />
+          
+          {publishedCode && (
+            <button 
+              onClick={() => setShowShareModal(true)}
+              className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-[10px] font-bold border border-blue-500/30 flex items-center gap-1.5 hover:bg-blue-500/30 transition-all"
+            >
+              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+              Published
+            </button>
+          )}
           <button 
             onClick={handleCopyContent}
             className="p-1.5 text-white/40 hover:text-white transition-colors"
@@ -392,6 +424,100 @@ export default function EditorPage() {
           {isSaving && <div className="text-[8px] text-white/40 uppercase tracking-widest animate-pulse">Saving...</div>}
         </div>
       </header>
+
+      {/* Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 60, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className={cn(
+              "fixed top-0 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-full text-xs font-bold shadow-2xl flex items-center gap-2 border",
+              notification.type === 'success' ? "bg-green-500/20 text-green-400 border-green-500/30" :
+              notification.type === 'error' ? "bg-red-500/20 text-red-400 border-red-500/30" :
+              "bg-blue-500/20 text-blue-400 border-blue-500/30"
+            )}
+          >
+            {notification.type === 'info' && <Loader2 size={14} className="animate-spin" />}
+            {notification.type === 'success' && <CheckSquare size={14} />}
+            {notification.type === 'error' && <Trash2 size={14} />}
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && publishedCode && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <UploadCloud size={32} className="text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Note Published!</h3>
+              <p className="text-white/40 text-sm mb-6">Share this code with others to let them import your note.</p>
+              
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-2xl tracking-widest font-bold text-blue-400">
+                {publishedCode}
+              </div>
+
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(publishedCode);
+                  alert('Code copied to clipboard!');
+                }}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold mb-3 transition-all flex items-center justify-center gap-2"
+              >
+                <Copy size={16} />
+                Copy Code
+              </button>
+              <button 
+                onClick={() => setShowShareModal(false)}
+                className="w-full py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-white/90 transition-all"
+              >
+                Done
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Error Modal */}
+      <AnimatePresence>
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1c1c1c] border border-red-500/20 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle size={32} className="text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-red-400">Publish Failed</h3>
+              <p className="text-white/60 text-sm mb-8 leading-relaxed">
+                {errorMessage.includes('Supabase credentials missing') 
+                  ? 'Supabase URL and Anon Key are missing. Please set them in the Settings menu to enable publishing.' 
+                  : errorMessage}
+              </p>
+              
+              <button 
+                onClick={() => setShowErrorModal(false)}
+                className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
+              >
+                Close
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>

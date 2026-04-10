@@ -105,7 +105,8 @@ class AIManager {
     const startTime = Date.now();
     try {
       const settings = await DataManager.getAISettings();
-      const fullResponse = await this.sendWithRetry(taskId, prompt, provider, settings, systemPrompt);
+      const activeProvider = settings.controlMode === 'auto' ? 'picoapps' : provider;
+      const fullResponse = await this.sendWithRetry(taskId, prompt, activeProvider, settings, systemPrompt);
       
       // Log Task
       await DataManager.addLog({
@@ -114,9 +115,10 @@ class AIManager {
         response: fullResponse,
         metadata: {
           taskId,
-          provider,
+          provider: activeProvider,
           duration: Date.now() - startTime,
-          status: 'completed'
+          status: 'completed',
+          controlMode: settings.controlMode
         }
       });
 
@@ -190,6 +192,7 @@ class AIManager {
       try {
         const idOrTitle = extractNestedTag('id', pageXml);
         const content = extractNestedTag('content', pageXml);
+        const mode = (pageXml.match(/mode=["'](append|replace)["']/i) || [])[1] || 'replace';
         
         if (!idOrTitle) continue;
 
@@ -201,10 +204,14 @@ class AIManager {
         );
 
         if (targetNote) {
-          targetNote.content = content;
+          if (mode === 'append') {
+            targetNote.content = (targetNote.content || '') + (content || '');
+          } else {
+            targetNote.content = content;
+          }
           targetNote.updatedAt = Date.now();
           await DataManager.saveNote(targetNote);
-          console.log(`AI: Updated page "${targetNote.title}"`);
+          console.log(`AI: ${mode === 'append' ? 'Appended to' : 'Updated'} page "${targetNote.title}"`);
         }
       } catch (e) {
         console.error("Failed to process <update_page>", e);
@@ -239,6 +246,58 @@ class AIManager {
         console.error("Failed to process <create_task>", e);
       }
     }
+
+    // 4. Complete Task Part
+    const completeParts = extractTag('complete_part', text);
+    for (const partXml of completeParts) {
+      try {
+        const taskId = extractNestedTag('task_id', partXml);
+        const partTitle = extractNestedTag('part_title', partXml);
+        if (taskId && partTitle) {
+          await DataManager.updateTaskPartStatus(taskId, partTitle, 'completed');
+          console.log(`AI: Completed part "${partTitle}" for task "${taskId}"`);
+        }
+      } catch (e) {
+        console.error("Failed to process <complete_part>", e);
+      }
+    }
+
+    // 5. Update Task Status
+    const updateTaskStatuses = extractTag('update_task_status', text);
+    for (const statusXml of updateTaskStatuses) {
+      try {
+        const taskId = extractNestedTag('id', statusXml);
+        const status = extractNestedTag('status', statusXml) as any;
+        if (taskId && status) {
+          const tasks = await DataManager.getTasks();
+          const task = tasks.find(t => t.id === taskId || t.title.toLowerCase() === taskId.toLowerCase());
+          if (task) {
+            task.status = status;
+            await DataManager.saveTask(task);
+            console.log(`AI: Updated task "${task.title}" status to ${status}`);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to process <update_task_status>", e);
+      }
+    }
+
+    // 6. Replace Content
+    const replaceContents = extractTag('replace_content', text);
+    for (const replaceXml of replaceContents) {
+      try {
+        const idOrTitle = extractNestedTag('id', replaceXml);
+        const search = extractNestedTag('search', replaceXml);
+        const replacement = extractNestedTag('replacement', replaceXml);
+        
+        if (idOrTitle && search) {
+          await DataManager.replaceContent(idOrTitle, search, replacement);
+          console.log(`AI: Replaced content in "${idOrTitle}"`);
+        }
+      } catch (e) {
+        console.error("Failed to process <replace_content>", e);
+      }
+    }
   }
 
   async runChatTask(
@@ -255,7 +314,7 @@ class AIManager {
 
     try {
       const settings = await DataManager.getAISettings();
-      const selectedProvider = settings.selectedProvider || 'picoapps';
+      const selectedProvider = settings.controlMode === 'auto' ? 'picoapps' : (settings.selectedProvider || 'picoapps');
       
       // Log User Prompt
       await DataManager.addLog({
@@ -264,7 +323,8 @@ class AIManager {
         metadata: {
           taskId,
           provider: selectedProvider,
-          attachedNotesCount: attachedNotes.length
+          attachedNotesCount: attachedNotes.length,
+          controlMode: settings.controlMode
         }
       });
 
@@ -285,25 +345,26 @@ class AIManager {
 
       // Context Pruning
       let context = "";
-      if (selectedProvider !== 'picoapps') {
-        const sortedNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
-        const allRelevantNotes = [
-          ...(attachedNotes || []),
-          ...notes.filter(n => input.toLowerCase().includes(n.title.toLowerCase())),
-          sortedNotes[0]
-        ].filter((note, index, self) => note && self.findIndex(n => n?.id === note.id) === index).slice(0, 10);
+      const sortedNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
+      const allRelevantNotes = [
+        ...(attachedNotes || []),
+        ...notes.filter(n => input.toLowerCase().includes(n.title.toLowerCase())),
+        sortedNotes[0]
+      ].filter((note, index, self) => note && self.findIndex(n => n?.id === note.id) === index).slice(0, 5);
 
-        context = allRelevantNotes.map(n => {
-          const markdownContent = n.content ? turndownService.turndown(n.content) : "(No content)";
-          return `Page ID: ${n.id} | Title: ${n.title}\nContent:\n${markdownContent}`;
-        }).join('\n\n---\n\n');
-      }
+      context = allRelevantNotes.map(n => {
+        const markdownContent = n.content ? turndownService.turndown(n.content) : "(No content)";
+        return `Page ID: ${n.id} | Title: ${n.title}\nContent:\n${markdownContent}`;
+      }).join('\n\n---\n\n');
 
       const history = messages.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
       
+      const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
       // Combined Low-Context Prompt
       const prompt = `
 SYSTEM: ${activeSystemPrompt}
+DATE: ${currentDate}
 CONTEXT: ${context}
 SUMMARY: ${contextSummary?.text || 'None'}
 HISTORY: ${history}

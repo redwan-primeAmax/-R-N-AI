@@ -5,6 +5,7 @@
 
 import localforage from 'localforage';
 import { Index } from 'flexsearch';
+import { supabase } from '../lib/supabase';
 import { LogManager } from './LogManager';
 
 console.log('DataManager: File loaded');
@@ -18,6 +19,7 @@ export interface Note {
   updatedAt: number;
   fontFamily?: string;
   isFavorite?: boolean;
+  publishedCode?: string;
 }
 
 export interface ChatMessage {
@@ -52,6 +54,7 @@ export interface ContextSummary {
 }
 
 export interface AISettings {
+  controlMode: 'auto' | 'manual';
   selectedProvider: 'picoapps' | 'gemini' | 'openrouter' | 'mistral';
   selectedModels: {
     gemini: string;
@@ -171,6 +174,7 @@ export const DataManager = {
   async getAISettings(): Promise<AISettings> {
     const settings = await localforage.getItem<AISettings>(AI_SETTINGS_KEY);
     const defaultSettings: AISettings = {
+      controlMode: 'auto',
       selectedProvider: 'picoapps',
       selectedModels: {
         gemini: 'gemini-3-flash-preview',
@@ -465,75 +469,60 @@ export const DataManager = {
     URL.revokeObjectURL(url);
   },
 
-  // --- SQLite Publish Operations ---
-  async publishToDB(note: Note): Promise<string> {
+  // --- Supabase Publish Operations ---
+  async publishToSupabase(note: Note): Promise<string> {
     try {
-      const response = await fetch('/api/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(note)
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMsg = `Server Error (${response.status})`;
-        try {
-          const data = JSON.parse(text);
-          errorMsg = data.error || errorMsg;
-        } catch (e) {
-          if (text.includes('<!doctype html>') || text.includes('<html>')) {
-            errorMsg = 'API route not found (Server returned HTML).';
-          } else if (text) {
-            errorMsg = text.slice(0, 100);
+      const shortCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      
+      const { data, error } = await supabase
+        .from('published_notes')
+        .insert([
+          {
+            short_code: shortCode,
+            title: note.title,
+            content: note.content,
+            emoji: note.emoji,
           }
-        }
-        throw new Error(errorMsg);
-      }
+        ])
+        .select()
+        .single();
 
-      const data = await response.json();
-      if (data.success) {
-        return data.id;
-      }
-      throw new Error(data.error || 'Failed to publish');
+      if (error) throw error;
+      
+      // Save the published code to the local note
+      const updatedNote = { ...note, publishedCode: data.short_code };
+      await this.saveNote(updatedNote);
+      
+      return data.short_code;
     } catch (e) {
-      console.error('Publish error:', e);
+      console.error('Supabase Publish error:', e);
       throw e;
     }
   },
 
-  async importById(id: string): Promise<Note> {
+  async importFromSupabase(shortCode: string): Promise<Note> {
     try {
-      const response = await fetch(`/api/import/${id}`);
-      
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMsg = `Import Failed (${response.status})`;
-        try {
-          const data = JSON.parse(text);
-          errorMsg = data.error || errorMsg;
-        } catch (e) {
-          if (text.includes('<!doctype html>') || text.includes('<html>')) {
-            errorMsg = 'API route not found (Server returned HTML).';
-          } else if (text) {
-            errorMsg = text.slice(0, 100);
-          }
-        }
-        throw new Error(errorMsg);
-      }
+      const { data, error } = await supabase
+        .from('published_notes')
+        .select('*')
+        .eq('short_code', shortCode.toUpperCase())
+        .single();
 
-      const data = await response.json();
-      if (data.success) {
-        const note = {
-          ...data.note,
-          id: `imported-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          createdAt: Date.now()
-        };
-        await this.saveNote(note);
-        return note;
-      }
-      throw new Error(data.error || 'Note not found');
+      if (error) throw new Error('Note not found or network error');
+
+      const note: Note = {
+        id: `imported-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        title: data.title,
+        content: data.content,
+        emoji: data.emoji || '📄',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      await this.saveNote(note);
+      return note;
     } catch (e) {
-      console.error('Import error:', e);
+      console.error('Supabase Import error:', e);
       throw e;
     }
   },
@@ -639,6 +628,32 @@ export const DataManager = {
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'DELETE_TASK', id });
+  },
+
+  async updateTaskPartStatus(taskId: string, partTitle: string, status: 'pending' | 'completed'): Promise<void> {
+    const tasks = await this.getTasks();
+    const taskIndex = tasks.findIndex(t => t.id === taskId || t.title.toLowerCase() === taskId.toLowerCase());
+    
+    if (taskIndex > -1) {
+      const task = tasks[taskIndex];
+      const partIndex = task.parts.findIndex(p => p.title.toLowerCase() === partTitle.toLowerCase());
+      
+      if (partIndex > -1) {
+        task.parts[partIndex].status = status;
+        
+        // Auto-complete task if all parts are done
+        const allDone = task.parts.every(p => p.status === 'completed');
+        if (allDone) {
+          task.status = 'completed';
+        } else {
+          task.status = 'in-progress';
+        }
+        
+        task.updatedAt = Date.now();
+        await localforage.setItem(TASKS_KEY, tasks);
+        syncChannel.postMessage({ type: 'UPDATE_TASKS' });
+      }
+    }
   },
 
   // --- Context Summary Operations ---

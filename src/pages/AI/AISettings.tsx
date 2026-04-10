@@ -204,30 +204,69 @@ const AISettingsPage: React.FC = () => {
       </header>
 
       <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8 relative">
-        {/* Maintenance Overlay */}
-        <div className="absolute inset-0 z-20 bg-[#191919]/60 backdrop-blur-[2px] flex items-start justify-center pt-20 px-6">
-          <div className="bg-blue-600/20 border border-blue-500/30 p-6 rounded-3xl max-w-sm text-center space-y-4 shadow-2xl">
-            <Sparkles className="mx-auto text-blue-400" size={40} />
-            <div className="space-y-2">
-              <h2 className="text-xl font-bold text-white">Maintenance Mode</h2>
-              <p className="text-sm text-blue-100/70 leading-relaxed">
-                RN AI 2.3 টেস্টিং চলছে। সাময়িকভাবে মডেল পরিবর্তন ডিজেবল করা হয়েছে। বর্তমানে সবাই <span className="text-white font-bold uppercase">Free Model</span> ব্যবহার করছেন।
-              </p>
+        {/* Control Mode Selection */}
+        <section className="p-6 bg-blue-600/10 border border-blue-500/20 rounded-3xl space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/20 rounded-xl">
+              <Sparkles className="text-blue-400" size={24} />
             </div>
-            <button 
-              onClick={() => navigate('/ai')}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm transition-all active:scale-95"
+            <div>
+              <h2 className="text-lg font-bold text-white">কন্ট্রোল মোড</h2>
+              <p className="text-xs text-blue-100/50">আপনার ব্যবহারের ধরন অনুযায়ী মোড বেছে নিন।</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={async () => {
+                const newSettings = { ...settings, controlMode: 'auto' as const };
+                setSettings(newSettings);
+                await DataManager.saveAISettings(newSettings);
+              }}
+              className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${
+                settings.controlMode === 'auto'
+                  ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-600/20'
+                  : 'bg-white/5 border-white/5 hover:border-white/10'
+              }`}
             >
-              ফিরে যান
+              <p className={`text-sm font-bold ${settings.controlMode === 'auto' ? 'text-white' : 'text-white/60'}`}>Auto</p>
+              <p className={`text-[10px] ${settings.controlMode === 'auto' ? 'text-blue-100/70' : 'text-white/30'}`}>সিস্টেম অটোমেটিক ফ্রি মডেল ব্যবহার করবে।</p>
+            </button>
+            <button
+              onClick={async () => {
+                const newSettings = { ...settings, controlMode: 'manual' as const };
+                setSettings(newSettings);
+                await DataManager.saveAISettings(newSettings);
+              }}
+              className={`p-4 rounded-2xl border transition-all text-left space-y-1 ${
+                settings.controlMode === 'manual'
+                  ? 'bg-white/10 border-white/30 shadow-lg'
+                  : 'bg-white/5 border-white/5 hover:border-white/10'
+              }`}
+            >
+              <p className={`text-sm font-bold ${settings.controlMode === 'manual' ? 'text-white' : 'text-white/60'}`}>Manual Control</p>
+              <p className={`text-[10px] ${settings.controlMode === 'manual' ? 'text-white/50' : 'text-white/30'}`}>আপনি নিজে মডেল এবং API কনফিগার করতে পারবেন।</p>
             </button>
           </div>
-        </div>
+        </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 text-white/40 mb-2">
-            <Info size={16} />
-            <p className="text-sm">আপনার পছন্দের AI প্রোভাইডার বেছে নিন। ফ্রি মডেল ডিফল্টভাবে দেওয়া থাকে।</p>
-          </div>
+        {settings.controlMode === 'auto' ? (
+          <section className="py-12 text-center space-y-4 opacity-60">
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+              <Settings className="text-white/20" size={32} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white/40">অ্যাডভান্সড সেটিংস লকড</h3>
+              <p className="text-xs text-white/20 px-12">Auto মোডে অ্যাডভান্সড সেটিংস পরিবর্তন করা সম্ভব নয়। পরিবর্তন করতে Manual Control মোড অন করুন।</p>
+            </div>
+          </section>
+        ) : (
+          <>
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-white/40 mb-2">
+                <Info size={16} />
+                <p className="text-sm">আপনার পছন্দের AI প্রোভাইডার বেছে নিন। ফ্রি মডেল ডিফল্টভাবে দেওয়া থাকে।</p>
+              </div>
 
           {providers.map((provider) => {
             const isEnabled = settings.enabledProviders.includes(provider.id);
@@ -547,6 +586,8 @@ const AISettingsPage: React.FC = () => {
             এগুলো কখনোই আমাদের সার্ভারে পাঠানো হয় না। সব AI রিকোয়েস্ট সরাসরি আপনার ব্রাউজার থেকে সংশ্লিষ্ট AI প্রোভাইডারের কাছে পাঠানো হয়।
           </p>
         </section>
+          </>
+        )}
       </main>
 
       {/* API Key Modal */}

@@ -23,11 +23,11 @@ const InboxPage: React.FC = () => {
     setError(null);
     setImportResult(null);
     try {
-      const note = await DataManager.importById(shareCode.trim());
+      const note = await DataManager.importFromSupabase(shareCode.trim());
       setImportResult({ success: true, count: 1 });
       setShareCode('');
     } catch (err: any) {
-      setError(err.message || 'Failed to import note. Please check the ID.');
+      setError(err.message || 'Failed to import note. Please check the code.');
     } finally {
       setIsImporting(false);
     }

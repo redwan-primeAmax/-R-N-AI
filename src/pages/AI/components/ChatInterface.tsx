@@ -4,10 +4,11 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, Plus, Send, Settings, Sparkles, User, Bot, Trash2, ChevronLeft, Download, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
-import { ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
+import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -154,6 +155,7 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   onScroll,
   tokenUsage
 }) => {
+  const navigate = useNavigate();
   const [debugMessage, setDebugMessage] = React.useState<ChatMessage | null>(null);
 
   const tokenPercentage = Math.min(100, Math.round((tokenUsage.used / tokenUsage.total) * 100));
@@ -192,14 +194,6 @@ export const AIInterface: React.FC<InterfaceProps> = ({
         
         <div className="flex items-center gap-2">
           <button 
-            onClick={exportAuditLogs}
-            className="w-9 h-9 flex items-center justify-center bg-blue-600/20 border border-blue-500/30 rounded-full transition-all active:scale-95 text-blue-400 hover:bg-blue-600/30 shadow-sm"
-            title="Download Analysis (.txt)"
-          >
-            <Download size={20} />
-          </button>
-
-          <button 
             onClick={() => setShowClearConfirm(true)}
             className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
             title="চ্যাট ইতিহাস মুছুন"
@@ -208,9 +202,9 @@ export const AIInterface: React.FC<InterfaceProps> = ({
           </button>
           
           <button 
-            disabled
-            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full opacity-20 cursor-not-allowed text-white/80 shadow-sm"
-            title="Settings Disabled (RN AI 2.3)"
+            onClick={() => navigate('/ai/settings')}
+            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+            title="Settings"
           >
             <Settings size={20} />
           </button>
@@ -278,16 +272,40 @@ export const AIInterface: React.FC<InterfaceProps> = ({
                 </div>
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
                   {task.parts.map(part => (
-                    <div 
-                      key={part.id}
-                      className={(() => {
-                        const base = "flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all";
-                        if (part.status === 'completed') return `${base} bg-green-500/10 border-green-500/20 text-green-400`;
-                        return `${base} bg-white/5 border-white/5 text-white/40`;
-                      })()}
-                    >
-                      {part.status === 'completed' ? <CheckCircle2 size={12} /> : <Circle size={12} />}
-                      <span className="text-[10px] font-bold whitespace-nowrap">{part.title}</span>
+                    <div key={part.id} className="flex-shrink-0 flex items-center gap-1">
+                      <button 
+                        disabled={isLoading}
+                        onClick={() => {
+                          if (part.status !== 'completed') {
+                            setInput(`Execute task part: "${part.title}" for task: "${task.title}"`);
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all active:scale-95 disabled:opacity-50",
+                          part.status === 'completed' 
+                            ? "bg-green-500/10 border-green-500/20 text-green-400" 
+                            : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20"
+                        )}
+                      >
+                        {part.status === 'completed' ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                        <span className="text-[10px] font-bold whitespace-nowrap">{part.title}</span>
+                        {part.status !== 'completed' && !isLoading && (
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                        )}
+                      </button>
+                      
+                      {part.status !== 'completed' && (
+                        <button
+                          onClick={async () => {
+                            await DataManager.updateTaskPartStatus(task.id, part.title, 'completed');
+                            // Trigger a local refresh if needed, though onSync should handle it
+                          }}
+                          className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-white/20 hover:text-green-400 hover:bg-green-500/10 transition-all"
+                          title="সম্পন্ন হিসেবে চিহ্নিত করুন"
+                        >
+                          <CheckCircle2 size={14} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

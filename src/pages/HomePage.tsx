@@ -21,7 +21,8 @@ import {
   Sparkles,
   UploadCloud,
   Download,
-  Settings
+  Settings,
+  Loader2
 } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -86,6 +87,14 @@ const NoteContextMenu = memo(({
           >
             <UploadCloud size={20} className="text-blue-400" />
             <span className="font-medium">Publish to DB</span>
+          </button>
+
+          <button 
+            onClick={() => { DataManager.exportNoteAsTxt(note); onClose(); }}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          >
+            <Download size={20} className="text-white/60" />
+            <span className="font-medium">Download (.txt)</span>
           </button>
 
           <div className="h-px bg-white/5 my-2 mx-4" />
@@ -210,6 +219,9 @@ export default function HomePage() {
   const [listHeight, setListHeight] = useState(window.innerHeight - 350);
   const [searchQuery, setSearchQuery] = useState('');
   const [publishedId, setPublishedId] = useState<string | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
   const [showNamePopup, setShowNamePopup] = useState(false);
   const [tempName, setTempName] = useState('');
@@ -315,12 +327,29 @@ export default function HomePage() {
 
   const handlePublish = useCallback(async (note: Note) => {
     try {
-      const id = await DataManager.publishToDB(note);
+      const id = await DataManager.publishToSupabase(note);
       setPublishedId(id);
     } catch (e) {
       alert('Failed to publish: ' + e);
     }
   }, []);
+
+  const handleImport = async (code: string) => {
+    if (!code.trim()) return;
+    setNotification({ message: 'Importing note...', type: 'info' });
+    try {
+      const note = await DataManager.importFromSupabase(code);
+      setNotes(prev => [note, ...prev]);
+      setSearchQuery('');
+      setNotification({ message: 'Note imported successfully!', type: 'success' });
+    } catch (e: any) {
+      setErrorMessage(e.message || String(e));
+      setShowErrorModal(true);
+      setNotification(null);
+    } finally {
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
 
   const handleExportLogs = async () => {
     await DataManager.exportAuditLogs();
@@ -451,6 +480,37 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
+      {/* Error Modal */}
+      <AnimatePresence>
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1c1c1c] border border-red-500/20 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <X size={32} className="text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-red-400">Import Failed</h3>
+              <p className="text-white/60 text-sm mb-8 leading-relaxed">
+                {errorMessage.includes('Supabase credentials missing') 
+                  ? 'Supabase URL and Anon Key are missing. Please set them in the Settings menu to enable cloud features.' 
+                  : errorMessage}
+              </p>
+              
+              <button 
+                onClick={() => setShowErrorModal(false)}
+                className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
+              >
+                Close
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Top Bar */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between sticky top-0 bg-[#191919]/90 backdrop-blur-xl z-30 border-b border-white/5">
         <div className="flex items-center gap-2">
@@ -463,27 +523,42 @@ export default function HomePage() {
           </button>
         </div>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={handleExportLogs}
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
-            title="Download Audit Logs"
-          >
-            <Download size={20} />
-          </button>
           <Inbox 
             size={22} 
             className="text-white/60 cursor-pointer hover:text-white transition-colors" 
             onClick={() => navigate('/inbox')}
           />
           <button 
-            disabled
-            className="opacity-20 cursor-not-allowed"
-            title="Settings Disabled (RN AI 2.3)"
+            onClick={() => navigate('/ai/settings')}
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
+            title="Settings"
           >
-            <Settings size={22} className="text-white/60" />
+            <Settings size={22} />
           </button>
         </div>
       </div>
+
+      {/* Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 80, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className={cn(
+              "fixed top-0 left-1/2 -translate-x-1/2 z-[130] px-4 py-2 rounded-full text-xs font-bold shadow-2xl flex items-center gap-2 border",
+              notification.type === 'success' ? "bg-green-500/20 text-green-400 border-green-500/30" :
+              notification.type === 'error' ? "bg-red-500/20 text-red-400 border-red-500/30" :
+              "bg-blue-500/20 text-blue-400 border-blue-500/30"
+            )}
+          >
+            {notification.type === 'info' && <Loader2 size={14} className="animate-spin" />}
+            {notification.type === 'success' && <Check size={14} />}
+            {notification.type === 'error' && <X size={14} />}
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="px-4 mt-6">
         {/* Top Cards Section */}
@@ -514,8 +589,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Search Bar */}
-        <div className="mb-6">
+        {/* Search & Import Bar */}
+        <div className="mb-6 space-y-3">
           <div className="relative">
             <input 
               type="text"
@@ -526,6 +601,18 @@ export default function HomePage() {
             />
             <Plus size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 rotate-45" />
           </div>
+          
+          {searchQuery.length >= 8 && !searchQuery.includes(' ') && (
+            <motion.button
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => handleImport(searchQuery)}
+              className="w-full py-3 bg-blue-600/20 border border-blue-500/30 rounded-2xl text-blue-400 text-xs font-bold flex items-center justify-center gap-2 hover:bg-blue-600/30 transition-all"
+            >
+              <UploadCloud size={16} />
+              Import Note with code "{searchQuery}"
+            </motion.button>
+          )}
         </div>
 
         {/* Private Section Header */}
