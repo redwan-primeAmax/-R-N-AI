@@ -128,9 +128,8 @@ const AISettingsPage: React.FC = () => {
         ...settings.apiKeys,
         [showKeyModal.model]: tempKey
       },
-      enabledProviders: settings.enabledProviders.includes(showKeyModal.model) 
-        ? settings.enabledProviders 
-        : [...settings.enabledProviders, showKeyModal.model]
+      enabledProviders: [showKeyModal.model],
+      selectedProvider: showKeyModal.model as any
     };
 
     setSettings(newSettings);

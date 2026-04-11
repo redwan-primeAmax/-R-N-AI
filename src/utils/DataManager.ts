@@ -222,20 +222,10 @@ export const DataManager = {
       retrySettings: settings.retrySettings || defaultSettings.retrySettings
     };
 
-    // RN AI 2.3 Temporary Lock: Force picoapps (Free Model)
-    mergedSettings.selectedProvider = 'picoapps';
-    mergedSettings.enabledProviders = ['picoapps'];
-    mergedSettings.dataCheckingModel = 'free';
-
     return mergedSettings;
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
-    // RN AI 2.3 Temporary Lock: Prevent changing provider
-    settings.selectedProvider = 'picoapps';
-    settings.enabledProviders = ['picoapps'];
-    settings.dataCheckingModel = 'free';
-
     // Encrypt API keys before saving
     const encryptedKeys: any = {};
     if (settings.apiKeys) {
