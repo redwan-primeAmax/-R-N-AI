@@ -8,6 +8,7 @@ import { BrowserRouter as Router, useLocation, useRoutes, Navigate } from 'react
 import Navigation from './components/Navigation';
 import { DataManager } from './utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load components
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -134,9 +135,11 @@ function AppContent() {
       </AnimatePresence>
       
       <AnimatePresence mode="wait">
-        <Suspense fallback={<LoadingFallback />}>
-          {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingFallback />}>
+            {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
+          </Suspense>
+        </ErrorBoundary>
       </AnimatePresence>
       {!isFullPage && <Navigation />}
     </div>
