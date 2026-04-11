@@ -26,15 +26,27 @@ export const generateTitles = async (
   const markdownContent = note.content ? turndownService.turndown(note.content) : "(No content)";
   const userPrompt = `Note Title: ${note.title}\nNote Content:\n${markdownContent}`;
 
+  const enhancedSystemPrompt = `${systemPrompt}\n\nSTRICT RULES:\n1. Generate EXACTLY 10 titles.\n2. NO special characters (dots, colons, dashes, Roman numerals, etc.).\n3. MAX 4 words per title.\n4. NO emojis.\n5. Contextually relevant to the note content.`;
+
   aiManager.runTask(
     taskId,
     provider,
     userPrompt,
-    systemPrompt,
+    enhancedSystemPrompt,
     (response) => {
       const titles = response
         .split('\n')
-        .map(line => line.replace(/^\d+\.\s*/, '').trim())
+        .map(line => {
+          // Remove numbers, special characters, and emojis
+          let cleaned = line.replace(/^\d+\.\s*/, '') // Remove leading numbers
+            .replace(/[^\w\s]/gi, '') // Remove special characters
+            .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|\u200D|\uFE0F/g, '') // Remove emojis
+            .trim();
+          
+          // Limit to 4 words
+          const words = cleaned.split(/\s+/).slice(0, 4);
+          return words.join(' ');
+        })
         .filter(line => line.length > 0)
         .slice(0, 10);
       onTitles(titles);

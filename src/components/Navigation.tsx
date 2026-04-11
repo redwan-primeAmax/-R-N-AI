@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Search, Sparkles, SquarePen, Inbox } from 'lucide-react';
+import { Search, Sparkles, SquarePen, Inbox, Layout, Wrench } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -46,9 +46,9 @@ export default function Navigation() {
           <Search size={24} strokeWidth={2} />
         </NavLink>
 
-        {/* Inbox */}
+        {/* Home/Main */}
         <NavLink
-          to="/inbox"
+          to="/main"
           className={({ isActive }) =>
             cn(
               "p-2 rounded-full transition-all",
@@ -56,12 +56,25 @@ export default function Navigation() {
             )
           }
         >
-          <Inbox size={24} strokeWidth={2} />
+          <Layout size={24} strokeWidth={2} />
+        </NavLink>
+
+        {/* Tools */}
+        <NavLink
+          to="/tools"
+          className={({ isActive }) =>
+            cn(
+              "p-2 rounded-full transition-all",
+              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
+            )
+          }
+        >
+          <Wrench size={24} strokeWidth={2} />
         </NavLink>
 
         {/* Ask AI - Pill Shape */}
         <NavLink
-          to="/ai"
+          to="/ai-auto"
           className={({ isActive }) =>
             cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-full transition-all border border-white/10",

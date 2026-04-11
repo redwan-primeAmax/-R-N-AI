@@ -14,6 +14,11 @@
     color-scheme: dark;
   }
 
+  /* Disable text selection on main screen as requested */
+  .main-screen {
+    @apply select-none;
+  }
+
   /* Heading Styles for Tiptap (Custom Hierarchy: H1 smallest, H6 largest) */
   .ProseMirror h1 { @apply text-base font-bold mb-1 mt-2; }
   .ProseMirror h2 { @apply text-lg font-bold mb-1 mt-2; }

@@ -21,7 +21,7 @@ interface InterfaceProps {
   messages: ChatMessage[];
   streamingMessage: string | null;
   isLoading: boolean;
-  aiStatus: 'idle' | 'generating' | 'checking' | 'updating';
+  aiStatus: 'idle' | 'generating' | 'checking' | 'updating' | 'error';
   aiReason: string | null;
   completionPercentage: number | null;
   notes: Note[];
@@ -39,7 +39,6 @@ interface InterfaceProps {
   cleanAIText: (text: string) => string;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   navigateToSettings: () => void;
-  selectedModel: string;
   onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   tokenUsage: { used: number; total: number };
 }
@@ -151,7 +150,6 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   cleanAIText,
   messagesEndRef,
   navigateToSettings,
-  selectedModel,
   onScroll,
   tokenUsage
 }) => {

@@ -34,15 +34,13 @@ const NoteContextMenu = memo(({
   onClose, 
   onDuplicate, 
   onToggleFavorite, 
-  onDelete,
-  onPublish
+  onDelete
 }: { 
   note: Note; 
   onClose: () => void;
   onDuplicate: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
-  onPublish: (note: Note) => void;
 }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-[2px]" onClick={onClose}>
@@ -50,7 +48,7 @@ const NoteContextMenu = memo(({
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 400 }}
         className="w-full max-w-lg bg-[#1c1c1c] rounded-t-3xl p-6 pb-12 shadow-2xl border-t border-white/5"
         onClick={(e) => e.stopPropagation()}
       >
@@ -79,14 +77,6 @@ const NoteContextMenu = memo(({
           >
             <Star size={20} className={note.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-white/60"} />
             <span className="font-medium">{note.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
-          </button>
-
-          <button 
-            onClick={() => { onPublish(note); onClose(); }}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
-          >
-            <UploadCloud size={20} className="text-blue-400" />
-            <span className="font-medium">Publish to DB</span>
           </button>
 
           <button 
@@ -192,7 +182,10 @@ const NoteRow = memo(({
         )}
 
         {isSelectionMode && (
-          <div className="px-2">
+          <div 
+            className="px-2 cursor-pointer"
+            onClick={() => handleNoteClick(note.id)}
+          >
             <div className={cn(
               "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
               isSelected 
@@ -364,7 +357,7 @@ export default function HomePage() {
 
 
   return (
-    <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden">
+    <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden main-screen">
       {/* Welcome Onboarding Popup */}
       <AnimatePresence>
         {showWelcomePopup && (
@@ -523,6 +516,13 @@ export default function HomePage() {
           </button>
         </div>
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/import/import')}
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
+            title="Import Note"
+          >
+            <UploadCloud size={20} />
+          </button>
           <Inbox 
             size={22} 
             className="text-white/60 cursor-pointer hover:text-white transition-colors" 
@@ -658,7 +658,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Context Menu Overlay */}
       <AnimatePresence>
         {activeMenuNote && (
           <NoteContextMenu 
@@ -667,7 +666,6 @@ export default function HomePage() {
             onDuplicate={handleDuplicate}
             onToggleFavorite={handleToggleFavorite}
             onDelete={handleDelete}
-            onPublish={handlePublish}
           />
         )}
       </AnimatePresence>

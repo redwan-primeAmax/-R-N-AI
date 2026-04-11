@@ -22,6 +22,7 @@ import {
   Highlighter, AlignLeft, AlignCenter, AlignRight, Type, 
   Minus, Palette, Menu, Download, Mic, MicOff, Heading, Trash2, Sparkles, Loader2, UploadCloud, Copy, AlertCircle
 } from 'lucide-react';
+import EditorMenu from '../components/EditorMenu';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -66,6 +67,7 @@ export default function EditorPage() {
   const [publishedCode, setPublishedCode] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showEditorMenu, setShowEditorMenu] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -114,20 +116,25 @@ export default function EditorPage() {
   const handlePublish = async () => {
     if (note) {
       setIsPublishing(true);
-      setNotification({ message: 'Publishing to cloud...', type: 'info' });
+      setNotification({ message: publishedCode ? 'Updating cloud note...' : 'Publishing to cloud...', type: 'info' });
       try {
-        const code = await DataManager.publishToSupabase({ ...note, content: editor?.getHTML() || '' });
-        setPublishedCode(code);
-        setNotification({ message: 'Published successfully!', type: 'success' });
-        setTimeout(() => setShowShareModal(true), 500);
-        setShowExportMenu(false);
+        const currentContent = editor?.getHTML() || '';
+        if (publishedCode) {
+          await DataManager.updatePublishedNote({ ...note, content: currentContent });
+          setNotification({ message: 'Update successful!', type: 'success' });
+        } else {
+          const code = await DataManager.publishToSupabase({ ...note, content: currentContent });
+          setPublishedCode(code);
+          setNotification({ message: 'Published successfully!', type: 'success' });
+          setTimeout(() => setShowShareModal(true), 500);
+        }
+        setShowEditorMenu(false);
       } catch (e: any) {
         setErrorMessage(e.message || String(e));
         setShowErrorModal(true);
         setNotification(null);
       } finally {
         setIsPublishing(false);
-        // Clear notification after 3 seconds
         setTimeout(() => setNotification(null), 3000);
       }
     }
@@ -317,9 +324,15 @@ export default function EditorPage() {
 
   const handleCopyContent = () => {
     if (editor) {
-      const content = editor.getText();
-      navigator.clipboard.writeText(content);
-      // Optional: Show a toast or brief feedback
+      const text = editor.getText();
+      navigator.clipboard.writeText(text).then(() => {
+        setNotification({ message: 'Content copied to clipboard!', type: 'success' });
+        setTimeout(() => setNotification(null), 2000);
+        setShowEditorMenu(false);
+      }).catch(() => {
+        setNotification({ message: 'Failed to copy content', type: 'error' });
+        setTimeout(() => setNotification(null), 2000);
+      });
     }
   };
 
@@ -355,45 +368,14 @@ export default function EditorPage() {
     <div className="min-h-screen bg-[#0d0d0d] pb-32 text-white">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-[#0d0d0d] border-b border-white/10 px-4 py-2 flex items-center gap-3">
-        <button onClick={() => navigate('/')} className="p-1.5 text-white/40 hover:text-white">
+        <button onClick={() => navigate('/main')} className="p-1.5 text-white/40 hover:text-white">
           <ArrowLeft size={20} />
         </button>
         <div className="flex-grow flex items-center gap-2">
-          <div className="relative">
-            <button onClick={() => setShowExportMenu(!showExportMenu)} className="p-1.5 text-white/40 hover:text-white">
-              <Menu size={20} />
-            </button>
-            {showExportMenu && (
-              <div className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl p-1.5 z-50 min-w-[140px]">
-                <button
-                  onClick={handleExport}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium"
-                >
-                  <Download size={16} />
-                  Export (.txt)
-                </button>
-                <button
-                  onClick={handlePublish}
-                  disabled={isPublishing}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 rounded-lg text-xs font-medium mt-1 disabled:opacity-50"
-                >
-                  {isPublishing ? (
-                    <Loader2 size={16} className="animate-spin text-blue-400" />
-                  ) : (
-                    <UploadCloud size={16} className="text-blue-400" />
-                  )}
-                  {publishedCode ? 'Update Published' : 'Publish to Cloud'}
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-red-900/20 text-red-400 rounded-lg text-xs font-medium mt-1"
-                >
-                  <Trash2 size={16} />
-                  Delete Note
-                </button>
-              </div>
-            )}
-          </div>
+          <button onClick={() => setShowEditorMenu(true)} className="p-1.5 text-white/40 hover:text-white">
+            <Menu size={20} />
+          </button>
+          
           <button onClick={toggleEmoji} className="text-xl hover:scale-110 transition-transform">
             {emoji}
           </button>
@@ -411,21 +393,29 @@ export default function EditorPage() {
               className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-[10px] font-bold border border-blue-500/30 flex items-center gap-1.5 hover:bg-blue-500/30 transition-all"
             >
               <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
-              Published
+              {DataManager.getSyncStatus({ ...note!, content: editor?.getHTML() || '' }) === 'synced' ? 'Published' : 'Update'}
             </button>
           )}
-          <button 
-            onClick={handleCopyContent}
-            className="p-1.5 text-white/40 hover:text-white transition-colors"
-            title="Copy Content"
-          >
-            <Copy size={18} />
-          </button>
           {isSaving && <div className="text-[8px] text-white/40 uppercase tracking-widest animate-pulse">Saving...</div>}
         </div>
       </header>
 
-      {/* Notification Toast */}
+      {/* Editor Menu */}
+      <AnimatePresence>
+        {showEditorMenu && note && (
+          <EditorMenu
+            isOpen={showEditorMenu}
+            onClose={() => setShowEditorMenu(false)}
+            note={note}
+            content={editor?.getHTML() || ''}
+            isPublishing={isPublishing}
+            publishedCode={publishedCode}
+            onPublish={handlePublish}
+            onCopy={handleCopyContent}
+            syncStatus={DataManager.getSyncStatus({ ...note, content: editor?.getHTML() || '' })}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {notification && (
           <motion.div

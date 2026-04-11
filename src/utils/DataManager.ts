@@ -20,6 +20,7 @@ export interface Note {
   fontFamily?: string;
   isFavorite?: boolean;
   publishedCode?: string;
+  lastPublishedContent?: string;
 }
 
 export interface ChatMessage {
@@ -492,8 +493,12 @@ export const DataManager = {
 
       if (error) throw error;
       
-      // Save the published code to the local note
-      const updatedNote = { ...note, publishedCode: data.short_code };
+      // Save the published code and content to the local note for sync tracking
+      const updatedNote = { 
+        ...note, 
+        publishedCode: data.short_code,
+        lastPublishedContent: note.content 
+      };
       await this.saveNote(updatedNote);
       
       return data.short_code;
@@ -522,7 +527,9 @@ export const DataManager = {
         content: data.content,
         emoji: data.emoji || '📄',
         createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        publishedCode: data.short_code,
+        lastPublishedContent: data.content
       };
 
       await this.saveNote(note);
@@ -531,6 +538,39 @@ export const DataManager = {
       console.error('Supabase Import error:', e);
       throw e;
     }
+  },
+
+  async updatePublishedNote(note: Note): Promise<void> {
+    if (!isSupabaseConfigured || !note.publishedCode) return;
+    
+    try {
+      const { error } = await supabase
+        .from('published_notes')
+        .update({
+          title: note.title,
+          content: note.content,
+          emoji: note.emoji,
+          updated_at: new Date().toISOString()
+        })
+        .eq('short_code', note.publishedCode);
+
+      if (error) throw error;
+
+      // Update local tracking
+      const updatedNote = { ...note, lastPublishedContent: note.content };
+      await this.saveNote(updatedNote);
+    } catch (e) {
+      console.error('Update Published Note error:', e);
+      throw e;
+    }
+  },
+
+  getSyncStatus(note: Note): 'synced' | 'changed' | 'none' {
+    if (!note.publishedCode) return 'none';
+    if (!note.lastPublishedContent) return 'changed';
+    
+    // Simple content comparison
+    return note.content === note.lastPublishedContent ? 'synced' : 'changed';
   },
 
   async replaceContent(idOrTitle: string, search: string, replacement: string): Promise<void> {

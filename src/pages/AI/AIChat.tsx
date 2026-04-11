@@ -25,7 +25,7 @@ const AIChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'checking' | 'updating'>('idle');
+  const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'checking' | 'updating' | 'error'>('idle');
   const [aiReason, setAiReason] = useState<string | null>(null);
   const [completionPercentage, setCompletionPercentage] = useState<number | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
@@ -36,6 +36,24 @@ const AIChat: React.FC = () => {
   const [selectedProvider, setSelectedProvider] = useState('picoapps');
   const [selectedModel, setSelectedModel] = useState('');
   const [showMentions, setShowMentions] = useState(false);
+  
+  // URL Sync Logic
+  useEffect(() => {
+    let base = selectedProvider === 'picoapps' ? '/ai-auto' : `/manual-control/${selectedModel || 'default'}`;
+    let suffix = '';
+    
+    if (aiStatus === 'checking') suffix = '-checking';
+    else if (aiStatus === 'updating') suffix = '-updating';
+    else if (aiStatus === 'generating') suffix = '-generating';
+    else if (aiStatus === 'error') suffix = '-error';
+    
+    if (aiReason?.toLowerCase().includes('retry')) suffix += '-retrying';
+    
+    const newPath = `${base}${suffix}`;
+    if (window.location.pathname !== newPath) {
+      window.history.replaceState(null, '', newPath);
+    }
+  }, [selectedProvider, selectedModel, aiStatus, aiReason]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [attachedNotes, setAttachedNotes] = useState<Note[]>([]);
@@ -293,7 +311,6 @@ const AIChat: React.FC = () => {
         navigateBack={() => navigate('/')}
         navigateToEditor={(id) => navigate(`/editor/${id}`)}
         navigateToSettings={() => navigate('/ai/settings')}
-        selectedModel={selectedModel}
         setInput={setInput}
         cleanAIText={cleanAIText}
         messagesEndRef={messagesEndRef}

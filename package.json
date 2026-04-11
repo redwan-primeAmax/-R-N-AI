@@ -33,6 +33,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "flexsearch": "^0.8.212",
+    "jspdf": "^4.2.1",
     "localforage": "^1.10.0",
     "lucide-react": "^0.546.0",
     "marked": "^17.0.6",

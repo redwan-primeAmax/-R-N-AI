@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, useLocation, useRoutes } from 'react-router-dom';
+import { BrowserRouter as Router, useLocation, useRoutes, Navigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import { DataManager } from './utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,6 +18,10 @@ const AIChat = lazy(() => import('./pages/AI/AIChat'));
 const AISettings = lazy(() => import('./pages/AI/AISettings'));
 const TitleGenerator = lazy(() => import('./pages/AI/TitleGenerator/TitleGenerator'));
 const BrowseTemplates = lazy(() => import('./pages/BrowseTemplates'));
+const ToolsDashboard = lazy(() => import('./pages/Tools/ToolsDashboard'));
+const WordCounter = lazy(() => import('./tool-library/text-tools/WordCounter'));
+const NumberRemover = lazy(() => import('./tool-library/text-tools/remove-number-from-text'));
+const Summarizer = lazy(() => import('./tool-library/text-tools/Summarizer'));
 
 function LoadingFallback() {
   return (
@@ -102,14 +106,21 @@ function AppContent() {
   };
 
   const routingElement = useRoutes([
-    { path: "/", element: <PageWrapper><HomePage /></PageWrapper> },
+    { path: "/", element: <Navigate to="/main" replace /> },
+    { path: "/main", element: <PageWrapper><HomePage /></PageWrapper> },
     { path: "/inbox", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/search", element: <PageWrapper><SearchPage /></PageWrapper> },
+    { path: "/import/import", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/editor/:id", element: <PageWrapper><EditorPage /></PageWrapper> },
-    { path: "/ai", element: <PageWrapper><AIChat /></PageWrapper> },
+    { path: "/ai-auto", element: <PageWrapper><AIChat /></PageWrapper> },
+    { path: "/manual-control/:model", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AISettings /></PageWrapper> },
     { path: "/ai/title-generator", element: <PageWrapper><TitleGenerator /></PageWrapper> },
-    { path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
+    {path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
+    { path: "/tools", element: <PageWrapper><ToolsDashboard /></PageWrapper> },
+    { path: "/tools/word-counter", element: <PageWrapper><WordCounter /></PageWrapper> },
+    { path: "/tools/number-remover", element: <PageWrapper><NumberRemover /></PageWrapper> },
+    { path: "/tools/summarizer", element: <PageWrapper><Summarizer /></PageWrapper> },
   ]);
 
   return (
