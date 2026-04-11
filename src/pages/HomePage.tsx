@@ -215,7 +215,7 @@ export default function HomePage() {
   const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [listHeight, setListHeight] = useState(window.innerHeight - 280);
+  const [listHeight, setListHeight] = useState(window.innerHeight - 350);
   const [searchQuery, setSearchQuery] = useState('');
   const [publishedId, setPublishedId] = useState<string | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -525,7 +525,7 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/import')}
+            onClick={() => navigate('/import/import')}
             className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
             title="Import Note"
           >
@@ -568,11 +568,9 @@ export default function HomePage() {
         {!isSelectionMode && (
           <div className="flex gap-3 mb-8">
             <motion.div
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(255,255,255,0.12)' }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/templates')}
-              className="flex-[4] bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4 cursor-pointer transition-colors border-dashed"
+              className="flex-[4] bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-white/10 transition-all border-dashed"
             >
               <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
                 <Layout size={20} className="text-white/80" />
@@ -584,11 +582,9 @@ export default function HomePage() {
             </motion.div>
 
             <motion.div
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.9, backgroundColor: 'rgba(59,130,246,0.15)' }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/ai/title-generator')}
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors border-dashed"
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/10 transition-all border-dashed"
             >
               <Sparkles size={20} className="text-blue-400" />
               <span className="text-[10px] font-bold uppercase tracking-tighter text-white/60">Title AI</span>

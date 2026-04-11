@@ -86,10 +86,6 @@ localforage.config({
 // BroadcastChannel for multi-tab sync
 const syncChannel = new BroadcastChannel('notion_sync');
 const clientId = crypto.randomUUID();
-const syncListeners = new Set<(data: any) => void>();
-syncChannel.onmessage = (event) => {
-  syncListeners.forEach(cb => cb(event.data));
-};
 
 // Initialize FlexSearch index
 let searchIndex: Index;
@@ -182,7 +178,7 @@ export const DataManager = {
       controlMode: 'auto',
       selectedProvider: 'picoapps',
       selectedModels: {
-        gemini: 'gemini-2.0-flash',
+        gemini: 'gemini-3-flash-preview',
         openrouter: '',
         mistral: 'mistral-large-latest'
       },
@@ -226,10 +222,20 @@ export const DataManager = {
       retrySettings: settings.retrySettings || defaultSettings.retrySettings
     };
 
+    // RN AI 2.3 Temporary Lock: Force picoapps (Free Model)
+    mergedSettings.selectedProvider = 'picoapps';
+    mergedSettings.enabledProviders = ['picoapps'];
+    mergedSettings.dataCheckingModel = 'free';
+
     return mergedSettings;
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
+    // RN AI 2.3 Temporary Lock: Prevent changing provider
+    settings.selectedProvider = 'picoapps';
+    settings.enabledProviders = ['picoapps'];
+    settings.dataCheckingModel = 'free';
+
     // Encrypt API keys before saving
     const encryptedKeys: any = {};
     if (settings.apiKeys) {
@@ -752,10 +758,10 @@ export const DataManager = {
 
   // Add listener for components to use
   onSync(callback: (event: any) => void) {
-    syncListeners.add(callback);
+    syncChannel.onmessage = (event) => callback(event.data);
   },
   
-  offSync(callback: (event: any) => void) {
-    syncListeners.delete(callback);
+  offSync() {
+    syncChannel.onmessage = null;
   }
 };

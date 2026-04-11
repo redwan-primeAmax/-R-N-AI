@@ -24,7 +24,7 @@ export const handleSendMessage = async (
   contextSummary: ContextSummary | null,
   notes: Note[],
   setIsLoading: (loading: boolean) => void,
-  setAiStatus: (status: 'idle' | 'generating' | 'checking' | 'updating' | 'error') => void,
+  setAiStatus: (status: 'idle' | 'generating' | 'checking' | 'updating') => void,
   setAiReason: (reason: string | null) => void,
   setCompletionPercentage: (percentage: number | null) => void,
   setMessages: (msgs: (prev: ChatMessage[]) => ChatMessage[]) => void,

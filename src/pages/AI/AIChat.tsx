@@ -149,7 +149,7 @@ const AIChat: React.FC = () => {
       });
 
     return () => {
-      DataManager.offSync(handleSync);
+      DataManager.offSync();
     };
   }, [loadHistory, loadNotes, loadTasks, loadContextSummary, loadAISettings]);
 

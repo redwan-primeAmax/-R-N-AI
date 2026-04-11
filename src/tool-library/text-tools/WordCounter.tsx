@@ -166,8 +166,8 @@ ${text}
             <ChevronLeft size={20} />
           </button>
           <div className="flex flex-col">
-            <h1 className="text-sm font-bold tracking-tight">Word Counter</h1>
-            <span className="text-[10px] text-white/20 uppercase tracking-widest">Text-Based Tools</span>
+            <h1 className="text-sm font-bold tracking-tight">শব্দ গণনা যন্ত্র</h1>
+            <span className="text-[10px] text-white/20 uppercase tracking-widest">টেক্সট ভিত্তিক টুলস</span>
           </div>
         </div>
 

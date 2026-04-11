@@ -52,7 +52,6 @@ export class OpenRouterService extends AIService {
       const lines = chunk.split('\n').filter(line => line.trim() !== '');
       
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
         const message = line.replace(/^data: /, '');
         if (message === '[DONE]') break;
         
