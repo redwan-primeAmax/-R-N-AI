@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, useLocation, useRoutes, Navigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import { DataManager } from './utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -28,43 +27,11 @@ const Summarizer = lazy(() => import('./tool-library/text-tools/Summarizer'));
 function LoadingFallback() {
   return (
     <div className="flex items-center justify-center h-screen bg-[#191919]">
-      <motion.div 
+      <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full"
       />
-    </div>
-  );
-}
-
-function UserNamePopup({ onSave }: { onSave: (name: string) => void }) {
-  const [name, setName] = useState('');
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
-      <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-[#191919] border border-white/10 p-6 rounded-2xl w-full max-w-sm shadow-2xl"
-      >
-        <h2 className="text-xl font-bold text-white mb-2">Welcome!</h2>
-        <p className="text-white/60 text-sm mb-6">What should we call you? Your name will be stored locally.</p>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white mb-6 focus:outline-none focus:border-white/20"
-          autoFocus
-        />
-        <button
-          onClick={() => name.trim() && onSave(name.trim())}
-          disabled={!name.trim()}
-          className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-white/90 disabled:opacity-50 transition-all"
-        >
-          Save
-        </button>
-      </motion.div>
     </div>
   );
 }
@@ -84,30 +51,11 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
   const isToolsPage = location.pathname.startsWith('/tools');
   const isFullPage = isEditorPage || isSearchPage || isToolsPage || location.pathname.startsWith('/ai');
-  const [userName, setUserName] = useState<string | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-
-  useEffect(() => {
-    DataManager.getUserName().then(name => {
-      if (name) {
-        setUserName(name);
-      } else {
-        setShowPopup(true);
-      }
-    });
-  }, []);
-
-  const handleSaveName = async (name: string) => {
-    await DataManager.saveUserName(name);
-    setUserName(name);
-    setShowPopup(false);
-  };
 
   const routingElement = useRoutes([
     { path: "/", element: <Navigate to="/main" replace /> },
@@ -120,7 +68,7 @@ function AppContent() {
     { path: "/manual-control/:model", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AISettings /></PageWrapper> },
     { path: "/ai/title-generator", element: <PageWrapper><TitleGenerator /></PageWrapper> },
-    {path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
+    { path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/tools", element: <PageWrapper><ToolsDashboard /></PageWrapper> },
     { path: "/tools/use-history", element: <PageWrapper><ToolsHistory /></PageWrapper> },
     { path: "/tools/word-counter", element: <PageWrapper><WordCounter /></PageWrapper> },
@@ -130,10 +78,6 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen bg-[#191919] text-white font-sans ${isFullPage ? '' : 'pb-24'}`}>
-      <AnimatePresence>
-        {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
-      </AnimatePresence>
-
       <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
           <AnimatePresence mode="sync">
