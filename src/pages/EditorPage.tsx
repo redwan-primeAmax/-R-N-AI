@@ -200,12 +200,8 @@ export default function EditorPage() {
   };
 
   const clearSelection = () => {
-    if (editor?.state.selection.empty) {
-      // If no selection, maybe clear the current line/block?
-      // For now, let's just delete the selection if it exists
-      editor?.chain().focus().deleteSelection().run();
-    } else {
-      editor?.chain().focus().deleteSelection().run();
+    if (!editor?.state.selection.empty) {
+      editor.chain().focus().deleteSelection().run();
     }
   };
 
@@ -233,7 +229,7 @@ export default function EditorPage() {
     DataManager.onSync(handleSync);
     
     return () => {
-      DataManager.offSync();
+      DataManager.offSync(handleSync);
     };
   }, [id, editor]);
 
@@ -275,8 +271,9 @@ export default function EditorPage() {
       // Check for backup in localStorage
       const backup = localStorage.getItem(BACKUP_KEY);
       if (backup && backup !== fetchedNote.content) {
-        // If backup exists and is different, use it (or could ask user)
         editor?.commands.setContent(backup);
+        setNotification({ message: 'Restored unsaved changes', type: 'info' });
+        setTimeout(() => setNotification(null), 3000);
       } else {
         editor?.commands.setContent(fetchedNote.content);
       }

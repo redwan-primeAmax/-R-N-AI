@@ -62,7 +62,7 @@ function AppContent() {
     { path: "/main", element: <PageWrapper><HomePage /></PageWrapper> },
     { path: "/inbox", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/search", element: <PageWrapper><SearchPage /></PageWrapper> },
-    { path: "/import/import", element: <PageWrapper><InboxPage /></PageWrapper> },
+    { path: "/import", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/editor/:id", element: <PageWrapper><EditorPage /></PageWrapper> },
     { path: "/ai-auto", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/manual-control/:model", element: <PageWrapper><AIChat /></PageWrapper> },

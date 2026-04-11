@@ -215,7 +215,7 @@ export default function HomePage() {
   const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [listHeight, setListHeight] = useState(window.innerHeight - 350);
+  const [listHeight, setListHeight] = useState(window.innerHeight - 280);
   const [searchQuery, setSearchQuery] = useState('');
   const [publishedId, setPublishedId] = useState<string | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -525,7 +525,7 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/import/import')}
+            onClick={() => navigate('/import')}
             className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
             title="Import Note"
           >

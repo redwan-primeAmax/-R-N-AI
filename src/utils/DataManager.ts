@@ -86,6 +86,10 @@ localforage.config({
 // BroadcastChannel for multi-tab sync
 const syncChannel = new BroadcastChannel('notion_sync');
 const clientId = crypto.randomUUID();
+const syncListeners = new Set<(data: any) => void>();
+syncChannel.onmessage = (event) => {
+  syncListeners.forEach(cb => cb(event.data));
+};
 
 // Initialize FlexSearch index
 let searchIndex: Index;
@@ -178,7 +182,7 @@ export const DataManager = {
       controlMode: 'auto',
       selectedProvider: 'picoapps',
       selectedModels: {
-        gemini: 'gemini-3-flash-preview',
+        gemini: 'gemini-2.0-flash',
         openrouter: '',
         mistral: 'mistral-large-latest'
       },
@@ -748,10 +752,10 @@ export const DataManager = {
 
   // Add listener for components to use
   onSync(callback: (event: any) => void) {
-    syncChannel.onmessage = (event) => callback(event.data);
+    syncListeners.add(callback);
   },
   
-  offSync() {
-    syncChannel.onmessage = null;
+  offSync(callback: (event: any) => void) {
+    syncListeners.delete(callback);
   }
 };
