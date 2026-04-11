@@ -17,6 +17,7 @@ import {
   Search
 } from 'lucide-react';
 import { DataManager, Note } from '../../utils/DataManager';
+import FloatingHomeButton from '../../components/FloatingHomeButton';
 
 const categories = [
   {
@@ -84,7 +85,7 @@ const ToolsDashboard: React.FC = () => {
           <h1 className="text-xl font-bold tracking-tight">টুল লাইব্রেরি</h1>
         </div>
         <button 
-          onClick={() => setShowHistory(!showHistory)}
+          onClick={() => navigate('/tools/use-history')}
           className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all"
         >
           <History size={20} />
@@ -133,40 +134,8 @@ const ToolsDashboard: React.FC = () => {
             </div>
           </section>
         ))}
-
-        {/* Saved Results History (Overlay or Section) */}
-        {showHistory && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-[#1a1a1a] border border-white/10 rounded-3xl p-6 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg">সংরক্ষিত ফলাফল</h2>
-              <button onClick={() => setShowHistory(false)} className="text-xs text-white/40 hover:text-white">বন্ধ করুন</button>
-            </div>
-            <div className="space-y-3">
-              {savedResults.length === 0 ? (
-                <p className="text-center py-8 text-white/20 italic">কোনো সংরক্ষিত ফলাফল নেই</p>
-              ) : (
-                savedResults.map(result => (
-                  <button
-                    key={result.id}
-                    onClick={() => navigate(`/editor/${result.id}`)}
-                    className="w-full bg-white/5 border border-white/5 rounded-xl p-4 flex items-center justify-between hover:bg-white/10 transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText size={16} className="text-blue-400" />
-                      <span className="text-sm font-medium">{result.title.replace('[Tool] ', '')}</span>
-                    </div>
-                    <span className="text-[10px] text-white/20">{new Date(result.updatedAt).toLocaleDateString()}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
       </main>
+      <FloatingHomeButton />
     </div>
   );
 };

@@ -255,78 +255,100 @@ export const DataManager = {
   // --- Notes Operations ---
   
   async getAllNotes(): Promise<Note[]> {
-    let notes = await localforage.getItem<Note[]>(NOTES_KEY);
+    const notes = await localforage.getItem<Note[]>(NOTES_KEY);
     if (!notes || notes.length === 0) {
-      // Create a default note for new users
-      const welcomeNote: Note = {
-        id: 'welcome-note',
-        title: '👋 Getting Started on Mobile',
-        content: `
-          <h1>আমাদের নোট অ্যাপের ফিচার গাইড</h1>
-          <p>এই অ্যাপটি আপনার নোট গুছিয়ে রাখতে সাহায্য করবে। নিচে প্রতিটি বাটনের কাজ বাংলায় দেওয়া হলো:</p>
-          
-          <p><b>বোল্ড (Bold)</b> = লেখা মোটা করে।</p>
-          <p><i>ইটালিক (Italic)</i> = লেখা বাঁকা করে।</p>
-          <p><u>আন্ডারলাইন (Underline)</u> = লেখার নিচে দাগ দেয়।</p>
-          <p><b>হেডিং (Heading)</b> = লেখার আকার বড় করে (H1-H6)।</p>
-          <p><b>বুলেট লিস্ট (Bullet List)</b> = ডট দিয়ে তালিকা তৈরি করে।</p>
-          <p><b>নাম্বার লিস্ট (Numbered List)</b> = সংখ্যা দিয়ে তালিকা তৈরি করে।</p>
-          <p><b>টাস্ক লিস্ট (Task List)</b> = চেক বক্স সহ তালিকা তৈরি করে।</p>
-          <p><b>ব্লককোট (Blockquote)</b> = উদ্ধৃতি বা বিশেষ লেখা হাইলাইট করে।</p>
-          <p><b>কোড ব্লক (Code Block)</b> = প্রোগ্রামিং কোড লেখার জন্য।</p>
-          <p><b>হাইলাইটার (Highlight)</b> = লেখার ব্যাকগ্রাউন্ড কালার পরিবর্তন করে।</p>
-          <p><b>অ্যালাইনমেন্ট (Alignment)</b> = লেখা বাম, মাঝ বা ডানে সরায়।</p>
-          <p><b>ফন্ট (Font)</b> = লেখার স্টাইল পরিবর্তন করে।</p>
-          <p><b>কালার (Color)</b> = লেখার রং পরিবর্তন করে।</p>
-          <p><b>স্পিচ-টু-টেক্সট (Speech)</b> = কথা বলে লেখা টাইপ করে।</p>
-          <p><b>এক্সপোর্ট (Export)</b> = আপনার নোটটি .redwan ফাইলে সেভ করে।</p>
-          
-          <p>নতুন নোট তৈরি করতে হোম পেজের প্লাস (+) বাটনে ক্লিক করুন। কোনো নোট ডিলিট করতে সেটির উপর লং-প্রেস করুন।</p>
-        `,
-        emoji: '👋',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        isFavorite: false,
-      };
-
-      const suiterNote: Note = {
-        id: 'suiter-integration-note',
-        title: '🛠️ Suiter Integration Guide',
-        content: `
-          <h1>Suiter Integration Instructions</h1>
-          <p>এই নোটটি Mistral AI এবং Suiter Integration-এর জন্য তৈরি করা হয়েছে।</p>
-          
-          <h3>১. Suiter App ID Call:</h3>
-          <p>Suiter Integration এখন App ID-তে কল সাপোর্ট করে। এটি ব্যবহার করতে আপনার App ID এবং প্রয়োজনীয় প্যারামিটারগুলো কনফিগার করুন।</p>
-          
-          <h3>২. Mistral AI JSON Output:</h3>
-          <p>Mistral AI এখন থেকে JSON ফরম্যাটে আউটপুট প্রদান করবে। নিচের প্রম্পটটি কপি করে Mistral সার্ভারে পেস্ট করুন:</p>
-          
-          <pre style="background: #1a1a1a; color: #4ade80; padding: 1rem; border-radius: 0.5rem; border: 1px solid #333;">
-{
-  "instruction": "Generate response in valid JSON format based on the provided schema.",
-  "schema": {
-    "type": "object",
-    "properties": {
-      "answer": { "type": "string" },
-      "status": { "type": "string" }
-    }
-  }
-}
-          </pre>
-          
-          <p>উপরে দেওয়া কপি বাটনটি ব্যবহার করে এই নোটের কন্টেন্ট দ্রুত কপি করতে পারেন।</p>
-        `,
-        emoji: '🛠️',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        isFavorite: false,
-      };
-
-      notes = [welcomeNote, suiterNote];
-      await localforage.setItem(NOTES_KEY, notes);
+      return await this.initializeDefaultNotes();
     }
     return notes;
+  },
+
+  async getNotesPaginated(page: number, pageSize: number): Promise<{ notes: Note[], hasMore: boolean }> {
+    const allNotes = await this.getAllNotes();
+    const start = page * pageSize;
+    const end = start + pageSize;
+    const paginatedNotes = allNotes.slice(start, end);
+    return {
+      notes: paginatedNotes,
+      hasMore: end < allNotes.length
+    };
+  },
+
+  async initializeDefaultNotes(): Promise<Note[]> {
+    // Create a default note for new users
+    const welcomeNote: Note = {
+      id: 'welcome-note',
+      title: '👋 Getting Started on Mobile',
+      content: `
+        <h1>আমাদের নোট অ্যাপের ফিচার গাইড</h1>
+        <p>এই অ্যাপটি আপনার নোট গুছিয়ে রাখতে সাহায্য করবে। নিচে প্রতিটি বাটনের কাজ বাংলায় দেওয়া হলো:</p>
+        
+        <p><b>বোল্ড (Bold)</b> = লেখা মোটা করে।</p>
+        <p><i>ইটালিক (Italic)</i> = লেখা বাঁকা করে।</p>
+        <p><u>আন্ডারলাইন (Underline)</u> = লেখার নিচে দাগ দেয়।</p>
+        <p><b>হেডিং (Heading)</b> = লেখার আকার বড় করে (H1-H6)।</p>
+        <p><b>বুলেট লিস্ট (Bullet List)</b> = ডট দিয়ে তালিকা তৈরি করে।</p>
+        <p><b>নাম্বার লিস্ট (Numbered List)</b> = সংখ্যা দিয়ে তালিকা তৈরি করে।</p>
+        <p><b>টাস্ক লিস্ট (Task List)</b> = চেক বক্স সহ তালিকা তৈরি করে।</p>
+        <p><b>ব্লককোট (Blockquote)</b> = উদ্ধৃতি বা বিশেষ লেখা হাইলাইট করে।</p>
+        <p><b>কোড ব্লক (Code Block)</b> = প্রোগ্রামিং কোড লেখার জন্য।</p>
+        <p><b>হাইলাইটার (Highlight)</b> = লেখার ব্যাকগ্রাউন্ড কালার পরিবর্তন করে।</p>
+        <p><b>অ্যালাইনমেন্ট (Alignment)</b> = লেখা বাম, মাঝ বা ডানে সরায়।</p>
+        <p><b>ফন্ট (Font)</b> = লেখার স্টাইল পরিবর্তন করে।</p>
+        <p><b>কালার (Color)</b> = লেখার রং পরিবর্তন করে।</p>
+        <p><b>স্পিচ-টু-টেক্সট (Speech)</b> = কথা বলে লেখা টাইপ করে।</p>
+        <p><b>এক্সপোর্ট (Export)</b> = আপনার নোটটি .redwan ফাইলে সেভ করে।</p>
+        
+        <p>নতুন নোট তৈরি করতে হোম পেজের প্লাস (+) বাটনে ক্লিক করুন। কোনো নোট ডিলিট করতে সেটির উপর লং-প্রেস করুন।</p>
+      `,
+      emoji: '👋',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      isFavorite: false,
+    };
+
+    const suiterNote: Note = {
+      id: 'suiter-integration-note',
+      title: '🛠️ Suiter Integration Guide',
+      content: `
+        <h1>Suiter Integration Instructions</h1>
+        <p>এই নোটটি Mistral AI এবং Suiter Integration-এর জন্য তৈরি করা হয়েছে।</p>
+        
+        <h3>১. Suiter App ID Call:</h3>
+        <p>Suiter Integration এখন App ID-তে কল সাপোর্ট করে। এটি ব্যবহার করতে আপনার App ID এবং প্রয়োজনীয় প্যারামিটারগুলো কনফিগার করুন।</p>
+        
+        <h3>২. Mistral AI JSON Output:</h3>
+        <p>Mistral AI এখন থেকে JSON ফরম্যাটে আউটপুট প্রদান করবে। নিচের প্রম্পটটি কপি করে Mistral সার্ভারে পেস্ট করুন:</p>
+        
+        <pre style="background: #1a1a1a; color: #4ade80; padding: 1rem; border-radius: 0.5rem; border: 1px solid #333;">
+{
+"instruction": "Generate response in valid JSON format based on the provided schema.",
+"schema": {
+  "type": "object",
+  "properties": {
+    "answer": { "type": "string" },
+    "status": { "type": "string" }
+  }
+}
+}
+        </pre>
+        
+        <p>উপরে দেওয়া কপি বাটনটি ব্যবহার করে এই নোটের কন্টেন্ট দ্রুত কপি করতে পারেন।</p>
+      `,
+      emoji: '🛠️',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      isFavorite: false,
+    };
+
+    const notes = [welcomeNote, suiterNote];
+    await localforage.setItem(NOTES_KEY, notes);
+    return notes;
+  },
+
+  async clearMemory(): Promise<void> {
+    // Clear temporary caches or large objects from memory if any
+    // For now, we just ensure we're not holding onto large arrays globally
+    console.log('Memory cleared');
   },
 
   async getNoteById(id: string): Promise<Note | null> {

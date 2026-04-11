@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, X, ChevronRight } from 'lucide-react';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
+import FloatingHomeButton from '../components/FloatingHomeButton';
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
@@ -94,6 +95,7 @@ export default function SearchPage() {
           </AnimatePresence>
         </div>
       </div>
+      <FloatingHomeButton />
     </div>
   );
 }

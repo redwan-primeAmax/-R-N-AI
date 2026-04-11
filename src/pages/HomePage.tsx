@@ -48,7 +48,7 @@ const NoteContextMenu = memo(({
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         className="w-full max-w-lg bg-[#1c1c1c] rounded-t-3xl p-6 pb-12 shadow-2xl border-t border-white/5"
         onClick={(e) => e.stopPropagation()}
       >
@@ -148,6 +148,11 @@ const NoteRow = memo(({
         onMouseLeave={endLongPress}
         onTouchStart={() => startLongPress(note.id)}
         onTouchEnd={endLongPress}
+        onClick={() => {
+          if (isSelectionMode) {
+            handleNoteClick(note.id);
+          }
+        }}
         className={cn(
           "group relative flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer mx-4",
           isSelected 
@@ -158,7 +163,11 @@ const NoteRow = memo(({
       >
         <div 
           className="flex-grow flex items-center gap-3 min-w-0"
-          onClick={() => handleNoteClick(note.id)}
+          onClick={(e) => {
+            if (!isSelectionMode) {
+              handleNoteClick(note.id);
+            }
+          }}
         >
           <ChevronRight size={18} className={cn("transition-colors", isSelected ? "text-white/40" : "text-white/20")} />
           <span className="text-xl flex-shrink-0">{note.emoji}</span>
@@ -182,10 +191,7 @@ const NoteRow = memo(({
         )}
 
         {isSelectionMode && (
-          <div 
-            className="px-2 cursor-pointer"
-            onClick={() => handleNoteClick(note.id)}
-          >
+          <div className="w-10 h-10 flex items-center justify-center cursor-pointer -mr-2">
             <div className={cn(
               "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
               isSelected 
@@ -357,15 +363,16 @@ export default function HomePage() {
 
 
   return (
-    <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden main-screen">
+    <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden main-screen select-none">
       {/* Welcome Onboarding Popup */}
       <AnimatePresence>
         {showWelcomePopup && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl text-center space-y-6"
             >
               <div className="w-20 h-20 bg-blue-500/20 rounded-3xl flex items-center justify-center mx-auto">
@@ -401,9 +408,10 @@ export default function HomePage() {
         {showNamePopup && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl space-y-6"
             >
               <div className="text-center space-y-2">
@@ -523,11 +531,6 @@ export default function HomePage() {
           >
             <UploadCloud size={20} />
           </button>
-          <Inbox 
-            size={22} 
-            className="text-white/60 cursor-pointer hover:text-white transition-colors" 
-            onClick={() => navigate('/inbox')}
-          />
           <button 
             onClick={() => navigate('/ai/settings')}
             className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/60 hover:text-white"
@@ -624,7 +627,6 @@ export default function HomePage() {
             {!searchQuery && notes.length > 4 && (
               <span className="text-[10px] text-white/20 italic">Showing 4 of {notes.length}</span>
             )}
-            <Plus size={18} className="text-white/40 cursor-pointer hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); createNewNote(); }} />
           </div>
         </div>
 
@@ -677,7 +679,7 @@ export default function HomePage() {
             initial={{ y: 100, opacity: 0, scale: 0.9 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 100, opacity: 0, scale: 0.9 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
             className="fixed bottom-[100px] left-6 right-6 z-50 bg-[#222]/90 backdrop-blur-xl p-4 rounded-3xl flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10"
           >
             <div className="flex items-center gap-3 ml-2">

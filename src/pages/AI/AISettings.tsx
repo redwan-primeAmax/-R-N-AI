@@ -195,7 +195,7 @@ const AISettingsPage: React.FC = () => {
       {/* Header */}
       <header className="p-4 border-b border-white/10 flex items-center gap-4 sticky top-0 bg-[#191919]/80 backdrop-blur-md z-10">
         <button 
-          onClick={() => navigate('/ai')}
+          onClick={() => navigate(-1)}
           className="p-2 hover:bg-white/10 rounded-full transition-all text-white active:scale-95"
         >
           <ChevronLeft size={24} />

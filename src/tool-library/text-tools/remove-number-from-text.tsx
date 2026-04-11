@@ -15,15 +15,19 @@ import {
   History,
   FileText,
   MoreVertical,
-  Edit2
+  Edit2,
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { DataManager, Note } from '../../utils/DataManager';
+import { AIServiceFactory } from '../../pages/AI/services/serviceFactory';
+import FloatingHomeButton from '../../components/FloatingHomeButton';
 
 const NumberRemover: React.FC = () => {
   const navigate = useNavigate();
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'generating' | 'completed'>('idle');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [savedResults, setSavedResults] = useState<Note[]>([]);
@@ -47,6 +51,24 @@ const NumberRemover: React.FC = () => {
     loadHistory();
   }, []);
 
+  const generateTitle = async (content: string) => {
+    try {
+      const settings = await DataManager.getAISettings();
+      const service = AIServiceFactory.getService('picoapps');
+      const prompt = `Generate a very short title (3-4 words, max 20 characters) for this text in Bengali. Only return the title, nothing else. Text: ${content.substring(0, 500)}`;
+      
+      const response = await service.sendMessage(prompt, {
+        settings,
+        systemPrompt: "You are a helpful assistant that generates short titles in Bengali."
+      });
+      
+      return response.trim().replace(/[#*]/g, '').substring(0, 20);
+    } catch (error) {
+      console.error('Title generation failed:', error);
+      return 'সংরক্ষিত নোট';
+    }
+  };
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(outputText);
@@ -59,6 +81,11 @@ const NumberRemover: React.FC = () => {
 
   const handleSave = async () => {
     if (!outputText.trim()) return;
+
+    setSaveStatus('generating');
+    
+    const aiTitle = await generateTitle(outputText);
+    setNoteTitle(aiTitle);
 
     const content = `
 ## সংখ্যা অপসারণ ফলাফল
@@ -76,7 +103,7 @@ ${outputText}
 
     const newNote: Note = {
       id: currentNoteId || `tool-res-${Date.now()}`,
-      title: `[Tool] ${noteTitle}`,
+      title: `[Tool] ${aiTitle}`,
       content: content,
       emoji: '🔢',
       createdAt: Date.now(),
@@ -86,11 +113,14 @@ ${outputText}
 
     await DataManager.saveNote(newNote);
     setCurrentNoteId(newNote.id);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
+    setSaveStatus('completed');
     
     const allNotes = await DataManager.getAllNotes();
     setSavedResults(allNotes.filter(n => n.title.startsWith('[Tool]')));
+
+    setTimeout(() => {
+      setSaveStatus('idle');
+    }, 2000);
   };
 
   const handleRename = async (newTitle: string) => {
@@ -163,15 +193,29 @@ ${outputText}
               </button>
               <button 
                 onClick={handleSave}
-                disabled={!outputText.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                disabled={!outputText.trim() || saveStatus !== 'idle'}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50 min-w-[100px] justify-center"
               >
-                <Save size={14} />
-                {isSaved ? 'সংরক্ষিত!' : 'সেভ করুন'}
+                {saveStatus === 'generating' ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    শিরোনাম তৈরি হচ্ছে...
+                  </>
+                ) : saveStatus === 'completed' ? (
+                  <>
+                    <Check size={14} />
+                    সম্পন্ন
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    সেভ করুন
+                  </>
+                )}
               </button>
             </div>
           </div>
-          <div className="relative group">
+          <div className="relative group pb-20">
             <div className="w-full min-h-[150px] bg-black/40 border border-white/5 rounded-2xl p-6 font-mono text-sm text-blue-400/90 leading-relaxed whitespace-pre-wrap break-words">
               {outputText || <span className="text-white/10 italic">ফলাফল এখানে দেখা যাবে...</span>}
             </div>
@@ -286,6 +330,7 @@ ${outputText}
           )}
         </AnimatePresence>
       </main>
+      <FloatingHomeButton />
     </div>
   );
 };

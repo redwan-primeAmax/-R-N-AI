@@ -19,6 +19,7 @@ const AISettings = lazy(() => import('./pages/AI/AISettings'));
 const TitleGenerator = lazy(() => import('./pages/AI/TitleGenerator/TitleGenerator'));
 const BrowseTemplates = lazy(() => import('./pages/BrowseTemplates'));
 const ToolsDashboard = lazy(() => import('./pages/Tools/ToolsDashboard'));
+const ToolsHistory = lazy(() => import('./pages/Tools/ToolsHistory'));
 const WordCounter = lazy(() => import('./tool-library/text-tools/WordCounter'));
 const NumberRemover = lazy(() => import('./tool-library/text-tools/remove-number-from-text'));
 const Summarizer = lazy(() => import('./tool-library/text-tools/Summarizer'));
@@ -85,7 +86,9 @@ function AppContent() {
   console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
   const isEditorPage = location.pathname.startsWith('/editor/');
-  const isFullPage = isEditorPage || location.pathname.startsWith('/ai');
+  const isSearchPage = location.pathname === '/search';
+  const isToolsPage = location.pathname.startsWith('/tools');
+  const isFullPage = isEditorPage || isSearchPage || isToolsPage || location.pathname.startsWith('/ai');
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
 
@@ -118,6 +121,7 @@ function AppContent() {
     { path: "/ai/title-generator", element: <PageWrapper><TitleGenerator /></PageWrapper> },
     {path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/tools", element: <PageWrapper><ToolsDashboard /></PageWrapper> },
+    { path: "/tools/use-history", element: <PageWrapper><ToolsHistory /></PageWrapper> },
     { path: "/tools/word-counter", element: <PageWrapper><WordCounter /></PageWrapper> },
     { path: "/tools/number-remover", element: <PageWrapper><NumberRemover /></PageWrapper> },
     { path: "/tools/summarizer", element: <PageWrapper><Summarizer /></PageWrapper> },

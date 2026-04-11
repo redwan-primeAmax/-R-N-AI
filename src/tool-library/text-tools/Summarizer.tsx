@@ -13,21 +13,23 @@ import {
   History, 
   FileText, 
   MoreVertical, 
-  Edit2,
-  Trash2,
-  Loader2,
-  Copy,
-  Check
+  Edit2, 
+  Trash2, 
+  Loader2, 
+  Copy, 
+  Check 
 } from 'lucide-react';
 import { DataManager, Note } from '../../utils/DataManager';
 import { aiManager } from '../../services/AIService';
+import { AIServiceFactory } from '../../pages/AI/services/serviceFactory';
+import FloatingHomeButton from '../../components/FloatingHomeButton';
 
 const Summarizer: React.FC = () => {
   const navigate = useNavigate();
   const [inputText, setInputText] = useState('');
   const [summary, setSummary] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'generating' | 'completed'>('idle');
   const [showHistory, setShowHistory] = useState(false);
   const [savedResults, setSavedResults] = useState<Note[]>([]);
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
@@ -44,6 +46,24 @@ const Summarizer: React.FC = () => {
     };
     loadHistory();
   }, []);
+
+  const generateTitle = async (content: string) => {
+    try {
+      const settings = await DataManager.getAISettings();
+      const service = AIServiceFactory.getService('picoapps');
+      const prompt = `Generate a very short title (3-4 words, max 20 characters) for this text in Bengali. Only return the title, nothing else. Text: ${content.substring(0, 500)}`;
+      
+      const response = await service.sendMessage(prompt, {
+        settings,
+        systemPrompt: "You are a helpful assistant that generates short titles in Bengali."
+      });
+      
+      return response.trim().replace(/[#*]/g, '').substring(0, 20);
+    } catch (error) {
+      console.error('Title generation failed:', error);
+      return 'সংরক্ষিত নোট';
+    }
+  };
 
   const handleSummarize = async () => {
     if (!inputText.trim()) return;
@@ -77,6 +97,11 @@ const Summarizer: React.FC = () => {
   const handleSave = async () => {
     if (!summary.trim()) return;
 
+    setSaveStatus('generating');
+    
+    const aiTitle = await generateTitle(summary);
+    setNoteTitle(aiTitle);
+
     const content = `
 ## সারসংক্ষেপ ফলাফল
 ---
@@ -91,7 +116,7 @@ ${summary}
 
     const newNote: Note = {
       id: currentNoteId || `tool-res-${Date.now()}`,
-      title: `[Tool] ${noteTitle}`,
+      title: `[Tool] ${aiTitle}`,
       content: content,
       emoji: '📝',
       createdAt: Date.now(),
@@ -101,11 +126,14 @@ ${summary}
 
     await DataManager.saveNote(newNote);
     setCurrentNoteId(newNote.id);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
+    setSaveStatus('completed');
     
     const allNotes = await DataManager.getAllNotes();
     setSavedResults(allNotes.filter(n => n.title.startsWith('[Tool]')));
+
+    setTimeout(() => {
+      setSaveStatus('idle');
+    }, 2000);
   };
 
   const handleCopy = async () => {
@@ -203,15 +231,29 @@ ${summary}
                   </button>
                   <button 
                     onClick={handleSave}
-                    disabled={!summary}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                    disabled={!summary || saveStatus !== 'idle'}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50 min-w-[100px] justify-center"
                   >
-                    <Save size={14} />
-                    {isSaved ? 'সংরক্ষিত!' : 'সেভ করুন'}
+                    {saveStatus === 'generating' ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        শিরোনাম তৈরি হচ্ছে...
+                      </>
+                    ) : saveStatus === 'completed' ? (
+                      <>
+                        <Check size={14} />
+                        সম্পন্ন
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        সেভ করুন
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
-              <div className="w-full min-h-[150px] bg-[#1a1a1a] border border-white/5 rounded-2xl p-6 text-white/90 leading-relaxed whitespace-pre-wrap">
+              <div className="w-full min-h-[150px] bg-[#1a1a1a] border border-white/5 rounded-2xl p-6 text-white/90 leading-relaxed whitespace-pre-wrap pb-20">
                 {isLoading ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
                     <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
@@ -332,6 +374,7 @@ ${summary}
           )}
         </AnimatePresence>
       </main>
+      <FloatingHomeButton />
     </div>
   );
 };

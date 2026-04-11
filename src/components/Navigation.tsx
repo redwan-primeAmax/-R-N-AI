@@ -3,33 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Search, Sparkles, SquarePen, Inbox, Layout, Wrench } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Search, Sparkles, Layout, Wrench } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { DataManager } from '../utils/DataManager';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export default function Navigation() {
-  const navigate = useNavigate();
-
-  const handleCreateNote = async () => {
-    const newNote = {
-      id: `note-${Date.now()}`,
-      title: '',
-      content: '',
-      emoji: '📄',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      isFavorite: false
-    };
-    await DataManager.saveNote(newNote);
-    navigate(`/editor/${newNote.id}`);
-  };
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#191919]/95 backdrop-blur-xl border-t border-white/5 pb-safe-area-inset-bottom">
       <div className="flex justify-between items-center max-w-lg mx-auto px-6 py-4">
@@ -89,14 +72,6 @@ export default function Navigation() {
             </>
           )}
         </NavLink>
-
-        {/* New Note */}
-        <button
-          onClick={handleCreateNote}
-          className="p-2 rounded-full text-white/60 hover:text-white transition-all"
-        >
-          <SquarePen size={24} strokeWidth={2} />
-        </button>
       </div>
     </nav>
   );
