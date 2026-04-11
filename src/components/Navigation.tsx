@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Search, Sparkles, Layout, Wrench } from 'lucide-react';
+import { Search, Sparkles, Wrench } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,46 +16,7 @@ export default function Navigation() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#191919]/95 backdrop-blur-xl border-t border-white/5 pb-safe-area-inset-bottom">
       <div className="flex justify-between items-center max-w-lg mx-auto px-6 py-4">
-        {/* Search */}
-        <NavLink
-          to="/search"
-          className={({ isActive }) =>
-            cn(
-              "p-2 rounded-full transition-all",
-              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
-            )
-          }
-        >
-          <Search size={24} strokeWidth={2} />
-        </NavLink>
-
-        {/* Home/Main */}
-        <NavLink
-          to="/main"
-          className={({ isActive }) =>
-            cn(
-              "p-2 rounded-full transition-all",
-              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
-            )
-          }
-        >
-          <Layout size={24} strokeWidth={2} />
-        </NavLink>
-
-        {/* Tools */}
-        <NavLink
-          to="/tools"
-          className={({ isActive }) =>
-            cn(
-              "p-2 rounded-full transition-all",
-              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
-            )
-          }
-        >
-          <Wrench size={24} strokeWidth={2} />
-        </NavLink>
-
-        {/* Ask AI - Pill Shape */}
+        {/* Ask AI - Pill Shape - Leftmost */}
         <NavLink
           to="/ai-auto"
           className={({ isActive }) =>
@@ -71,6 +32,32 @@ export default function Navigation() {
               <span className="text-sm font-medium">Ask AI</span>
             </>
           )}
+        </NavLink>
+
+        {/* Search */}
+        <NavLink
+          to="/search"
+          className={({ isActive }) =>
+            cn(
+              "p-2 rounded-full transition-all",
+              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
+            )
+          }
+        >
+          <Search size={24} strokeWidth={2} />
+        </NavLink>
+
+        {/* Tools */}
+        <NavLink
+          to="/tools"
+          className={({ isActive }) =>
+            cn(
+              "p-2 rounded-full transition-all",
+              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
+            )
+          }
+        >
+          <Wrench size={24} strokeWidth={2} />
         </NavLink>
       </div>
     </nav>

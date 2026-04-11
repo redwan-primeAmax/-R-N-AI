@@ -53,7 +53,7 @@ const ToolsHistory: React.FC = () => {
           <button onClick={() => navigate('/tools')} className="p-2 text-white/40 hover:text-white transition-all">
             <ChevronLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold tracking-tight">সরঞ্জামাগার ইতিহাস</h1>
+          <h1 className="text-xl font-bold tracking-tight">Tool History</h1>
         </div>
       </header>
 

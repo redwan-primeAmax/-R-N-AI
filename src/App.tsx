@@ -72,10 +72,10 @@ function UserNamePopup({ onSave }: { onSave: (name: string) => void }) {
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 10 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -10 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
       className="w-full h-full"
     >
       {children}
@@ -130,17 +130,19 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen bg-[#191919] text-white font-sans ${isFullPage ? '' : 'pb-24'}`}>
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
       </AnimatePresence>
-      
-      <AnimatePresence mode="wait">
-        <ErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
-          </Suspense>
-        </ErrorBoundary>
-      </AnimatePresence>
+
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingFallback />}>
+          <AnimatePresence mode="sync">
+            <React.Fragment key={location.pathname}>
+              {routingElement}
+            </React.Fragment>
+          </AnimatePresence>
+        </Suspense>
+      </ErrorBoundary>
       {!isFullPage && <Navigation />}
     </div>
   );

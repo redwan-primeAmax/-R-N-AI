@@ -167,8 +167,8 @@ ${summary}
             <ChevronLeft size={20} />
           </button>
           <div className="flex flex-col">
-            <h1 className="text-sm font-bold tracking-tight">সারসংক্ষেপ তৈরির টুল</h1>
-            <span className="text-[10px] text-white/20 uppercase tracking-widest">টেক্সট ভিত্তিক টুলস</span>
+            <h1 className="text-sm font-bold tracking-tight">AI Summarizer</h1>
+            <span className="text-[10px] text-white/20 uppercase tracking-widest">Text-Based Tools</span>
           </div>
         </div>
 

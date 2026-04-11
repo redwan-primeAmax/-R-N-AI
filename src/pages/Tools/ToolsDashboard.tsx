@@ -3,138 +3,141 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { 
-  Type, 
   Hash, 
   FileText, 
   ChevronRight, 
-  History, 
-  Menu,
   Wrench,
-  Search
+  Search,
+  Type
 } from 'lucide-react';
-import { DataManager, Note } from '../../utils/DataManager';
 import FloatingHomeButton from '../../components/FloatingHomeButton';
 
-const categories = [
+const tools = [
   {
-    id: 'text',
-    name: 'টেক্সট ভিত্তিক টুলস',
-    icon: <Type className="text-blue-400" />,
-    tools: [
-      {
-        id: 'word-counter',
-        name: 'শব্দ গণনা যন্ত্র',
-        description: 'শব্দ, বাক্য, বিরাম চিহ্ন এবং ইমোজি গণনা করুন।',
-        path: '/tools/word-counter',
-        icon: <Hash className="text-blue-400" />
-      },
-      {
-        id: 'number-remover',
-        name: 'সংখ্যা অপসারণ টুল',
-        description: 'টেক্সট থেকে সমস্ত সংখ্যা মুছে ফেলুন।',
-        path: '/tools/number-remover',
-        icon: <Type className="text-purple-400" />
-      },
-      {
-        id: 'summarizer',
-        name: 'সারসংক্ষেপ তৈরির টুল',
-        description: 'এআই ব্যবহার করে টেক্সট সারসংক্ষেপ করুন।',
-        path: '/tools/summarizer',
-        icon: <FileText className="text-green-400" />
-      }
-    ]
+    id: 'word-counter',
+    name: 'Word Counter',
+    description: 'Count words, sentences, punctuation and emojis in your text.',
+    path: '/tools/word-counter',
+    icon: Hash,
+    iconColor: 'text-blue-400',
+    gradientFrom: 'from-blue-500/20',
+    gradientTo: 'to-blue-600/5',
+    borderColor: 'border-blue-500/20',
+    accentColor: 'bg-blue-500/10',
+  },
+  {
+    id: 'number-remover',
+    name: 'Number Remover',
+    description: 'Strip all numeric characters from your text instantly.',
+    path: '/tools/number-remover',
+    icon: Type,
+    iconColor: 'text-purple-400',
+    gradientFrom: 'from-purple-500/20',
+    gradientTo: 'to-purple-600/5',
+    borderColor: 'border-purple-500/20',
+    accentColor: 'bg-purple-500/10',
+  },
+  {
+    id: 'summarizer',
+    name: 'AI Summarizer',
+    description: 'Summarize long text into concise key points using AI.',
+    path: '/tools/summarizer',
+    icon: FileText,
+    iconColor: 'text-emerald-400',
+    gradientFrom: 'from-emerald-500/20',
+    gradientTo: 'to-emerald-600/5',
+    borderColor: 'border-emerald-500/20',
+    accentColor: 'bg-emerald-500/10',
   }
 ];
 
 const ToolsDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [savedResults, setSavedResults] = useState<Note[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    const loadSavedResults = async () => {
-      const allNotes = await DataManager.getAllNotes();
-      // Filter notes that are tool results (we'll tag them in the title or content for now)
-      const results = allNotes.filter(n => n.title.startsWith('[Tool]') || n.content.includes('<!-- TOOL_RESULT -->'));
-      setSavedResults(results);
-    };
-    loadSavedResults();
-  }, []);
-
-  const filteredTools = categories.map(cat => ({
-    ...cat,
-    tools: cat.tools.filter(t => 
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      t.description.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  })).filter(cat => cat.tools.length > 0);
+  const filteredTools = tools.filter(t =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] text-white pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
-            <Wrench size={20} />
+      <header className="sticky top-0 z-40 bg-[#0d0d0d]/90 backdrop-blur-xl border-b border-white/5 px-6 py-5">
+        <div className="flex items-center gap-3 max-w-2xl mx-auto">
+          <div className="w-10 h-10 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center border border-white/10">
+            <Wrench size={18} className="text-white/70" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">টুল লাইব্রেরি</h1>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-white">Tool Library</h1>
+            <p className="text-[11px] text-white/30 uppercase tracking-widest font-medium">Text-Based Tools</p>
+          </div>
         </div>
-        <button 
-          onClick={() => navigate('/tools/use-history')}
-          className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all"
-        >
-          <History size={20} />
-        </button>
       </header>
 
-      <main className="px-6 py-8 max-w-2xl mx-auto space-y-8">
+      <main className="px-6 py-8 max-w-2xl mx-auto space-y-6">
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
-          <input 
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+          <input
             type="text"
-            placeholder="টুল খুঁজুন..."
+            placeholder="Search tools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-white focus:outline-none focus:border-white/20 transition-all"
+            className="w-full bg-white/5 border border-white/8 rounded-2xl pl-11 pr-5 py-3.5 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/15 transition-all"
           />
         </div>
 
-        {/* Tool Categories */}
-        {filteredTools.map(category => (
-          <section key={category.id} className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              {category.icon}
-              <h2 className="text-sm font-bold text-white/40 uppercase tracking-widest">{category.name}</h2>
+        {/* Section Label */}
+        <div className="flex items-center gap-3 px-1">
+          <div className="w-1 h-4 bg-gradient-to-b from-white/40 to-white/10 rounded-full" />
+          <span className="text-[11px] font-bold text-white/30 uppercase tracking-widest">Available Tools</span>
+        </div>
+
+        {/* Tool Cards */}
+        <div className="space-y-3">
+          {filteredTools.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-white/20 text-sm">No tools found for "{searchQuery}"</p>
             </div>
-            <div className="grid gap-4">
-              {category.tools.map(tool => (
-                <motion.button
-                  key={tool.id}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => navigate(tool.path)}
-                  className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-5 flex items-center gap-4 text-left hover:bg-[#222222] transition-all group"
-                >
-                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-all">
-                    {tool.icon}
-                  </div>
-                  <div className="flex-grow">
-                    <h3 className="font-bold text-white/90">{tool.name}</h3>
-                    <p className="text-xs text-white/40 mt-1">{tool.description}</p>
-                  </div>
-                  <ChevronRight size={18} className="text-white/20 group-hover:text-white/40 transition-all" />
-                </motion.button>
-              ))}
-            </div>
-          </section>
-        ))}
+          ) : filteredTools.map((tool, index) => {
+            const IconComponent = tool.icon;
+            return (
+              <motion.button
+                key={tool.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ scale: 1.01, y: -1 }}
+                whileTap={{ scale: 0.97, y: 0 }}
+                onClick={() => navigate(tool.path)}
+                className={`w-full bg-gradient-to-br ${tool.gradientFrom} ${tool.gradientTo} border ${tool.borderColor} rounded-3xl p-5 flex items-center gap-4 text-left transition-all group relative overflow-hidden`}
+              >
+                {/* Glow effect on hover */}
+                <div className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.02] transition-all duration-300 rounded-3xl" />
+                
+                <div className={`w-13 h-13 ${tool.accentColor} rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/5 p-3`}>
+                  <IconComponent size={22} className={tool.iconColor} />
+                </div>
+
+                <div className="flex-grow min-w-0">
+                  <h3 className="font-bold text-white text-[15px] mb-0.5">{tool.name}</h3>
+                  <p className="text-xs text-white/40 leading-relaxed">{tool.description}</p>
+                </div>
+
+                <div className="flex-shrink-0 w-8 h-8 bg-white/5 group-hover:bg-white/10 rounded-xl flex items-center justify-center transition-all">
+                  <ChevronRight size={14} className="text-white/30 group-hover:text-white/60 transition-all group-hover:translate-x-0.5" />
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
       </main>
+
       <FloatingHomeButton />
     </div>
   );
