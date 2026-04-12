@@ -350,8 +350,7 @@ class AIManager {
       // Load Provider-Specific System Prompt
       let activeSystemPrompt = systemPrompt;
       const promptPath = selectedProvider === 'openrouter' ? '/prompts/openrouter.txt' : 
-                         selectedProvider === 'picoapps' ? '/prompts/pico.txt' : 
-                         selectedProvider === 'mistral' ? '/prompts/mistral.txt' : null;
+                         selectedProvider === 'picoapps' ? '/prompts/pico.txt' : null;
       
       if (promptPath) {
         try {

@@ -56,26 +56,23 @@ export interface ContextSummary {
 
 export interface AISettings {
   controlMode: 'auto' | 'manual';
-  selectedProvider: 'picoapps' | 'gemini' | 'openrouter' | 'mistral';
+  selectedProvider: 'picoapps' | 'gemini' | 'openrouter';
   selectedModels: {
     gemini: string;
     openrouter: string;
-    mistral: string;
   };
   apiKeys: {
     gemini?: string;
     openrouter?: string;
-    mistral?: string;
   };
   enabledProviders: string[];
   dataCheckingEnabled: boolean;
   dataCheckingModel: 'selected' | 'free' | 'custom';
-  dataCheckingCustomProvider?: 'gemini' | 'openrouter' | 'mistral';
+  dataCheckingCustomProvider?: 'gemini' | 'openrouter';
   retrySettings: {
     enabled: boolean;
     errorCodes: string;
   };
-  mistralAgentId?: string;
 }
 
 // Configure localforage
@@ -186,8 +183,7 @@ export const DataManager = {
       selectedProvider: 'picoapps',
       selectedModels: {
         gemini: 'gemini-1.5-flash',
-        openrouter: '',
-        mistral: 'mistral-large-latest'
+        openrouter: ''
       },
       apiKeys: {},
       enabledProviders: ['picoapps'],
@@ -196,8 +192,7 @@ export const DataManager = {
       retrySettings: {
         enabled: false,
         errorCodes: ''
-      },
-      mistralAgentId: 'ag_019d823c7df1703682e6b94ae0d0dc75'
+      }
     };
 
     if (!settings) {
@@ -227,8 +222,7 @@ export const DataManager = {
       dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
       dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
       dataCheckingCustomProvider: settings.dataCheckingCustomProvider || 'gemini',
-      retrySettings: settings.retrySettings || defaultSettings.retrySettings,
-      mistralAgentId: settings.mistralAgentId || defaultSettings.mistralAgentId
+      retrySettings: settings.retrySettings || defaultSettings.retrySettings
     };
 
     cachedSettings = mergedSettings;

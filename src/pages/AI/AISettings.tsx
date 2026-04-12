@@ -117,16 +117,9 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
   };
 
-  const handleDataCheckingCustomProviderChange = async (provider: 'gemini' | 'openrouter' | 'mistral') => {
+  const handleDataCheckingCustomProviderChange = async (provider: 'gemini' | 'openrouter') => {
     if (!settings) return;
     const newSettings = { ...settings, dataCheckingCustomProvider: provider };
-    setSettings(newSettings);
-    await DataManager.saveAISettings(newSettings);
-  };
-
-  const handleMistralAgentIdChange = async (agentId: string) => {
-    if (!settings) return;
-    const newSettings = { ...settings, mistralAgentId: agentId };
     setSettings(newSettings);
     await DataManager.saveAISettings(newSettings);
   };
@@ -145,15 +138,7 @@ const AISettingsPage: React.FC = () => {
       };
       let body = {};
 
-      if (showKeyModal.model === 'mistral') {
-        url = 'https://api.mistral.ai/v1/chat/completions';
-        const agentId = settings.mistralAgentId || 'mistral-tiny';
-        body = {
-          model: agentId,
-          messages: [{ role: 'user', content: 'hi' }],
-          max_tokens: 1
-        };
-      } else if (showKeyModal.model === 'gemini') {
+      if (showKeyModal.model === 'gemini') {
         url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${tempKey.trim()}`;
         body = { contents: [{ parts: [{ text: 'hi' }] }] };
         delete headers['Authorization'];
@@ -245,14 +230,6 @@ const AISettingsPage: React.FC = () => {
       description: 'OpenRouter-এর মাধ্যমে যেকোনো মডেল ব্যবহার করুন।', 
       isFree: false,
       models: [],
-      isComingSoon: false
-    },
-    { 
-      id: 'mistral', 
-      name: 'Mistral AI', 
-      description: 'Mistral AI-এর শক্তিশালী ওপেন-সোর্স মডেলগুলো ব্যবহার করুন।', 
-      isFree: false,
-      models: ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'open-mistral-7b', 'open-mixtral-8x7b'],
       isComingSoon: false
     },
   ];
@@ -437,20 +414,6 @@ const AISettingsPage: React.FC = () => {
                   </div>
                 )}
 
-                {isEnabled && provider.id === 'mistral' && (
-                  <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Mistral Agent ID</label>
-                    <input
-                      type="text"
-                      value={settings.mistralAgentId || ''}
-                      onChange={(e) => handleMistralAgentIdChange(e.target.value)}
-                      placeholder="e.g., ag_..."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all"
-                    />
-                    <p className="text-[10px] text-white/20 italic">Enter your Mistral Agent ID from the Mistral Console.</p>
-                  </div>
-                )}
-
                 {isEnabled && provider.models.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
                     <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Select Model</label>
@@ -565,7 +528,7 @@ const AISettingsPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="grid grid-cols-3 gap-2 mt-4"
                 >
-                  {['gemini', 'openrouter', 'mistral'].map((p) => (
+                  {['gemini', 'openrouter'].map((p) => (
                     <button
                       key={p}
                       onClick={() => handleDataCheckingCustomProviderChange(p as any)}
