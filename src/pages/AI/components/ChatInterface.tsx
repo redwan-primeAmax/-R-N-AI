@@ -161,13 +161,16 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   return (
     <>
       {/* Header */}
-      <header className="px-6 py-3 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
+      <header className="px-6 py-4 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
         <div className="flex items-center gap-4">
           <button 
+            type="button"
             onClick={navigateBack} 
-            className="w-9 h-9 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-95 text-white/80 hover:text-white shadow-sm"
+            onTouchStart={navigateBack}
+            className="w-11 h-11 flex items-center justify-center bg-[#1a1a1a] rounded-full transition-all active:scale-90 text-white/80 hover:text-white shadow-sm cursor-pointer hover:bg-white/5 relative z-50"
+            aria-label="Go back"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={24} />
           </button>
           
           <div className="flex flex-col">

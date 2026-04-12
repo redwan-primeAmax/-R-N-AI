@@ -17,6 +17,7 @@ const InboxPage = lazy(() => import('./pages/InboxPage'));
 const EditorPage = lazy(() => import('./pages/EditorPage'));
 const AIChat = lazy(() => import('./pages/AI/AIChat'));
 const AISettings = lazy(() => import('./pages/AI/AISettings'));
+const ExternalImport = lazy(() => import('./pages/AI/ExternalImport'));
 const TitleGenerator = lazy(() => import('./pages/AI/TitleGenerator/TitleGenerator'));
 const BrowseTemplates = lazy(() => import('./pages/BrowseTemplates'));
 const ToolsDashboard = lazy(() => import('./pages/Tools/ToolsDashboard'));
@@ -72,10 +73,10 @@ function UserNamePopup({ onSave }: { onSave: (name: string) => void }) {
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 10 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -10 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: "linear" }}
       className="w-full h-full"
     >
       {children}
@@ -89,7 +90,10 @@ function AppContent() {
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
   const isToolsPage = location.pathname.startsWith('/tools');
-  const isFullPage = isEditorPage || isSearchPage || isToolsPage || location.pathname.startsWith('/ai');
+  const isAIPage = location.pathname.startsWith('/ai') || 
+                   location.pathname.startsWith('/manual-control') || 
+                   location.pathname === '/ai-auto';
+  const isFullPage = isEditorPage || isSearchPage || isToolsPage || isAIPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
 
@@ -117,8 +121,10 @@ function AppContent() {
     { path: "/import/import", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/editor/:id", element: <PageWrapper><EditorPage /></PageWrapper> },
     { path: "/ai-auto", element: <PageWrapper><AIChat /></PageWrapper> },
+    { path: "/manual-control", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/manual-control/:model", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AISettings /></PageWrapper> },
+    { path: "/ai/external-import", element: <PageWrapper><ExternalImport /></PageWrapper> },
     { path: "/ai/title-generator", element: <PageWrapper><TitleGenerator /></PageWrapper> },
     {path: "/templates", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/tools", element: <PageWrapper><ToolsDashboard /></PageWrapper> },
@@ -141,7 +147,20 @@ function AppContent() {
           </Suspense>
         </ErrorBoundary>
       </AnimatePresence>
-      {!isFullPage && <Navigation />}
+      <AnimatePresence>
+        {!isFullPage && (
+          <motion.div
+            key="navigation"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-0 left-0 right-0 z-50"
+          >
+            <Navigation />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

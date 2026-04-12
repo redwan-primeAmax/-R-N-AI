@@ -22,27 +22,27 @@ import FloatingHomeButton from '../../components/FloatingHomeButton';
 const categories = [
   {
     id: 'text',
-    name: 'টেক্সট ভিত্তিক টুলস',
+    name: 'Text Based Tools',
     icon: <Type className="text-blue-400" />,
     tools: [
       {
         id: 'word-counter',
-        name: 'শব্দ গণনা যন্ত্র',
-        description: 'শব্দ, বাক্য, বিরাম চিহ্ন এবং ইমোজি গণনা করুন।',
+        name: 'Word Counter',
+        description: 'Count words, sentences, punctuation, and emojis.',
         path: '/tools/word-counter',
         icon: <Hash className="text-blue-400" />
       },
       {
         id: 'number-remover',
-        name: 'সংখ্যা অপসারণ টুল',
-        description: 'টেক্সট থেকে সমস্ত সংখ্যা মুছে ফেলুন।',
+        name: 'Number Remover',
+        description: 'Remove all numbers from your text.',
         path: '/tools/number-remover',
         icon: <Type className="text-purple-400" />
       },
       {
         id: 'summarizer',
-        name: 'সারসংক্ষেপ তৈরির টুল',
-        description: 'এআই ব্যবহার করে টেক্সট সারসংক্ষেপ করুন।',
+        name: 'AI Summarizer',
+        description: 'Summarize text using artificial intelligence.',
         path: '/tools/summarizer',
         icon: <FileText className="text-green-400" />
       }
@@ -75,60 +75,69 @@ const ToolsDashboard: React.FC = () => {
   })).filter(cat => cat.tools.length > 0);
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] text-white pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
-            <Wrench size={20} />
+      <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 px-6 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20">
+            <Wrench size={24} />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">টুল লাইব্রেরি</h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Tool Library</h1>
+            <p className="text-xs text-white/40 font-medium uppercase tracking-widest mt-0.5">Professional Utilities</p>
+          </div>
         </div>
         <button 
           onClick={() => navigate('/tools/use-history')}
-          className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all"
+          className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-white/60 hover:text-white transition-all border border-white/10 hover:bg-white/10"
         >
-          <History size={20} />
+          <History size={22} />
         </button>
       </header>
 
-      <main className="px-6 py-8 max-w-2xl mx-auto space-y-8">
+      <main className="px-6 py-10 max-w-2xl mx-auto space-y-12">
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
+        <div className="relative group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-400 transition-colors" size={20} />
           <input 
             type="text"
-            placeholder="টুল খুঁজুন..."
+            placeholder="Search tools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-white focus:outline-none focus:border-white/20 transition-all"
+            className="w-full bg-white/5 border border-white/10 rounded-3xl pl-14 pr-6 py-5 text-white focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.08] transition-all shadow-2xl shadow-black"
           />
         </div>
 
         {/* Tool Categories */}
         {filteredTools.map(category => (
-          <section key={category.id} className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              {category.icon}
-              <h2 className="text-sm font-bold text-white/40 uppercase tracking-widest">{category.name}</h2>
+          <section key={category.id} className="space-y-6">
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-1 h-4 bg-blue-500 rounded-full" />
+              <h2 className="text-xs font-bold text-white/60 uppercase tracking-[0.2em]">{category.name}</h2>
             </div>
-            <div className="grid gap-4">
+            <div className="grid gap-5">
               {category.tools.map(tool => (
                 <motion.button
                   key={tool.id}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => navigate(tool.path)}
-                  className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-5 flex items-center gap-4 text-left hover:bg-[#222222] transition-all group"
+                  className="bg-[#161616] border border-white/5 rounded-[2rem] p-6 flex items-center gap-6 text-left hover:bg-[#1c1c1c] transition-all group relative overflow-hidden"
                 >
-                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-all">
-                    {tool.icon}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  
+                  <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-blue-500/10 transition-all border border-white/5 group-hover:border-blue-500/20">
+                    {React.cloneElement(tool.icon as React.ReactElement, { size: 28 })}
                   </div>
+                  
                   <div className="flex-grow">
-                    <h3 className="font-bold text-white/90">{tool.name}</h3>
-                    <p className="text-xs text-white/40 mt-1">{tool.description}</p>
+                    <h3 className="text-lg font-bold text-white/90 group-hover:text-white transition-colors">{tool.name}</h3>
+                    <p className="text-sm text-white/40 mt-1 leading-relaxed">{tool.description}</p>
                   </div>
-                  <ChevronRight size={18} className="text-white/20 group-hover:text-white/40 transition-all" />
+                  
+                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-black transition-all">
+                    <ChevronRight size={20} />
+                  </div>
                 </motion.button>
               ))}
             </div>

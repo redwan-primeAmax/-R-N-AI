@@ -25,6 +25,24 @@ class AIManager {
 
   private constructor() {}
 
+  private markdownToHtml(markdown: string): string {
+    let html = marked.parse(markdown) as string;
+    
+    // Post-process for Tiptap task lists
+    // Convert <li>[ ] to <li data-type="taskItem" data-checked="false">
+    // Convert <li>[x] to <li data-type="taskItem" data-checked="true">
+    html = html.replace(/<li>\s*\[ \]\s*/g, '<li data-type="taskItem" data-checked="false">');
+    html = html.replace(/<li>\s*\[x\]\s*/g, '<li data-type="taskItem" data-checked="true">');
+    
+    // If we found any task items, wrap the parent <ul> in data-type="taskList"
+    if (html.includes('data-type="taskItem"')) {
+      // This is a bit naive but works for simple lists
+      html = html.replace(/<ul>([\s\S]*?data-type="taskItem"[\s\S]*?)<\/ul>/g, '<ul data-type="taskList">$1</ul>');
+    }
+
+    return html;
+  }
+
   static getInstance() {
     if (!AIManager.instance) {
       AIManager.instance = new AIManager();
@@ -64,7 +82,7 @@ class AIManager {
     let attempts = 0;
     const maxAttempts = 50;
     
-    while (attempts < maxAttempts) {
+    while (attempts < 5) {
       try {
         const service = AIServiceFactory.getService(prov);
         return await service.sendMessage(p, {
@@ -85,10 +103,10 @@ class AIManager {
                            errorMsg.includes('fetch') ||
                            errorMsg.includes('network');
 
-        if (!isRetryable || attempts >= maxAttempts) throw e;
+        if (!isRetryable || attempts >= 5) throw e;
 
-        this.updateTask(taskId, { reason: `Retrying (${attempts}/${maxAttempts})... ${errorMsg.slice(0, 20)}` });
-        await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempts), 30000)));
+        this.updateTask(taskId, { reason: `Retrying (${attempts}/5)... ${errorMsg.slice(0, 20)}` });
+        await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempts), 10000)));
       }
     }
     throw new Error("Max retries reached");
@@ -174,7 +192,7 @@ class AIManager {
         const newNote: Note = {
           id,
           title: title || 'Untitled Page',
-          content: content || '',
+          content: content ? this.markdownToHtml(content) : '',
           emoji,
           createdAt: Date.now(),
           updatedAt: Date.now()
@@ -204,10 +222,11 @@ class AIManager {
         );
 
         if (targetNote) {
+          const htmlContent = content ? this.markdownToHtml(content) : '';
           if (mode === 'append') {
-            targetNote.content = (targetNote.content || '') + (content || '');
+            targetNote.content = (targetNote.content || '') + htmlContent;
           } else {
-            targetNote.content = content;
+            targetNote.content = htmlContent;
           }
           targetNote.updatedAt = Date.now();
           await DataManager.saveNote(targetNote);

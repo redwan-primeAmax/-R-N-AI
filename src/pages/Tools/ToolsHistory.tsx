@@ -53,7 +53,7 @@ const ToolsHistory: React.FC = () => {
           <button onClick={() => navigate('/tools')} className="p-2 text-white/40 hover:text-white transition-all">
             <ChevronLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold tracking-tight">সরঞ্জামাগার ইতিহাস</h1>
+          <h1 className="text-xl font-bold tracking-tight">Tool History</h1>
         </div>
       </header>
 
@@ -63,7 +63,7 @@ const ToolsHistory: React.FC = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
           <input 
             type="text"
-            placeholder="ইতিহাস খুঁজুন..."
+            placeholder="Search history..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-white focus:outline-none focus:border-white/20 transition-all"
@@ -75,11 +75,11 @@ const ToolsHistory: React.FC = () => {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
-              <p className="text-white/20 text-sm">লোড হচ্ছে...</p>
+              <p className="text-white/20 text-sm">Loading...</p>
             </div>
           ) : filteredResults.length === 0 ? (
             <div className="text-center py-20 text-white/20 italic">
-              {searchQuery ? 'কোনো ফলাফল পাওয়া যায়নি' : 'কোনো ইতিহাস নেই'}
+              {searchQuery ? 'No results found' : 'No history yet'}
             </div>
           ) : (
             <AnimatePresence mode="popLayout">

@@ -6,15 +6,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Settings, Key, Check, AlertCircle, Info, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronLeft, Settings, Key, Check, AlertCircle, Info, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import { DataManager, AISettings } from '../../utils/DataManager';
 
 const AISettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const handleBack = () => {
+    navigate(-1);
+  };
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [showKeyModal, setShowKeyModal] = useState<{ model: string; key: string } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<'chat' | 'memory' | null>(null);
   const [tempKey, setTempKey] = useState('');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     DataManager.getAISettings().then(setSettings);
@@ -119,6 +124,68 @@ const AISettingsPage: React.FC = () => {
     await DataManager.saveAISettings(newSettings);
   };
 
+  const handleMistralAgentIdChange = async (agentId: string) => {
+    if (!settings) return;
+    const newSettings = { ...settings, mistralAgentId: agentId };
+    setSettings(newSettings);
+    await DataManager.saveAISettings(newSettings);
+  };
+
+  const handleTestKey = async () => {
+    if (!tempKey.trim() || !showKeyModal) return;
+    
+    setIsTesting(true);
+    setTestResult(null);
+    
+    try {
+      let url = '';
+      let headers: any = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tempKey.trim()}`
+      };
+      let body = {};
+
+      if (showKeyModal.model === 'mistral') {
+        url = 'https://api.mistral.ai/v1/chat/completions';
+        const agentId = settings.mistralAgentId || 'mistral-tiny';
+        body = {
+          model: agentId,
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1
+        };
+      } else if (showKeyModal.model === 'gemini') {
+        url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${tempKey.trim()}`;
+        body = { contents: [{ parts: [{ text: 'hi' }] }] };
+        delete headers['Authorization'];
+      } else if (showKeyModal.model === 'openrouter') {
+        url = 'https://openrouter.ai/api/v1/chat/completions';
+        body = {
+          model: 'google/gemini-2.0-flash-001',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1
+        };
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        setTestResult({ type: 'success', message: 'Connection successful!' });
+      } else {
+        const err = await response.json().catch(() => ({}));
+        const msg = err.error?.message || err.message || `Error ${response.status}`;
+        setTestResult({ type: 'error', message: msg });
+      }
+    } catch (e: any) {
+      setTestResult({ type: 'error', message: e.message || 'Network error' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const handleSaveKey = async () => {
     if (!settings || !showKeyModal) return;
 
@@ -193,14 +260,19 @@ const AISettingsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#191919] text-white flex flex-col">
       {/* Header */}
-      <header className="p-4 border-b border-white/10 flex items-center gap-4 sticky top-0 bg-[#191919]/80 backdrop-blur-md z-10">
-        <button 
-          onClick={() => navigate(-1)}
-          className="p-2 hover:bg-white/10 rounded-full transition-all text-white active:scale-95"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold">AI সেটিংস</h1>
+      <header className="p-4 border-b border-white/10 flex items-center gap-4 sticky top-0 bg-[#191919] z-[100]">
+        <div className="flex items-center">
+          <button 
+            type="button"
+            onClick={handleBack}
+            onTouchStart={handleBack}
+            className="p-3 -m-1 hover:bg-white/10 rounded-full transition-all text-white active:scale-90 cursor-pointer flex items-center justify-center relative z-50"
+            aria-label="Go back"
+          >
+            <ChevronLeft size={28} />
+          </button>
+        </div>
+        <h1 className="text-xl font-bold">AI Settings</h1>
       </header>
 
       <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8 relative">
@@ -211,8 +283,8 @@ const AISettingsPage: React.FC = () => {
               <Sparkles className="text-blue-400" size={24} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">কন্ট্রোল মোড</h2>
-              <p className="text-xs text-blue-100/50">আপনার ব্যবহারের ধরন অনুযায়ী মোড বেছে নিন।</p>
+              <h2 className="text-lg font-bold text-white">Control Mode</h2>
+              <p className="text-xs text-blue-100/50">Choose how you want to use AI.</p>
             </div>
           </div>
 
@@ -230,7 +302,7 @@ const AISettingsPage: React.FC = () => {
               }`}
             >
               <p className={`text-sm font-bold ${settings.controlMode === 'auto' ? 'text-white' : 'text-white/60'}`}>Auto</p>
-              <p className={`text-[10px] ${settings.controlMode === 'auto' ? 'text-blue-100/70' : 'text-white/30'}`}>সিস্টেম অটোমেটিক ফ্রি মডেল ব্যবহার করবে।</p>
+              <p className={`text-[10px] ${settings.controlMode === 'auto' ? 'text-blue-100/70' : 'text-white/30'}`}>System automatically uses free models.</p>
             </button>
             <button
               onClick={async () => {
@@ -245,7 +317,7 @@ const AISettingsPage: React.FC = () => {
               }`}
             >
               <p className={`text-sm font-bold ${settings.controlMode === 'manual' ? 'text-white' : 'text-white/60'}`}>Manual Control</p>
-              <p className={`text-[10px] ${settings.controlMode === 'manual' ? 'text-white/50' : 'text-white/30'}`}>আপনি নিজে মডেল এবং API কনফিগার করতে পারবেন।</p>
+              <p className={`text-[10px] ${settings.controlMode === 'manual' ? 'text-white/50' : 'text-white/30'}`}>Configure your own models and API keys.</p>
             </button>
           </div>
         </section>
@@ -256,8 +328,8 @@ const AISettingsPage: React.FC = () => {
               <Settings className="text-white/20" size={32} />
             </div>
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-white/40">অ্যাডভান্সড সেটিংস লকড</h3>
-              <p className="text-xs text-white/20 px-12">Auto মোডে অ্যাডভান্সড সেটিংস পরিবর্তন করা সম্ভব নয়। পরিবর্তন করতে Manual Control মোড অন করুন।</p>
+              <h3 className="text-lg font-bold text-white/40">Advanced Settings Locked</h3>
+              <p className="text-xs text-white/20 px-12">Switch to Manual Control to configure providers and API keys.</p>
             </div>
           </section>
         ) : (
@@ -265,7 +337,7 @@ const AISettingsPage: React.FC = () => {
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-white/40 mb-2">
                 <Info size={16} />
-                <p className="text-sm">আপনার পছন্দের AI প্রোভাইডার বেছে নিন। ফ্রি মডেল ডিফল্টভাবে দেওয়া থাকে।</p>
+                <p className="text-sm">Select your preferred AI provider. Free models are default.</p>
               </div>
 
           {providers.map((provider) => {
@@ -353,21 +425,35 @@ const AISettingsPage: React.FC = () => {
 
                 {isEnabled && provider.id === 'openrouter' && (
                   <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">মডেলের নাম (ম্যানুয়াল)</label>
+                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Model Name (Manual)</label>
                     <input
                       type="text"
                       value={settings.selectedModels.openrouter || ''}
                       onChange={(e) => handleModelChange('openrouter', e.target.value)}
-                      placeholder="যেমন: google/gemini-pro-1.5"
+                      placeholder="e.g., google/gemini-pro-1.5"
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all"
                     />
-                    <p className="text-[10px] text-white/20 italic">OpenRouter থেকে মডেলের পুরো নাম দিন (যেমন: anthropic/claude-3-sonnet)।</p>
+                    <p className="text-[10px] text-white/20 italic">Enter the full model name from OpenRouter (e.g., anthropic/claude-3-sonnet).</p>
+                  </div>
+                )}
+
+                {isEnabled && provider.id === 'mistral' && (
+                  <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Mistral Agent ID</label>
+                    <input
+                      type="text"
+                      value={settings.mistralAgentId || ''}
+                      onChange={(e) => handleMistralAgentIdChange(e.target.value)}
+                      placeholder="e.g., ag_..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-white/20 transition-all"
+                    />
+                    <p className="text-[10px] text-white/20 italic">Enter your Mistral Agent ID from the Mistral Console.</p>
                   </div>
                 )}
 
                 {isEnabled && provider.models.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">মডেল সিলেক্ট করুন</label>
+                    <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Select Model</label>
                     <div className="grid grid-cols-2 gap-2">
                       {provider.models.map(model => (
                         <button
@@ -389,7 +475,7 @@ const AISettingsPage: React.FC = () => {
                 {isEnabled && !provider.isFree && !hasKey && (
                   <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3 text-amber-400 text-xs font-medium">
                     <AlertCircle size={16} />
-                    <span>API কী নেই। এটি কনফিগার না করা পর্যন্ত কাজ করবে না।</span>
+                    <span>API Key missing. It won't work until configured.</span>
                   </div>
                 )}
               </motion.div>
@@ -402,9 +488,9 @@ const AISettingsPage: React.FC = () => {
             <div className="space-y-1">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Check size={20} className="text-blue-400" />
-                ডেটা চেকিং
+                Data Checking
               </h2>
-              <p className="text-xs text-white/40">সঠিকতা এবং সম্পূর্ণতার জন্য AI আউটপুট যাচাই করুন।</p>
+              <p className="text-xs text-white/40">Verify AI output for accuracy and completeness.</p>
             </div>
             <button
               onClick={handleToggleDataChecking}
@@ -436,7 +522,7 @@ const AISettingsPage: React.FC = () => {
               animate={{ opacity: 1, height: 'auto' }}
               className="space-y-4 pt-4 border-t border-white/5"
             >
-              <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">ভেরিফিকেশন মডেল</label>
+              <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Verification Model</label>
               <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => handleDataCheckingModelChange('selected')}
@@ -446,8 +532,8 @@ const AISettingsPage: React.FC = () => {
                       : 'bg-white/5 border-white/5 hover:border-white/10'
                   }`}
                 >
-                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'selected' ? 'text-white' : 'text-white/60'}`}>সিলেক্টেড</p>
-                  <p className="text-[10px] text-white/30">অ্যাক্টিভ প্রোভাইডার</p>
+                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'selected' ? 'text-white' : 'text-white/60'}`}>Selected</p>
+                  <p className="text-[10px] text-white/30">Active Provider</p>
                 </button>
                 <button
                   onClick={() => handleDataCheckingModelChange('free')}
@@ -457,7 +543,7 @@ const AISettingsPage: React.FC = () => {
                       : 'bg-white/5 border-white/5 hover:border-white/10'
                   }`}
                 >
-                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'free' ? 'text-white' : 'text-white/60'}`}>ফ্রি মডেল</p>
+                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'free' ? 'text-white' : 'text-white/60'}`}>Free Model</p>
                   <p className="text-[10px] text-white/30">PicoApps AI</p>
                 </button>
                 <button
@@ -468,8 +554,8 @@ const AISettingsPage: React.FC = () => {
                       : 'bg-white/5 border-white/5 hover:border-white/10'
                   }`}
                 >
-                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'custom' ? 'text-white' : 'text-white/60'}`}>কাস্টম</p>
-                  <p className="text-[10px] text-white/30">পছন্দমতো বেছে নিন</p>
+                  <p className={`text-sm font-bold ${settings.dataCheckingModel === 'custom' ? 'text-white' : 'text-white/60'}`}>Custom</p>
+                  <p className="text-[10px] text-white/30">Choose Provider</p>
                 </button>
               </div>
 
@@ -504,9 +590,9 @@ const AISettingsPage: React.FC = () => {
             <div className="space-y-1">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <AlertCircle size={20} className="text-amber-400" />
-                এরর হ্যান্ডলিং ও রিট্রাই
+                Error Handling & Retry
               </h2>
-              <p className="text-xs text-white/40">নির্দিষ্ট এরর ঘটলে অটোমেটিক রিট্রাই করবে।</p>
+              <p className="text-xs text-white/40">Automatically retry when specific errors occur.</p>
             </div>
             <button
               onClick={handleToggleRetry}
@@ -539,14 +625,14 @@ const AISettingsPage: React.FC = () => {
               className="space-y-4 pt-4 border-t border-white/5"
             >
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">নির্দিষ্ট এরর কোড</label>
+                <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Specific Error Codes</label>
                 <textarea
                   value={settings.retrySettings.errorCodes}
                   onChange={(e) => handleRetryErrorCodesChange(e.target.value)}
-                  placeholder="এরর কোডগুলো এখানে পেস্ট করুন (কমা দিয়ে আলাদা করুন)..."
+                  placeholder="Paste error codes here (comma separated)..."
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 transition-all min-h-[100px] resize-none"
                 />
-                <p className="text-[10px] text-white/20 italic">যদি এরর মেসেজে এই কোডগুলো থাকে, তবে সিস্টেম অটোমেটিক রিট্রাই করবে।</p>
+                <p className="text-[10px] text-white/20 italic">If these codes appear in error messages, the system will automatically retry.</p>
               </div>
             </motion.div>
           )}
@@ -555,23 +641,23 @@ const AISettingsPage: React.FC = () => {
         <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-3">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Trash2 size={20} className="text-red-400" />
-            ডেটা ম্যানেজমেন্ট
+            Data Management
           </h2>
           <p className="text-sm text-white/40 leading-relaxed mb-4">
-            আপনার চ্যাট ইতিহাস এবং AI মেমরি এখান থেকে মুছতে পারেন।
+            You can clear your chat history and AI memory from here.
           </p>
           <div className="flex flex-col gap-3">
             <button
               onClick={() => setShowClearConfirm('chat')}
               className="w-full py-3 bg-red-600/10 border border-red-600/20 text-red-400 rounded-xl font-bold text-sm hover:bg-red-600/20 transition-all"
             >
-              চ্যাট ইতিহাস মুছুন
+              Clear Chat History
             </button>
             <button
               onClick={() => setShowClearConfirm('memory')}
               className="w-full py-3 bg-white/5 border border-white/10 text-white/60 rounded-xl font-bold text-sm hover:bg-white/10 transition-all"
             >
-              AI মেমরি রিসেট করুন
+              Reset AI Memory
             </button>
           </div>
         </section>
@@ -579,11 +665,11 @@ const AISettingsPage: React.FC = () => {
         <section className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-3">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Key size={20} className="text-white/60" />
-            গোপনীয়তা ও নিরাপত্তা
+            Privacy & Security
           </h2>
           <p className="text-sm text-white/40 leading-relaxed">
-            আপনার API কী-গুলো <b>IndexedDB</b> ব্যবহার করে আপনার ডিভাইসে লোকালভাবে সেভ করা হয়। 
-            এগুলো কখনোই আমাদের সার্ভারে পাঠানো হয় না। সব AI রিকোয়েস্ট সরাসরি আপনার ব্রাউজার থেকে সংশ্লিষ্ট AI প্রোভাইডারের কাছে পাঠানো হয়।
+            Your API keys are saved locally on your device using <b>IndexedDB</b>. 
+            They are never sent to our servers. All AI requests are sent directly from your browser to the respective AI provider.
           </p>
         </section>
           </>
@@ -605,38 +691,65 @@ const AISettingsPage: React.FC = () => {
                   <Key className="text-white" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">API কী দিন</h2>
-                  <p className="text-white/50 text-sm">{showKeyModal.model.toUpperCase()} এর জন্য</p>
+                  <h2 className="text-xl font-bold">Enter API Key</h2>
+                  <p className="text-white/50 text-sm">For {showKeyModal.model.toUpperCase()}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2 block">
-                    API কী
+                    API Key
                   </label>
                   <input
                     type="password"
                     value={tempKey}
-                    onChange={(e) => setTempKey(e.target.value)}
+                    onChange={(e) => {
+                      setTempKey(e.target.value);
+                      setTestResult(null);
+                    }}
                     placeholder="sk-..."
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-white/20 transition-all"
                   />
                 </div>
 
+                {testResult && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                      testResult.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    {testResult.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
+                    <span className="flex-1">{testResult.message}</span>
+                  </motion.div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={() => setShowKeyModal(null)}
-                    className="flex-1 py-3 rounded-2xl font-bold text-white/60 hover:bg-white/5 transition-all"
+                    onClick={() => {
+                      setShowKeyModal(null);
+                      setTestResult(null);
+                    }}
+                    className="px-4 py-3 rounded-2xl font-bold text-white/60 hover:bg-white/5 transition-all"
                   >
-                    বাতিল
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleTestKey}
+                    disabled={isTesting || !tempKey.trim()}
+                    className="px-4 py-3 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isTesting ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                    Test
                   </button>
                   <button
                     onClick={handleSaveKey}
                     className="flex-1 py-3 rounded-2xl bg-white text-black font-bold hover:bg-white/90 transition-all flex items-center justify-center gap-2"
                   >
                     <Check size={18} />
-                    সেভ করুন
+                    Save
                   </button>
                 </div>
               </div>
@@ -661,12 +774,12 @@ const AISettingsPage: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">
-                    {showClearConfirm === 'chat' ? 'চ্যাট ইতিহাস মুছবেন?' : 'AI মেমরি রিসেট করবেন?'}
+                    {showClearConfirm === 'chat' ? 'Clear Chat History?' : 'Reset AI Memory?'}
                   </h2>
                   <p className="text-white/50 text-sm">
                     {showClearConfirm === 'chat' 
-                      ? 'এটি আপনার সব চ্যাট ইতিহাস এবং টাস্ক মুছে ফেলবে।' 
-                      : 'এটি AI-এর শর্ট-টার্ম মেমরি মুছে ফেলবে।'}
+                      ? 'This will delete all your chat history and tasks.' 
+                      : 'This will clear the AI\'s short-term memory.'}
                   </p>
                 </div>
               </div>
@@ -676,13 +789,13 @@ const AISettingsPage: React.FC = () => {
                   onClick={() => setShowClearConfirm(null)}
                   className="flex-1 py-3 rounded-2xl font-bold text-white/60 hover:bg-white/5 transition-all"
                 >
-                  বাতিল
+                  Cancel
                 </button>
                 <button
                   onClick={showClearConfirm === 'chat' ? handleClearChat : handleResetMemory}
                   className="flex-1 py-3 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all"
                 >
-                  নিশ্চিত করুন
+                  Confirm
                 </button>
               </div>
             </motion.div>

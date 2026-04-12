@@ -39,21 +39,23 @@ const AIChat: React.FC = () => {
   
   // URL Sync Logic
   useEffect(() => {
-    let base = selectedProvider === 'picoapps' ? '/ai-auto' : `/manual-control/${selectedModel || 'default'}`;
+    // Simplify URL - only show the provider if it's not picoapps
+    let base = selectedProvider === 'picoapps' ? '/ai-auto' : '/manual-control';
+    
+    // Only add model if it's not Mistral (since we use Agent ID) or if it's actually relevant
+    let modelPart = '';
+    if (selectedProvider !== 'picoapps' && selectedProvider !== 'mistral' && selectedModel) {
+      modelPart = `/${selectedModel}`;
+    }
+    
     let suffix = '';
+    if (aiStatus === 'error') suffix = '-error';
     
-    if (aiStatus === 'checking') suffix = '-checking';
-    else if (aiStatus === 'updating') suffix = '-updating';
-    else if (aiStatus === 'generating') suffix = '-generating';
-    else if (aiStatus === 'error') suffix = '-error';
-    
-    if (aiReason?.toLowerCase().includes('retry')) suffix += '-retrying';
-    
-    const newPath = `${base}${suffix}`;
+    const newPath = `${base}${modelPart}${suffix}`;
     if (window.location.pathname !== newPath) {
       window.history.replaceState(null, '', newPath);
     }
-  }, [selectedProvider, selectedModel, aiStatus, aiReason]);
+  }, [selectedProvider, selectedModel, aiStatus]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [attachedNotes, setAttachedNotes] = useState<Note[]>([]);
@@ -308,7 +310,13 @@ const AIChat: React.FC = () => {
         resetAIMemory={onResetMemory}
         exportChat={onExportChat}
         exportAuditLogs={onExportAuditLogs}
-        navigateBack={() => navigate('/')}
+        navigateBack={() => {
+          if (window.history.length > 1) {
+            navigate(-1);
+          } else {
+            navigate('/');
+          }
+        }}
         navigateToEditor={(id) => navigate(`/editor/${id}`)}
         navigateToSettings={() => navigate('/ai/settings')}
         setInput={setInput}

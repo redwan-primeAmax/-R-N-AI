@@ -724,6 +724,10 @@ export default function EditorPage() {
         .ProseMirror h5 { font-size: 1.125rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; }
         .ProseMirror h6 { font-size: 1rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; }
         .ProseMirror p { margin-bottom: 0.75rem; line-height: 1.6; color: rgba(255, 255, 255, 0.8); }
+        .ProseMirror blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin-left: 0; margin-right: 0; font-style: italic; color: rgba(255, 255, 255, 0.6); }
+        .ProseMirror pre { background: #1a1a1a; border: 1px solid rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; font-family: 'JetBrains Mono', monospace; overflow-x: auto; margin-bottom: 1rem; }
+        .ProseMirror code { background: rgba(255, 255, 255, 0.1); padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
+        .ProseMirror pre code { background: none; padding: 0; border-radius: 0; }
       `}</style>
     </div>
   );

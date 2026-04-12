@@ -75,6 +75,7 @@ export interface AISettings {
     enabled: boolean;
     errorCodes: string;
   };
+  mistralAgentId?: string;
 }
 
 // Configure localforage
@@ -86,6 +87,10 @@ localforage.config({
 // BroadcastChannel for multi-tab sync
 const syncChannel = new BroadcastChannel('notion_sync');
 const clientId = crypto.randomUUID();
+
+// In-memory cache for speed
+let cachedNotes: Note[] | null = null;
+let cachedSettings: AISettings | null = null;
 
 // Initialize FlexSearch index
 let searchIndex: Index;
@@ -173,23 +178,26 @@ export const DataManager = {
 
   // --- AI Settings Operations ---
   async getAISettings(): Promise<AISettings> {
+    if (cachedSettings) return cachedSettings;
+
     const settings = await localforage.getItem<AISettings>(AI_SETTINGS_KEY);
     const defaultSettings: AISettings = {
       controlMode: 'auto',
       selectedProvider: 'picoapps',
       selectedModels: {
-        gemini: 'gemini-3-flash-preview',
+        gemini: 'gemini-1.5-flash',
         openrouter: '',
         mistral: 'mistral-large-latest'
       },
       apiKeys: {},
       enabledProviders: ['picoapps'],
-      dataCheckingEnabled: true,
+      dataCheckingEnabled: false,
       dataCheckingModel: 'free',
       retrySettings: {
         enabled: false,
         errorCodes: ''
-      }
+      },
+      mistralAgentId: 'ag_019d823c7df1703682e6b94ae0d0dc75'
     };
 
     if (!settings) {
@@ -219,23 +227,16 @@ export const DataManager = {
       dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
       dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
       dataCheckingCustomProvider: settings.dataCheckingCustomProvider || 'gemini',
-      retrySettings: settings.retrySettings || defaultSettings.retrySettings
+      retrySettings: settings.retrySettings || defaultSettings.retrySettings,
+      mistralAgentId: settings.mistralAgentId || defaultSettings.mistralAgentId
     };
 
-    // RN AI 2.3 Temporary Lock: Force picoapps (Free Model)
-    mergedSettings.selectedProvider = 'picoapps';
-    mergedSettings.enabledProviders = ['picoapps'];
-    mergedSettings.dataCheckingModel = 'free';
-
+    cachedSettings = mergedSettings;
     return mergedSettings;
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
-    // RN AI 2.3 Temporary Lock: Prevent changing provider
-    settings.selectedProvider = 'picoapps';
-    settings.enabledProviders = ['picoapps'];
-    settings.dataCheckingModel = 'free';
-
+    cachedSettings = settings;
     // Encrypt API keys before saving
     const encryptedKeys: any = {};
     if (settings.apiKeys) {
@@ -255,10 +256,15 @@ export const DataManager = {
   // --- Notes Operations ---
   
   async getAllNotes(): Promise<Note[]> {
+    if (cachedNotes) return cachedNotes;
+
     const notes = await localforage.getItem<Note[]>(NOTES_KEY);
     if (!notes || notes.length === 0) {
-      return await this.initializeDefaultNotes();
+      const defaults = await this.initializeDefaultNotes();
+      cachedNotes = defaults;
+      return defaults;
     }
+    cachedNotes = notes;
     return notes;
   },
 
@@ -357,7 +363,7 @@ export const DataManager = {
   },
 
   async saveNote(note: Note): Promise<void> {
-    const notes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const notes = await this.getAllNotes();
     
     // Check for duplicate title (only for new notes)
     const isNew = !notes.some(n => n.id === note.id);
@@ -380,6 +386,7 @@ export const DataManager = {
     }
     
     await localforage.setItem(NOTES_KEY, notes);
+    cachedNotes = [...notes];
     
     // Immediate indexing on save to prevent staleness
     scheduleIndexing(note);
@@ -431,9 +438,10 @@ export const DataManager = {
   },
 
   async deleteNote(id: string): Promise<void> {
-    const notes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const notes = await this.getAllNotes();
     const filteredNotes = notes.filter(n => n.id !== id);
     await localforage.setItem(NOTES_KEY, filteredNotes);
+    cachedNotes = filteredNotes;
     
     // Garbage Collection: Remove localStorage backup for this note
     localStorage.removeItem(`note_backup_${id}`);
@@ -448,9 +456,10 @@ export const DataManager = {
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
-    const notes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const notes = await this.getAllNotes();
     const filteredNotes = notes.filter(n => !ids.includes(n.id));
     await localforage.setItem(NOTES_KEY, filteredNotes);
+    cachedNotes = filteredNotes;
     
     // Garbage Collection: Remove localStorage backups for these notes
     ids.forEach(id => {
@@ -758,7 +767,12 @@ export const DataManager = {
 
   // Add listener for components to use
   onSync(callback: (event: any) => void) {
-    syncChannel.onmessage = (event) => callback(event.data);
+    syncChannel.onmessage = (event) => {
+      // Invalidate cache on remote updates
+      if (event.data.type.includes('NOTE')) cachedNotes = null;
+      if (event.data.type.includes('SETTINGS')) cachedSettings = null;
+      callback(event.data);
+    };
   },
   
   offSync() {
