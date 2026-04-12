@@ -42,9 +42,9 @@ const AIChat: React.FC = () => {
     // Simplify URL - only show the provider if it's not picoapps
     let base = selectedProvider === 'picoapps' ? '/ai-auto' : '/manual-control';
     
-    // Only add model if it's not Mistral (since we use Agent ID) or if it's actually relevant
+    // Only add model if it's actually relevant
     let modelPart = '';
-    if (selectedProvider !== 'picoapps' && selectedProvider !== 'mistral' && selectedModel) {
+    if (selectedProvider !== 'picoapps' && selectedModel) {
       modelPart = `/${selectedModel}`;
     }
     
@@ -52,10 +52,9 @@ const AIChat: React.FC = () => {
     if (aiStatus === 'error') suffix = '-error';
     
     const newPath = `${base}${modelPart}${suffix}`;
-    if (window.location.pathname !== newPath) {
-      window.history.replaceState(null, '', newPath);
-    }
-  }, [selectedProvider, selectedModel, aiStatus]);
+    // Use navigate with replace to respect basename
+    navigate(newPath, { replace: true });
+  }, [selectedProvider, selectedModel, aiStatus, navigate]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [attachedNotes, setAttachedNotes] = useState<Note[]>([]);

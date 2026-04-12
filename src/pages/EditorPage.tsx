@@ -368,7 +368,7 @@ export default function EditorPage() {
     <div className="min-h-screen bg-[#0d0d0d] pb-32 text-white">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-[#0d0d0d] border-b border-white/10 px-4 py-2 flex items-center gap-3">
-        <button onClick={() => navigate('/main')} className="p-1.5 text-white/40 hover:text-white">
+        <button onClick={() => navigate('/')} className="p-1.5 text-white/40 hover:text-white">
           <ArrowLeft size={20} />
         </button>
         <div className="flex-grow flex items-center gap-2">

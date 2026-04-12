@@ -36,7 +36,7 @@ export default function Navigation() {
 
         {/* Home/Main */}
         <NavLink
-          to="/main"
+          to="/"
           className={({ isActive }) =>
             cn(
               "p-2 rounded-full transition-all",

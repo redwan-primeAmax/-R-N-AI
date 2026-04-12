@@ -114,8 +114,7 @@ function AppContent() {
   };
 
   const routingElement = useRoutes([
-    { path: "/", element: <Navigate to="/main" replace /> },
-    { path: "/main", element: <PageWrapper><HomePage /></PageWrapper> },
+    { path: "/", element: <PageWrapper><HomePage /></PageWrapper> },
     { path: "/inbox", element: <PageWrapper><InboxPage /></PageWrapper> },
     { path: "/search", element: <PageWrapper><SearchPage /></PageWrapper> },
     { path: "/import/import", element: <PageWrapper><InboxPage /></PageWrapper> },
@@ -132,6 +131,8 @@ function AppContent() {
     { path: "/tools/word-counter", element: <PageWrapper><WordCounter /></PageWrapper> },
     { path: "/tools/number-remover", element: <PageWrapper><NumberRemover /></PageWrapper> },
     { path: "/tools/summarizer", element: <PageWrapper><Summarizer /></PageWrapper> },
+    // Redirect /main to / for backward compatibility if needed
+    { path: "/main", element: <Navigate to="/" replace /> },
   ]);
 
   return (
@@ -167,7 +168,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
+    <Router basename="/-R-N-AI">
       <AppContent />
     </Router>
   );

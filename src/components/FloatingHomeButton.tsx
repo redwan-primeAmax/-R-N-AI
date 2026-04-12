@@ -16,7 +16,7 @@ export default function FloatingHomeButton() {
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       whileTap={{ scale: 0.9 }}
-      onClick={() => navigate('/main')}
+      onClick={() => navigate('/')}
       className="fixed bottom-8 right-8 z-[60] bg-white text-black w-14 h-14 rounded-full flex items-center justify-center shadow-2xl shadow-white/20 active:scale-95 transition-all border border-white/10"
     >
       <Home size={24} />
