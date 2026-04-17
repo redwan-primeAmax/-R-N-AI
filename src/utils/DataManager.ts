@@ -17,10 +17,27 @@ export interface Note {
   emoji: string;
   createdAt: number;
   updatedAt: number;
+  workspaceId?: string;
   fontFamily?: string;
   isFavorite?: boolean;
   publishedCode?: string;
   lastPublishedContent?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export interface NoteVersion {
+  id: string;
+  noteId: string;
+  title: string;
+  content: string;
+  emoji: string;
+  version: string; // e.g., "1.0", "1.1"
+  createdAt: number;
 }
 
 export interface ChatMessage {
@@ -73,6 +90,13 @@ export interface AISettings {
     enabled: boolean;
     errorCodes: string;
   };
+  selectedAppID?: string;
+  customAppIDs?: { id: string; name: string }[];
+  models: {
+    gemini: string;
+    openrouter: string;
+    [key: string]: string;
+  };
 }
 
 // Configure localforage
@@ -108,6 +132,9 @@ const TASKS_KEY = 'ai_tasks';
 const CONTEXT_SUMMARY_KEY = 'context_summary';
 const USER_NAME_KEY = 'user_name';
 const AI_SETTINGS_KEY = 'ai_settings';
+const WORKSPACES_KEY = 'workspaces';
+const CURRENT_WORKSPACE_KEY = 'current_workspace_id';
+const VERSIONS_KEY = 'note_versions';
 const CUSTOM_EXTENSION = '.redwan';
 
 // Helper for background indexing to prevent battery drain and UI lag
@@ -166,11 +193,101 @@ export const DataManager = {
   getClientId: () => clientId,
   // --- User Operations ---
   async getUserName(): Promise<string | null> {
+    const name = await localforage.getItem<string>(USER_NAME_KEY);
+    if (!name) return null;
+    if (name.length > 8) {
+      return name.substring(0, 8) + '...';
+    }
+    return name;
+  },
+
+  async getFullUserName(): Promise<string | null> {
     return await localforage.getItem<string>(USER_NAME_KEY);
   },
 
   async saveUserName(name: string): Promise<void> {
     await localforage.setItem(USER_NAME_KEY, name);
+  },
+
+  // --- Workspace Operations ---
+  async getWorkspaces(): Promise<Workspace[]> {
+    let workspaces = await localforage.getItem<Workspace[]>(WORKSPACES_KEY);
+    
+    if (!workspaces || workspaces.length === 0) {
+      const defaultWorkspace: Workspace = {
+        id: 'default-workspace',
+        name: 'আমার কাজের ক্ষেত্র',
+        createdAt: Date.now()
+      };
+      workspaces = [defaultWorkspace];
+      await localforage.setItem(WORKSPACES_KEY, workspaces);
+      await localforage.setItem(CURRENT_WORKSPACE_KEY, defaultWorkspace.id);
+    }
+
+    // Migration: Ensure all workspaces have a name
+    let changed = false;
+    workspaces = workspaces.map((ws, index) => {
+      if (!ws.name || ws.name.trim() === '') {
+        changed = true;
+        return { ...ws, name: `Workspace ${index + 1}` };
+      }
+      return ws;
+    });
+
+    if (changed) {
+      await localforage.setItem(WORKSPACES_KEY, workspaces);
+    }
+
+    return workspaces;
+  },
+
+  async saveWorkspace(workspace: Workspace): Promise<void> {
+    const workspaces = await this.getWorkspaces();
+    const index = workspaces.findIndex(w => w.id === workspace.id);
+    if (index > -1) {
+      workspaces[index] = workspace;
+    } else {
+      workspaces.push(workspace);
+    }
+    await localforage.setItem(WORKSPACES_KEY, workspaces);
+  },
+
+  async deleteWorkspace(id: string): Promise<void> {
+    const workspaces = await this.getWorkspaces();
+    const filtered = workspaces.filter(w => w.id !== id);
+    await localforage.setItem(WORKSPACES_KEY, filtered);
+
+    // Delete all notes in this workspace
+    const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const remainingNotes = allNotes.filter(n => n.workspaceId !== id);
+    await localforage.setItem(NOTES_KEY, remainingNotes);
+    cachedNotes = null;
+
+    // If current workspace was deleted, switch to the first available one
+    const currentId = await this.getCurrentWorkspaceId();
+    if (currentId === id) {
+      if (filtered.length > 0) {
+        await this.setCurrentWorkspaceId(filtered[0].id);
+      } else {
+        // This should trigger getWorkspaces to create a default one
+        await localforage.removeItem(CURRENT_WORKSPACE_KEY);
+      }
+    }
+  },
+
+  async getCurrentWorkspaceId(): Promise<string> {
+    const id = await localforage.getItem<string>(CURRENT_WORKSPACE_KEY);
+    if (!id) {
+      const workspaces = await this.getWorkspaces();
+      return workspaces[0].id;
+    }
+    return id;
+  },
+
+  async setCurrentWorkspaceId(id: string): Promise<void> {
+    await localforage.setItem(CURRENT_WORKSPACE_KEY, id);
+    cachedNotes = null; // Invalidate cache
+    syncChannel.postMessage({ type: 'SWITCH_WORKSPACE', id });
   },
 
   // --- AI Settings Operations ---
@@ -192,6 +309,12 @@ export const DataManager = {
       retrySettings: {
         enabled: false,
         errorCodes: ''
+      },
+      selectedAppID: 'threat-all',
+      customAppIDs: [],
+      models: {
+        gemini: 'gemini-1.5-flash',
+        openrouter: ''
       }
     };
 
@@ -222,7 +345,10 @@ export const DataManager = {
       dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
       dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
       dataCheckingCustomProvider: settings.dataCheckingCustomProvider || 'gemini',
-      retrySettings: settings.retrySettings || defaultSettings.retrySettings
+      retrySettings: settings.retrySettings || defaultSettings.retrySettings,
+      selectedAppID: settings.selectedAppID || defaultSettings.selectedAppID,
+      customAppIDs: settings.customAppIDs || defaultSettings.customAppIDs,
+      models: settings.models || defaultSettings.models
     };
 
     cachedSettings = mergedSettings;
@@ -253,13 +379,49 @@ export const DataManager = {
     if (cachedNotes) return cachedNotes;
 
     const notes = await localforage.getItem<Note[]>(NOTES_KEY);
+    const currentWorkspaceId = await this.getCurrentWorkspaceId();
+
     if (!notes || notes.length === 0) {
       const defaults = await this.initializeDefaultNotes();
-      cachedNotes = defaults;
-      return defaults;
+      cachedNotes = defaults.filter(n => n.workspaceId === currentWorkspaceId);
+      return cachedNotes;
     }
-    cachedNotes = notes;
-    return notes;
+
+    const filteredNotes = notes.filter(n => n.workspaceId === currentWorkspaceId);
+    cachedNotes = filteredNotes;
+    return filteredNotes;
+  },
+
+  async exportAllData(): Promise<{ notes: Note[], workspaces: Workspace[] }> {
+    const notes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const workspaces = await this.getWorkspaces();
+    return { notes, workspaces };
+  },
+
+  async importAllData(notes: Note[], workspaces: Workspace[]): Promise<void> {
+    await localforage.setItem(NOTES_KEY, notes);
+    await localforage.setItem(WORKSPACES_KEY, workspaces);
+    
+    // Reset cache and index
+    cachedNotes = null;
+    if (searchIndex) {
+      try {
+        searchIndex = new Index({
+          preset: 'score',
+          tokenize: 'forward',
+          cache: true
+        });
+        for (const note of notes) {
+          scheduleIndexing(note);
+        }
+      } catch (e) {
+        console.error('Failed to re-index after import:', e);
+      }
+    }
+    
+    // Notify other tabs
+    syncChannel.postMessage({ type: 'SYNC_COMPLETE' });
+    window.location.reload(); // Refresh to ensure all states are clean
   },
 
   async getNotesPaginated(page: number, pageSize: number): Promise<{ notes: Note[], hasMore: boolean }> {
@@ -274,73 +436,78 @@ export const DataManager = {
   },
 
   async initializeDefaultNotes(): Promise<Note[]> {
-    // Create a default note for new users
-    const welcomeNote: Note = {
-      id: 'welcome-note',
-      title: '👋 Getting Started on Mobile',
+    const currentWorkspaceId = await this.getCurrentWorkspaceId();
+    
+    const todoTemplate: Note = {
+      id: 'todo-template',
+      title: '🎯 Weekly Focus & Todo',
+      workspaceId: currentWorkspaceId,
       content: `
-        <h1>আমাদের নোট অ্যাপের ফিচার গাইড</h1>
-        <p>এই অ্যাপটি আপনার নোট গুছিয়ে রাখতে সাহায্য করবে। নিচে প্রতিটি বাটনের কাজ বাংলায় দেওয়া হলো:</p>
+        <h2>🎯 Weekly High-Level Goals</h2>
+        <ul><li>[ ] Main Priority 1</li><li>[ ] Main Priority 2</li></ul>
         
-        <p><b>বোল্ড (Bold)</b> = লেখা মোটা করে।</p>
-        <p><i>ইটালিক (Italic)</i> = লেখা বাঁকা করে।</p>
-        <p><u>আন্ডারলাইন (Underline)</u> = লেখার নিচে দাগ দেয়।</p>
-        <p><b>হেডিং (Heading)</b> = লেখার আকার বড় করে (H1-H6)।</p>
-        <p><b>বুলেট লিস্ট (Bullet List)</b> = ডট দিয়ে তালিকা তৈরি করে।</p>
-        <p><b>নাম্বার লিস্ট (Numbered List)</b> = সংখ্যা দিয়ে তালিকা তৈরি করে।</p>
-        <p><b>টাস্ক লিস্ট (Task List)</b> = চেক বক্স সহ তালিকা তৈরি করে।</p>
-        <p><b>ব্লককোট (Blockquote)</b> = উদ্ধৃতি বা বিশেষ লেখা হাইলাইট করে।</p>
-        <p><b>কোড ব্লক (Code Block)</b> = প্রোগ্রামিং কোড লেখার জন্য।</p>
-        <p><b>হাইলাইটার (Highlight)</b> = লেখার ব্যাকগ্রাউন্ড কালার পরিবর্তন করে।</p>
-        <p><b>অ্যালাইনমেন্ট (Alignment)</b> = লেখা বাম, মাঝ বা ডানে সরায়।</p>
-        <p><b>ফন্ট (Font)</b> = লেখার স্টাইল পরিবর্তন করে।</p>
-        <p><b>কালার (Color)</b> = লেখার রং পরিবর্তন করে।</p>
-        <p><b>স্পিচ-টু-টেক্সট (Speech)</b> = কথা বলে লেখা টাইপ করে।</p>
-        <p><b>এক্সপোর্ট (Export)</b> = আপনার নোটটি .redwan ফাইলে সেভ করে।</p>
+        <hr />
+        <h3>📅 Daily Breakdown</h3>
+        <p><b>Monday:</b></p>
+        <ul><li>[ ] task 1</li></ul>
+        <p><b>Tuesday:</b></p>
+        <ul><li>[ ] task 1</li></ul>
         
-        <p>নতুন নোট তৈরি করতে হোম পেজের প্লাস (+) বাটনে ক্লিক করুন। কোনো নোট ডিলিট করতে সেটির উপর লং-প্রেস করুন।</p>
+        <hr />
+        <p><i>Tip: Use checkmarks to track progress. Keep it simple and focused.</i></p>
       `,
-      emoji: '👋',
+      emoji: '🎯',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      isFavorite: false,
     };
 
-    const suiterNote: Note = {
-      id: 'suiter-integration-note',
-      title: '🛠️ Suiter Integration Guide',
+    const meetingTemplate: Note = {
+      id: 'meeting-template',
+      title: '🤝 Meeting Notes: Project Sync',
+      workspaceId: currentWorkspaceId,
       content: `
-        <h1>Suiter Integration Instructions</h1>
-        <p>এই নোটটি Mistral AI এবং Suiter Integration-এর জন্য তৈরি করা হয়েছে।</p>
+        <h2>🤝 Meeting: [Project Name]</h2>
+        <p><b>Date:</b> ${new Date().toLocaleDateString()} | <b>Host:</b> Me</p>
         
-        <h3>১. Suiter App ID Call:</h3>
-        <p>Suiter Integration এখন App ID-তে কল সাপোর্ট করে। এটি ব্যবহার করতে আপনার App ID এবং প্রয়োজনীয় প্যারামিটারগুলো কনফিগার করুন।</p>
+        <hr />
+        <h3>📝 Key Agenda</h3>
+        <ul><li>Points to discuss...</li></ul>
         
-        <h3>২. Mistral AI JSON Output:</h3>
-        <p>Mistral AI এখন থেকে JSON ফরম্যাটে আউটপুট প্রদান করবে। নিচের প্রম্পটটি কপি করে Mistral সার্ভারে পেস্ট করুন:</p>
+        <h3>💡 Decisions Made</h3>
+        <ul><li>Decision A...</li></ul>
         
-        <pre style="background: #1a1a1a; color: #4ade80; padding: 1rem; border-radius: 0.5rem; border: 1px solid #333;">
-{
-"instruction": "Generate response in valid JSON format based on the provided schema.",
-"schema": {
-  "type": "object",
-  "properties": {
-    "answer": { "type": "string" },
-    "status": { "type": "string" }
-  }
-}
-}
-        </pre>
-        
-        <p>উপরে দেওয়া কপি বাটনটি ব্যবহার করে এই নোটের কন্টেন্ট দ্রুত কপি করতে পারেন।</p>
+        <h3>🔥 Action Items</h3>
+        <ul><li>[ ] @Person: Do this by Friday</li></ul>
       `,
-      emoji: '🛠️',
+      emoji: '🤝',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      isFavorite: false,
     };
 
-    const notes = [welcomeNote, suiterNote];
+    const dailyTracker: Note = {
+      id: 'daily-tracker',
+      title: '☀️ Daily Reflection & Health',
+      workspaceId: currentWorkspaceId,
+      content: `
+        <h2>☀️ Morning Intentions</h2>
+        <p>How do I want to feel today? [Input]</p>
+        
+        <hr />
+        <h3>🥤 Health Tracker</h3>
+        <p>Water: 💧 💧 💧 💧 💧 (5/8 glasses)</p>
+        <p>Sleep: 8 Hours</p>
+        
+        <hr />
+        <h3>🌙 Evening Reflection</h3>
+        <p><b>Win of the day:</b> [Input]</p>
+        <p><b>Lesson learned:</b> [Input]</p>
+      `,
+      emoji: '☀️',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const notes = [todoTemplate, meetingTemplate, dailyTracker];
     await localforage.setItem(NOTES_KEY, notes);
     return notes;
   },
@@ -357,30 +524,36 @@ export const DataManager = {
   },
 
   async saveNote(note: Note): Promise<void> {
-    const notes = await this.getAllNotes();
+    const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const currentWorkspaceId = await this.getCurrentWorkspaceId();
     
-    // Check for duplicate title (only for new notes)
-    const isNew = !notes.some(n => n.id === note.id);
+    // Ensure workspaceId is set
+    if (!note.workspaceId) {
+      note.workspaceId = currentWorkspaceId;
+    }
+
+    // Check for duplicate title (only for new notes in same workspace)
+    const isNew = !allNotes.some(n => n.id === note.id);
     if (isNew) {
       let finalTitle = note.title;
       let counter = 1;
-      while (notes.some(n => n.title.toLowerCase() === finalTitle.toLowerCase())) {
+      while (allNotes.some(n => n.workspaceId === currentWorkspaceId && n.title.toLowerCase() === finalTitle.toLowerCase())) {
         finalTitle = `${note.title} (${counter})`;
         counter++;
       }
       note.title = finalTitle;
     }
 
-    const index = notes.findIndex(n => n.id === note.id);
+    const index = allNotes.findIndex(n => n.id === note.id);
     
     if (index > -1) {
-      notes[index] = { ...note, updatedAt: Date.now() };
+      allNotes[index] = { ...note, updatedAt: Date.now() };
     } else {
-      notes.push({ ...note, createdAt: Date.now(), updatedAt: Date.now() });
+      allNotes.push({ ...note, createdAt: Date.now(), updatedAt: Date.now() });
     }
     
-    await localforage.setItem(NOTES_KEY, notes);
-    cachedNotes = [...notes];
+    await localforage.setItem(NOTES_KEY, allNotes);
+    cachedNotes = allNotes.filter(n => n.workspaceId === currentWorkspaceId);
     
     // Immediate indexing on save to prevent staleness
     scheduleIndexing(note);
@@ -432,13 +605,15 @@ export const DataManager = {
   },
 
   async deleteNote(id: string): Promise<void> {
-    const notes = await this.getAllNotes();
-    const filteredNotes = notes.filter(n => n.id !== id);
+    const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const filteredNotes = allNotes.filter(n => n.id !== id);
     await localforage.setItem(NOTES_KEY, filteredNotes);
-    cachedNotes = filteredNotes;
     
-    // Garbage Collection: Remove localStorage backup for this note
-    localStorage.removeItem(`note_backup_${id}`);
+    const currentWorkspaceId = await this.getCurrentWorkspaceId();
+    cachedNotes = filteredNotes.filter(n => n.workspaceId === currentWorkspaceId);
+    
+    // Garbage Collection: Remove backup for this note
+    await localforage.removeItem(`note_backup_${id}`);
     
     // Remove from search index
     if (searchIndex) {
@@ -450,21 +625,67 @@ export const DataManager = {
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
-    const notes = await this.getAllNotes();
-    const filteredNotes = notes.filter(n => !ids.includes(n.id));
+    const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const filteredNotes = allNotes.filter(n => !ids.includes(n.id));
     await localforage.setItem(NOTES_KEY, filteredNotes);
-    cachedNotes = filteredNotes;
     
-    // Garbage Collection: Remove localStorage backups for these notes
-    ids.forEach(id => {
-      localStorage.removeItem(`note_backup_${id}`);
+    const currentWorkspaceId = await this.getCurrentWorkspaceId();
+    cachedNotes = filteredNotes.filter(n => n.workspaceId === currentWorkspaceId);
+    
+    // Garbage Collection: Remove backups for these notes
+    for (const id of ids) {
+      await localforage.removeItem(`note_backup_${id}`);
       if (searchIndex) {
         searchIndex.remove(id);
       }
-    });
+    }
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'DELETE_NOTES', ids });
+  },
+
+  // --- Versioning Operations ---
+  async saveVersion(note: Note, version: string): Promise<void> {
+    const versions = await localforage.getItem<NoteVersion[]>(VERSIONS_KEY) || [];
+    const newVersion: NoteVersion = {
+      id: crypto.randomUUID(),
+      noteId: note.id,
+      title: note.title,
+      content: note.content,
+      emoji: note.emoji,
+      version,
+      createdAt: Date.now()
+    };
+    versions.push(newVersion);
+    await localforage.setItem(VERSIONS_KEY, versions);
+  },
+
+  async getVersions(noteId: string): Promise<NoteVersion[]> {
+    const versions = await localforage.getItem<NoteVersion[]>(VERSIONS_KEY) || [];
+    return versions.filter(v => v.noteId === noteId).sort((a, b) => b.createdAt - a.createdAt);
+  },
+
+  async restoreVersion(versionId: string): Promise<Note | null> {
+    const versions = await localforage.getItem<NoteVersion[]>(VERSIONS_KEY) || [];
+    const version = versions.find(v => v.id === versionId);
+    if (!version) return null;
+
+    const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    const noteIndex = allNotes.findIndex(n => n.id === version.noteId);
+    
+    if (noteIndex > -1) {
+      allNotes[noteIndex] = {
+        ...allNotes[noteIndex],
+        title: version.title,
+        content: version.content,
+        emoji: version.emoji,
+        updatedAt: Date.now()
+      };
+      await localforage.setItem(NOTES_KEY, allNotes);
+      cachedNotes = null;
+      return allNotes[noteIndex];
+    }
+    return null;
   },
 
   async exportNote(note: Note): Promise<void> {
@@ -771,5 +992,54 @@ export const DataManager = {
   
   offSync() {
     syncChannel.onmessage = null;
+  },
+  
+  // --- Storage & Media (RN AI 2.5) ---
+  async uploadMedia(file: File, path: string): Promise<string> {
+    const settings = await this.getAISettings();
+    
+    // Check if Supabase is actually configured with valid environment variables
+    // In this environment, we check if supabase instance exists
+    if (!isSupabaseConfigured) {
+      console.warn('Supabase not configured, using local DataURL');
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${path}/${fileName}`;
+
+    try {
+      const { error } = await supabase.storage
+        .from('notes-assets')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Upload error details:', error);
+        // Fallback to local if bucket is missing or access denied
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('notes-assets')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (e) {
+      console.error('Upload catch:', e);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+    }
   }
 };

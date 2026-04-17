@@ -25,23 +25,33 @@ Your task is to transform any provided text into a high-quality, structured JSON
 
 The JSON MUST follow this exact structure:
 {
-  "title": "A compelling and descriptive title",
+  "title": "A compelling and descriptive title (MAX 20 CHARACTERS)",
   "content": "The content formatted in rich HTML",
   "emoji": "A single relevant high-quality emoji"
 }
 
 CRITICAL FORMATTING RULES:
-1. HIERARCHY: Use <h1>, <h2>, <h3>, <h4>, <h5>, <h6> for clear structure.
-2. STYLING: Use <strong> for bold, <em> for italic, <u> for underline, and <mark> for highlights.
-3. LISTS: Use <ul> and <ol> for standard lists.
-4. TASK LISTS: ONLY use <ul data-type="taskList"> with <li data-checked="true/false"> if the input explicitly describes actionable tasks or a to-do list. Do NOT use it for general descriptions.
-5. CALLOUTS: Use <blockquote> for quotes, warnings, or important highlights.
-6. CODE: Use <pre><code>...</code></pre> for technical snippets or examples.
-7. VISUALS: Use inline styles for colors if necessary (e.g., <span style="color: #ff0000">).
-8. ALIGNMENT: Use <p style="text-align: center/right/justify"> if the context suggests specific alignment.
-9. THEMATIC BREAKS: Use <hr /> to separate major sections.
-10. PROFESSIONALISM: Ensure the content is visually organized, aesthetically pleasing, and maintains the original structure's intent.
-11. OUTPUT: Do not include any conversational text, only the raw JSON object.`;
+1. TITLE LIMIT: The title MUST be concise and meaningful. MAXIMUM 20 CHARACTERS.
+2. PARAGRAPH STRUCTURE (BILINGUAL): 
+   - If the user asks for a "Paragraph" (অনুচ্ছেদ), do NOT use numbered lists or bullet points.
+   - Write continuous, flowing text. Each English sentence must be immediately followed by its pronunciation (in Bengali script) and Bengali meaning.
+   - Example: <p><strong>English Sentence.</strong> <em>(Pronunciation)</em> <mark>Bengali Meaning.</mark></p>
+   - Ensure the flow feels like a cohesive story or essay, not a list of facts.
+3. LANGUAGE PURITY: Do NOT use English words, characters, or symbols in point headers, instructions, or any other part of the note. Use ONLY pure Bengali for everything except the specific English sentences being taught.
+4. MEDIA (MANDATORY): You CANNOT insert images, audio, or video directly. If the content suggests a visual or audio element is needed (e.g., "My Birthday", "Nature", "Music", "Lecture"), you MUST insert the appropriate HTML block: 
+   - Image: <div class="image-placeholder" data-instruction="আপনার ছবি এখানে আপলোড করুন">📸 [আপনার ছবি এখানে আপলোড করুন]</div>
+   - Video: <div class="image-placeholder" data-instruction="আপনার ভিডিও এখানে আপলোড করুন">🎥 [আপনার ভিডিও এখানে আপলোড করুন]</div>
+   - Audio: <div class="image-placeholder" data-instruction="আপনার অডিও এখানে আপলোড করুন">🎵 [আপনার অডিও এখানে আপলোড করুন]</div>
+   Place it at a relevant position.
+5. HIERARCHY: Use <h1>, <h2>, <h3>, <h4>, <h5>, <h6> for clear structure.
+6. STYLING: Use <strong> for bold, <em> for italic, <u> for underline, and <mark> for highlights.
+7. LISTS: Use <ul> and <ol> for standard lists.
+8. TASK LISTS: ONLY use <ul data-type="taskList"> with <li data-checked="true/false"> if the user explicitly asks for a "To-do list", "Checklist", or "Action items". For general lists, ALWAYS use Bullet lists (<ul>). CRITICAL: Every <li> inside a task list MUST wrap its text content in a <p> tag (e.g., <li><p>Task Name</p></li>) for correct alignment and styling.
+9. CALLOUTS: Use <blockquote> for quotes, warnings, or important highlights.
+10. TOGGLE LISTS: Use <details><summary>Title</summary><div data-type="detailsContent"><p>Content</p></div></details> for collapsible sections or toggle lists.
+11. CODE: Use <pre><code>...</code></pre> for technical snippets or examples.
+12. PROFESSIONALISM: Ensure the content is visually organized, aesthetically pleasing, and maintains the original structure's intent. For 10-mark questions, provide a comprehensive, beautifully structured response with clear headings.
+13. OUTPUT: Do not include any conversational text, only the raw JSON object.`;
 
 const ExternalImport: React.FC = () => {
   const navigate = useNavigate();
@@ -155,8 +165,13 @@ Please provide the updated note in the required JSON format as specified in our 
         <div className="flex items-center gap-4">
           <button 
             type="button"
-            onClick={() => navigate(-1)} 
-            onTouchStart={() => navigate(-1)}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/');
+              }
+            }} 
             className="p-3 -m-1 text-white/40 hover:text-white transition-all active:scale-90 cursor-pointer flex items-center justify-center rounded-full hover:bg-white/5 relative z-50"
             aria-label="Go back"
           >

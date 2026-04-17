@@ -55,14 +55,21 @@ const NumberRemover: React.FC = () => {
     try {
       const settings = await DataManager.getAISettings();
       const service = AIServiceFactory.getService('picoapps');
-      const prompt = `Generate a very short title (3-4 words, max 20 characters) for this text in Bengali. Only return the title, nothing else. Text: ${content.substring(0, 500)}`;
+      const prompt = `Generate a title (EXACTLY 20-25 words) for this text in Bengali. NO special characters, NO punctuation. Only return the title, nothing else. Text: ${content.substring(0, 500)}`;
       
       const response = await service.sendMessage(prompt, {
         settings,
-        systemPrompt: "You are a helpful assistant that generates short titles in Bengali."
+        systemPrompt: "You are a helpful assistant that generates long, descriptive titles in Bengali without any punctuation."
       });
       
-      return response.trim().replace(/[#*]/g, '').substring(0, 20);
+      // Clean up response
+      const cleaned = response.trim()
+        .replace(/[^a-zA-Z0-9\s\u0980-\u09FF]/gi, '')
+        .split(/\s+/)
+        .slice(0, 25)
+        .join(' ');
+
+      return cleaned || 'সংরক্ষিত নোট';
     } catch (error) {
       console.error('Title generation failed:', error);
       return 'সংরক্ষিত নোট';
@@ -140,7 +147,16 @@ ${outputText}
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/tools')} className="p-2 text-white/40 hover:text-white transition-all">
+          <button 
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/tools');
+              }
+            }} 
+            className="p-2 text-white/40 hover:text-white transition-all"
+          >
             <ChevronLeft size={20} />
           </button>
           <div className="flex flex-col">

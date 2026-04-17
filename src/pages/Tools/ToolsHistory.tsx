@@ -50,7 +50,16 @@ const ToolsHistory: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/tools')} className="p-2 text-white/40 hover:text-white transition-all">
+          <button 
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/tools');
+              }
+            }} 
+            className="p-2 text-white/40 hover:text-white transition-all"
+          >
             <ChevronLeft size={20} />
           </button>
           <h1 className="text-xl font-bold tracking-tight">Tool History</h1>

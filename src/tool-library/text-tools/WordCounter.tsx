@@ -162,7 +162,16 @@ ${text}
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/tools')} className="p-2 text-white/40 hover:text-white transition-all">
+          <button 
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/tools');
+              }
+            }} 
+            className="p-2 text-white/40 hover:text-white transition-all"
+          >
             <ChevronLeft size={20} />
           </button>
           <div className="flex flex-col">

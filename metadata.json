@@ -1,5 +1,5 @@
 {
   "name": "NotionClone Pro",
-  "description": "An advanced, mobile-first Notion-like note-taking application with AI integration and IndexedDB storage.",
-  "requestFramePermissions": []
+  "description": "An advanced, mobile-first Notion-like note-taking application with AI integration, Google Drive cloud sync, and IndexedDB storage.",
+  "requestFramePermissions": ["microphone"]
 }

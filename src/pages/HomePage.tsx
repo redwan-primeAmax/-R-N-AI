@@ -22,9 +22,12 @@ import {
   UploadCloud,
   Download,
   Settings,
-  Loader2
+  Loader2,
+  Edit2,
+  History,
+  Search
 } from 'lucide-react';
-import { DataManager, Note } from '../utils/DataManager';
+import { DataManager, Note, Workspace } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { FixedSizeList } from 'react-window';
 
@@ -77,6 +80,19 @@ const NoteContextMenu = memo(({
           >
             <Star size={20} className={note.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-white/60"} />
             <span className="font-medium">{note.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
+          </button>
+
+          <button 
+            onClick={() => { 
+               // Trigger Version Control for this specific note
+               // We can use a global signal or just pass note id
+               window.dispatchEvent(new CustomEvent('open-version-control', { detail: { noteId: note.id } }));
+               onClose(); 
+            }}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          >
+            <History size={20} className="text-white/60" />
+            <span className="font-medium">Version History</span>
           </button>
 
           <button 
@@ -212,6 +228,9 @@ NoteRow.displayName = 'NoteRow';
 export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [userName, setUserName] = useState<string>('User');
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>('');
+  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
   const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -223,6 +242,8 @@ export default function HomePage() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
   const [showNamePopup, setShowNamePopup] = useState(false);
+  const [isRenaming, setIsRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [tempName, setTempName] = useState('');
   const navigate = useNavigate();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -244,11 +265,20 @@ export default function HomePage() {
     const name = await DataManager.getUserName();
     if (name) {
       setUserName(name);
-    } else {
-      // New user detected
-      setShowWelcomePopup(true);
     }
+    
+    const ws = await DataManager.getWorkspaces();
+    setWorkspaces(ws);
+    const currentWsId = await DataManager.getCurrentWorkspaceId();
+    setCurrentWorkspaceId(currentWsId);
   }, []);
+
+  const handleSwitchWorkspace = async (id: string) => {
+    await DataManager.setCurrentWorkspaceId(id);
+    setCurrentWorkspaceId(id);
+    setShowWorkspaceMenu(false);
+    loadData();
+  };
 
   const handleSaveName = async () => {
     if (tempName.trim()) {
@@ -363,84 +393,7 @@ export default function HomePage() {
 
 
   return (
-    <div className="min-h-screen bg-[#191919] text-white pb-32 overflow-x-hidden main-screen select-none">
-      {/* Welcome Onboarding Popup */}
-      <AnimatePresence>
-        {showWelcomePopup && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl text-center space-y-6"
-            >
-              <div className="w-20 h-20 bg-blue-500/20 rounded-3xl flex items-center justify-center mx-auto">
-                <Sparkles size={40} className="text-blue-400" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Welcome to RNAI Note</h2>
-                <p className="text-blue-400 font-bold text-sm uppercase tracking-widest">Version 2.3</p>
-              </div>
-              <div className="space-y-4 text-white/70 text-sm leading-relaxed">
-                <p>আপনাকে আমাদের <span className="text-white font-bold">2.3 ভার্সনে</span> স্বাগতম।</p>
-                <p className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                  এটি এখন <span className="text-amber-400 font-bold">বিটা মোডে বা টেস্টিং মোডে</span> রয়েছে। তাই অনেক বাগ গ্লিচেস থাকতে পারে।
-                </p>
-                <p>আপনি যদি কোনো বাগ বা গ্লিচেস খুঁজে পান বা কোনো এরর বা ইস্যু পান তখন কিন্তু সঙ্গে সঙ্গে আমাদের জানাতে পারেন।</p>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowWelcomePopup(false);
-                  setShowNamePopup(true);
-                }}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-600/20"
-              >
-                শুরু করুন
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Name Input Popup */}
-      <AnimatePresence>
-        {showNamePopup && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl space-y-6"
-            >
-              <div className="text-center space-y-2">
-                <h2 className="text-xl font-bold text-white">আপনার নাম লিখুন</h2>
-                <p className="text-white/40 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার নাম প্রয়োজন।</p>
-              </div>
-              
-              <div className="space-y-4">
-                <input 
-                  type="text"
-                  placeholder="আপনার নাম..."
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  autoFocus
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all text-center font-bold text-lg"
-                />
-                <button 
-                  onClick={handleSaveName}
-                  disabled={!tempName.trim()}
-                  className="w-full py-4 bg-white text-black rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                >
-                  সেভ করুন
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
+    <div className="min-h-screen bg-[#0A0A0A] text-white pb-48 overflow-x-hidden main-screen select-none">
       {/* Published ID Modal */}
       <AnimatePresence>
         {publishedId && (
@@ -512,18 +465,164 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
+      {/* Workspace Menu Modal */}
+      <AnimatePresence>
+        {showWorkspaceMenu && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-sm bg-[#1c1c1c] border border-white/10 rounded-[40px] shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-white/5">
+                <div>
+                  <h3 className="text-xl font-bold">কাজের ক্ষেত্রসমূহ</h3>
+                  <p className="text-xs text-white/40 mt-0.5">আপনার সকল কাজের ক্ষেত্র এখানে পাবেন</p>
+                </div>
+                <button 
+                  onClick={() => setShowWorkspaceMenu(false)}
+                  className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full transition-all"
+                >
+                  <X size={20} className="text-white/60" />
+                </button>
+              </div>
+
+              <div className="p-6 max-h-[60vh] overflow-y-auto no-scrollbar space-y-2">
+                {workspaces.map(ws => (
+                  <div key={ws.id} className="group relative">
+                    {isRenaming === ws.id ? (
+                      <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
+                        <input 
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          autoFocus
+                          className="flex-1 bg-transparent border-none outline-none px-3 py-1 text-sm font-medium"
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && renameValue.trim()) {
+                              const updated = { ...ws, name: renameValue.trim() };
+                              await DataManager.saveWorkspace(updated);
+                              setWorkspaces(prev => prev.map(w => w.id === ws.id ? updated : w));
+                              setIsRenaming(null);
+                            } else if (e.key === 'Escape') {
+                              setIsRenaming(null);
+                            }
+                          }}
+                        />
+                        <button 
+                          onClick={async () => {
+                            if (renameValue.trim()) {
+                              const updated = { ...ws, name: renameValue.trim() };
+                              await DataManager.saveWorkspace(updated);
+                              setWorkspaces(prev => prev.map(w => w.id === ws.id ? updated : w));
+                              setIsRenaming(null);
+                            }
+                          }}
+                          className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20"
+                        >
+                          <Check size={18} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className={cn(
+                        "flex items-center justify-between px-5 py-4 rounded-[24px] transition-all border border-transparent shadow-sm",
+                        ws.id === currentWorkspaceId 
+                          ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20 border-blue-400" 
+                          : "bg-white/5 hover:bg-white/10 text-white/60 border-white/5"
+                      )}>
+                        <button 
+                          onClick={() => {
+                            handleSwitchWorkspace(ws.id);
+                            setShowWorkspaceMenu(false);
+                          }}
+                          className="flex-1 text-left font-bold truncate pr-4 text-sm tracking-tight"
+                        >
+                          {ws.name}
+                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
+                          <button 
+                            onClick={() => {
+                              setIsRenaming(ws.id);
+                              setRenameValue(ws.name);
+                            }}
+                            className={cn(
+                              "p-2 rounded-xl transition-colors",
+                              ws.id === currentWorkspaceId ? "hover:bg-white/20 text-white" : "hover:bg-white/10 text-white/40"
+                            )}
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          {workspaces.length > 1 && (
+                            <button 
+                              onClick={async () => {
+                                if (confirm('আপনি কি নিশ্চিত যে আপনি এই কাজের ক্ষেত্রটি মুছে ফেলতে চান?')) {
+                                  await DataManager.deleteWorkspace(ws.id);
+                                  const updated = await DataManager.getWorkspaces();
+                                  setWorkspaces(updated);
+                                  const newId = await DataManager.getCurrentWorkspaceId();
+                                  setCurrentWorkspaceId(newId);
+                                }
+                              }}
+                              className={cn(
+                                "p-2 rounded-xl transition-colors",
+                                ws.id === currentWorkspaceId ? "hover:bg-red-400/20 text-white" : "hover:bg-red-500/10 text-red-500"
+                              )}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {workspaces.length < 5 && (
+                <div className="p-6 pt-2">
+                  <button 
+                    onClick={async () => {
+                      const nextNum = workspaces.length + 1;
+                      const newWs = { 
+                        id: crypto.randomUUID(), 
+                        name: `কাজের ক্ষেত্র ${nextNum}`, 
+                        createdAt: Date.now() 
+                      };
+                      await DataManager.saveWorkspace(newWs);
+                      setWorkspaces(prev => [...prev, newWs]);
+                      handleSwitchWorkspace(newWs.id);
+                      setShowWorkspaceMenu(false);
+                    }}
+                    className="w-full flex items-center justify-center gap-3 py-5 bg-blue-500/10 text-blue-400 rounded-[24px] font-bold hover:bg-blue-500/20 transition-all active:scale-[0.98] border border-blue-500/20 shadow-xl shadow-black/20"
+                  >
+                    <Plus size={20} />
+                    <span className="text-sm">নতুন কাজের ক্ষেত্র</span>
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Top Bar */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between sticky top-0 bg-[#191919]/90 backdrop-blur-xl z-30 border-b border-white/5">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center font-bold text-white/80">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
             {userName.charAt(0).toUpperCase()}
           </div>
-          <button className="flex items-center gap-1 text-sm font-medium text-white/90">
-            {userName}'s space
-            <ChevronDown size={14} className="text-white/40" />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowWorkspaceMenu(!showWorkspaceMenu)}
+              className="flex items-center gap-1 text-sm font-bold text-white/90 hover:text-white transition-colors"
+            >
+              {workspaces.find(w => w.id === currentWorkspaceId)?.name || 'Workspace'}
+              <ChevronDown size={14} className={cn("text-white/40 transition-transform", showWorkspaceMenu && "rotate-180")} />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/ai/external-import')}
             className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all text-blue-400 hover:text-blue-300"
@@ -603,15 +702,23 @@ export default function HomePage() {
 
         {/* Search & Import Bar */}
         <div className="mb-6 space-y-3">
-          <div className="relative">
+          <div className="relative flex-grow">
             <input 
               type="text"
-              placeholder="Search your notes..."
+              placeholder="Search notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-11 py-3 text-sm outline-none focus:border-white/20 transition-all"
+              className="w-full bg-[#1c1c1c] border border-white/5 rounded-2xl px-12 py-3.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/10 transition-all font-medium"
             />
-            <Plus size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 rotate-45" />
+            <button 
+              onClick={() => searchQuery ? setSearchQuery('') : null}
+              className={cn(
+                "absolute left-4 top-1/2 -translate-y-1/2 transition-all p-1 rounded-lg",
+                searchQuery ? "text-blue-500 bg-blue-500/10 rotate-0" : "text-white/20 rotate-45"
+              )}
+            >
+              {searchQuery ? <X size={18} /> : <Search size={18} />}
+            </button>
           </div>
           
           {searchQuery.length >= 8 && !searchQuery.includes(' ') && (

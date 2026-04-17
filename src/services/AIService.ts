@@ -29,10 +29,16 @@ class AIManager {
     let html = marked.parse(markdown) as string;
     
     // Post-process for Tiptap task lists
-    // Convert <li>[ ] to <li data-type="taskItem" data-checked="false">
-    // Convert <li>[x] to <li data-type="taskItem" data-checked="true">
-    html = html.replace(/<li>\s*\[ \]\s*/g, '<li data-type="taskItem" data-checked="false">');
-    html = html.replace(/<li>\s*\[x\]\s*/g, '<li data-type="taskItem" data-checked="true">');
+    // Convert <li>[ ] to <li data-type="taskItem" data-checked="false"><p>...</p></li>
+    // We use a more robust regex to ensure content is wrapped in <p> if it isn't already
+    html = html.replace(/<li>\s*\[ \]\s*([\s\S]*?)<\/li>/g, (_, content) => {
+      const inner = content.trim().startsWith('<p>') ? content.trim() : `<p>${content.trim()}</p>`;
+      return `<li data-type="taskItem" data-checked="false">${inner}</li>`;
+    });
+    html = html.replace(/<li>\s*\[x\]\s*([\s\S]*?)<\/li>/g, (_, content) => {
+      const inner = content.trim().startsWith('<p>') ? content.trim() : `<p>${content.trim()}</p>`;
+      return `<li data-type="taskItem" data-checked="true">${inner}</li>`;
+    });
     
     // If we found any task items, wrap the parent <ul> in data-type="taskList"
     if (html.includes('data-type="taskItem"')) {

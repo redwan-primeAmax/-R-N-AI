@@ -9,6 +9,8 @@ import Navigation from './components/Navigation';
 import { DataManager } from './utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import LoadingScreen from './components/LoadingScreen';
+import VersionControl from './components/VersionControl';
 
 // Lazy load components
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -38,33 +40,53 @@ function LoadingFallback() {
   );
 }
 
-function UserNamePopup({ onSave }: { onSave: (name: string) => void }) {
+function UserNamePopup({ onSave }: { onSave: (name: string, workspaceName: string) => void }) {
   const [name, setName] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
       <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-[#191919] border border-white/10 p-6 rounded-2xl w-full max-w-sm shadow-2xl"
+        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl space-y-6"
       >
-        <h2 className="text-xl font-bold text-white mb-2">Welcome!</h2>
-        <p className="text-white/60 text-sm mb-6">What should we call you? Your name will be stored locally.</p>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white mb-6 focus:outline-none focus:border-white/20"
-          autoFocus
-        />
-        <button
-          onClick={() => name.trim() && onSave(name.trim())}
-          disabled={!name.trim()}
-          className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-white/90 disabled:opacity-50 transition-all"
-        >
-          Save
-        </button>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold text-white tracking-tight">Redwan Assistant</h2>
+          <p className="text-white/40 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার তথ্য দিন।</p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/40 uppercase ml-4">আপনার নাম</label>
+            <input 
+              type="text"
+              placeholder="আপনার নাম..."
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-white/40 uppercase ml-4">ওয়ার্কস্পেস নাম</label>
+            <input 
+              type="text"
+              placeholder="ওয়ার্কস্পেস নাম..."
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold"
+            />
+          </div>
+
+          <button 
+            onClick={() => name.trim() && workspaceName.trim() && onSave(name.trim(), workspaceName.trim())}
+            disabled={!name.trim() || !workspaceName.trim()}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/20"
+          >
+            শুরু করুন
+          </button>
+        </div>
       </motion.div>
     </div>
   );
@@ -76,7 +98,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, ease: "linear" }}
+      transition={{ duration: 0.1, ease: "linear" }}
       className="w-full h-full"
     >
       {children}
@@ -107,8 +129,12 @@ function AppContent() {
     });
   }, []);
 
-  const handleSaveName = async (name: string) => {
+  const handleSaveName = async (name: string, workspaceName: string) => {
     await DataManager.saveUserName(name);
+    const workspaces = await DataManager.getWorkspaces();
+    const defaultWorkspace = workspaces[0];
+    defaultWorkspace.name = workspaceName;
+    await DataManager.saveWorkspace(defaultWorkspace);
     setUserName(name);
     setShowPopup(false);
   };
@@ -136,39 +162,29 @@ function AppContent() {
   ]);
 
   return (
-    <div className={`min-h-screen bg-[#191919] text-white font-sans ${isFullPage ? '' : 'pb-24'}`}>
+    <div className={`min-h-screen bg-[#0A0A0A] text-white font-sans ${isFullPage ? '' : 'pb-32'}`}>
       <AnimatePresence mode="wait">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
       </AnimatePresence>
       
-      <AnimatePresence mode="wait">
-        <ErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            {routingElement && React.cloneElement(routingElement, { key: location.pathname })}
-          </Suspense>
-        </ErrorBoundary>
-      </AnimatePresence>
-      <AnimatePresence>
-        {!isFullPage && (
-          <motion.div
-            key="navigation"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.2 }}
-            className="fixed bottom-0 left-0 right-0 z-50"
-          >
-            <Navigation />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingScreen />}>
+          {routingElement}
+        </Suspense>
+      </ErrorBoundary>
+
+      {!isFullPage && <Navigation />}
+      <VersionControl />
     </div>
   );
 }
 
 export default function App() {
+  // Dynamically determine basename based on current path
+  const basename = window.location.pathname.startsWith('/-R-N-AI') ? '/-R-N-AI' : '/';
+  
   return (
-    <Router basename="/-R-N-AI">
+    <Router basename={basename}>
       <AppContent />
     </Router>
   );

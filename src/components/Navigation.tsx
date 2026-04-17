@@ -3,63 +3,74 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Search, Sparkles, Layout, Wrench } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { Search, Sparkles, Layout, Wrench, Plus, PenSquare } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { DataManager } from '../utils/DataManager';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export default function Navigation() {
+  const navigate = useNavigate();
+
+  const handleQuickNote = async () => {
+    const newNote = {
+      id: crypto.randomUUID(),
+      title: 'Untitled Note',
+      content: '',
+      emoji: '📝',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      workspaceId: await DataManager.getCurrentWorkspaceId(),
+      isFavorite: false
+    };
+    await DataManager.saveNote(newNote);
+    navigate(`/editor/${newNote.id}`);
+  };
+
   return (
-    <nav className="bg-[#191919]/95 backdrop-blur-xl border-t border-white/5 pb-safe-area-inset-bottom">
-      <div className="flex justify-between items-center max-w-lg mx-auto px-6 py-4">
-        {/* Ask AI - Pill Shape */}
-        <NavLink
-          to="/ai-auto"
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-full transition-all border border-white/10",
-              isActive ? "bg-white text-black" : "bg-white/5 text-white/80 hover:bg-white/10"
-            )
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <Sparkles size={20} fill={isActive ? "black" : "none"} />
-              <span className="text-sm font-medium">Ask AI</span>
-            </>
-          )}
-        </NavLink>
-
-        {/* Home/Main */}
-        <NavLink
-          to="/"
-          className={({ isActive }) =>
-            cn(
-              "p-2 rounded-full transition-all",
-              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
-            )
-          }
-        >
-          <Layout size={24} strokeWidth={2} />
-        </NavLink>
-
-        {/* Tools */}
+    <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
+      <nav className="bg-[#1c1c1c]/80 backdrop-blur-3xl border border-white/5 p-2 rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/80 pointer-events-auto">
+        {/* Tools - Equals size to Ask AI (Circle) */}
         <NavLink
           to="/tools"
           className={({ isActive }) =>
             cn(
-              "p-2 rounded-full transition-all",
-              isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
+              "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300",
+              isActive ? "bg-white text-black shadow-lg shadow-white/10" : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
             )
           }
         >
-          <Wrench size={24} strokeWidth={2} />
+          <Wrench size={20} />
         </NavLink>
-      </div>
-    </nav>
+
+        {/* Plus Button - Wider Pill (Primary Action) */}
+        <button
+          onClick={handleQuickNote}
+          className="h-12 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-[24px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-600/20 border border-blue-400/30"
+        >
+          <div className="flex items-center gap-2">
+             <Plus size={22} strokeWidth={3} />
+             <span className="text-[11px] font-black uppercase tracking-[0.15em]">New Note</span>
+          </div>
+        </button>
+
+        {/* Ask AI - Equals size to Tools (Circle) */}
+        <NavLink
+          to="/ai-auto"
+          className={({ isActive }) =>
+            cn(
+              "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300",
+              isActive ? "bg-white text-black shadow-lg shadow-white/10" : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+            )
+          }
+        >
+          <Sparkles size={20} />
+        </NavLink>
+      </nav>
+    </div>
   );
 }

@@ -64,7 +64,7 @@ export const ChatInput: React.FC<InputAreaProps> = ({
   };
 
   return (
-    <div className="p-4 bg-[#0d0d0d] border-t border-white/5 relative">
+    <div className="p-4 bg-[#0d0d0d] border-t border-white/5 relative pb-safe-area-inset-bottom">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Attached Files List */}
         <AnimatePresence>

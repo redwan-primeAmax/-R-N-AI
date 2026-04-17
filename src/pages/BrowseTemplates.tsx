@@ -83,7 +83,16 @@ export default function BrowseTemplates() {
     <div className="min-h-screen bg-[#191919] text-white pb-32">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#191919]/90 backdrop-blur-xl px-4 py-4 flex items-center gap-4 border-b border-white/5">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+        <button 
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/');
+            }
+          }} 
+          className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+        >
           <ArrowLeft size={20} className="text-white/60" />
         </button>
         <div>

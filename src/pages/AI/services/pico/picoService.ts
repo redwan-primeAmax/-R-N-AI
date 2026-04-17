@@ -18,7 +18,7 @@ export class PicoService extends AIService {
 
         websocket.addEventListener("open", () => {
           websocket.send(JSON.stringify({ 
-            appId: "threat-all",
+            appId: options.settings?.selectedAppID || "default-001",
             prompt: prompt 
           }));
         });
