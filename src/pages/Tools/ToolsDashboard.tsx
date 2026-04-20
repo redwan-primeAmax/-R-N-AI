@@ -14,7 +14,9 @@ import {
   History, 
   Menu,
   Wrench,
-  Search
+  Search,
+  FolderOpen,
+  Archive
 } from 'lucide-react';
 import { DataManager, Note } from '../../utils/DataManager';
 import FloatingHomeButton from '../../components/FloatingHomeButton';
@@ -45,6 +47,20 @@ const categories = [
         description: 'Summarize text using artificial intelligence.',
         path: '/tools/summarizer',
         icon: <FileText className="text-green-400" />
+      }
+    ]
+  },
+  {
+    id: 'file',
+    name: 'File Tools',
+    icon: <FolderOpen className="text-orange-400" />,
+    tools: [
+      {
+        id: 'zip-flattener',
+        name: 'ZIP Path Flattener',
+        description: 'Flatten nested ZIP paths into a single root directory.',
+        path: '/tools/zip-flattener',
+        icon: <Archive className="text-orange-400" />
       }
     ]
   }

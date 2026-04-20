@@ -80,6 +80,23 @@ export default function EditorPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  // Use refs to avoid stale closures in callbacks
+  const noteRef = useRef<Note | null>(null);
+  const titleRef = useRef(title);
+  const emojiRef = useRef(emoji);
+
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
+
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
+  useEffect(() => {
+    emojiRef.current = emoji;
+  }, [emoji]);
+
   // LocalStorage backup key
   const BACKUP_KEY = `note_backup_${id}`;
 
@@ -236,8 +253,8 @@ export default function EditorPage() {
   };
 
   const confirmDeleteNote = async () => {
-    if (note) {
-      await DataManager.deleteNote(note.id);
+    if (noteRef.current) {
+      await DataManager.deleteNote(noteRef.current.id);
       handleBack();
     }
   };
@@ -284,6 +301,16 @@ export default function EditorPage() {
     window.visualViewport?.addEventListener('scroll', handleResize);
 
     return () => {
+      // Final save on unmount
+      if (editor && noteRef.current) {
+        const content = editor.getHTML();
+        DataManager.saveNote({
+          ...noteRef.current,
+          title: titleRef.current,
+          emoji: emojiRef.current,
+          content
+        });
+      }
       clearInterval(autosaveInterval);
       window.visualViewport?.removeEventListener('resize', handleResize);
       window.visualViewport?.removeEventListener('scroll', handleResize);
@@ -311,55 +338,59 @@ export default function EditorPage() {
     }
   };
 
-  const saveNote = async (content: string) => {
-    if (note && editor) {
-      if (isSaving) return; // Prevent concurrent saves
+  const saveNote = async (content: string, force: boolean = false) => {
+    if (noteRef.current && editor) {
+      if (isSaving && !force) return;
       
       setIsSaving(true);
       try {
-        const updatedTitle = title || 'Untitled';
-        const updatedEmoji = emoji || '📝';
+        const updatedTitle = titleRef.current || 'Untitled';
+        const updatedEmoji = emojiRef.current || '📝';
         const updatedNote = await DataManager.saveNote({ 
-          ...note, 
+          ...noteRef.current, 
           title: updatedTitle, 
           content, 
           emoji: updatedEmoji 
         });
         
-        setNote(updatedNote); // Sync state with saved note (important for updatedAt)
-        
-        // Clear backup after successful save
+        setNote(updatedNote);
         await localforage.removeItem(BACKUP_KEY);
       } catch (err) {
         console.error('Save failed:', err);
       } finally {
-        setTimeout(() => setIsSaving(false), 500);
+        setTimeout(() => setIsSaving(false), 300);
       }
     }
   };
 
   const updateTitle = async (newTitle: string) => {
     setTitle(newTitle);
-    if (note) {
-      const updatedNote = { ...note, title: newTitle, updatedAt: Date.now() };
-      await DataManager.saveNote(updatedNote);
+    titleRef.current = newTitle; // Manual sync for immediate use
+    if (noteRef.current && editor) {
+      await saveNote(editor.getHTML(), true);
     }
   };
 
-  const toggleEmoji = () => {
+  const toggleEmoji = async () => {
     const emojis = ['📝', '💡', '🚀', '📚', '🎨', '🎯', '📅', '🔒', '⭐', '🔥'];
     const currentIndex = emojis.indexOf(emoji);
     const nextIndex = (currentIndex + 1) % emojis.length;
     const nextEmoji = emojis[nextIndex];
     setEmoji(nextEmoji);
-    if (note) {
-      DataManager.saveNote({ ...note, emoji: nextEmoji, updatedAt: Date.now() });
+    emojiRef.current = nextEmoji; // Manual sync
+    if (noteRef.current && editor) {
+      // Use the helper to stay in sync
+      setTimeout(() => saveNote(editor.getHTML(), true), 0);
     }
   };
 
   const handleExport = () => {
-    if (note) {
-      DataManager.exportNoteAsTxt({ ...note, title, content: editor?.getHTML() || '' });
+    if (noteRef.current) {
+      DataManager.exportNoteAsTxt({ 
+        ...noteRef.current, 
+        title: titleRef.current, 
+        content: editor?.getHTML() || '' 
+      });
       setShowExportMenu(false);
     }
   };
@@ -379,11 +410,16 @@ export default function EditorPage() {
   };
 
   const handleManualSave = async () => {
-    if (note && editor) {
+    if (noteRef.current && editor) {
       const content = editor.getHTML();
       const version = prompt('Version name (e.g., 1.0):', '1.0');
       if (version) {
-        await DataManager.saveVersion({ ...note, title, content, emoji }, version);
+        await DataManager.saveVersion({ 
+          ...noteRef.current, 
+          title: titleRef.current, 
+          content, 
+          emoji: emojiRef.current 
+        }, version);
         setNotification({ message: `Version ${version} saved!`, type: 'success' });
         setTimeout(() => setNotification(null), 2000);
       }
@@ -420,9 +456,14 @@ export default function EditorPage() {
           editor.commands.insertContent(`<audio src="${url}" controls style="width: 100%; margin: 1rem 0;"></audio>`);
         }
         
-        // Immediately trigger a save with the latest HTML
-        const newHtml = editor.getHTML();
-        await saveNote(newHtml);
+        // Give Tiptap a moment to update the DOM before we grab the HTML
+        setTimeout(async () => {
+          if (editor) {
+            const newHtml = editor.getHTML();
+            console.log('Force saving media content...');
+            await saveNote(newHtml, true); // Force save for media
+          }
+        }, 150);
         
         setNotification({ message: 'Media uploaded successfully!', type: 'success' });
       } catch (err: any) {

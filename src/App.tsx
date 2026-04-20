@@ -27,6 +27,7 @@ const ToolsHistory = lazy(() => import('./pages/Tools/ToolsHistory'));
 const WordCounter = lazy(() => import('./tool-library/text-tools/WordCounter'));
 const NumberRemover = lazy(() => import('./tool-library/text-tools/remove-number-from-text'));
 const Summarizer = lazy(() => import('./tool-library/text-tools/Summarizer'));
+const ZipFlattener = lazy(() => import('./tool-library/file-tools/ZipFlattener'));
 
 function LoadingFallback() {
   return (
@@ -157,6 +158,7 @@ function AppContent() {
     { path: "/tools/word-counter", element: <PageWrapper><WordCounter /></PageWrapper> },
     { path: "/tools/number-remover", element: <PageWrapper><NumberRemover /></PageWrapper> },
     { path: "/tools/summarizer", element: <PageWrapper><Summarizer /></PageWrapper> },
+    { path: "/tools/zip-flattener", element: <PageWrapper><ZipFlattener /></PageWrapper> },
     // Redirect /main to / for backward compatibility if needed
     { path: "/main", element: <Navigate to="/" replace /> },
   ]);
