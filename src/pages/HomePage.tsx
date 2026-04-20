@@ -46,13 +46,13 @@ const NoteContextMenu = memo(({
   onDelete: (id: string) => void;
 }) => {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-[2px]" onClick={onClose}>
+    <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <motion.div 
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="w-full max-w-lg bg-[#1c1c1c] rounded-t-3xl p-6 pb-12 shadow-2xl border-t border-white/5"
+        className="w-full max-w-lg bg-[#1c1c1c] rounded-t-[32px] p-6 pb-24 shadow-2xl border-t border-white/5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
@@ -60,8 +60,8 @@ const NoteContextMenu = memo(({
         <div className="flex items-center gap-4 mb-8 px-2">
           <div className="text-3xl">{note.emoji}</div>
           <div className="min-w-0">
-            <h3 className="text-white font-bold truncate">{note.title || 'Untitled'}</h3>
-            <p className="text-white/40 text-xs">Last edited {new Date(note.updatedAt).toLocaleDateString()}</p>
+            <h3 className="text-white font-bold truncate text-xl tracking-tight">{note.title || 'Untitled'}</h3>
+            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-1">Last edited {new Date(note.updatedAt).toLocaleDateString()}</p>
           </div>
         </div>
 

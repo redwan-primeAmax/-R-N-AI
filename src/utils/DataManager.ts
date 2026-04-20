@@ -376,20 +376,17 @@ export const DataManager = {
   // --- Notes Operations ---
   
   async getAllNotes(): Promise<Note[]> {
-    if (cachedNotes) return cachedNotes;
-
+    // Remove memory cache to ensure fresh data from localforage on every call
+    // localforage is fast enough and this prevents stale state across tabs/refreshes
     const notes = await localforage.getItem<Note[]>(NOTES_KEY);
     const currentWorkspaceId = await this.getCurrentWorkspaceId();
 
     if (!notes || notes.length === 0) {
       const defaults = await this.initializeDefaultNotes();
-      cachedNotes = defaults.filter(n => n.workspaceId === currentWorkspaceId);
-      return cachedNotes;
+      return defaults.filter(n => n.workspaceId === currentWorkspaceId);
     }
 
-    const filteredNotes = notes.filter(n => n.workspaceId === currentWorkspaceId);
-    cachedNotes = filteredNotes;
-    return filteredNotes;
+    return notes.filter(n => n.workspaceId === currentWorkspaceId);
   },
 
   async exportAllData(): Promise<{ notes: Note[], workspaces: Workspace[] }> {
@@ -443,18 +440,25 @@ export const DataManager = {
       title: '🎯 Weekly Focus & Todo',
       workspaceId: currentWorkspaceId,
       content: `
-        <h2>🎯 Weekly High-Level Goals</h2>
-        <ul><li>[ ] Main Priority 1</li><li>[ ] Main Priority 2</li></ul>
+        <h2>🎯 To-Do List & Weekly Goals</h2>
+        <p><b>Week:</b> ${new Date().getFullYear()} - Week [XX]</p>
         
         <hr />
-        <h3>📅 Daily Breakdown</h3>
-        <p><b>Monday:</b></p>
-        <ul><li>[ ] task 1</li></ul>
-        <p><b>Tuesday:</b></p>
-        <ul><li>[ ] task 1</li></ul>
+        <h3>🔥 Top Priorities</h3>
+        <ul data-type="taskList">
+          <li data-checked="false">Primary Goal 1</li>
+          <li data-checked="false">Primary Goal 2</li>
+        </ul>
         
         <hr />
-        <p><i>Tip: Use checkmarks to track progress. Keep it simple and focused.</i></p>
+        <h3>📝 Tasks for Today</h3>
+        <ul data-type="taskList">
+          <li data-checked="false">Task 1...</li>
+          <li data-checked="false">Task 2...</li>
+        </ul>
+        
+        <hr />
+        <p><i>💡 Tip: Focus on finishing top priorities first.</i></p>
       `,
       emoji: '🎯',
       createdAt: Date.now(),
@@ -466,18 +470,27 @@ export const DataManager = {
       title: '🤝 Meeting Notes: Project Sync',
       workspaceId: currentWorkspaceId,
       content: `
-        <h2>🤝 Meeting: [Project Name]</h2>
+        <h2>🤝 Meeting: Project Sync</h2>
         <p><b>Date:</b> ${new Date().toLocaleDateString()} | <b>Host:</b> Me</p>
         
         <hr />
-        <h3>📝 Key Agenda</h3>
-        <ul><li>Points to discuss...</li></ul>
+        <h3>📌 Agenda</h3>
+        <ul>
+          <li>Main topic 1</li>
+          <li>Update on status...</li>
+        </ul>
         
-        <h3>💡 Decisions Made</h3>
-        <ul><li>Decision A...</li></ul>
+        <hr />
+        <h3>💡 Discussion Points</h3>
+        <ul>
+          <li>Summary of talk...</li>
+        </ul>
         
+        <hr />
         <h3>🔥 Action Items</h3>
-        <ul><li>[ ] @Person: Do this by Friday</li></ul>
+        <ul data-type="taskList">
+          <li data-checked="false">@Person: Do this by Friday</li>
+        </ul>
       `,
       emoji: '🤝',
       createdAt: Date.now(),
@@ -489,18 +502,24 @@ export const DataManager = {
       title: '☀️ Daily Reflection & Health',
       workspaceId: currentWorkspaceId,
       content: `
-        <h2>☀️ Morning Intentions</h2>
-        <p>How do I want to feel today? [Input]</p>
+        <h2>📊 Daily Health Tracker</h2>
+        <p><b>Date:</b> ${new Date().toLocaleDateString()}</p>
         
         <hr />
-        <h3>🥤 Health Tracker</h3>
-        <p>Water: 💧 💧 💧 💧 💧 (5/8 glasses)</p>
-        <p>Sleep: 8 Hours</p>
+        <h3>🌱 Habit Checklist</h3>
+        <ul data-type="taskList">
+          <li data-checked="false">10m Meditation</li>
+          <li data-checked="false">30m Reading</li>
+        </ul>
         
         <hr />
-        <h3>🌙 Evening Reflection</h3>
-        <p><b>Win of the day:</b> [Input]</p>
-        <p><b>Lesson learned:</b> [Input]</p>
+        <h3>🥤 Hydration & Mood</h3>
+        <p>Water: 💧 💧 💧 💧 💧</p>
+        <p>Mood: ☀️ Happy / ☁️ Neutral</p>
+        
+        <hr />
+        <h3>🌙 Reflections</h3>
+        <p><b>Win of the day:</b> [Text]</p>
       `,
       emoji: '☀️',
       createdAt: Date.now(),
@@ -508,8 +527,18 @@ export const DataManager = {
     };
 
     const notes = [todoTemplate, meetingTemplate, dailyTracker];
-    await localforage.setItem(NOTES_KEY, notes);
-    return notes;
+    const existingNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+    
+    // Only add defaults if they don't already exist (by checking IDs)
+    const newNotes = [...existingNotes];
+    notes.forEach(dn => {
+      if (!newNotes.some(en => en.id === dn.id)) {
+        newNotes.push(dn);
+      }
+    });
+
+    await localforage.setItem(NOTES_KEY, newNotes);
+    return newNotes;
   },
 
   async clearMemory(): Promise<void> {
@@ -523,7 +552,7 @@ export const DataManager = {
     return notes.find(n => n.id === id) || null;
   },
 
-  async saveNote(note: Note): Promise<void> {
+  async saveNote(note: Note): Promise<Note> {
     const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
     const currentWorkspaceId = await this.getCurrentWorkspaceId();
     
@@ -545,21 +574,32 @@ export const DataManager = {
     }
 
     const index = allNotes.findIndex(n => n.id === note.id);
+    const updatedNote = { ...note, updatedAt: Date.now() };
     
     if (index > -1) {
-      allNotes[index] = { ...note, updatedAt: Date.now() };
+      allNotes[index] = updatedNote;
     } else {
-      allNotes.push({ ...note, createdAt: Date.now(), updatedAt: Date.now() });
+      allNotes.push({ ...updatedNote, createdAt: Date.now() });
     }
     
-    await localforage.setItem(NOTES_KEY, allNotes);
-    cachedNotes = allNotes.filter(n => n.workspaceId === currentWorkspaceId);
+    try {
+      await localforage.setItem(NOTES_KEY, allNotes);
+    } catch (e: any) {
+      console.error('DataManager: Save failed!', e);
+      if (e.name === 'QuotaExceededError' || (e.message && e.message.includes('quota'))) {
+        throw new Error('Storage quota exceeded. Your notes are too large (maybe too many images). Try deleting some old notes.');
+      }
+      throw e;
+    }
+    cachedNotes = null; // Invalidate cache
     
     // Immediate indexing on save to prevent staleness
-    scheduleIndexing(note);
+    scheduleIndexing(updatedNote);
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'UPDATE_NOTE', id: note.id, senderId: clientId });
+    
+    return updatedNote;
   },
 
   async checkDuplicateTitle(title: string): Promise<string> {
@@ -996,17 +1036,16 @@ export const DataManager = {
   
   // --- Storage & Media (RN AI 2.5) ---
   async uploadMedia(file: File, path: string): Promise<string> {
-    const settings = await this.getAISettings();
-    
-    // Check if Supabase is actually configured with valid environment variables
-    // In this environment, we check if supabase instance exists
-    if (!isSupabaseConfigured) {
-      console.warn('Supabase not configured, using local DataURL');
+    const createFallback = (): Promise<string> => {
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.readAsDataURL(file);
       });
+    };
+
+    if (!isSupabaseConfigured) {
+      return createFallback();
     }
 
     const fileExt = file.name.split('.').pop();
@@ -1014,32 +1053,31 @@ export const DataManager = {
     const filePath = `${path}/${fileName}`;
 
     try {
+      // First check if we can even reach Supabase
       const { error } = await supabase.storage
         .from('notes-assets')
         .upload(filePath, file);
 
       if (error) {
-        console.error('Upload error details:', error);
-        // Fallback to local if bucket is missing or access denied
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(file);
-        });
+        // If it's a network error or bucket error, fallback silently to local
+        if (error.message?.includes('fetch') || error.message?.includes('bucket')) {
+          console.warn('Supabase upload failed, falling back to local storage:', error.message);
+          return createFallback();
+        }
+        // For other errors, we still fallback but log it
+        console.error('Supabase upload error:', error);
+        return createFallback();
       }
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data } = supabase.storage
         .from('notes-assets')
         .getPublicUrl(filePath);
 
-      return publicUrl;
-    } catch (e) {
-      console.error('Upload catch:', e);
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      });
+      return data.publicUrl;
+    } catch (e: any) {
+      // Handle "Failed to fetch" or other network exceptions
+      console.warn('Storage network error, using fallback:', e.message || e);
+      return createFallback();
     }
   }
 };

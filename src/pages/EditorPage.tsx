@@ -312,13 +312,29 @@ export default function EditorPage() {
   };
 
   const saveNote = async (content: string) => {
-    if (note) {
+    if (note && editor) {
+      if (isSaving) return; // Prevent concurrent saves
+      
       setIsSaving(true);
-      const updatedNote = { ...note, title, content, emoji, updatedAt: Date.now() };
-      await DataManager.saveNote(updatedNote);
-      // Clear backup after successful save
-      await localforage.removeItem(BACKUP_KEY);
-      setTimeout(() => setIsSaving(false), 1000);
+      try {
+        const updatedTitle = title || 'Untitled';
+        const updatedEmoji = emoji || '📝';
+        const updatedNote = await DataManager.saveNote({ 
+          ...note, 
+          title: updatedTitle, 
+          content, 
+          emoji: updatedEmoji 
+        });
+        
+        setNote(updatedNote); // Sync state with saved note (important for updatedAt)
+        
+        // Clear backup after successful save
+        await localforage.removeItem(BACKUP_KEY);
+      } catch (err) {
+        console.error('Save failed:', err);
+      } finally {
+        setTimeout(() => setIsSaving(false), 500);
+      }
     }
   };
 
@@ -388,26 +404,35 @@ export default function EditorPage() {
     const file = e.target.files?.[0];
     if (file && editor && note) {
       setNotification({ message: 'Uploading media...', type: 'info' });
+      
       try {
         const url = await DataManager.uploadMedia(file, `notes/${note.id}`);
+        console.log('Media uploaded, URL:', url);
+        
+        // Re-focus and insert at selection
+        editor.chain().focus();
         
         if (mediaType === 'image') {
-          editor.chain().focus().setImage({ src: url }).run();
+          editor.commands.setImage({ src: url });
         } else if (mediaType === 'video') {
-          editor.chain().focus().insertContent(`<video src="${url}" controls style="width: 100%; border-radius: 1rem; margin: 1rem 0;"></video>`).run();
+          editor.commands.insertContent(`<video src="${url}" controls style="width: 100%; border-radius: 1rem; margin: 1rem 0;"></video>`);
         } else if (mediaType === 'audio') {
-          editor.chain().focus().insertContent(`<audio src="${url}" controls style="width: 100%; margin: 1rem 0;"></audio>`).run();
+          editor.commands.insertContent(`<audio src="${url}" controls style="width: 100%; margin: 1rem 0;"></audio>`);
         }
         
-        // Save note after media insertion
-        const content = editor.getHTML();
-        await saveNote(content);
+        // Immediately trigger a save with the latest HTML
+        const newHtml = editor.getHTML();
+        await saveNote(newHtml);
+        
         setNotification({ message: 'Media uploaded successfully!', type: 'success' });
       } catch (err: any) {
+        console.error('Media upload/insert error:', err);
         setErrorMessage(err.message || 'Failed to upload media');
         setShowErrorModal(true);
       } finally {
         setTimeout(() => setNotification(null), 3000);
+        // Clear file input
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     }
   };

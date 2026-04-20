@@ -14,27 +14,28 @@ const TemplateCard = memo(({ template, onUse }: { template: Template; onUse: (t:
   <motion.div
     layout
     initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
     whileTap={{ scale: 0.98 }}
-    className="bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col gap-4 hover:bg-white/10 transition-all group"
+    className="bg-[#1c1c1c] border border-white/5 rounded-3xl p-6 flex flex-col gap-6 hover:border-blue-500/30 transition-all group shadow-xl shadow-black/20"
   >
     <div className="flex items-start justify-between">
-      <div className="p-3 bg-white/10 rounded-xl group-hover:bg-white/20 transition-colors">
-        <template.icon size={24} className="text-white" />
+      <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-blue-600/10 transition-colors">
+        <template.icon size={28} className="text-white group-hover:text-blue-400" />
       </div>
-      <span className="text-[10px] uppercase tracking-widest text-white/30 font-bold bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
         {template.category}
       </span>
     </div>
     <div>
-      <h3 className="font-bold text-lg text-white/90">{template.title}</h3>
-      <p className="text-sm text-white/40 leading-relaxed mt-1">{template.description}</p>
+      <h3 className="font-bold text-xl text-white tracking-tight">{template.title}</h3>
+      <p className="text-sm text-white/40 leading-relaxed mt-2 line-clamp-2">{template.description}</p>
     </div>
     <button
       onClick={() => onUse(template)}
-      className="mt-2 w-full py-3 bg-white text-black rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/90 transition-all active:scale-95 shadow-lg shadow-white/5"
+      className="mt-2 w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-600/20"
     >
-      <Plus size={18} />
+      <Plus size={20} strokeWidth={3} />
       Use Template
     </button>
   </motion.div>
@@ -80,36 +81,30 @@ export default function BrowseTemplates() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-[#191919] text-white pb-32">
+    <div className="min-h-screen bg-[#0A0A0A] text-white pb-40">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#191919]/90 backdrop-blur-xl px-4 py-4 flex items-center gap-4 border-b border-white/5">
+      <div className="sticky top-0 z-20 bg-[#0A0A0A]/80 backdrop-blur-3xl px-6 py-6 flex items-center gap-4 border-b border-white/5">
         <button 
-          onClick={() => {
-            if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/');
-            }
-          }} 
-          className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+          onClick={() => navigate(-1)} 
+          className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-xl transition-all"
         >
           <ArrowLeft size={20} className="text-white/60" />
         </button>
         <div>
-          <h1 className="text-base font-bold">Templates</h1>
-          <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Gallery</p>
+          <h1 className="text-lg font-bold tracking-tight">Templates</h1>
+          <p className="text-[10px] text-blue-400 uppercase tracking-[0.2em] font-black">Redwan Assistant</p>
         </div>
       </div>
 
       {/* Categories */}
-      <div className="flex gap-2 p-4 overflow-x-auto no-scrollbar sticky top-[65px] z-10 bg-[#191919]/90 backdrop-blur-xl border-b border-white/5">
+      <div className="flex gap-2 px-6 py-4 overflow-x-auto no-scrollbar sticky top-[80px] z-20 bg-[#0A0A0A]/80 backdrop-blur-3xl border-b border-white/5">
         {['All', 'Live', 'Work', 'Personal'].map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat as any)}
-            className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+            className={`px-6 py-2.5 rounded-full text-xs font-black tracking-widest uppercase transition-all border ${
               activeCategory === cat 
-                ? 'bg-white border-white text-black shadow-lg shadow-white/10' 
+                ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20' 
                 : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white'
             }`}
           >
@@ -119,7 +114,7 @@ export default function BrowseTemplates() {
       </div>
 
       {/* Template Grid */}
-      <div className="px-4 py-6 grid grid-cols-1 gap-4">
+      <div className="px-6 py-8 grid grid-cols-1 gap-6">
         {filteredTemplates.map((template) => (
           <TemplateCard 
             key={template.id} 
