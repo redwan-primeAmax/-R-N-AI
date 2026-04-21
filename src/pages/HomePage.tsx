@@ -30,6 +30,7 @@ import {
 import { DataManager, Note, Workspace } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { FixedSizeList } from 'react-window';
+import { Modal } from '../components/Modal';
 
 // Memoized Context Menu to prevent unnecessary re-renders
 const NoteContextMenu = memo(({ 
@@ -46,75 +47,67 @@ const NoteContextMenu = memo(({
   onDelete: (id: string) => void;
 }) => {
   return (
-    <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <motion.div 
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        className="w-full max-w-lg bg-[#1c1c1c] rounded-t-[32px] p-6 pb-24 shadow-2xl border-t border-white/5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
+    <Modal isOpen={true} onClose={onClose} position="bottom" showCloseButton={false} id="note-context-menu">
+      <div className="flex items-center gap-4 mb-8 px-2">
+        <div className="text-3xl">{note.emoji}</div>
+        <div className="min-w-0">
+          <h3 className="text-white font-bold truncate text-xl tracking-tight">{note.title || 'Untitled'}</h3>
+          <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-1">Last edited {new Date(note.updatedAt).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div className="space-y-1 pb-12">
+        <button 
+          onClick={() => { onDuplicate(note.id); onClose(); }}
+          className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          aria-label="Duplicate Note"
+        >
+          <Copy size={20} className="text-white/60" />
+          <span className="font-medium">Duplicate</span>
+        </button>
         
-        <div className="flex items-center gap-4 mb-8 px-2">
-          <div className="text-3xl">{note.emoji}</div>
-          <div className="min-w-0">
-            <h3 className="text-white font-bold truncate text-xl tracking-tight">{note.title || 'Untitled'}</h3>
-            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-1">Last edited {new Date(note.updatedAt).toLocaleDateString()}</p>
-          </div>
-        </div>
+        <button 
+          onClick={() => { onToggleFavorite(note.id); onClose(); }}
+          className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          aria-label={note.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+        >
+          <Star size={20} className={note.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-white/60"} />
+          <span className="font-medium">{note.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
+        </button>
 
-        <div className="space-y-1">
-          <button 
-            onClick={() => { onDuplicate(note.id); onClose(); }}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
-          >
-            <Copy size={20} className="text-white/60" />
-            <span className="font-medium">Duplicate</span>
-          </button>
-          
-          <button 
-            onClick={() => { onToggleFavorite(note.id); onClose(); }}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
-          >
-            <Star size={20} className={note.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-white/60"} />
-            <span className="font-medium">{note.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
-          </button>
+        <button 
+          onClick={() => { 
+             window.dispatchEvent(new CustomEvent('open-version-control', { detail: { noteId: note.id } }));
+             onClose(); 
+          }}
+          className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          aria-label="Version History"
+        >
+          <History size={20} className="text-white/60" />
+          <span className="font-medium">Version History</span>
+        </button>
 
-          <button 
-            onClick={() => { 
-               // Trigger Version Control for this specific note
-               // We can use a global signal or just pass note id
-               window.dispatchEvent(new CustomEvent('open-version-control', { detail: { noteId: note.id } }));
-               onClose(); 
-            }}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
-          >
-            <History size={20} className="text-white/60" />
-            <span className="font-medium">Version History</span>
-          </button>
+        <button 
+          onClick={() => { DataManager.exportNoteAsTxt(note); onClose(); }}
+          className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
+          aria-label="Download as .txt"
+        >
+          <Download size={20} className="text-white/60" />
+          <span className="font-medium">Download (.txt)</span>
+        </button>
 
-          <button 
-            onClick={() => { DataManager.exportNoteAsTxt(note); onClose(); }}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 rounded-2xl transition-colors text-white active:scale-98"
-          >
-            <Download size={20} className="text-white/60" />
-            <span className="font-medium">Download (.txt)</span>
-          </button>
+        <div className="h-px bg-white/5 my-2 mx-4" />
 
-          <div className="h-px bg-white/5 my-2 mx-4" />
-
-          <button 
-            onClick={() => { onDelete(note.id); onClose(); }}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-red-500/10 rounded-2xl transition-colors text-red-500 active:scale-98"
-          >
-            <Trash2 size={20} />
-            <span className="font-medium">Delete</span>
-          </button>
-        </div>
-      </motion.div>
-    </div>
+        <button 
+          onClick={() => { onDelete(note.id); onClose(); }}
+          className="w-full flex items-center gap-4 px-4 py-4 hover:bg-red-500/10 rounded-2xl transition-colors text-red-500 active:scale-98"
+          aria-label="Delete Note"
+        >
+          <Trash2 size={20} className="text-red-500" />
+          <span className="font-medium">Delete</span>
+        </button>
+      </div>
+    </Modal>
   );
 });
 
@@ -234,7 +227,7 @@ export default function HomePage() {
   const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [listHeight, setListHeight] = useState(window.innerHeight - 350);
+  const [listHeight, setListHeight] = useState(window.innerHeight - 380);
   const [searchQuery, setSearchQuery] = useState('');
   const [publishedId, setPublishedId] = useState<string | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -252,7 +245,8 @@ export default function HomePage() {
     loadData();
     
     const handleResize = () => {
-      setListHeight(window.innerHeight - 280);
+      // Adjusted to account for floating navigation bar and bottom padding
+      setListHeight(window.innerHeight - 380);
     };
     
     window.addEventListener('resize', handleResize);
@@ -316,7 +310,7 @@ export default function HomePage() {
     longPressTimer.current = setTimeout(() => {
       setIsSelectionMode(true);
       setSelectedIds([id]);
-    }, 600);
+    }, 400); // Reduced from 600ms to 400ms for responsiveness
   }, []);
 
   const endLongPress = useCallback(() => {
@@ -324,6 +318,19 @@ export default function HomePage() {
       clearTimeout(longPressTimer.current);
     }
   }, []);
+
+  // Modal Scroll Lock
+  useEffect(() => {
+    const shouldLock = showWorkspaceMenu || activeMenuNote || publishedId || showErrorModal || showNamePopup || showWelcomePopup;
+    if (shouldLock) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showWorkspaceMenu, activeMenuNote, publishedId, showErrorModal, showNamePopup, showWelcomePopup]);
 
   const deleteSelected = useCallback(async () => {
     if (selectedIds.length > 0) {
@@ -395,216 +402,194 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white pb-48 overflow-x-hidden main-screen select-none">
       {/* Published ID Modal */}
-      <AnimatePresence>
-        {publishedId && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
-            >
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <UploadCloud size={32} className="text-blue-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Note Published!</h3>
-              <p className="text-white/40 text-sm mb-6">Share this ID with others to let them import your note.</p>
-              
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-2xl tracking-widest font-bold text-blue-400">
-                {publishedId}
-              </div>
-
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(publishedId);
-                  alert('ID copied to clipboard!');
-                }}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold mb-3 transition-all"
-              >
-                Copy ID
-              </button>
-              <button 
-                onClick={() => setPublishedId(null)}
-                className="w-full py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-white/90 transition-all"
-              >
-                Done
-              </button>
-            </motion.div>
+      <Modal isOpen={!!publishedId} onClose={() => setPublishedId(null)} id="published-id-modal">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <UploadCloud size={32} className="text-blue-400" />
           </div>
-        )}
-      </AnimatePresence>
+          <h3 className="text-xl font-bold mb-2">Note Published!</h3>
+          <p className="text-white/40 text-sm mb-6">Share this ID with others to let them import your note.</p>
+          
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-2xl tracking-widest font-bold text-blue-400">
+            {publishedId}
+          </div>
+
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(publishedId || '');
+              alert('ID copied to clipboard!');
+            }}
+            className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold mb-3 transition-all"
+            aria-label="Copy ID to clipboard"
+          >
+            Copy ID
+          </button>
+          <button 
+            onClick={() => setPublishedId(null)}
+            className="w-full py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-white/90 transition-all"
+            aria-label="Done"
+          >
+            Done
+          </button>
+        </div>
+      </Modal>
 
       {/* Error Modal */}
-      <AnimatePresence>
-        {showErrorModal && (
-          <div className="fixed inset-0 z-[140] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#1c1c1c] border border-red-500/20 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
-            >
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <X size={32} className="text-red-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-red-400">Import Failed</h3>
-              <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                {errorMessage.includes('Supabase credentials missing') 
-                  ? 'Supabase URL and Anon Key are missing. Please set them in the Settings menu to enable cloud features.' 
-                  : errorMessage}
-              </p>
-              
-              <button 
-                onClick={() => setShowErrorModal(false)}
-                className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
-              >
-                Close
-              </button>
-            </motion.div>
+      <Modal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} id="error-modal">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <X size={32} className="text-red-400" />
           </div>
-        )}
-      </AnimatePresence>
+          <h3 className="text-xl font-bold mb-2 text-red-400">Import Failed</h3>
+          <p className="text-white/60 text-sm mb-8 leading-relaxed">
+            {errorMessage.includes('Supabase credentials missing') 
+              ? 'Supabase URL and Anon Key are missing. Please set them in the Settings menu to enable cloud features.' 
+              : errorMessage}
+          </p>
+          
+          <button 
+            onClick={() => setShowErrorModal(false)}
+            className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
+            aria-label="Close error message"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
 
       {/* Workspace Menu Modal */}
-      <AnimatePresence>
-        {showWorkspaceMenu && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-sm bg-[#1c1c1c] border border-white/10 rounded-[40px] shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-white/5">
-                <div>
-                  <h3 className="text-xl font-bold">কাজের ক্ষেত্রসমূহ</h3>
-                  <p className="text-xs text-white/40 mt-0.5">আপনার সকল কাজের ক্ষেত্র এখানে পাবেন</p>
-                </div>
-                <button 
-                  onClick={() => setShowWorkspaceMenu(false)}
-                  className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full transition-all"
-                >
-                  <X size={20} className="text-white/60" />
-                </button>
-              </div>
-
-              <div className="p-6 max-h-[60vh] overflow-y-auto no-scrollbar space-y-2">
-                {workspaces.map(ws => (
-                  <div key={ws.id} className="group relative">
-                    {isRenaming === ws.id ? (
-                      <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
-                        <input 
-                          type="text"
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          autoFocus
-                          className="flex-1 bg-transparent border-none outline-none px-3 py-1 text-sm font-medium"
-                          onKeyDown={async (e) => {
-                            if (e.key === 'Enter' && renameValue.trim()) {
-                              const updated = { ...ws, name: renameValue.trim() };
-                              await DataManager.saveWorkspace(updated);
-                              setWorkspaces(prev => prev.map(w => w.id === ws.id ? updated : w));
-                              setIsRenaming(null);
-                            } else if (e.key === 'Escape') {
-                              setIsRenaming(null);
-                            }
-                          }}
-                        />
+      <Modal 
+        isOpen={showWorkspaceMenu} 
+        onClose={() => setShowWorkspaceMenu(false)} 
+        title="Workspaces (কাজের ক্ষেত্রসমূহ)" 
+        maxWidth="max-w-md"
+        id="workspace-menu-modal"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-white/40 -mt-2 mb-4">Your workspaces are listed here (আপনার সকল কাজের ক্ষেত্র এখানে পাবেন)</p>
+          
+          <div className="max-h-[60vh] overflow-y-auto no-scrollbar space-y-2">
+            {workspaces.map(ws => (
+              <div key={ws.id} className="group relative">
+                {isRenaming === ws.id ? (
+                  <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
+                    <input 
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      autoFocus
+                      className="flex-1 bg-transparent border-none outline-none px-3 py-1 text-sm font-medium"
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && renameValue.trim()) {
+                          const updated = { ...ws, name: renameValue.trim() };
+                          await DataManager.saveWorkspace(updated);
+                          setWorkspaces(prev => prev.map(w => w.id === ws.id ? updated : w));
+                          setIsRenaming(null);
+                        } else if (e.key === 'Escape') {
+                          setIsRenaming(null);
+                        }
+                      }}
+                      title="Workspace Name"
+                    />
+                    <button 
+                      onClick={async () => {
+                        if (renameValue.trim()) {
+                          const updated = { ...ws, name: renameValue.trim() };
+                          await DataManager.saveWorkspace(updated);
+                          setWorkspaces(prev => prev.map(w => w.id === ws.id ? updated : w));
+                          setIsRenaming(null);
+                        }
+                      }}
+                      className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20"
+                      aria-label="Confirm Rename"
+                    >
+                      <Check size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className={cn(
+                    "flex items-center justify-between px-5 py-4 rounded-[24px] transition-all border border-transparent shadow-sm",
+                    ws.id === currentWorkspaceId 
+                      ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20 border-blue-400" 
+                      : "bg-white/5 hover:bg-white/10 text-white/60 border-white/5"
+                  )}>
+                    <button 
+                      onClick={() => {
+                        handleSwitchWorkspace(ws.id);
+                        setShowWorkspaceMenu(false);
+                      }}
+                      className="flex-1 text-left font-bold truncate pr-4 text-sm tracking-tight"
+                      title={ws.name}
+                    >
+                      {ws.name}
+                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
+                      <button 
+                        onClick={() => {
+                          setIsRenaming(ws.id);
+                          setRenameValue(ws.name);
+                        }}
+                        className={cn(
+                          "p-2 rounded-xl transition-colors",
+                          ws.id === currentWorkspaceId ? "hover:bg-white/20 text-white" : "hover:bg-white/10 text-white/40"
+                        )}
+                        aria-label="Rename Workspace"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      {workspaces.length > 1 && (
                         <button 
                           onClick={async () => {
-                            if (renameValue.trim()) {
-                              const updated = { ...ws, name: renameValue.trim() };
-                              await DataManager.saveWorkspace(updated);
-                              setWorkspaces(prev => prev.map(w => w.id === ws.id ? updated : w));
-                              setIsRenaming(null);
+                            if (confirm('Are you sure you want to delete this workspace?')) {
+                              await DataManager.deleteWorkspace(ws.id);
+                              const updated = await DataManager.getWorkspaces();
+                              setWorkspaces(updated);
+                              const newId = await DataManager.getCurrentWorkspaceId();
+                              setCurrentWorkspaceId(newId);
                             }
                           }}
-                          className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20"
-                        >
-                          <Check size={18} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className={cn(
-                        "flex items-center justify-between px-5 py-4 rounded-[24px] transition-all border border-transparent shadow-sm",
-                        ws.id === currentWorkspaceId 
-                          ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20 border-blue-400" 
-                          : "bg-white/5 hover:bg-white/10 text-white/60 border-white/5"
-                      )}>
-                        <button 
-                          onClick={() => {
-                            handleSwitchWorkspace(ws.id);
-                            setShowWorkspaceMenu(false);
-                          }}
-                          className="flex-1 text-left font-bold truncate pr-4 text-sm tracking-tight"
-                        >
-                          {ws.name}
-                        </button>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
-                          <button 
-                            onClick={() => {
-                              setIsRenaming(ws.id);
-                              setRenameValue(ws.name);
-                            }}
-                            className={cn(
-                              "p-2 rounded-xl transition-colors",
-                              ws.id === currentWorkspaceId ? "hover:bg-white/20 text-white" : "hover:bg-white/10 text-white/40"
-                            )}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          {workspaces.length > 1 && (
-                            <button 
-                              onClick={async () => {
-                                if (confirm('আপনি কি নিশ্চিত যে আপনি এই কাজের ক্ষেত্রটি মুছে ফেলতে চান?')) {
-                                  await DataManager.deleteWorkspace(ws.id);
-                                  const updated = await DataManager.getWorkspaces();
-                                  setWorkspaces(updated);
-                                  const newId = await DataManager.getCurrentWorkspaceId();
-                                  setCurrentWorkspaceId(newId);
-                                }
-                              }}
-                              className={cn(
-                                "p-2 rounded-xl transition-colors",
-                                ws.id === currentWorkspaceId ? "hover:bg-red-400/20 text-white" : "hover:bg-red-500/10 text-red-500"
-                              )}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                          className={cn(
+                            "p-2 rounded-xl transition-colors",
+                            ws.id === currentWorkspaceId ? "hover:bg-red-400/20 text-white" : "hover:bg-red-500/10 text-red-500"
                           )}
-                        </div>
-                      </div>
-                    )}
+                          aria-label="Delete Workspace"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
-
-              {workspaces.length < 5 && (
-                <div className="p-6 pt-2">
-                  <button 
-                    onClick={async () => {
-                      const nextNum = workspaces.length + 1;
-                      const newWs = { 
-                        id: crypto.randomUUID(), 
-                        name: `কাজের ক্ষেত্র ${nextNum}`, 
-                        createdAt: Date.now() 
-                      };
-                      await DataManager.saveWorkspace(newWs);
-                      setWorkspaces(prev => [...prev, newWs]);
-                      handleSwitchWorkspace(newWs.id);
-                      setShowWorkspaceMenu(false);
-                    }}
-                    className="w-full flex items-center justify-center gap-3 py-5 bg-blue-500/10 text-blue-400 rounded-[24px] font-bold hover:bg-blue-500/20 transition-all active:scale-[0.98] border border-blue-500/20 shadow-xl shadow-black/20"
-                  >
-                    <Plus size={20} />
-                    <span className="text-sm">নতুন কাজের ক্ষেত্র</span>
-                  </button>
-                </div>
-              )}
-            </motion.div>
+            ))}
           </div>
-        )}
-      </AnimatePresence>
+
+          {workspaces.length < 5 && (
+            <div className="pt-2">
+              <button 
+                onClick={async () => {
+                  const nextNum = workspaces.length + 1;
+                  const newWs = { 
+                    id: crypto.randomUUID(), 
+                    name: `Workspace ${nextNum}`,
+                    createdAt: Date.now()
+                  };
+                  await DataManager.saveWorkspace(newWs);
+                  const updated = await DataManager.getWorkspaces();
+                  setWorkspaces(updated);
+                  setIsRenaming(newWs.id);
+                  setRenameValue(newWs.name);
+                }}
+                className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                aria-label="Create New Workspace"
+              >
+                <Plus size={16} />
+                Create New Workspace (নতুন কাজের ক্ষেত্র)
+              </button>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Top Bar */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between sticky top-0 bg-[#191919]/90 backdrop-blur-xl z-30 border-b border-white/5">
@@ -747,12 +732,12 @@ export default function HomePage() {
         </div>
 
         {/* Notes List */}
-        <div className="mt-2 flex-grow overflow-hidden">
+        <div className="mt-2 flex-grow overflow-hidden pb-32">
           {displayNotes.length > 0 ? (
             <FixedSizeList
               height={listHeight}
               itemCount={displayNotes.length}
-              itemSize={52}
+              itemSize={60}
               width="100%"
               className="no-scrollbar"
               itemData={{

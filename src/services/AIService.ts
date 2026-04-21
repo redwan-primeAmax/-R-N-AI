@@ -86,9 +86,9 @@ class AIManager {
     isChecking = false
   ): Promise<string> {
     let attempts = 0;
-    const maxAttempts = 50;
+    const maxAttempts = 5; // Reduced from 50 to prevent browser hanging
     
-    while (attempts < 5) {
+    while (attempts < maxAttempts) {
       try {
         const service = AIServiceFactory.getService(prov);
         return await service.sendMessage(p, {
@@ -109,9 +109,11 @@ class AIManager {
                            errorMsg.includes('fetch') ||
                            errorMsg.includes('network');
 
-        if (!isRetryable || attempts >= 5) throw e;
+        if (!isRetryable || attempts >= maxAttempts) {
+          throw new Error("AI Service busy. Please try again later.");
+        }
 
-        this.updateTask(taskId, { reason: `Retrying (${attempts}/5)... ${errorMsg.slice(0, 20)}` });
+        this.updateTask(taskId, { reason: `Retrying (${attempts}/${maxAttempts})... ${errorMsg.slice(0, 20)}` });
         await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempts), 10000)));
       }
     }

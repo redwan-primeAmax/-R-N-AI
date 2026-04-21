@@ -160,10 +160,10 @@ const AIChat: React.FC = () => {
   }, [messages, systemPrompt]);
 
   const scrollToBottom = useCallback(() => {
-    if (isAtBottom) {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
+    if (isAtBottom && messagesEndRef.current) {
+      window.requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      });
     }
   }, [isAtBottom]);
 

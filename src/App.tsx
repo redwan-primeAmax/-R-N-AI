@@ -11,6 +11,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import VersionControl from './components/VersionControl';
+import { Modal } from './components/Modal';
+import { Loader2 } from 'lucide-react';
 
 // Lazy load components
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -44,14 +46,21 @@ function LoadingFallback() {
 function UserNamePopup({ onSave }: { onSave: (name: string, workspaceName: string) => void }) {
   const [name, setName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (name.trim() && workspaceName.trim()) {
+      setIsSubmitting(true);
+      // Simulate small delay for visual feedback
+      await new Promise(resolve => setTimeout(resolve, 500));
+      onSave(name.trim(), workspaceName.trim());
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-      <motion.div 
-        initial={{ scale: 0.95, opacity: 0, y: 10 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="bg-[#1c1c1c] border border-white/10 p-8 rounded-[32px] w-full max-w-sm shadow-2xl space-y-6"
-      >
+    <Modal isOpen={true} showCloseButton={false} id="setup-modal">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-white tracking-tight">Redwan Assistant</h2>
           <p className="text-white/40 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার তথ্য দিন।</p>
@@ -59,37 +68,51 @@ function UserNamePopup({ onSave }: { onSave: (name: string, workspaceName: strin
         
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-white/40 uppercase ml-4">আপনার নাম</label>
+            <label className="text-[10px] font-bold text-white/40 uppercase ml-4" htmlFor="name-input">আপনার নাম</label>
             <input 
+              id="name-input"
               type="text"
               placeholder="আপনার নাম..."
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold"
+              disabled={isSubmitting}
+              autoFocus
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-white/40 uppercase ml-4">ওয়ার্কস্পেস নাম</label>
+            <label className="text-[10px] font-bold text-white/40 uppercase ml-4" htmlFor="workspace-input">ওয়ার্কস্পেস নাম</label>
             <input 
+              id="workspace-input"
               type="text"
               placeholder="ওয়ার্কস্পেস নাম..."
               value={workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold"
+              disabled={isSubmitting}
             />
           </div>
 
           <button 
-            onClick={() => name.trim() && workspaceName.trim() && onSave(name.trim(), workspaceName.trim())}
-            disabled={!name.trim() || !workspaceName.trim()}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/20"
+            type="submit"
+            disabled={!name.trim() || !workspaceName.trim() || isSubmitting}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+            aria-label="Get Started"
+            id="start-app-button"
           >
-            শুরু করুন
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Get Started (শুরু করুন)'
+            )}
           </button>
         </div>
-      </motion.div>
-    </div>
+      </form>
+    </Modal>
   );
 }
 

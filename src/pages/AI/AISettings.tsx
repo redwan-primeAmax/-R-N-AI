@@ -6,24 +6,64 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Settings, Key, Check, AlertCircle, Info, Sparkles, Plus, Trash, Eye, EyeOff, Lock } from 'lucide-react';
-import { DataManager, AISettings } from '../../utils/DataManager';
+import { 
+  ChevronLeft, 
+  Settings, 
+  Key, 
+  Check, 
+  AlertCircle, 
+  Info, 
+  Sparkles, 
+  Plus, 
+  Trash2, 
+  Eye, 
+  EyeOff, 
+  Lock, 
+  Loader2, 
+  X 
+} from 'lucide-react';
+import { DataManager, AISettings, UserPreferences } from '../../utils/DataManager';
 import appIDList from '../../constants/appIDList.json';
 
 const AISettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<AISettings | null>(null);
+  const [draftSettings, setDraftSettings] = useState<AISettings | null>(null);
+  const [prevSettings, setPrevSettings] = useState<AISettings | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferences>({ reducedMotion: false, theme: 'dark' });
   const [customIDs, setCustomIDs] = useState<{id: string, name: string}[]>([]);
   const [isRevealed, setIsRevealed] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; showUndo?: boolean } | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     DataManager.getAISettings().then(s => {
       setSettings(s);
+      setDraftSettings(JSON.parse(JSON.stringify(s)));
       if (s.customAppIDs) setCustomIDs(s.customAppIDs);
     });
+    DataManager.getUserPreferences().then(setPreferences);
   }, []);
 
+  // Unsaved changes warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
   const handleBack = () => {
+    if (isDirty) {
+      if (!confirm('You have unsaved changes. Are you sure you want to leave? (আপনার কিছু পরিবর্তন সেভ করা হয়নি। আপনি কি নিশ্চিতভাবে চলে যেতে চান?)')) {
+        return;
+      }
+    }
     if (window.history.length > 1) {
       navigate(-1);
     } else {
@@ -31,85 +71,171 @@ const AISettingsPage: React.FC = () => {
     }
   };
 
-  const updateSettings = async (newSettings: AISettings) => {
-    setSettings(newSettings);
-    await DataManager.saveAISettings(newSettings);
+  const handleCancelEdit = () => {
+    if (!settings) return;
+    if (isDirty && !confirm('Discard changes and revert to original settings? (পরিবর্তনগুলো বাতিল করে আগের অবস্থায় ফিরে যেতে চান?)')) {
+      return;
+    }
+    setDraftSettings(JSON.parse(JSON.stringify(settings)));
+    setCustomIDs(settings.customAppIDs || []);
+    setIsDirty(false);
+    setStatus({ type: 'info', message: 'Changes discarded. (পরিবর্তন বাতিল করা হয়েছে।)' });
+  };
+
+  const handleUndo = async () => {
+    if (!prevSettings) return;
+    setIsSaving(true);
+    try {
+      await DataManager.saveAISettings(prevSettings);
+      setSettings(prevSettings);
+      setDraftSettings(JSON.parse(JSON.stringify(prevSettings)));
+      setCustomIDs(prevSettings.customAppIDs || []);
+      setIsDirty(false);
+      setStatus({ type: 'success', message: 'Settings reverted to previous state. (আগের অবস্থায় ফিরে যাওয়া হয়েছে।)' });
+    } catch (err: any) {
+      setStatus({ type: 'error', message: 'Failed to undo: ' + err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateDraft = (newSettings: Partial<AISettings>) => {
+    if (!draftSettings) return;
+    const updated = { ...draftSettings, ...newSettings };
+    setDraftSettings(updated);
+    setIsDirty(true);
+  };
+
+  const validateSettings = (): string | null => {
+    if (!draftSettings) return 'No settings loaded';
+    
+    if (draftSettings.selectedProvider !== 'picoapps') {
+      const key = draftSettings.apiKeys[draftSettings.selectedProvider];
+      if (!key || key.trim() === '') {
+        return `API Key is required for ${draftSettings.selectedProvider.toUpperCase()}. (এর জন্য এপিআই কী প্রয়োজন।)`;
+      }
+      
+      const model = draftSettings.models[draftSettings.selectedProvider];
+      if (!model || model.trim() === '') {
+        return `Model name is required for ${draftSettings.selectedProvider.toUpperCase()}. (এর জন্য মডেল নাম প্রয়োজন।)`;
+      }
+    }
+    
+    return null;
+  };
+
+  const handleManualSave = async () => {
+    if (!draftSettings || !settings) return;
+    
+    const error = validateSettings();
+    if (error) {
+      setStatus({ type: 'error', message: error });
+      return;
+    }
+
+    setIsSaving(true);
+    setStatus({ type: 'info', message: 'Saving settings...' });
+    try {
+      setPrevSettings(JSON.parse(JSON.stringify(settings)));
+      await DataManager.saveAISettings(draftSettings);
+      setSettings(JSON.parse(JSON.stringify(draftSettings)));
+      setIsDirty(false);
+      setStatus({ 
+        type: 'success', 
+        message: 'All settings saved successfully! (সব সেটিংস সঠিকভাবে সেভ হয়েছে।)',
+        showUndo: true
+      });
+    } catch (err: any) {
+      setStatus({ type: 'error', message: 'Failed to save settings: ' + (err.message || 'Unknown error') });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSelectAppID = (id: string) => {
-    if (!settings) return;
-    updateSettings({ ...settings, selectedAppID: id });
+    updateDraft({ selectedAppID: id });
   };
 
   const handleAddCustomID = () => {
     const id = prompt('Enter your personal App ID:');
-    if (!id || !settings) return;
+    if (!id || !draftSettings) return;
     const name = `Custom: ${id.slice(0, 8)}...`;
     const newList = [...customIDs, { id, name }];
     setCustomIDs(newList);
-    updateSettings({ ...settings, customAppIDs: newList, selectedAppID: id });
+    updateDraft({ customAppIDs: newList, selectedAppID: id });
   };
 
   const handleDeleteCustomID = (id: string) => {
-    if (!settings) return;
+    if (!draftSettings) return;
     const newList = customIDs.filter(c => c.id !== id);
     setCustomIDs(newList);
-    updateSettings({ 
-      ...settings, 
+    updateDraft({ 
       customAppIDs: newList, 
-      selectedAppID: settings.selectedAppID === id ? 'threat-all' : settings.selectedAppID 
+      selectedAppID: draftSettings.selectedAppID === id ? 'threat-all' : draftSettings.selectedAppID 
     });
   };
 
   const handleUpdateAPIKey = (provider: string, key: string) => {
-    if (!settings) return;
-    updateSettings({
-      ...settings,
-      apiKeys: { ...settings.apiKeys, [provider]: key }
+    if (!draftSettings) return;
+    updateDraft({
+      apiKeys: { ...draftSettings.apiKeys, [provider]: key }
     });
   };
 
   const handleUpdateModel = (provider: string, model: string) => {
-    if (!settings) return;
-    updateSettings({
-      ...settings,
-      models: { ...settings.models, [provider]: model }
+    if (!draftSettings) return;
+    updateDraft({
+      models: { ...draftSettings.models, [provider]: model }
     });
   };
 
   const handleSelectProvider = (p: string) => {
-    if (!settings) return;
-    updateSettings({ ...settings, selectedProvider: p as any, enabledProviders: [p] });
+    if (!draftSettings) return;
+    updateDraft({ selectedProvider: p as any, enabledProviders: [p] });
   };
 
-  if (!settings) return null;
+  if (!draftSettings) return null;
 
-  const isFree = settings.selectedProvider === 'picoapps';
+  const isFree = draftSettings.selectedProvider === 'picoapps';
 
   return (
     <div className="min-h-screen bg-[#191919] text-white flex flex-col">
-      <header className="p-4 border-b border-white/10 flex items-center gap-4 sticky top-0 bg-[#191919] z-[100]">
-        <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full transition-all text-white active:scale-95">
-          <ChevronLeft size={28} />
-        </button>
-        <h1 className="text-xl font-bold font-display">Redwan Assistant Settings</h1>
+      <header className="p-4 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#191919]/90 backdrop-blur-xl z-[100]">
+        <div className="flex items-center gap-4">
+          <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full transition-all text-white active:scale-95">
+            <ChevronLeft size={28} />
+          </button>
+          <h1 className="text-xl font-bold font-display">Redwan Assistant Settings</h1>
+        </div>
+        {isDirty && (
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleCancelEdit}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8">
         {/* Provider Selection */}
         <section className="space-y-4">
           <h2 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] px-2">Select Provider</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {['picoapps', 'gemini', 'openrouter'].map(p => (
               <button
                 key={p}
                 onClick={() => handleSelectProvider(p)}
-                className={`flex flex-col items-center justify-center p-4 rounded-3xl border transition-all gap-2 ${
-                  settings.selectedProvider === p ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/5 grayscale opacity-60'
+                className={`flex sm:flex-col items-center justify-center p-5 rounded-3xl border transition-all gap-3 ${
+                  draftSettings.selectedProvider === p ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/5 grayscale opacity-60'
                 }`}
               >
-                <Sparkles size={20} className={settings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
-                <span className="text-[10px] font-black uppercase tracking-widest">{p === 'picoapps' ? 'Free' : p}</span>
+                <div className={`p-2 rounded-xl ${draftSettings.selectedProvider === p ? 'bg-white/20' : 'bg-blue-400/10'}`}>
+                  <Sparkles size={20} className={draftSettings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest">{p === 'picoapps' ? 'Free (সার্ভার)' : p}</span>
               </button>
             ))}
           </div>
@@ -143,7 +269,7 @@ const AISettingsPage: React.FC = () => {
                     key={app.id}
                     onClick={() => handleSelectAppID(app.id)}
                     className={`p-5 rounded-2xl border transition-all flex items-center justify-between group ${
-                      (settings.selectedAppID || 'threat-all') === app.id ? 'bg-blue-600/10 border-blue-500/50' : 'bg-white/5 border-white/5'
+                      (draftSettings.selectedAppID || 'threat-all') === app.id ? 'bg-blue-600/10 border-blue-500/50' : 'bg-white/5 border-white/5'
                     }`}
                   >
                     <div className="flex flex-col items-start gap-1">
@@ -151,10 +277,10 @@ const AISettingsPage: React.FC = () => {
                       <span className="text-[10px] text-white/40 font-mono uppercase">{app.id}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      {(settings.selectedAppID || 'threat-all') === app.id && <Check size={18} className="text-blue-400" />}
+                      {(draftSettings.selectedAppID || 'threat-all') === app.id && <Check size={18} className="text-blue-400" />}
                       {customIDs.some(c => c.id === app.id) && (
                         <div onClick={(e) => { e.stopPropagation(); handleDeleteCustomID(app.id); }} className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                          <Trash size={16} />
+                          <Trash2 size={16} />
                         </div>
                       )}
                     </div>
@@ -177,7 +303,7 @@ const AISettingsPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-purple-500/20 rounded-2xl"><Key className="text-purple-400" size={24} /></div>
                   <div>
-                    <h2 className="text-lg font-bold capitalize">{settings.selectedProvider} API</h2>
+                    <h2 className="text-lg font-bold capitalize">{draftSettings.selectedProvider} API</h2>
                     <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Configure your private key</p>
                   </div>
                 </div>
@@ -189,19 +315,19 @@ const AISettingsPage: React.FC = () => {
                     <div className="relative group overflow-hidden rounded-2xl">
                       <input 
                         type="text"
-                        value={settings.apiKeys[settings.selectedProvider] || ''}
-                        onChange={(e) => handleUpdateAPIKey(settings.selectedProvider, e.target.value)}
+                        value={draftSettings.apiKeys[draftSettings.selectedProvider] || ''}
+                        onChange={(e) => handleUpdateAPIKey(draftSettings.selectedProvider, e.target.value)}
                         placeholder="Paste your key here..."
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono outline-none"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono outline-none focus:border-purple-500/50 transition-all"
                       />
                       <AnimatePresence>
-                        {!isRevealed[settings.selectedProvider] && (
+                        {!isRevealed[draftSettings.selectedProvider] && (
                           <motion.div 
                             initial={false}
                             animate={{ x: 0 }}
                             exit={{ x: "100%" }}
                             transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                            onClick={() => setIsRevealed({...isRevealed, [settings.selectedProvider]: true})}
+                            onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: true})}
                             className="absolute inset-0 bg-blue-600 flex items-center justify-center gap-2 cursor-pointer z-10"
                           >
                             <Lock size={16} />
@@ -210,10 +336,10 @@ const AISettingsPage: React.FC = () => {
                         )}
                       </AnimatePresence>
                       <button 
-                        onClick={() => setIsRevealed({...isRevealed, [settings.selectedProvider]: false})}
+                        onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: false})}
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-full transition-all text-white/40"
                       >
-                        {isRevealed[settings.selectedProvider] ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                   </div>
@@ -224,10 +350,10 @@ const AISettingsPage: React.FC = () => {
                     <div className="relative">
                       <input 
                         type="text"
-                        value={settings.models[settings.selectedProvider] || ''}
-                        onChange={(e) => handleUpdateModel(settings.selectedProvider, e.target.value)}
+                        value={draftSettings.models[draftSettings.selectedProvider] || ''}
+                        onChange={(e) => handleUpdateModel(draftSettings.selectedProvider, e.target.value)}
                         placeholder="e.g. gemini-1.5-pro-latest"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold outline-none border-dashed focus:border-blue-500/50"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold outline-none border-dashed focus:border-blue-500/50 transition-all"
                       />
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white/20">
                         <Settings size={18} />
@@ -240,15 +366,132 @@ const AISettingsPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <footer className="pt-8 text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/10">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">v2.8 Stable Built</span>
+        <section className="p-6 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-green-500/20 rounded-2xl"><Sparkles className="text-green-400" size={24} /></div>
+            <div>
+              <h2 className="text-lg font-bold">UI Preferences</h2>
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Customize your experience</p>
+            </div>
           </div>
-          <p className="text-xs text-white/20 px-12 leading-relaxed">
-            All data and keys stay local in your browser's IndexedDB. Redwan Assistant never transmits your credentials to external servers.
-          </p>
+
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-white/60 group-hover:text-white transition-colors">
+                  <motion.div animate={preferences.reducedMotion ? {} : { rotate: 360 }} transition={{ repeat: Infinity, duration: 4, ease: "linear" }}>
+                    <Settings size={20} />
+                  </motion.div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Reduced Motion</h3>
+                  <p className="text-[10px] text-white/40">Disable animations for a faster feel</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  const newPrefs = { ...preferences, reducedMotion: !preferences.reducedMotion };
+                  setPreferences(newPrefs);
+                  DataManager.saveUserPreferences(newPrefs);
+                }}
+                className={`w-12 h-6 rounded-full transition-all flex items-center px-1 self-end sm:self-auto ${preferences.reducedMotion ? "bg-green-500" : "bg-white/10"}`}
+                aria-label={preferences.reducedMotion ? "Disable Reduced Motion" : "Enable Reduced Motion"}
+                title="Toggle reduced motion for UI animations"
+              >
+                <motion.div 
+                  animate={{ x: preferences.reducedMotion ? 24 : 0 }}
+                  className="w-4 h-4 bg-white rounded-full shadow-sm"
+                />
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-white/60 group-hover:text-white transition-colors">
+                   <ChevronLeft size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Restart Setup</h3>
+                  <p className="text-[10px] text-white/40">Re-trigger the initial profile setup</p>
+                </div>
+              </div>
+              <button 
+                onClick={async () => {
+                   if (confirm('Re-trigger setup? (এটি প্রাথমিক সেটআপ পুনরায় শুরু করবে)')) {
+                      await DataManager.saveUserName(''); // Clear name
+                      window.location.reload();
+                   }
+                }}
+                className="px-6 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-auto"
+                aria-label="Restart Setup"
+              >
+                Restart
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <footer className="pt-8 text-center space-y-8 pb-32">
+          <button
+            onClick={handleManualSave}
+            disabled={isSaving || !draftSettings}
+            className={`w-full py-5 font-bold rounded-[2rem] flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${
+              isDirty 
+                ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20" 
+                : "bg-white/5 text-white/20 cursor-default"
+            }`}
+            aria-label="Save Settings"
+            id="save-settings-button"
+          >
+            {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Check size={20} />}
+            <span>{isSaving ? 'Saving...' : 'Save Settings (সেভ করুন)'}</span>
+          </button>
+
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/10">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">v2.8 Stable Built</span>
+            </div>
+            <p className="text-xs text-white/20 px-12 leading-relaxed">
+              All data and keys stay local in your browser's IndexedDB. Redwan Assistant never transmits your credentials to external servers.
+            </p>
+          </div>
         </footer>
+
+        {/* Status Toast with Undo */}
+        <AnimatePresence>
+          {status && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className={`
+                fixed bottom-8 left-6 right-6 z-[120] p-4 rounded-3xl border flex flex-col sm:flex-row sm:items-center gap-3 shadow-2xl backdrop-blur-xl
+                ${status.type === 'success' ? "bg-green-500 text-white" :
+                  status.type === 'error' ? "bg-red-500 text-white" :
+                  "bg-blue-500 text-white"}
+              `}
+            >
+              <div className="flex items-center gap-2 flex-grow">
+                {status.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+                <p className="text-sm font-bold">{status.message}</p>
+              </div>
+              <div className="flex items-center gap-2 justify-end">
+                {status.showUndo && prevSettings && (
+                  <button 
+                    onClick={handleUndo}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Undo
+                  </button>
+                )}
+                <button onClick={() => setStatus(null)} className="p-2 hover:bg-white/10 rounded-full transition-all">
+                  <X size={18} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

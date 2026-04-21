@@ -30,6 +30,7 @@ import {
 import EditorMenu from '../components/EditorMenu';
 import { DataManager, Note } from '../utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
+import { Modal } from '../components/Modal';
 import localforage from 'localforage';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -525,19 +526,25 @@ export default function EditorPage() {
     isActive = false, 
     disabled = false,
     children, 
-    className = "" 
+    className = "",
+    title,
+    "aria-label": ariaLabel
   }: { 
     onClick: (e: React.MouseEvent) => void; 
     isActive?: boolean; 
     disabled?: boolean;
     children: React.ReactNode;
     className?: string;
+    title?: string;
+    "aria-label"?: string;
   }) => (
     <button
       onClick={(e) => {
         e.preventDefault();
         onClick(e);
       }}
+      title={title}
+      aria-label={ariaLabel}
       disabled={disabled}
       className={cn(
         "p-2 rounded-lg flex-shrink-0 transition-colors duration-200",
@@ -624,155 +631,127 @@ export default function EditorPage() {
       </AnimatePresence>
 
       {/* Share Modal */}
-      <AnimatePresence>
-        {showShareModal && publishedCode && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
-            >
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <UploadCloud size={32} className="text-blue-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Note Published!</h3>
-              <p className="text-white/40 text-sm mb-6">Share this code with others to let them import your note.</p>
-              
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-2xl tracking-widest font-bold text-blue-400">
-                {publishedCode}
-              </div>
-
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(publishedCode);
-                  alert('Code copied to clipboard!');
-                }}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold mb-3 transition-all flex items-center justify-center gap-2"
-              >
-                <Copy size={16} />
-                Copy Code
-              </button>
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="w-full py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-white/90 transition-all"
-              >
-                Done
-              </button>
-            </motion.div>
+      <Modal 
+        isOpen={showShareModal && !!publishedCode} 
+        onClose={() => setShowShareModal(false)} 
+        id="share-modal"
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <UploadCloud size={32} className="text-blue-400" />
           </div>
-        )}
-      </AnimatePresence>
+          <h3 className="text-xl font-bold mb-2">Note Published!</h3>
+          <p className="text-white/40 text-sm mb-6">Share this code with others to let them import your note.</p>
+          
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-2xl tracking-widest font-bold text-blue-400">
+            {publishedCode}
+          </div>
+
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(publishedCode || '');
+              alert('Code copied to clipboard!');
+            }}
+            className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold mb-3 transition-all flex items-center justify-center gap-2"
+            aria-label="Copy code to clipboard"
+          >
+            <Copy size={16} />
+            Copy Code
+          </button>
+          <button 
+            onClick={() => setShowShareModal(false)}
+            className="w-full py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-white/90 transition-all"
+            aria-label="Done"
+          >
+            Done
+          </button>
+        </div>
+      </Modal>
 
       {/* Error Modal */}
-      <AnimatePresence>
-        {showErrorModal && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#1c1c1c] border border-red-500/20 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center"
-            >
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertCircle size={32} className="text-red-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-red-400">Publish Failed</h3>
-              <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                {errorMessage.includes('Supabase credentials missing') 
-                  ? 'Supabase URL and Anon Key are missing. Please set them in the Settings menu to enable publishing.' 
-                  : errorMessage}
-              </p>
-              
-              <button 
-                onClick={() => setShowErrorModal(false)}
-                className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
-              >
-                Close
-              </button>
-            </motion.div>
+      <Modal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} id="editor-error-modal">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle size={32} className="text-red-400" />
           </div>
-        )}
-      </AnimatePresence>
+          <h3 className="text-xl font-bold mb-2 text-red-400">Publish Failed</h3>
+          <p className="text-white/60 text-sm mb-8 leading-relaxed">
+            {errorMessage.includes('Supabase credentials missing') 
+              ? 'Supabase URL and Anon Key are missing. Please set them in the Settings menu to enable publishing.' 
+              : errorMessage}
+          </p>
+          
+          <button 
+            onClick={() => setShowErrorModal(false)}
+            className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
+            aria-label="Close error message"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
 
       {/* Image Upload Modal */}
-      <AnimatePresence>
-        {showImageModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#1c1c1c] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl"
-            >
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <ImageIcon size={32} className="text-blue-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-center">Insert Image</h3>
-              <p className="text-white/40 text-sm mb-6 text-center">Enter the URL of the image you want to insert.</p>
-              
-              <input 
-                type="text"
-                placeholder="https://example.com/image.jpg"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                autoFocus
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all mb-6"
-              />
+      <Modal isOpen={showImageModal} onClose={() => setShowImageModal(false)} title="Insert Image" id="image-upload-modal">
+        <div>
+          <p className="text-white/40 text-sm mb-6 text-center">Enter the URL of the image you want to insert.</p>
+          
+          <input 
+            type="text"
+            placeholder="https://example.com/image.jpg"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            autoFocus
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all mb-6"
+            aria-label="Image URL"
+          />
 
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => {
-                    setShowImageModal(false);
-                    setImageUrl('');
-                  }}
-                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={confirmAddImage}
-                  disabled={!imageUrl.trim()}
-                  className="flex-1 py-3 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 transition-all disabled:opacity-50"
-                >
-                  Insert
-                </button>
-              </div>
-            </motion.div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => {
+                setShowImageModal(false);
+                setImageUrl('');
+              }}
+              className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-all"
+              aria-label="Cancel"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={confirmAddImage}
+              disabled={!imageUrl.trim()}
+              className="flex-1 py-3 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 transition-all disabled:opacity-50"
+              aria-label="Insert Image"
+            >
+              Insert
+            </button>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl"
+      <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Delete Note?" id="delete-note-modal">
+        <div>
+          <p className="text-white/40 text-sm mb-6">Are you sure you want to delete this note? This action cannot be undone.</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="flex-1 px-4 py-3 bg-white/5 text-white/60 rounded-xl font-bold text-sm hover:bg-white/10 transition-colors"
+              aria-label="Cancel deletion"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Note?</h3>
-              <p className="text-gray-500 text-sm mb-6">Are you sure you want to delete this note? This action cannot be undone.</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDeleteNote}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
+              Cancel
+            </button>
+            <button
+              onClick={confirmDeleteNote}
+              className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              aria-label="Confirm Delete"
+              id="confirm-delete-button"
+            >
+              Delete
+            </button>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      </Modal>
 
       {/* Editor Content */}
       <main className="pt-20 px-6 max-w-2xl mx-auto">
@@ -911,7 +890,12 @@ export default function EditorPage() {
 
           <div className="w-px h-6 bg-white/10 mx-1 flex-shrink-0" />
 
-          <ToolbarButton onClick={handleManualSave} className="text-blue-400">
+          <ToolbarButton 
+            onClick={handleManualSave} 
+            className="text-blue-400"
+            title="Save Note"
+            aria-label="Save Note"
+          >
             <Save size={18} />
           </ToolbarButton>
         </div>
@@ -1023,12 +1007,12 @@ export default function EditorPage() {
         input[type="checkbox"]:checked { background-color: #000; border-color: #000; }
         input[type="checkbox"]:checked::after { content: '✓'; position: absolute; color: white; font-size: 0.75rem; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         
-        .ProseMirror h1, .ProseMirror .h1 { font-size: 2.5rem !important; font-weight: 900 !important; margin-top: 1.5rem !important; margin-bottom: 0.75rem !important; line-height: 1.1 !important; color: white !important; }
-        .ProseMirror h2, .ProseMirror .h2 { font-size: 2rem !important; font-weight: 800 !important; margin-top: 1.25rem !important; margin-bottom: 0.5rem !important; color: white !important; }
-        .ProseMirror h3, .ProseMirror .h3 { font-size: 1.5rem !important; font-weight: 700 !important; margin-top: 1rem !important; margin-bottom: 0.5rem !important; color: white !important; }
-        .ProseMirror h4, .ProseMirror .h4 { font-size: 1.25rem !important; font-weight: 700 !important; margin-top: 0.75rem !important; margin-bottom: 0.25rem !important; color: white !important; }
-        .ProseMirror h5, .ProseMirror .h5 { font-size: 1.1rem !important; font-weight: 600 !important; margin-top: 0.5rem !important; margin-bottom: 0.25rem !important; color: white !important; }
-        .ProseMirror h6, .ProseMirror .h6 { font-size: 1rem !important; font-weight: 600 !important; margin-top: 0.5rem !important; margin-bottom: 0.25rem !important; color: white !important; }
+        .ProseMirror h1, .ProseMirror .h1 { @apply text-4xl font-black mb-4 mt-6; }
+        .ProseMirror h2, .ProseMirror .h2 { @apply text-3xl font-extrabold mb-3 mt-5; }
+        .ProseMirror h3, .ProseMirror .h3 { @apply text-2xl font-bold mb-2 mt-4; }
+        .ProseMirror h4, .ProseMirror .h4 { @apply text-xl font-bold mb-2 mt-3; }
+        .ProseMirror h5, .ProseMirror .h5 { @apply text-lg font-bold mb-1 mt-2; }
+        .ProseMirror h6, .ProseMirror .h6 { @apply text-base font-bold mb-1 mt-2; }
         .ProseMirror p { margin-bottom: 0.75rem; line-height: 1.6; color: rgba(255, 255, 255, 0.8); }
         .ProseMirror blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin-left: 0; margin-right: 0; font-style: italic; color: rgba(255, 255, 255, 0.6); }
         .ProseMirror pre { background: #1a1a1a; border: 1px solid rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; font-family: 'JetBrains Mono', monospace; overflow-x: auto; margin-bottom: 1rem; }

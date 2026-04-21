@@ -306,6 +306,8 @@ const ZipFlattener: React.FC = () => {
 
               {/* Action */}
               <button
+                type="submit"
+                id="flatten-zip-button"
                 onClick={handleFlatten}
                 disabled={isProcessing || getFilteredFiles().length === 0}
                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-6 rounded-[2rem] font-bold text-lg shadow-2xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"

@@ -99,6 +99,11 @@ export interface AISettings {
   };
 }
 
+export interface UserPreferences {
+  reducedMotion: boolean;
+  theme: 'dark' | 'light' | 'system';
+}
+
 // Configure localforage
 localforage.config({
   name: 'NotionClone',
@@ -207,6 +212,15 @@ export const DataManager = {
 
   async saveUserName(name: string): Promise<void> {
     await localforage.setItem(USER_NAME_KEY, name);
+  },
+
+  async getUserPreferences(): Promise<UserPreferences> {
+    const prefs = await localforage.getItem<UserPreferences>('user_preferences');
+    return prefs || { reducedMotion: false, theme: 'dark' };
+  },
+
+  async saveUserPreferences(prefs: UserPreferences): Promise<void> {
+    await localforage.setItem('user_preferences', prefs);
   },
 
   // --- Workspace Operations ---
@@ -575,7 +589,13 @@ export const DataManager = {
 
     const index = allNotes.findIndex(n => n.id === note.id);
     const updatedNote = { ...note, updatedAt: Date.now() };
-    
+
+    // Check for extremely large content (e.g. many Base64 images)
+    const contentSize = new Blob([updatedNote.content]).size;
+    if (contentSize > 2 * 1024 * 1024) { // Warning above 2MB
+      console.warn("DataManager: Large note content detected (> 2MB). Performance may be affected.");
+    }
+
     if (index > -1) {
       allNotes[index] = updatedNote;
     } else {

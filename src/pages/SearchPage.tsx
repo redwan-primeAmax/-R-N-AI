@@ -56,12 +56,14 @@ export default function SearchPage() {
           </div>
         </header>
 
-        <div className="space-y-4">
-          <AnimatePresence mode="popLayout">
-            {query && results.length === 0 ? (
+        <div className="space-y-4 min-h-[400px]">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {query.trim() !== '' && results.length === 0 ? (
               <motion.div
+                key="no-results"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 className="text-center py-20 text-white/20"
               >
                 No results found for "{query}"
@@ -74,6 +76,7 @@ export default function SearchPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
                   onClick={() => navigate(`/editor/${note.id}`)}
                   className="flex items-center gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer group"
                 >

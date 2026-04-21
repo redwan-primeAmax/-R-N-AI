@@ -318,12 +318,15 @@ Please provide the updated note in the required JSON format as specified in our 
             </div>
 
             <button 
+              type="submit"
               onClick={handleImport}
               disabled={!importData.trim()}
               className="w-full py-5 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-3xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-green-500/10 active:scale-95"
+              aria-label="Import Data"
+              id="import-data-button"
             >
               <ArrowRight size={20} />
-              <span>{targetId ? 'বিদ্যমান পাতা আপডেট করুন' : 'নতুন পাতা তৈরি করুন'}</span>
+              <span>{targetId ? 'Update Note (আপডেট করুন)' : 'Create New Note (নতুন পাতা)'}</span>
             </button>
           </div>
         </section>
