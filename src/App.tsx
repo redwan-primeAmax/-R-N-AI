@@ -142,6 +142,7 @@ function AppContent() {
   const isFullPage = isEditorPage || isSearchPage || isToolsPage || isAIPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
 
   useEffect(() => {
     DataManager.getUserName().then(name => {
@@ -151,6 +152,22 @@ function AppContent() {
         setShowPopup(true);
       }
     });
+
+    // Theme initialization
+    DataManager.getUserPreferences().then(prefs => {
+      setTheme(prefs.theme || 'dark');
+    });
+
+    // Listen for theme changes from AISettings
+    const handleSync = (data: any) => {
+      if (data.type === 'SYNC_COMPLETE') {
+        DataManager.getUserPreferences().then(prefs => {
+           setTheme(prefs.theme || 'dark');
+        });
+      }
+    };
+    DataManager.onSync(handleSync);
+    return () => DataManager.offSync();
   }, []);
 
   const handleSaveName = async (name: string, workspaceName: string) => {
@@ -186,8 +203,10 @@ function AppContent() {
     { path: "/main", element: <Navigate to="/" replace /> },
   ]);
 
+  const isLight = theme === 'light' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+
   return (
-    <div className={`min-h-screen bg-[#0A0A0A] text-white font-sans ${isFullPage ? '' : 'pb-32'}`}>
+    <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[#0A0A0A] text-white'} ${isFullPage ? '' : 'pb-32'} transition-colors duration-300`}>
       <AnimatePresence mode="wait">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
       </AnimatePresence>

@@ -80,11 +80,13 @@ export default function EditorPage() {
   const [showEditorMenu, setShowEditorMenu] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [hasConflict, setHasConflict] = useState(false);
 
   // Use refs to avoid stale closures in callbacks
   const noteRef = useRef<Note | null>(null);
   const titleRef = useRef(title);
   const emojiRef = useRef(emoji);
+  const backupTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     noteRef.current = note;
@@ -126,23 +128,26 @@ export default function EditorPage() {
     ],
     content: '',
     onUpdate: ({ editor }) => {
-      const content = editor.getHTML();
-      // Backup to localforage immediately on change
-      if (id) {
-        localforage.setItem(BACKUP_KEY, content).catch(err => {
-          console.error('Backup failed:', err);
-        });
-      }
+      // PERFORMANCE: Debounce backup to localforage for large notes
+      if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
+      
+      backupTimerRef.current = setTimeout(() => {
+        const content = editor.getHTML();
+        if (id) {
+          localforage.setItem(BACKUP_KEY, content).catch(err => {
+            console.error('Backup failed:', err);
+          });
+        }
+      }, 1000); // 1 second debounce for backups
 
-      // Handle '>>' shortcut for code block
-      const { state } = editor;
-      const { selection } = state;
+      // Handle '>>' shortcut
+      const { selection } = editor.state;
       const { $from } = selection;
       const textBefore = $from.parent.textContent;
       if (textBefore.endsWith('>>')) {
         editor.chain()
           .deleteRange({ from: $from.pos - 2, to: $from.pos })
-          .insertContent('<pre style="background: #f4f4f4; padding: 1rem; border-radius: 0.5rem; font-family: monospace; border: 1px solid #ddd;"><code> </code></pre>')
+          .insertContent('<pre style="background: #050505; color: white; padding: 1.5rem; border-radius: 1rem; font-family: monospace; border: 1px solid rgba(255,255,255,0.1);"><code> </code></pre>')
           .focus()
           .run();
       }
@@ -228,8 +233,6 @@ export default function EditorPage() {
   };
 
   const cycleHeading = () => {
-    // H1 smallest (base), H6 largest (4xl)
-    // Cycling 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 1
     const nextHeading = currentHeading >= 6 ? 1 : currentHeading + 1;
     setCurrentHeading(nextHeading);
     editor?.chain().focus().setHeading({ level: nextHeading as any }).run();
@@ -237,8 +240,6 @@ export default function EditorPage() {
 
   const clearSelection = () => {
     if (editor?.state.selection.empty) {
-      // If no selection, maybe clear the current line/block?
-      // For now, let's just delete the selection if it exists
       editor?.chain().focus().deleteSelection().run();
     } else {
       editor?.chain().focus().deleteSelection().run();
@@ -260,6 +261,15 @@ export default function EditorPage() {
     }
   };
 
+  const reloadFromSource = async () => {
+    if (id) {
+      setHasConflict(false);
+      await loadNote(id);
+      setNotification({ message: 'Note reloaded from another tab.', type: 'info' });
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
+
   useEffect(() => {
     if (id) {
       loadNote(id);
@@ -268,7 +278,8 @@ export default function EditorPage() {
     // Listen for sync events from other tabs
     const handleSync = (data: any) => {
       if (data.type === 'UPDATE_NOTE' && data.id === id && data.senderId !== DataManager.getClientId()) {
-        loadNote(id);
+        // Instead of auto-loading, show conflict UI if user has local changes
+        setHasConflict(true);
       } else if (data.type === 'DELETE_NOTE' && data.id === id) {
         navigate('/');
       }
@@ -278,6 +289,7 @@ export default function EditorPage() {
     
     return () => {
       DataManager.offSync();
+      if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
     };
   }, [id, editor]);
 
@@ -609,6 +621,32 @@ export default function EditorPage() {
           />
         )}
       </AnimatePresence>
+      {/* Conflict Warning Toast */}
+      <AnimatePresence>
+        {hasConflict && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-24 left-6 right-6 z-[200] p-4 bg-orange-600 text-white rounded-2xl shadow-2xl flex items-center justify-between border border-orange-400/30 backdrop-blur-xl"
+          >
+            <div className="flex items-center gap-3">
+              <AlertCircle size={20} />
+              <div className="flex flex-col">
+                <span className="text-sm font-bold">Note updated in another tab (অন্য ট্যাবে আপডেট হয়েছে)</span>
+                <span className="text-[10px] opacity-80">Click refresh to load lateast content.</span>
+              </div>
+            </div>
+            <button 
+              onClick={reloadFromSource}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
+            >
+              Refresh
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {notification && (
           <motion.div

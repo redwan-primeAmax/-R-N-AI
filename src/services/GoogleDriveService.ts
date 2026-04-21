@@ -1,136 +1,166 @@
-import localforage from 'localforage';
-import { Note, Workspace, DataManager } from '../utils/DataManager';
-
-const DRIVE_TOKENS_KEY = 'google_drive_tokens';
-const DRIVE_APP_DATA_FOLDER = 'appDataFolder';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 export interface GoogleTokens {
   access_token: string;
   refresh_token?: string;
   expires_in: number;
   token_type: string;
-  created_at?: number;
+  scope: string;
+  issued_at: number;
 }
 
-export class GoogleDriveService {
-  private static async getTokens(): Promise<GoogleTokens | null> {
-    const tokens = await localforage.getItem<GoogleTokens>(DRIVE_TOKENS_KEY);
-    if (!tokens) return null;
+class GoogleDriveService {
+  private tokens: GoogleTokens | null = null;
+  private appFolderName = "Redwan Assistant Data";
+  private appFolderId: string | null = null;
 
-    // Check if expired
-    const now = Date.now();
-    const createdAt = tokens.created_at || now;
-    if (now > createdAt + tokens.expires_in * 1000) {
-      // Token expired, need to refresh (implementing refresh if needed, but for now just return null)
-      // Actually, we should probably handle refresh token here if it exists
-      return null; 
+  setTokens(tokens: GoogleTokens) {
+    this.tokens = tokens;
+  }
+
+  getTokens() {
+    return this.tokens;
+  }
+
+  private async fetchWithAuth(url: string, options: RequestInit = {}) {
+    if (!this.tokens) throw new Error("Not authenticated with Google");
+
+    // Check if token is expired (giving 1 min buffer)
+    const isExpired = Date.now() > (this.tokens.issued_at + (this.tokens.expires_in * 1000) - 60000);
+    
+    if (isExpired && this.tokens.refresh_token) {
+      console.log("Access token expired, refreshing...");
+      await this.refreshAccessToken();
     }
-    return tokens;
-  }
-
-  static async saveTokens(tokens: GoogleTokens) {
-    await localforage.setItem(DRIVE_TOKENS_KEY, {
-      ...tokens,
-      created_at: Date.now()
-    });
-  }
-
-  static async disconnect() {
-    await localforage.removeItem(DRIVE_TOKENS_KEY);
-  }
-
-  static async isConnected(): Promise<boolean> {
-    const tokens = await this.getTokens();
-    return !!tokens;
-  }
-
-  private static async fetchWithToken(url: string, options: RequestInit = {}) {
-    const tokens = await this.getTokens();
-    if (!tokens) throw new Error('Not connected to Google Drive');
 
     const headers = {
       ...options.headers,
-      'Authorization': `Bearer ${tokens.access_token}`
+      'Authorization': `Bearer ${this.tokens.access_token}`
     };
 
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401) {
-      // Unauthorized, token might have expired while we were using it
-      await this.disconnect();
-      throw new Error('Google Drive session expired. Please reconnect.');
+      // If we get 401 even after "check", try one refresh
+      if (this.tokens.refresh_token) {
+        await this.refreshAccessToken();
+        const retryHeaders = {
+          ...options.headers,
+          'Authorization': `Bearer ${this.tokens.access_token}`
+        };
+        return fetch(url, { ...options, headers: retryHeaders });
+      }
     }
     return response;
   }
 
-  static async getFileInfo(fileName: string): Promise<any | null> {
-    const response = await this.fetchWithToken(
-      `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false&spaces=appDataFolder`
-    );
-    const data = await response.json();
-    return data.files && data.files.length > 0 ? data.files[0] : null;
-  }
+  private async refreshAccessToken() {
+    if (!this.tokens?.refresh_token) throw new Error("No refresh token available");
 
-  static async uploadFile(fileName: string, content: any) {
-    const existingFile = await this.getFileInfo(fileName);
-    const metadata = {
-      name: fileName,
-      parents: [DRIVE_APP_DATA_FOLDER]
-    };
+    try {
+      const response = await fetch('/api/auth/google/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: this.tokens.refresh_token })
+      });
 
-    const boundary = '-------314159265358979323846';
-    const delimiter = "\r\n--" + boundary + "\r\n";
-    const close_delim = "\r\n--" + boundary + "--";
+      if (!response.ok) throw new Error("Failed to refresh token");
+      const newTokens = await response.json();
+      
+      this.tokens = {
+        ...this.tokens,
+        ...newTokens,
+        issued_at: Date.now()
+      };
 
-    const contentType = 'application/json';
-    const body =
-      delimiter +
-      'Content-Type: application/json\r\n\r\n' +
-      JSON.stringify(metadata) +
-      delimiter +
-      'Content-Type: ' + contentType + '\r\n\r\n' +
-      JSON.stringify(content) +
-      close_delim;
-
-    const url = existingFile 
-      ? `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`
-      : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-
-    const response = await this.fetchWithToken(url, {
-      method: existingFile ? 'PATCH' : 'POST',
-      headers: {
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      body
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to upload to Google Drive');
+      // Notify caller to save tokens
+      if (window) {
+        window.dispatchEvent(new CustomEvent('google-tokens-updated', { detail: this.tokens }));
+      }
+    } catch (err) {
+      console.error("Token refresh error:", err);
+      throw err;
     }
-    return response.json();
   }
 
-  static async downloadFile(fileId: string): Promise<any> {
-    const response = await this.fetchWithToken(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`
-    );
-    if (!response.ok) throw new Error('Failed to download from Google Drive');
-    return response.json();
+  async getAppFolderId(): Promise<string> {
+    if (this.appFolderId) return this.appFolderId;
+
+    const query = `name = '${this.appFolderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const response = await this.fetchWithAuth(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+
+    if (data.files && data.files.length > 0) {
+      this.appFolderId = data.files[0].id;
+      return this.appFolderId!;
+    }
+
+    // Create folder if not exists
+    const createResponse = await this.fetchWithAuth('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: this.appFolderName,
+        mimeType: 'application/vnd.google-apps.folder'
+      })
+    });
+    const folder = await createResponse.json();
+    this.appFolderId = folder.id;
+    return this.appFolderId!;
   }
 
-  static async syncNotesToCloud() {
-    const data = await DataManager.exportAllData();
-    const backupData = {
-      ...data,
-      exportedAt: Date.now()
+  async saveFile(name: string, content: any, folderId?: string): Promise<string> {
+    const parentId = folderId || await this.getAppFolderId();
+    
+    // Check if file exists
+    const query = `name = '${name}' and '${parentId}' in parents and trashed = false`;
+    const searchResponse = await this.fetchWithAuth(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}`);
+    const searchData = await searchResponse.json();
+
+    const metadata = {
+      name: name,
+      parents: [parentId]
     };
-    await this.uploadFile('rn_ai_notes_backup.json', backupData);
+    
+    const body = new FormData();
+    body.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    body.append('file', new Blob([JSON.stringify(content)], { type: 'application/json' }));
+
+    if (searchData.files && searchData.files.length > 0) {
+      // Update existing
+      const fileId = searchData.files[0].id;
+      const response = await this.fetchWithAuth(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
+        method: 'PATCH',
+        body: body
+      });
+      const data = await response.json();
+      return data.id;
+    } else {
+      // Create new
+      const response = await this.fetchWithAuth('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        body: body
+      });
+      const data = await response.json();
+      return data.id;
+    }
   }
 
-  static async syncNotesFromCloud(): Promise<{ notes: Note[], workspaces: Workspace[] } | null> {
-    const file = await this.getFileInfo('rn_ai_notes_backup.json');
-    if (!file) return null;
-    const data = await this.downloadFile(file.id);
-    return data;
+  async getFileContent<T>(name: string, folderId?: string): Promise<T | null> {
+    const parentId = folderId || await this.getAppFolderId();
+    const query = `name = '${name}' and '${parentId}' in parents and trashed = false`;
+    const searchResponse = await this.fetchWithAuth(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}`);
+    const searchData = await searchResponse.json();
+
+    if (searchData.files && searchData.files.length > 0) {
+      const fileId = searchData.files[0].id;
+      const contentResponse = await this.fetchWithAuth(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      return await contentResponse.json();
+    }
+    return null;
   }
 }
+
+export const googleDriveService = new GoogleDriveService();

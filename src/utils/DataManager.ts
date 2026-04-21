@@ -7,6 +7,7 @@ import localforage from 'localforage';
 import { Index } from 'flexsearch';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { LogManager } from './LogManager';
+import { googleDriveService, GoogleTokens } from '../services/GoogleDriveService';
 
 console.log('DataManager: File loaded');
 
@@ -140,7 +141,33 @@ const AI_SETTINGS_KEY = 'ai_settings';
 const WORKSPACES_KEY = 'workspaces';
 const CURRENT_WORKSPACE_KEY = 'current_workspace_id';
 const VERSIONS_KEY = 'note_versions';
+const GOOGLE_TOKENS_KEY = 'google_drive_tokens';
 const CUSTOM_EXTENSION = '.redwan';
+
+// Listen for token updates from the service (e.g. after refresh)
+if (typeof window !== 'undefined') {
+  window.addEventListener('google-tokens-updated', (e: any) => {
+    localforage.setItem(GOOGLE_TOKENS_KEY, e.detail);
+  });
+}
+
+// Global initialization for Google Drive
+const initGoogleDrive = async () => {
+  const tokens = await localforage.getItem<GoogleTokens>(GOOGLE_TOKENS_KEY);
+  if (tokens) {
+    googleDriveService.setTokens(tokens);
+    console.log('Google Drive session restored');
+  }
+};
+initGoogleDrive();
+
+let syncTimer: NodeJS.Timeout | null = null;
+const triggerSync = () => {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    DataManager.syncToDrive();
+  }, 2000);
+};
 
 // Helper for background indexing to prevent battery drain and UI lag
 const scheduleIndexing = (note: Note) => {
@@ -212,6 +239,7 @@ export const DataManager = {
 
   async saveUserName(name: string): Promise<void> {
     await localforage.setItem(USER_NAME_KEY, name);
+    triggerSync();
   },
 
   async getUserPreferences(): Promise<UserPreferences> {
@@ -221,6 +249,7 @@ export const DataManager = {
 
   async saveUserPreferences(prefs: UserPreferences): Promise<void> {
     await localforage.setItem('user_preferences', prefs);
+    triggerSync();
   },
 
   // --- Workspace Operations ---
@@ -264,12 +293,14 @@ export const DataManager = {
       workspaces.push(workspace);
     }
     await localforage.setItem(WORKSPACES_KEY, workspaces);
+    triggerSync();
   },
 
   async deleteWorkspace(id: string): Promise<void> {
     const workspaces = await this.getWorkspaces();
     const filtered = workspaces.filter(w => w.id !== id);
     await localforage.setItem(WORKSPACES_KEY, filtered);
+    triggerSync();
 
     // Delete all notes in this workspace
     const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
@@ -385,6 +416,7 @@ export const DataManager = {
       apiKeys: encryptedKeys
     };
     await localforage.setItem(AI_SETTINGS_KEY, settingsToSave);
+    triggerSync();
   },
 
   // --- Notes Operations ---
@@ -618,7 +650,7 @@ export const DataManager = {
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'UPDATE_NOTE', id: note.id, senderId: clientId });
-    
+    triggerSync();
     return updatedNote;
   },
 
@@ -682,6 +714,7 @@ export const DataManager = {
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'DELETE_NOTE', id });
+    triggerSync();
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
@@ -1052,6 +1085,70 @@ export const DataManager = {
   
   offSync() {
     syncChannel.onmessage = null;
+  },
+
+  // --- Google Drive Sync (RN AI 2.6) ---
+  async getGoogleTokens(): Promise<GoogleTokens | null> {
+    return await localforage.getItem<GoogleTokens>(GOOGLE_TOKENS_KEY);
+  },
+
+  async saveGoogleTokens(tokens: GoogleTokens): Promise<void> {
+    await localforage.setItem(GOOGLE_TOKENS_KEY, tokens);
+    googleDriveService.setTokens(tokens);
+    // Initial sync
+    this.syncToDrive();
+  },
+
+  async disconnectGoogleDrive(): Promise<void> {
+    await localforage.removeItem(GOOGLE_TOKENS_KEY);
+    // Note: We don't have a clearTokens method yet, but setting null works
+    (googleDriveService as any).tokens = null;
+  },
+
+  async syncToDrive() {
+    const tokens = await this.getGoogleTokens();
+    if (!tokens) return;
+
+    try {
+      const notes = await this.getNotes();
+      const settings = await this.getAISettings();
+      const prefs = await this.getUserPreferences();
+      const workspaces = await this.getWorkspaces();
+      const name = await this.getUserName();
+
+      const backup = {
+        userName: name,
+        notes,
+        settings,
+        preferences: prefs,
+        workspaces,
+        updatedAt: Date.now()
+      };
+
+      await googleDriveService.saveFile('redwan_assistant_data.json', backup);
+      console.log('Google Drive sync successful');
+    } catch (err) {
+      console.error('Google Drive sync failed:', err);
+    }
+  },
+
+  async restoreFromDrive() {
+    const tokens = await this.getGoogleTokens();
+    if (!tokens) throw new Error("Google Drive not connected");
+
+    const data = await googleDriveService.getFileContent<any>('redwan_assistant_data.json');
+    if (!data) throw new Error("No backup found on Google Drive");
+
+    if (data.notes) await localforage.setItem(NOTES_KEY, data.notes);
+    if (data.settings) await localforage.setItem(AI_SETTINGS_KEY, data.settings);
+    if (data.preferences) await this.saveUserPreferences(data.preferences);
+    if (data.workspaces) await localforage.setItem(WORKSPACES_KEY, data.workspaces);
+    if (data.userName) await this.saveUserName(data.userName);
+
+    cachedNotes = null;
+    cachedSettings = null;
+    syncChannel.postMessage({ type: 'SYNC_COMPLETE' });
+    return true;
   },
   
   // --- Storage & Media (RN AI 2.5) ---

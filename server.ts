@@ -57,6 +57,34 @@ async function startServer() {
     res.json({ url: `${GOOGLE_AUTH_URL}?${params.toString()}` });
   });
 
+  app.post("/api/auth/google/refresh", async (req, res) => {
+    const { refresh_token } = req.body;
+    if (!refresh_token) return res.status(400).json({ error: "No refresh token provided" });
+
+    try {
+      const response = await fetch(GOOGLE_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          refresh_token: refresh_token as string,
+          client_id: GOOGLE_CLIENT_ID!,
+          client_secret: GOOGLE_CLIENT_SECRET!,
+          grant_type: 'refresh_token',
+        }),
+      });
+
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error_description || body.error || "Token refresh failed");
+      }
+
+      res.json(body);
+    } catch (error: any) {
+      console.error("Token refresh error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/auth/google/callback", async (req, res) => {
     const { code } = req.query;
     if (!code) return res.status(400).send("No code provided");

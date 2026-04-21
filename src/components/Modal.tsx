@@ -8,6 +8,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { FocusTrap } from 'focus-trap-react';
 import { X } from 'lucide-react';
 import { DataManager } from '../utils/DataManager';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 interface ModalProps {
   isOpen: boolean;
@@ -124,7 +130,10 @@ export const Modal: React.FC<ModalProps> = ({
                 </button>
               )}
 
-              <div className={title ? "px-8 pb-8 pt-2" : "p-8"}>
+              <div className={cn(
+                "overflow-y-auto max-h-[70vh] custom-scrollbar",
+                title ? "px-8 pb-8 pt-2" : "p-8"
+              )}>
                 {children}
               </div>
             </motion.div>

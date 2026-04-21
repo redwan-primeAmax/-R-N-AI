@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -14,27 +14,53 @@
     color-scheme: dark;
   }
 
+  /* Improved contrast for Light mode (if implemented via class) */
+  .light-theme {
+    @apply bg-white text-[#1a1a1a];
+    color-scheme: light;
+  }
+
+  .light-theme .text-white\/40 { @apply text-black/40; }
+  .light-theme .text-white\/20 { @apply text-black/20; }
+  .light-theme .text-white\/60 { @apply text-black/60; }
+  .light-theme .bg-white\/5 { @apply bg-black/5; }
+  .light-theme .border-white\/10 { @apply border-black/10; }
+  .light-theme .bg-[#1c1c1c] { @apply bg-white border border-black/10; }
+  .light-theme .bg-[#191919] { @apply bg-gray-50; }
+  .light-theme .bg-[#0d0d0d] { @apply bg-white; }
+  .light-theme .bg-[#0A0A0A] { @apply bg-white; }
+  .light-theme .hover\:bg-white\/10:hover { @apply hover:bg-black/10; }
+  .light-theme .bg-white\/5 { @apply bg-black/5; }
+  .light-theme .text-white { @apply text-black; }
+  .light-theme .ProseMirror code { @apply bg-black/10 text-blue-600; }
+  .light-theme .ProseMirror pre { @apply bg-gray-100 text-[#1a1a1a] border-gray-200; }
+
   /* Disable text selection on main screen as requested */
   .main-screen {
     @apply select-none;
   }
 
-  /* Heading Styles for Tiptap (Standard Hierarchy: H1 largest, H6 smallest) */
-  .ProseMirror h1 { @apply text-4xl font-black mb-4 mt-6; }
-  .ProseMirror h2 { @apply text-3xl font-extrabold mb-3 mt-5; }
-  .ProseMirror h3 { @apply text-2xl font-bold mb-2 mt-4; }
+  /* Heading Styles for Tiptap */
+  .ProseMirror h1 { @apply text-4xl font-black mb-4 mt-6 leading-tight; }
+  .ProseMirror h2 { @apply text-3xl font-extrabold mb-3 mt-5 leading-tight; }
+  .ProseMirror h3 { @apply text-2xl font-bold mb-2 mt-4 leading-snug; }
   .ProseMirror h4 { @apply text-xl font-bold mb-2 mt-3; }
   .ProseMirror h5 { @apply text-lg font-bold mb-1 mt-2; }
   .ProseMirror h6 { @apply text-base font-bold mb-1 mt-2; }
   .ProseMirror p { @apply mb-2 leading-relaxed; }
-  .ProseMirror ul { @apply list-disc pl-6 mb-4; }
-  .ProseMirror ol { @apply list-decimal pl-6 mb-4; }
-  .ProseMirror blockquote { @apply border-l-4 border-gray-200 pl-4 italic my-4; }
-  .ProseMirror code { @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono; }
-  .ProseMirror pre { @apply bg-gray-900 text-white p-4 rounded-xl font-mono text-sm my-4 overflow-x-auto; }
+  .ProseMirror ul { @apply list-disc pl-6 mb-4 space-y-1; }
+  .ProseMirror ol { @apply list-decimal pl-6 mb-4 space-y-1; }
+  .ProseMirror blockquote { @apply border-l-4 border-white/20 pl-4 italic my-4 py-1 bg-white/5 rounded-r-lg; }
+  .ProseMirror code { @apply bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-blue-400; }
+  .ProseMirror pre { @apply bg-[#050505] text-white p-4 rounded-xl font-mono text-sm my-4 overflow-x-auto border border-white/10; }
   .ProseMirror .task-list { @apply list-none pl-0; }
-  .ProseMirror .task-list li { @apply flex gap-2 items-start mb-1; }
-  .ProseMirror .task-list input { @apply mt-1.5; }
+  .ProseMirror .task-list li { @apply flex gap-3 items-start mb-1; }
+  .ProseMirror .task-list input { @apply mt-1.5 w-4 h-4 rounded border-white/20 bg-transparent; }
+
+  /* Bengali line height adjustment */
+  .font-sans {
+    line-height: 1.6;
+  }
 
   /* Prevent White Flash */
   .animate-all {

@@ -20,7 +20,12 @@ import {
   EyeOff, 
   Lock, 
   Loader2, 
-  X 
+  X,
+  Palette,
+  Cloud,
+  RefreshCw,
+  LogOut,
+  Download
 } from 'lucide-react';
 import { DataManager, AISettings, UserPreferences } from '../../utils/DataManager';
 import appIDList from '../../constants/appIDList.json';
@@ -31,12 +36,14 @@ const AISettingsPage: React.FC = () => {
   const [draftSettings, setDraftSettings] = useState<AISettings | null>(null);
   const [prevSettings, setPrevSettings] = useState<AISettings | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>({ reducedMotion: false, theme: 'dark' });
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [customIDs, setCustomIDs] = useState<{id: string, name: string}[]>([]);
   const [isRevealed, setIsRevealed] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; showUndo?: boolean } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
-
+  
   useEffect(() => {
     DataManager.getAISettings().then(s => {
       setSettings(s);
@@ -44,7 +51,70 @@ const AISettingsPage: React.FC = () => {
       if (s.customAppIDs) setCustomIDs(s.customAppIDs);
     });
     DataManager.getUserPreferences().then(setPreferences);
+    DataManager.getGoogleTokens().then(tokens => setGoogleConnected(!!tokens));
   }, []);
+
+  // Listen for Google Auth Success
+  useEffect(() => {
+    const handleAuthMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        const tokens = event.data.tokens;
+        tokens.issued_at = Date.now();
+        await DataManager.saveGoogleTokens(tokens);
+        setGoogleConnected(true);
+        setStatus({ type: 'success', message: 'Google Drive connected and initial sync started!' });
+      }
+    };
+    window.addEventListener('message', handleAuthMessage);
+    return () => window.removeEventListener('message', handleAuthMessage);
+  }, []);
+
+  const handleConnectDrive = async () => {
+    try {
+      const response = await fetch('/api/auth/google/url');
+      const { url } = await response.json();
+      window.open(url, 'google_auth', 'width=600,height=700');
+    } catch (err) {
+      console.error("Failed to get Google Auth URL", err);
+      setStatus({ type: 'error', message: 'Failed to start Google connection.' });
+    }
+  };
+
+  const handleDisconnectDrive = async () => {
+    if (confirm('Disconnect Google Drive? Your data will remain on your device but will no longer sync to the cloud.')) {
+      await DataManager.disconnectGoogleDrive();
+      setGoogleConnected(false);
+      setStatus({ type: 'info', message: 'Google Drive disconnected.' });
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    setStatus({ type: 'info', message: 'Syncing to Google Drive...' });
+    try {
+      await DataManager.syncToDrive();
+      setStatus({ type: 'success', message: 'Sync complete!' });
+    } catch (err: any) {
+      setStatus({ type: 'error', message: 'Sync failed: ' + err.message });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleRestoreFromDrive = async () => {
+    if (confirm('Warning: Restore will overwrite all local data with the backup from Google Drive. Continue?')) {
+      setIsSyncing(true);
+      try {
+        await DataManager.restoreFromDrive();
+        setStatus({ type: 'success', message: 'Data restored successfully! (ডেটা রিস্টোর করা হয়েছে।)' });
+        setTimeout(() => window.location.reload(), 1500);
+      } catch (err: any) {
+        setStatus({ type: 'error', message: 'Restore failed: ' + err.message });
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+  };
 
   // Unsaved changes warning
   useEffect(() => {
@@ -403,6 +473,81 @@ const AISettingsPage: React.FC = () => {
                   className="w-4 h-4 bg-white rounded-full shadow-sm"
                 />
               </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-white/60 group-hover:text-white transition-colors">
+                  <Palette size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">App Theme</h3>
+                  <p className="text-[10px] text-white/40">Switch between dark and light modes</p>
+                </div>
+              </div>
+              <div className="flex bg-black/40 p-1 rounded-xl self-end sm:self-auto">
+                {['dark', 'light', 'system'].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      const newPrefs = { ...preferences, theme: t as 'dark' | 'light' | 'system' };
+                      setPreferences(newPrefs);
+                      DataManager.saveUserPreferences(newPrefs);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      preferences.theme === t ? "bg-blue-600 text-white" : "text-white/40 hover:text-white"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-white/60 group-hover:text-white transition-colors">
+                  <Cloud size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Cloud Storage</h3>
+                  <p className="text-[10px] text-white/40">Sync to Google Drive</p>
+                </div>
+              </div>
+              {!googleConnected ? (
+                <button 
+                  onClick={handleConnectDrive}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-auto"
+                >
+                  Connect
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button 
+                    onClick={handleSyncNow}
+                    disabled={isSyncing}
+                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                    title="Sync Now"
+                  >
+                    <RefreshCw size={18} className={isSyncing ? "animate-spin text-blue-400" : "text-white/40"} />
+                  </button>
+                  <button 
+                    onClick={handleRestoreFromDrive}
+                    disabled={isSyncing}
+                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                    title="Restore Data"
+                  >
+                    <Download size={18} className={isSyncing ? "animate-pulse text-green-400" : "text-white/40"} />
+                  </button>
+                  <button 
+                    onClick={handleDisconnectDrive}
+                    className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all"
+                    title="Disconnect"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
