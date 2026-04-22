@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState, useRef, memo, useCallback } from 'react';
+import { useEffect, useState, useRef, memo, useCallback, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
@@ -33,21 +33,21 @@ import { FixedSizeList } from 'react-window';
 import { Modal } from '../components/Modal';
 
 // Memoized Context Menu to prevent unnecessary re-renders
-const NoteContextMenu = memo(({ 
-  note, 
-  onClose, 
-  onDuplicate, 
-  onToggleFavorite, 
-  onDelete
-}: { 
+const NoteContextMenu = memo(forwardRef<HTMLDivElement, { 
   note: Note; 
   onClose: () => void;
   onDuplicate: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
-}) => {
+}>(({ 
+  note, 
+  onClose, 
+  onDuplicate, 
+  onToggleFavorite, 
+  onDelete
+}, ref) => {
   return (
-    <Modal isOpen={true} onClose={onClose} position="bottom" showCloseButton={false} id="note-context-menu">
+    <Modal ref={ref} isOpen={true} onClose={onClose} position="bottom" showCloseButton={false} id="note-context-menu">
       <div className="flex items-center gap-4 mb-8 px-2">
         <div className="text-3xl">{note.emoji}</div>
         <div className="min-w-0">
@@ -109,7 +109,7 @@ const NoteContextMenu = memo(({
       </div>
     </Modal>
   );
-});
+}));
 
 NoteContextMenu.displayName = 'NoteContextMenu';
 

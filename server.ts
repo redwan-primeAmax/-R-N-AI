@@ -20,6 +20,7 @@ async function startServer() {
   // Google OAuth2 Configuration
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+  const REDIRECT_URI = process.env.REDIRECT_URI;
   const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
   const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
@@ -39,7 +40,9 @@ async function startServer() {
     const finalHost = xForwardedHost || host;
     const origin = `${protocol}://${finalHost}`;
     
-    const redirectUri = `${origin}/auth/google/callback`;
+    // If REDIRECT_URI is provided, use it exactly as is (professional way)
+    // Otherwise fallback to dynamic origin
+    const redirectUri = REDIRECT_URI || `${origin}/auth/google/callback`;
     
     if (!GOOGLE_CLIENT_ID) {
       return res.status(500).json({ error: "GOOGLE_CLIENT_ID not configured" });
@@ -96,7 +99,8 @@ async function startServer() {
       const xForwardedHost = req.headers['x-forwarded-host'] as string;
       const finalHost = xForwardedHost || host;
       const origin = `${protocol}://${finalHost}`;
-      const redirectUri = `${origin}/auth/google/callback`;
+      
+      const redirectUri = REDIRECT_URI || `${origin}/auth/google/callback`;
       
       const response = await fetch(GOOGLE_TOKEN_URL, {
         method: 'POST',

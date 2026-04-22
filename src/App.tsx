@@ -43,7 +43,7 @@ function LoadingFallback() {
   );
 }
 
-function UserNamePopup({ onSave }: { onSave: (name: string, workspaceName: string) => void }) {
+const UserNamePopup = React.forwardRef<HTMLDivElement, { onSave: (name: string, workspaceName: string) => void }>(({ onSave }, ref) => {
   const [name, setName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +59,7 @@ function UserNamePopup({ onSave }: { onSave: (name: string, workspaceName: strin
   };
 
   return (
-    <Modal isOpen={true} showCloseButton={false} id="setup-modal">
+    <Modal ref={ref} isOpen={true} showCloseButton={false} id="setup-modal">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-white tracking-tight">Redwan Assistant</h2>
@@ -114,7 +114,7 @@ function UserNamePopup({ onSave }: { onSave: (name: string, workspaceName: strin
       </form>
     </Modal>
   );
-}
+});
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (

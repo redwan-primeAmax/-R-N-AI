@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FocusTrap } from 'focus-trap-react';
 import { X } from 'lucide-react';
@@ -26,18 +26,20 @@ interface ModalProps {
   position?: 'center' | 'bottom';
 }
 
-export const Modal: React.FC<ModalProps> = ({ 
+export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({ 
   isOpen, 
   onClose, 
   title, 
   children, 
-  showCloseButton = true,
-  maxWidth = 'max-w-sm',
-  id,
-  position = 'center'
-}) => {
+  showCloseButton = true, 
+  maxWidth = 'max-w-sm', 
+  id, 
+  position = 'center' 
+}, ref) => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  useImperativeHandle(ref, () => overlayRef.current!);
 
   useEffect(() => {
     DataManager.getUserPreferences().then(prefs => {
@@ -142,4 +144,4 @@ export const Modal: React.FC<ModalProps> = ({
       )}
     </AnimatePresence>
   );
-};
+});
