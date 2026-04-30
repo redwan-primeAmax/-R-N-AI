@@ -75,6 +75,11 @@
     @apply outline-none;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Accessibility: Focus visible styling for keyboard users */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0d0d];
+  }
 }
 
 @layer utilities {

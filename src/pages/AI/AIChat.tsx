@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../utils/DataManager';
 import { exportChatHistory } from '../../utils/export';
+import DOMPurify from 'dompurify';
 import { AIInterface } from './components/ChatInterface';
 import { ChatInput } from './components/ChatInput';
 import { handleSendMessage } from './components/chatLogic';
@@ -136,7 +137,7 @@ const AIChat: React.FC = () => {
       }
     };
     
-    DataManager.onSync(handleSync);
+    const syncHandler = DataManager.onSync(handleSync);
     
     fetch('/system_prompt.txt')
       .then(res => res.text())
@@ -150,7 +151,7 @@ const AIChat: React.FC = () => {
       });
 
     return () => {
-      DataManager.offSync();
+      DataManager.offSync(syncHandler);
     };
   }, [loadHistory, loadNotes, loadTasks, loadContextSummary, loadAISettings]);
 
@@ -159,10 +160,10 @@ const AIChat: React.FC = () => {
     setTokenUsage(prev => ({ ...prev, used: Math.round(used) }));
   }, [messages, systemPrompt]);
 
-  const scrollToBottom = useCallback(() => {
-    if (isAtBottom && messagesEndRef.current) {
+  const scrollToBottom = useCallback((force = false) => {
+    if ((force || isAtBottom) && messagesEndRef.current) {
       window.requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+        messagesEndRef.current?.scrollIntoView({ behavior: force ? 'smooth' : 'auto', block: 'end' });
       });
     }
   }, [isAtBottom]);
@@ -173,7 +174,14 @@ const AIChat: React.FC = () => {
 
   const cleanAIText = (text: string) => {
     if (!text) return "";
-    let cleaned = text
+    
+    // Sanitize first to prevent XSS attacks
+    const sanitizedText = DOMPurify.sanitize(text, {
+      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+      ALLOWED_ATTR: ['href', 'target', 'rel']
+    });
+
+    let cleaned = sanitizedText
       // Remove XML commands
       .replace(/<(create_page|update_page|create_task|update_task_status|complete_part|prune_context|verify_page|replace_content)>[\s\S]*?<\/\1>/gi, '')
       
@@ -225,9 +233,13 @@ const AIChat: React.FC = () => {
   }, [loadHistory, loadNotes, loadTasks]);
 
   const onSendMessage = async () => {
+    if (!input.trim() || isLoading) return;
     const currentAttachments = [...attachedNotes];
     setAttachedNotes([]); // Clear UI immediately for better UX
     
+    // Force scroll on send
+    setTimeout(() => scrollToBottom(true), 50);
+
     await handleSendMessage(
       input,
       messages,

@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Plus, Send, Settings, Sparkles, User, Bot, Trash2, ChevronLeft, Download, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import DOMPurify from 'dompurify';
 import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../../utils/DataManager';
 
 import { clsx, type ClassValue } from 'clsx';
@@ -430,7 +431,11 @@ export const AIInterface: React.FC<InterfaceProps> = ({
                   </div>
                 )}
                 <div className="text-sm leading-relaxed prose prose-invert max-w-none markdown-body">
-                  <ReactMarkdown>{msg.role === 'model' ? cleanAIText(msg.text) : msg.text}</ReactMarkdown>
+                  <div className="overflow-x-auto">
+                    <ReactMarkdown>
+                      {msg.role === 'model' ? cleanAIText(msg.text) : msg.text}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               
               {msg.role === 'model' && msg.debugInfo && (
@@ -536,10 +541,12 @@ export const AIInterface: React.FC<InterfaceProps> = ({
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-black flex-shrink-0">
               <Bot size={16} />
             </div>
-            <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-white/10 text-white/90">
+            <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-white/10 text-white/90 overflow-hidden">
               {streamingMessage ? (
                 <div className="text-sm leading-relaxed prose prose-invert max-w-none markdown-body">
-                  <ReactMarkdown>{cleanAIText(streamingMessage)}</ReactMarkdown>
+                  <div className="overflow-x-auto">
+                    <ReactMarkdown>{cleanAIText(streamingMessage)}</ReactMarkdown>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 py-2">

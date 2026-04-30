@@ -21,8 +21,12 @@ export interface Note {
   workspaceId?: string;
   fontFamily?: string;
   isFavorite?: boolean;
+  isTrashed?: boolean;
+  isLocked?: boolean;
+  passwordHash?: string;
   publishedCode?: string;
   lastPublishedContent?: string;
+  mediaRefs?: { driveId: string; localId: string; type: string }[];
 }
 
 export interface Workspace {
@@ -103,6 +107,7 @@ export interface AISettings {
 export interface UserPreferences {
   reducedMotion: boolean;
   theme: 'dark' | 'light' | 'system';
+  storageType?: 'local' | 'cloud';
 }
 
 // Configure localforage
@@ -115,9 +120,33 @@ localforage.config({
 const syncChannel = new BroadcastChannel('notion_sync');
 const clientId = crypto.randomUUID();
 
+// Local event emitter for same-tab sync
+const localSyncEmitter = new EventTarget();
+
+syncChannel.onmessage = (event) => {
+  // Invalidate cache on remote updates
+  if (event.data.type?.includes('NOTE')) cachedNotes = null;
+  if (event.data.type?.includes('SETTINGS')) cachedSettings = null;
+  
+  // Forward to local listeners
+  const customEvent = new CustomEvent('sync', { detail: event.data });
+  localSyncEmitter.dispatchEvent(customEvent);
+};
+
+// Internal helper to trigger sync both locally and remotely
+const notifySync = (data: any) => {
+  // Remote
+  syncChannel.postMessage({ ...data, senderId: clientId });
+  // Local
+  const customEvent = new CustomEvent('sync', { detail: { ...data, senderId: clientId } });
+  localSyncEmitter.dispatchEvent(customEvent);
+};
+
 // In-memory cache for speed
 let cachedNotes: Note[] | null = null;
 let cachedSettings: AISettings | null = null;
+let isSyncing = false;
+let pendingSync = false;
 
 // Initialize FlexSearch index
 let searchIndex: Index;
@@ -148,6 +177,12 @@ const CUSTOM_EXTENSION = '.redwan';
 if (typeof window !== 'undefined') {
   window.addEventListener('google-tokens-updated', (e: any) => {
     localforage.setItem(GOOGLE_TOKENS_KEY, e.detail);
+  });
+
+  window.addEventListener('google-session-invalid', () => {
+    console.warn('DataManager: Google session invalidated, clearing tokens');
+    localforage.removeItem(GOOGLE_TOKENS_KEY);
+    notifySync({ type: 'GOOGLE_DRIVE_DISCONNECTED' });
   });
 }
 
@@ -479,112 +514,7 @@ export const DataManager = {
   },
 
   async initializeDefaultNotes(): Promise<Note[]> {
-    const currentWorkspaceId = await this.getCurrentWorkspaceId();
-    
-    const todoTemplate: Note = {
-      id: 'todo-template',
-      title: '🎯 Weekly Focus & Todo',
-      workspaceId: currentWorkspaceId,
-      content: `
-        <h2>🎯 To-Do List & Weekly Goals</h2>
-        <p><b>Week:</b> ${new Date().getFullYear()} - Week [XX]</p>
-        
-        <hr />
-        <h3>🔥 Top Priorities</h3>
-        <ul data-type="taskList">
-          <li data-checked="false">Primary Goal 1</li>
-          <li data-checked="false">Primary Goal 2</li>
-        </ul>
-        
-        <hr />
-        <h3>📝 Tasks for Today</h3>
-        <ul data-type="taskList">
-          <li data-checked="false">Task 1...</li>
-          <li data-checked="false">Task 2...</li>
-        </ul>
-        
-        <hr />
-        <p><i>💡 Tip: Focus on finishing top priorities first.</i></p>
-      `,
-      emoji: '🎯',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    const meetingTemplate: Note = {
-      id: 'meeting-template',
-      title: '🤝 Meeting Notes: Project Sync',
-      workspaceId: currentWorkspaceId,
-      content: `
-        <h2>🤝 Meeting: Project Sync</h2>
-        <p><b>Date:</b> ${new Date().toLocaleDateString()} | <b>Host:</b> Me</p>
-        
-        <hr />
-        <h3>📌 Agenda</h3>
-        <ul>
-          <li>Main topic 1</li>
-          <li>Update on status...</li>
-        </ul>
-        
-        <hr />
-        <h3>💡 Discussion Points</h3>
-        <ul>
-          <li>Summary of talk...</li>
-        </ul>
-        
-        <hr />
-        <h3>🔥 Action Items</h3>
-        <ul data-type="taskList">
-          <li data-checked="false">@Person: Do this by Friday</li>
-        </ul>
-      `,
-      emoji: '🤝',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    const dailyTracker: Note = {
-      id: 'daily-tracker',
-      title: '☀️ Daily Reflection & Health',
-      workspaceId: currentWorkspaceId,
-      content: `
-        <h2>📊 Daily Health Tracker</h2>
-        <p><b>Date:</b> ${new Date().toLocaleDateString()}</p>
-        
-        <hr />
-        <h3>🌱 Habit Checklist</h3>
-        <ul data-type="taskList">
-          <li data-checked="false">10m Meditation</li>
-          <li data-checked="false">30m Reading</li>
-        </ul>
-        
-        <hr />
-        <h3>🥤 Hydration & Mood</h3>
-        <p>Water: 💧 💧 💧 💧 💧</p>
-        <p>Mood: ☀️ Happy / ☁️ Neutral</p>
-        
-        <hr />
-        <h3>🌙 Reflections</h3>
-        <p><b>Win of the day:</b> [Text]</p>
-      `,
-      emoji: '☀️',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    const notes = [todoTemplate, meetingTemplate, dailyTracker];
-    const existingNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
-    
-    // Only add defaults if they don't already exist (by checking IDs)
-    const newNotes = [...existingNotes];
-    notes.forEach(dn => {
-      if (!newNotes.some(en => en.id === dn.id)) {
-        newNotes.push(dn);
-      }
-    });
-
-    await localforage.setItem(NOTES_KEY, newNotes);
-    return newNotes;
+    return await localforage.getItem<Note[]>(NOTES_KEY) || [];
   },
 
   async clearMemory(): Promise<void> {
@@ -648,9 +578,10 @@ export const DataManager = {
     // Immediate indexing on save to prevent staleness
     scheduleIndexing(updatedNote);
     
-    // Notify other tabs
-    syncChannel.postMessage({ type: 'UPDATE_NOTE', id: note.id, senderId: clientId });
+    // Notify others
+    notifySync({ type: 'UPDATE_NOTE', id: note.id });
     triggerSync();
+
     return updatedNote;
   },
 
@@ -712,9 +643,12 @@ export const DataManager = {
       searchIndex.remove(id);
     }
     
-    // Notify other tabs
-    syncChannel.postMessage({ type: 'DELETE_NOTE', id });
+    // Notify others
+    notifySync({ type: 'DELETE_NOTE', id });
     triggerSync();
+
+    // Sync to Drive (RN AI 2.7)
+    this.syncToDrive();
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
@@ -733,52 +667,11 @@ export const DataManager = {
       }
     }
     
-    // Notify other tabs
-    syncChannel.postMessage({ type: 'DELETE_NOTES', ids });
-  },
+    // Notify others
+    notifySync({ type: 'DELETE_NOTES', ids });
 
-  // --- Versioning Operations ---
-  async saveVersion(note: Note, version: string): Promise<void> {
-    const versions = await localforage.getItem<NoteVersion[]>(VERSIONS_KEY) || [];
-    const newVersion: NoteVersion = {
-      id: crypto.randomUUID(),
-      noteId: note.id,
-      title: note.title,
-      content: note.content,
-      emoji: note.emoji,
-      version,
-      createdAt: Date.now()
-    };
-    versions.push(newVersion);
-    await localforage.setItem(VERSIONS_KEY, versions);
-  },
-
-  async getVersions(noteId: string): Promise<NoteVersion[]> {
-    const versions = await localforage.getItem<NoteVersion[]>(VERSIONS_KEY) || [];
-    return versions.filter(v => v.noteId === noteId).sort((a, b) => b.createdAt - a.createdAt);
-  },
-
-  async restoreVersion(versionId: string): Promise<Note | null> {
-    const versions = await localforage.getItem<NoteVersion[]>(VERSIONS_KEY) || [];
-    const version = versions.find(v => v.id === versionId);
-    if (!version) return null;
-
-    const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
-    const noteIndex = allNotes.findIndex(n => n.id === version.noteId);
-    
-    if (noteIndex > -1) {
-      allNotes[noteIndex] = {
-        ...allNotes[noteIndex],
-        title: version.title,
-        content: version.content,
-        emoji: version.emoji,
-        updatedAt: Date.now()
-      };
-      await localforage.setItem(NOTES_KEY, allNotes);
-      cachedNotes = null;
-      return allNotes[noteIndex];
-    }
-    return null;
+    // Sync to Drive (RN AI 2.7)
+    this.syncToDrive();
   },
 
   async exportNote(note: Note): Promise<void> {
@@ -811,26 +704,36 @@ export const DataManager = {
 
   // --- Supabase Publish Operations ---
   async publishToSupabase(note: Note): Promise<string> {
+    console.log('DataManager: Starting Supabase publish for note:', note.id);
+    
     if (!isSupabaseConfigured) {
+      console.error('DataManager: Supabase NOT configured!');
       throw new Error('Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment settings.');
     }
+    
     try {
       const shortCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      console.log('DataManager: Generated shortCode:', shortCode);
       
       const { data, error } = await supabase
         .from('published_notes')
         .insert([
           {
             short_code: shortCode,
-            title: note.title,
-            content: note.content,
-            emoji: note.emoji,
+            title: note.title || 'Untitled',
+            content: note.content || '',
+            emoji: note.emoji || '📄',
           }
         ])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('DataManager: Supabase Insert Error:', error);
+        throw error;
+      }
+      
+      console.log('DataManager: Insert success, data:', data);
       
       // Save the published code and content to the local note for sync tracking
       const updatedNote = { 
@@ -838,11 +741,13 @@ export const DataManager = {
         publishedCode: data.short_code,
         lastPublishedContent: note.content 
       };
+      
+      console.log('DataManager: Saving updated note locally with publishedCode...');
       await this.saveNote(updatedNote);
       
       return data.short_code;
-    } catch (e) {
-      console.error('Supabase Publish error:', e);
+    } catch (e: any) {
+      console.error('Supabase Publish Final Catch:', e);
       throw e;
     }
   },
@@ -1075,16 +980,15 @@ export const DataManager = {
 
   // Add listener for components to use
   onSync(callback: (event: any) => void) {
-    syncChannel.onmessage = (event) => {
-      // Invalidate cache on remote updates
-      if (event.data.type.includes('NOTE')) cachedNotes = null;
-      if (event.data.type.includes('SETTINGS')) cachedSettings = null;
-      callback(event.data);
-    };
+    const handler = (e: any) => callback(e.detail);
+    localSyncEmitter.addEventListener('sync', handler);
+    return handler; // Return handler so it can be used for removal
   },
   
-  offSync() {
-    syncChannel.onmessage = null;
+  offSync(handler: any) {
+    if (handler) {
+      localSyncEmitter.removeEventListener('sync', handler);
+    }
   },
 
   // --- Google Drive Sync (RN AI 2.6) ---
@@ -1105,30 +1009,117 @@ export const DataManager = {
     (googleDriveService as any).tokens = null;
   },
 
-  async syncToDrive() {
+  async syncMedia(content: string, noteId: string): Promise<void> {
     const tokens = await this.getGoogleTokens();
     if (!tokens) return;
 
+    // Standard regex to find base64 images
+    const imgRegex = /<img[^>]+src="([^">]+)"/g;
+    let match;
+
+    const assetsFolderId = await googleDriveService.getNoteAssetsFolder(noteId);
+
+    while ((match = imgRegex.exec(content)) !== null) {
+      const src = match[1];
+      if (src.startsWith('data:image')) {
+        try {
+          // Convert base64 to blob
+          const [header, base64Data] = src.split(',');
+          const mime = header.split(':')[1].split(';')[0];
+          const binaryData = atob(base64Data);
+          const uint8Array = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            uint8Array[i] = binaryData.charCodeAt(i);
+          }
+          const blob = new Blob([uint8Array], { type: mime });
+          
+          await googleDriveService.uploadMedia(blob, 'Images', { 
+            noteId: noteId
+          }, assetsFolderId);
+        } catch (err) {
+          console.error('Failed to sync media to Drive:', err);
+        }
+      }
+    }
+  },
+
+  async syncToDrive() {
+    const tokens = await this.getGoogleTokens();
+    if (!tokens) return;
+    
+    if (isSyncing) {
+      pendingSync = true;
+      return;
+    }
+
     try {
-      const notes = await this.getNotes();
+      isSyncing = true;
+      pendingSync = false;
+      
+      const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
       const settings = await this.getAISettings();
       const prefs = await this.getUserPreferences();
       const workspaces = await this.getWorkspaces();
       const name = await this.getUserName();
 
-      const backup = {
+      // 1. Update Registry
+      const registryData = allNotes.map(n => ({
+        id: n.id,
+        title: n.title,
+        updatedAt: n.updatedAt,
+        emoji: n.emoji,
+        workspaceId: n.workspaceId
+      }));
+
+      await googleDriveService.saveRegistryFile({
         userName: name,
-        notes,
+        registry: registryData,
         settings,
         preferences: prefs,
         workspaces,
         updatedAt: Date.now()
-      };
+      });
 
-      await googleDriveService.saveFile('redwan_assistant_data.json', backup);
-      console.log('Google Drive sync successful');
+      // 2. Individual Note Management
+      const appRootId = await googleDriveService.getAppFolderId();
+      const notesRootId = await googleDriveService.getSubFolderId('notes', appRootId);
+      
+      // Get all folders in 'notes/' to check for deletions
+      const driveNoteFolders = await googleDriveService.listFiles(notesRootId, "mimeType = 'application/vnd.google-apps.folder'");
+      const localIds = new Set(allNotes.map(n => n.id));
+
+      // A. Delete folders from Drive for notes that no longer exist locally
+      for (const folder of driveNoteFolders) {
+        if (!localIds.has(folder.name)) {
+          console.log(`DataManager: Deleting orphaned note folder on Drive: ${folder.name}`);
+          await googleDriveService.deleteFile(folder.id);
+        }
+      }
+
+      // B. Update/Create Note contents
+      for (const note of allNotes) {
+        const noteFolderId = await googleDriveService.getNoteFolder(note.id);
+        
+        // Find content.json in this folder
+        const folderFiles = await googleDriveService.listFiles(noteFolderId, "name = 'content.json'");
+        const contentFileId = folderFiles.length > 0 ? folderFiles[0].id : undefined;
+
+        // Save content.json (the whole note object for full persistence)
+        await googleDriveService.saveFile('content.json', note, noteFolderId, 'application/json', contentFileId);
+        
+        // C. Sync Media to assets/ subfolder
+        await this.syncMedia(note.content, note.id);
+      }
+
+      console.log('Google Drive structured sync successful!');
     } catch (err) {
       console.error('Google Drive sync failed:', err);
+      throw err;
+    } finally {
+      isSyncing = false;
+      if (pendingSync) {
+        this.syncToDrive();
+      }
     }
   },
 
@@ -1136,10 +1127,28 @@ export const DataManager = {
     const tokens = await this.getGoogleTokens();
     if (!tokens) throw new Error("Google Drive not connected");
 
-    const data = await googleDriveService.getFileContent<any>('redwan_assistant_data.json');
-    if (!data) throw new Error("No backup found on Google Drive");
+    const registryWrap = await googleDriveService.getRegistryFile();
+    if (!registryWrap || !registryWrap.data) throw new Error("No registry found on Google Drive");
 
-    if (data.notes) await localforage.setItem(NOTES_KEY, data.notes);
+    const data = registryWrap.data;
+    const allNotes: Note[] = [];
+
+    // Fetch individual notes
+    if (data.registry && Array.isArray(data.registry)) {
+      for (const entry of data.registry) {
+        try {
+          const noteFolderId = await googleDriveService.getNoteFolder(entry.id);
+          const noteContent = await googleDriveService.getFileContent<Note>('content.json', noteFolderId);
+          if (noteContent) {
+            allNotes.push(noteContent);
+          }
+        } catch (err) {
+          console.error(`Failed to restore note ${entry.id}:`, err);
+        }
+      }
+    }
+
+    if (allNotes.length > 0) await localforage.setItem(NOTES_KEY, allNotes);
     if (data.settings) await localforage.setItem(AI_SETTINGS_KEY, data.settings);
     if (data.preferences) await this.saveUserPreferences(data.preferences);
     if (data.workspaces) await localforage.setItem(WORKSPACES_KEY, data.workspaces);
@@ -1149,6 +1158,61 @@ export const DataManager = {
     cachedSettings = null;
     syncChannel.postMessage({ type: 'SYNC_COMPLETE' });
     return true;
+  },
+
+  /**
+   * Triggers a manual sync to cloud (used by HomePage UI)
+   */
+  async syncAllWithCloud() {
+    return this.syncToDrive();
+  },
+
+  /**
+   * Automatically checks Google Drive on startup and restores if cloud data is newer.
+   */
+  async autoSyncOnStart() {
+    try {
+      const tokens = await this.getGoogleTokens();
+      if (!tokens) return;
+
+      // Set tokens in service
+      googleDriveService.setTokens(tokens);
+
+      // Check connectivity briefly via registry
+      const registryWrap = await googleDriveService.getRegistryFile();
+      if (!registryWrap || !registryWrap.data) {
+        console.log('AutoSync: No remote registry found, skipping startup sync');
+        return;
+      }
+
+      const data = registryWrap.data;
+      const driveUpdateTime = data.updatedAt || 0;
+      
+      // Get local update time from workspaces or notes
+      const workspaces = await this.getWorkspaces();
+      const allNotes = await localforage.getItem<Note[]>(NOTES_KEY) || [];
+      
+      const latestNoteUpdate = allNotes.length > 0 
+        ? Math.max(...allNotes.map(n => n.updatedAt || 0)) 
+        : 0;
+        
+      const latestWorkspaceUpdate = workspaces.length > 0
+        ? Math.max(...workspaces.map(ws => ws.createdAt || 0))
+        : 0;
+
+      const localUpdateTime = Math.max(latestNoteUpdate, latestWorkspaceUpdate);
+
+      if (driveUpdateTime > localUpdateTime + 5000) { // 5s buffer to avoid loop
+        console.log('AutoSync: Cloud data is newer, restoring...');
+        await this.restoreFromDrive();
+        return true;
+      } else {
+        console.log('AutoSync: Local data is up to date');
+      }
+    } catch (err) {
+      console.error('AutoSync failed:', err);
+    }
+    return false;
   },
   
   // --- Storage & Media (RN AI 2.5) ---
@@ -1196,5 +1260,30 @@ export const DataManager = {
       console.warn('Storage network error, using fallback:', e.message || e);
       return createFallback();
     }
+  },
+
+  // --- Version Control Operations ---
+  async saveVersion(version: NoteVersion): Promise<void> {
+    const allVersions = await localforage.getItem<NoteVersion[]>('rn_note_versions') || [];
+    allVersions.push({ ...version, id: `v-${Date.now()}`, createdAt: Date.now() });
+    // Keep only last 20 versions per note to save space
+    const noteVersions = allVersions.filter(v => v.noteId === version.noteId);
+    if (noteVersions.length > 20) {
+      const oldestId = noteVersions[0].id;
+      const index = allVersions.findIndex(v => v.id === oldestId);
+      if (index > -1) allVersions.splice(index, 1);
+    }
+    await localforage.setItem('rn_note_versions', allVersions);
+  },
+
+  async getVersions(noteId: string): Promise<NoteVersion[]> {
+    const allVersions = await localforage.getItem<NoteVersion[]>('rn_note_versions') || [];
+    return allVersions.filter(v => v.noteId === noteId).sort((a, b) => b.createdAt - a.createdAt);
+  },
+
+  async deleteVersion(id: string): Promise<void> {
+    const allVersions = await localforage.getItem<NoteVersion[]>('rn_note_versions') || [];
+    const filtered = allVersions.filter(v => v.id !== id);
+    await localforage.setItem('rn_note_versions', filtered);
   }
 };

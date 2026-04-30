@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, useLocation, useRoutes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, useLocation, useRoutes, Navigate, useNavigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import { DataManager } from './utils/DataManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,7 +12,13 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import VersionControl from './components/VersionControl';
 import { Modal } from './components/Modal';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 // Lazy load components
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -43,18 +49,38 @@ function LoadingFallback() {
   );
 }
 
-const UserNamePopup = React.forwardRef<HTMLDivElement, { onSave: (name: string, workspaceName: string) => void }>(({ onSave }, ref) => {
+const UserNamePopup = React.forwardRef<HTMLDivElement, { onSave: (name: string, workspaceName: string, storageType: 'local' | 'cloud') => void }>(({ onSave }, ref) => {
   const [name, setName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
+  const [storageType, setStorageType] = useState<'local' | 'cloud'>('local');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (name.trim() && workspaceName.trim()) {
-      setIsSubmitting(true);
+    setError(null);
+
+    const trimmedName = name.trim();
+    const trimmedWorkspace = workspaceName.trim();
+
+    if (!trimmedName || !trimmedWorkspace) {
+      setError('দয়া করে আপনার নাম এবং ওয়ার্কস্পেস নাম দিন।');
+      return;
+    }
+
+    if (trimmedName.length < 2 || trimmedWorkspace.length < 2) {
+      setError('নাম অন্তত ২ অক্ষরের হতে হবে।');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
       // Simulate small delay for visual feedback
       await new Promise(resolve => setTimeout(resolve, 500));
-      onSave(name.trim(), workspaceName.trim());
+      onSave(trimmedName, trimmedWorkspace, storageType);
+    } catch (err) {
+      setError('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।');
+      setIsSubmitting(false);
     }
   };
 
@@ -67,6 +93,16 @@ const UserNamePopup = React.forwardRef<HTMLDivElement, { onSave: (name: string, 
         </div>
         
         <div className="space-y-4">
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold text-center"
+            >
+              {error}
+            </motion.div>
+          )}
+
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-white/40 uppercase ml-4" htmlFor="name-input">আপনার নাম</label>
             <input 
@@ -74,10 +110,12 @@ const UserNamePopup = React.forwardRef<HTMLDivElement, { onSave: (name: string, 
               type="text"
               placeholder="আপনার নাম..."
               value={name}
+              maxLength={20}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold placeholder:text-white/20 dark:bg-white/5 bg-gray-100 dark:text-white text-gray-900 shadow-inner"
               disabled={isSubmitting}
               autoFocus
+              aria-required="true"
             />
           </div>
 
@@ -88,10 +126,46 @@ const UserNamePopup = React.forwardRef<HTMLDivElement, { onSave: (name: string, 
               type="text"
               placeholder="ওয়ার্কস্পেস নাম..."
               value={workspaceName}
+              maxLength={30}
               onChange={(e) => setWorkspaceName(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold placeholder:text-white/20 dark:bg-white/5 bg-gray-100 dark:text-white text-gray-900 shadow-inner"
               disabled={isSubmitting}
+              aria-required="true"
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-white/40 uppercase ml-4">তথ্য সংরক্ষণের মাধ্যম</label>
+            <div className="grid grid-cols-1 gap-2">
+              <button 
+                type="button"
+                onClick={() => setStorageType('local')}
+                className={cn(
+                  "p-4 rounded-2xl border text-left flex items-center justify-between transition-all",
+                  storageType === 'local' ? "bg-blue-600 border-blue-400 text-white" : "bg-white/5 border-white/10 text-white/60"
+                )}
+              >
+                <div>
+                  <div className="font-bold text-sm">ব্রাউজার মেমোরি (সুপারিশকৃত)</div>
+                  <div className="text-[10px] opacity-60">অফলাইন স্টোরেজ, দ্রুত ও সহজ</div>
+                </div>
+                {storageType === 'local' && <Check size={18} />}
+              </button>
+              <button 
+                type="button"
+                onClick={() => setStorageType('cloud')}
+                className={cn(
+                  "p-4 rounded-2xl border text-left flex items-center justify-between transition-all",
+                  storageType === 'cloud' ? "bg-blue-600 border-blue-400 text-white" : "bg-white/5 border-white/10 text-white/60"
+                )}
+              >
+                <div>
+                  <div className="font-bold text-sm">গুগল ড্রাইভ (অনলাইন)</div>
+                  <div className="text-[10px] opacity-60">সব ডিভাইসে তথ্য সমন্বয় করুন</div>
+                </div>
+                {storageType === 'cloud' && <Check size={18} />}
+              </button>
+            </div>
           </div>
 
           <button 
@@ -133,6 +207,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function AppContent() {
   console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
+  const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
   const isToolsPage = location.pathname.startsWith('/tools');
@@ -145,9 +220,20 @@ function AppContent() {
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
 
   useEffect(() => {
+    // Check for auto-sync from Drive on start (RN AI 2.7)
+    DataManager.autoSyncOnStart().then(didRestore => {
+      if (didRestore) {
+        console.log('App: Data restored from Drive on startup');
+      }
+    });
+
     DataManager.getUserName().then(name => {
-      if (name) {
-        setUserName(name);
+      const urlParams = new URLSearchParams(window.location.search);
+      const isDebug = urlParams.get('debug') === 'true';
+      
+      if (name || isDebug) {
+        setUserName(name || 'Tester');
+        setShowPopup(false);
       } else {
         setShowPopup(true);
       }
@@ -158,6 +244,12 @@ function AppContent() {
       setTheme(prefs.theme || 'dark');
     });
 
+    const handleOpenExternal = () => navigate('/ai/external-import');
+    const handleOpenCloud = () => navigate('/inbox');
+
+    window.addEventListener('open-external-import', handleOpenExternal);
+    window.addEventListener('open-cloud-import', handleOpenCloud);
+
     // Listen for theme changes from AISettings
     const handleSync = (data: any) => {
       if (data.type === 'SYNC_COMPLETE') {
@@ -167,15 +259,33 @@ function AppContent() {
       }
     };
     DataManager.onSync(handleSync);
-    return () => DataManager.offSync();
-  }, []);
+    return () => {
+      DataManager.offSync(handleSync);
+      window.removeEventListener('open-external-import', handleOpenExternal);
+      window.removeEventListener('open-cloud-import', handleOpenCloud);
+    };
+  }, [navigate]);
 
-  const handleSaveName = async (name: string, workspaceName: string) => {
+  const handleSaveName = async (name: string, workspaceName: string, storageType: 'local' | 'cloud') => {
     await DataManager.saveUserName(name);
     const workspaces = await DataManager.getWorkspaces();
     const defaultWorkspace = workspaces[0];
     defaultWorkspace.name = workspaceName;
     await DataManager.saveWorkspace(defaultWorkspace);
+    
+    // Save storage preference
+    const prefs = await DataManager.getUserPreferences();
+    await DataManager.saveUserPreferences({ ...prefs, storageType });
+    
+    if (storageType === 'cloud') {
+      const tokens = await DataManager.getGoogleTokens();
+      if (!tokens) {
+        // We could theoretically trigger the connect flow here, but 
+        // the user is usually better off just starting with local first
+        // especially if we recommended it.
+      }
+    }
+    
     setUserName(name);
     setShowPopup(false);
   };

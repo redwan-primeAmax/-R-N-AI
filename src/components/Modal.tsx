@@ -36,10 +36,10 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
   id, 
   position = 'center' 
 }, ref) => {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useImperativeHandle(ref, () => overlayRef.current!);
+  useImperativeHandle(ref, () => containerRef.current!);
 
   useEffect(() => {
     DataManager.getUserPreferences().then(prefs => {
@@ -81,67 +81,74 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
     transition: { type: "spring", damping: 25, stiffness: 300, mass: 0.8 }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div 
-          className={`fixed inset-0 z-[200] flex ${isBottom ? 'items-end' : 'items-center'} justify-center p-6 bg-black/60 backdrop-blur-md`}
-          id={id ? `${id}-overlay` : undefined}
-          ref={overlayRef}
-          onClick={(e) => {
-            if (e.target === overlayRef.current && onClose) {
+    <div 
+      className={`fixed inset-0 z-[200] flex ${isBottom ? 'items-end' : 'items-center'} justify-center p-6 bg-black/60 backdrop-blur-md`}
+      id={id ? `${id}-overlay` : undefined}
+      ref={containerRef}
+      onClick={(e) => {
+        if (e.target === containerRef.current && onClose) {
+          onClose();
+        }
+      }}
+    >
+      <FocusTrap focusTrapOptions={{ fallbackFocus: `#${id || 'modal-root'}` }}>
+        <motion.div
+          id={id || 'modal-root'}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? "modal-title" : undefined}
+          {...animationProps}
+          drag={isBottom ? "y" : false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.8 }}
+          onDragEnd={(e, info) => {
+            if (isBottom && info.offset.y > 100 && onClose) {
               onClose();
             }
           }}
+          className={`bg-[#1c1c1c] border-t sm:border border-white/10 ${isBottom ? 'rounded-t-[32px] sm:rounded-[32px] w-full max-w-lg mb-[-1.5rem] sm:mb-0' : `rounded-[32px] w-full ${maxWidth}`} shadow-2xl relative overflow-hidden touch-none`}
         >
-          <FocusTrap>
-            <motion.div
-              id={id}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={title ? "modal-title" : undefined}
-              {...animationProps}
-              className={`bg-[#1c1c1c] border-t sm:border border-white/10 ${isBottom ? 'rounded-t-[32px] sm:rounded-[32px] w-full max-w-lg mb-[-1.5rem] sm:mb-0' : `rounded-[32px] w-full ${maxWidth}`} shadow-2xl relative overflow-hidden`}
-            >
-              {isBottom && (
-                <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mt-4 mb-2 shrink-0" />
-              )}
-              
-              {title && (
-                <div className="px-8 pt-8 pb-4 flex items-center justify-between">
-                  <h3 id="modal-title" className="text-xl font-bold text-white tracking-tight">{title}</h3>
-                  {showCloseButton && onClose && (
-                    <button 
-                      onClick={onClose}
-                      className="p-2 hover:bg-white/5 rounded-full text-white/40 hover:text-white transition-all active:scale-95"
-                      aria-label="Close modal"
-                    >
-                      <X size={20} />
-                    </button>
-                  )}
-                </div>
-              )}
-              
-              {!title && showCloseButton && onClose && (
+          {isBottom && (
+            <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mt-4 mb-2 shrink-0" />
+          )}
+          
+          {title && (
+            <div className="px-8 pt-8 pb-4 flex items-center justify-between">
+              <h3 id="modal-title" className="text-xl font-bold text-white tracking-tight">{title}</h3>
+              {showCloseButton && onClose && (
                 <button 
                   onClick={onClose}
-                  className="absolute top-6 right-6 p-2 hover:bg-white/5 rounded-full text-white/40 hover:text-white transition-all active:scale-95 z-50"
+                  className="p-2 hover:bg-white/5 rounded-full text-white/40 hover:text-white transition-all active:scale-95"
                   aria-label="Close modal"
                 >
                   <X size={20} />
                 </button>
               )}
+            </div>
+          )}
+          
+          {!title && showCloseButton && onClose && (
+            <button 
+              onClick={onClose}
+              className="absolute top-6 right-6 p-2 hover:bg-white/5 rounded-full text-white/40 hover:text-white transition-all active:scale-95 z-50"
+              aria-label="Close modal"
+            >
+              <X size={20} />
+            </button>
+          )}
 
-              <div className={cn(
-                "overflow-y-auto max-h-[70vh] custom-scrollbar",
-                title ? "px-8 pb-8 pt-2" : "p-8"
-              )}>
-                {children}
-              </div>
-            </motion.div>
-          </FocusTrap>
-        </div>
-      )}
-    </AnimatePresence>
+          <div className={cn(
+            "overflow-y-auto max-h-[70vh] custom-scrollbar",
+            title ? "px-8 pb-8 pt-2" : "p-8"
+          )}>
+            {children}
+          </div>
+        </motion.div>
+      </FocusTrap>
+    </div>
   );
 });

@@ -36,13 +36,19 @@ const AISettingsPage: React.FC = () => {
   const [draftSettings, setDraftSettings] = useState<AISettings | null>(null);
   const [prevSettings, setPrevSettings] = useState<AISettings | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>({ reducedMotion: false, theme: 'dark' });
+  const [draftPreferences, setDraftPreferences] = useState<UserPreferences | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [storageType, setStorageType] = useState<'local' | 'cloud'>('local');
+  const [showExitWarning, setShowExitWarning] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [customIDs, setCustomIDs] = useState<{id: string, name: string}[]>([]);
   const [isRevealed, setIsRevealed] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; showUndo?: boolean } | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
+  
+  const isSettingsDirty = settings && draftSettings && JSON.stringify(settings) !== JSON.stringify(draftSettings);
+  const isPrefsDirty = preferences && draftPreferences && JSON.stringify(preferences) !== JSON.stringify(draftPreferences);
+  const isDirty = !!(isSettingsDirty || isPrefsDirty);
   
   useEffect(() => {
     DataManager.getAISettings().then(s => {
@@ -50,7 +56,11 @@ const AISettingsPage: React.FC = () => {
       setDraftSettings(JSON.parse(JSON.stringify(s)));
       if (s.customAppIDs) setCustomIDs(s.customAppIDs);
     });
-    DataManager.getUserPreferences().then(setPreferences);
+    DataManager.getUserPreferences().then(prefs => {
+      setPreferences(prefs);
+      setDraftPreferences(JSON.parse(JSON.stringify(prefs)));
+      setStorageType(prefs.storageType || 'local');
+    });
     DataManager.getGoogleTokens().then(tokens => setGoogleConnected(!!tokens));
   }, []);
 
@@ -130,26 +140,23 @@ const AISettingsPage: React.FC = () => {
 
   const handleBack = () => {
     if (isDirty) {
-      if (!confirm('You have unsaved changes. Are you sure you want to leave? (আপনার কিছু পরিবর্তন সেভ করা হয়নি। আপনি কি নিশ্চিতভাবে চলে যেতে চান?)')) {
-        return;
-      }
+      setShowExitWarning(true);
+      return;
     }
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/');
-    }
+    navigate(-1);
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitWarning(false);
+    navigate(-1);
   };
 
   const handleCancelEdit = () => {
-    if (!settings) return;
-    if (isDirty && !confirm('Discard changes and revert to original settings? (পরিবর্তনগুলো বাতিল করে আগের অবস্থায় ফিরে যেতে চান?)')) {
-      return;
-    }
+    if (!settings || !preferences) return;
     setDraftSettings(JSON.parse(JSON.stringify(settings)));
+    setDraftPreferences(JSON.parse(JSON.stringify(preferences)));
     setCustomIDs(settings.customAppIDs || []);
-    setIsDirty(false);
-    setStatus({ type: 'info', message: 'Changes discarded. (পরিবর্তন বাতিল করা হয়েছে।)' });
+    setStatus({ type: 'info', message: 'পরিবর্তন বাতিল করা হয়েছে।' });
   };
 
   const handleUndo = async () => {
@@ -160,10 +167,9 @@ const AISettingsPage: React.FC = () => {
       setSettings(prevSettings);
       setDraftSettings(JSON.parse(JSON.stringify(prevSettings)));
       setCustomIDs(prevSettings.customAppIDs || []);
-      setIsDirty(false);
-      setStatus({ type: 'success', message: 'Settings reverted to previous state. (আগের অবস্থায় ফিরে যাওয়া হয়েছে।)' });
+      setStatus({ type: 'success', message: 'আগের অবস্থায় ফিরে যাওয়া হয়েছে।' });
     } catch (err: any) {
-      setStatus({ type: 'error', message: 'Failed to undo: ' + err.message });
+      setStatus({ type: 'error', message: 'ত্রুটি: ' + err.message });
     } finally {
       setIsSaving(false);
     }
@@ -173,7 +179,6 @@ const AISettingsPage: React.FC = () => {
     if (!draftSettings) return;
     const updated = { ...draftSettings, ...newSettings };
     setDraftSettings(updated);
-    setIsDirty(true);
   };
 
   const validateSettings = (): string | null => {
@@ -195,7 +200,7 @@ const AISettingsPage: React.FC = () => {
   };
 
   const handleManualSave = async () => {
-    if (!draftSettings || !settings) return;
+    if (!draftSettings || !settings || !draftPreferences) return;
     
     const error = validateSettings();
     if (error) {
@@ -204,19 +209,26 @@ const AISettingsPage: React.FC = () => {
     }
 
     setIsSaving(true);
-    setStatus({ type: 'info', message: 'Saving settings...' });
+    setStatus({ type: 'info', message: 'সেটিংস সেভ হচ্ছে...' });
     try {
       setPrevSettings(JSON.parse(JSON.stringify(settings)));
-      await DataManager.saveAISettings(draftSettings);
+      
+      // Save both settings and preferences
+      await Promise.all([
+        DataManager.saveAISettings(draftSettings),
+        DataManager.saveUserPreferences(draftPreferences)
+      ]);
+      
       setSettings(JSON.parse(JSON.stringify(draftSettings)));
-      setIsDirty(false);
+      setPreferences(JSON.parse(JSON.stringify(draftPreferences)));
+      
       setStatus({ 
         type: 'success', 
-        message: 'All settings saved successfully! (সব সেটিংস সঠিকভাবে সেভ হয়েছে।)',
+        message: 'সেটিংস সফলভাবে সেভ হয়েছে।',
         showUndo: true
       });
     } catch (err: any) {
-      setStatus({ type: 'error', message: 'Failed to save settings: ' + (err.message || 'Unknown error') });
+      setStatus({ type: 'error', message: 'সেভ করতে ব্যর্থ হয়েছে: ' + (err.message || 'অজানা ত্রুটি') });
     } finally {
       setIsSaving(false);
     }
@@ -275,7 +287,7 @@ const AISettingsPage: React.FC = () => {
           <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full transition-all text-white active:scale-95">
             <ChevronLeft size={28} />
           </button>
-          <h1 className="text-xl font-bold font-display">Redwan Assistant Settings</h1>
+          <h1 className="text-xl font-bold font-display">Settings Panel (সেটিংস প্যানেল)</h1>
         </div>
         {isDirty && (
           <div className="flex items-center gap-2">
@@ -292,20 +304,20 @@ const AISettingsPage: React.FC = () => {
       <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8">
         {/* Provider Selection */}
         <section className="space-y-4">
-          <h2 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] px-2">Select Provider</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <h2 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] px-2">সার্ভার প্রোভাইডার নির্বাচন করুন</h2>
+          <div className="grid grid-cols-3 gap-2">
             {['picoapps', 'gemini', 'openrouter'].map(p => (
               <button
                 key={p}
                 onClick={() => handleSelectProvider(p)}
-                className={`flex sm:flex-col items-center justify-center p-5 rounded-3xl border transition-all gap-3 ${
+                className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border transition-all gap-1.5 ${
                   draftSettings.selectedProvider === p ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/5 grayscale opacity-60'
                 }`}
               >
-                <div className={`p-2 rounded-xl ${draftSettings.selectedProvider === p ? 'bg-white/20' : 'bg-blue-400/10'}`}>
-                  <Sparkles size={20} className={draftSettings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
+                <div className={`p-1.5 rounded-xl ${draftSettings.selectedProvider === p ? 'bg-white/20' : 'bg-blue-400/10'}`}>
+                  <Sparkles size={16} className={draftSettings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest">{p === 'picoapps' ? 'Free (সার্ভার)' : p}</span>
+                <span className="text-[9px] font-black uppercase tracking-tight">{p === 'picoapps' ? 'ফ্রি সার্ভার' : p}</span>
               </button>
             ))}
           </div>
@@ -325,8 +337,8 @@ const AISettingsPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-blue-500/20 rounded-2xl"><Key className="text-blue-400" size={24} /></div>
                   <div>
-                    <h2 className="text-lg font-bold">App ID Configuration</h2>
-                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Required for WSS calls</p>
+                    <h2 className="text-lg font-bold">অ্যাপ আইডি কনফিগারেশন</h2>
+                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">রিয়েল-টাইম কলের জন্য প্রয়োজন</p>
                   </div>
                 </div>
                 <button onClick={handleAddCustomID} className="p-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl active:scale-95 transition-all shadow-lg shadow-blue-500/20">
@@ -378,57 +390,52 @@ const AISettingsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* API Key Input with Reveal Animation */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/30 uppercase ml-4">API Key</label>
-                    <div className="relative group overflow-hidden rounded-2xl">
+                  <div className="relative group overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <Key size={16} className="text-white/20" />
                       <input 
                         type="text"
                         value={draftSettings.apiKeys[draftSettings.selectedProvider] || ''}
                         onChange={(e) => handleUpdateAPIKey(draftSettings.selectedProvider, e.target.value)}
-                        placeholder="Paste your key here..."
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono outline-none focus:border-purple-500/50 transition-all"
+                        placeholder="API Key লিখুন..."
+                        className="flex-1 bg-transparent text-sm font-mono outline-none"
                       />
-                      <AnimatePresence>
-                        {!isRevealed[draftSettings.selectedProvider] && (
-                          <motion.div 
-                            initial={false}
-                            animate={{ x: 0 }}
-                            exit={{ x: "100%" }}
-                            transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                            onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: true})}
-                            className="absolute inset-0 bg-blue-600 flex items-center justify-center gap-2 cursor-pointer z-10"
-                          >
-                            <Lock size={16} />
-                            <span className="text-xs font-black uppercase tracking-widest">Tap to Reveal API</span>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                      <button 
-                        onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: false})}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-full transition-all text-white/40"
-                      >
-                        {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
                     </div>
+                    <AnimatePresence>
+                      {!isRevealed[draftSettings.selectedProvider] && (
+                        <motion.div 
+                          initial={false}
+                          animate={{ x: 0 }}
+                          exit={{ x: "100%" }}
+                          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+                          onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: true})}
+                          className="absolute inset-0 bg-blue-600 flex items-center justify-center gap-2 cursor-pointer z-10"
+                        >
+                          <Lock size={14} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">কী দেখতে ক্লিক করুন</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    <button 
+                      onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: !isRevealed[draftSettings.selectedProvider]})}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-full transition-all text-white/40"
+                    >
+                      {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
                   </div>
 
                   {/* Manual Model Input */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/30 uppercase ml-4">Manual Model Name</label>
-                    <div className="relative">
-                      <input 
-                        type="text"
-                        value={draftSettings.models[draftSettings.selectedProvider] || ''}
-                        onChange={(e) => handleUpdateModel(draftSettings.selectedProvider, e.target.value)}
-                        placeholder="e.g. gemini-1.5-pro-latest"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold outline-none border-dashed focus:border-blue-500/50 transition-all"
-                      />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white/20">
-                        <Settings size={18} />
-                      </div>
-                    </div>
+                  <div className="relative flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl">
+                    <Settings size={16} className="text-white/20" />
+                    <input 
+                      type="text"
+                      value={draftSettings.models[draftSettings.selectedProvider] || ''}
+                      onChange={(e) => handleUpdateModel(draftSettings.selectedProvider, e.target.value)}
+                      placeholder="মডেল নাম (যেমন: gemini-1.5-pro)"
+                      className="flex-1 bg-transparent text-sm font-bold outline-none"
+                    />
                   </div>
                 </div>
               </div>
@@ -449,27 +456,24 @@ const AISettingsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
               <div className="flex items-center gap-3">
                 <div className="text-white/60 group-hover:text-white transition-colors">
-                  <motion.div animate={preferences.reducedMotion ? {} : { rotate: 360 }} transition={{ repeat: Infinity, duration: 4, ease: "linear" }}>
+                  <motion.div animate={(draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? {} : { rotate: 360 }} transition={{ repeat: Infinity, duration: 4, ease: "linear" }}>
                     <Settings size={20} />
                   </motion.div>
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Reduced Motion</h3>
-                  <p className="text-[10px] text-white/40">Disable animations for a faster feel</p>
+                  <h2 className="text-sm font-bold">এনিমেশন হ্রাস করুন</h2>
+                  <p className="text-[10px] text-white/40">দ্রুত গতির জন্য এনিমেশন বন্ধ করুন</p>
                 </div>
               </div>
               <button 
                 onClick={() => {
-                  const newPrefs = { ...preferences, reducedMotion: !preferences.reducedMotion };
-                  setPreferences(newPrefs);
-                  DataManager.saveUserPreferences(newPrefs);
+                  if (!draftPreferences) return;
+                  setDraftPreferences({ ...draftPreferences, reducedMotion: !draftPreferences.reducedMotion });
                 }}
-                className={`w-12 h-6 rounded-full transition-all flex items-center px-1 self-end sm:self-auto ${preferences.reducedMotion ? "bg-green-500" : "bg-white/10"}`}
-                aria-label={preferences.reducedMotion ? "Disable Reduced Motion" : "Enable Reduced Motion"}
-                title="Toggle reduced motion for UI animations"
+                className={`w-12 h-6 rounded-full transition-all flex items-center px-1 self-end sm:self-auto ${(draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "bg-green-500" : "bg-white/10"}`}
               >
                 <motion.div 
-                  animate={{ x: preferences.reducedMotion ? 24 : 0 }}
+                  animate={{ x: (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? 24 : 0 }}
                   className="w-4 h-4 bg-white rounded-full shadow-sm"
                 />
               </button>
@@ -481,8 +485,8 @@ const AISettingsPage: React.FC = () => {
                   <Palette size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">App Theme</h3>
-                  <p className="text-[10px] text-white/40">Switch between dark and light modes</p>
+                  <h2 className="text-sm font-bold">অ্যাপ থিম</h2>
+                  <p className="text-[10px] text-white/40">আলো এবং অন্ধকার মোড পরিবর্তন করুন</p>
                 </div>
               </div>
               <div className="flex bg-black/40 p-1 rounded-xl self-end sm:self-auto">
@@ -490,12 +494,11 @@ const AISettingsPage: React.FC = () => {
                   <button
                     key={t}
                     onClick={() => {
-                      const newPrefs = { ...preferences, theme: t as 'dark' | 'light' | 'system' };
-                      setPreferences(newPrefs);
-                      DataManager.saveUserPreferences(newPrefs);
+                      if (!draftPreferences) return;
+                      setDraftPreferences({ ...draftPreferences, theme: t as 'dark' | 'light' | 'system' });
                     }}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                      preferences.theme === t ? "bg-blue-600 text-white" : "text-white/40 hover:text-white"
+                      (draftPreferences?.theme ?? preferences.theme) === t ? "bg-blue-600 text-white" : "text-white/40 hover:text-white"
                     }`}
                   >
                     {t}
@@ -507,45 +510,24 @@ const AISettingsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
               <div className="flex items-center gap-3">
                 <div className="text-white/60 group-hover:text-white transition-colors">
-                  <Cloud size={20} />
+                   <Cloud size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Cloud Storage</h3>
-                  <p className="text-[10px] text-white/40">Sync to Google Drive</p>
+                  <h2 className="text-sm font-bold">ক্লাউড স্টোরেজ</h2>
+                  <p className="text-[10px] text-white/40">{googleConnected ? 'গুগল ড্রাইভের সাথে সংযুক্ত' : 'তথ্য সংরক্ষণের মাধ্যম সংযোগ করুন'}</p>
                 </div>
               </div>
               {!googleConnected ? (
                 <button 
                   onClick={handleConnectDrive}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-auto"
+                  className="px-6 py-2.5 bg-[#002B5B] hover:bg-[#003A7A] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-auto shadow-lg shadow-black/20 active:scale-95 border border-blue-400/20"
                 >
-                  Connect
+                  {storageType === 'local' ? 'ক্লাউডে স্থানান্তর' : 'সংযোগ করুন'}
                 </button>
               ) : (
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <button 
-                    onClick={handleSyncNow}
-                    disabled={isSyncing}
-                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
-                    title="Sync Now"
-                  >
-                    <RefreshCw size={18} className={isSyncing ? "animate-spin text-blue-400" : "text-white/40"} />
-                  </button>
-                  <button 
-                    onClick={handleRestoreFromDrive}
-                    disabled={isSyncing}
-                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
-                    title="Restore Data"
-                  >
-                    <Download size={18} className={isSyncing ? "animate-pulse text-green-400" : "text-white/40"} />
-                  </button>
-                  <button 
-                    onClick={handleDisconnectDrive}
-                    className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all"
-                    title="Disconnect"
-                  >
-                    <LogOut size={18} />
-                  </button>
+                <div className="flex items-center gap-2 self-end sm:self-auto text-green-500 bg-green-500/10 px-4 py-2 rounded-xl text-[10px] font-black">
+                  <Check size={14} />
+                  সংযুক্ত
                 </div>
               )}
             </div>
@@ -553,24 +535,23 @@ const AISettingsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
               <div className="flex items-center gap-3">
                 <div className="text-white/60 group-hover:text-white transition-colors">
-                   <ChevronLeft size={20} />
+                   <RefreshCw size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Restart Setup</h3>
-                  <p className="text-[10px] text-white/40">Re-trigger the initial profile setup</p>
+                  <h2 className="text-sm font-bold">প্রাথমিক সেটআপ</h2>
+                  <p className="text-[10px] text-white/40">শুরু থেকে সবকিছু সেটআপ করুন</p>
                 </div>
               </div>
               <button 
                 onClick={async () => {
-                   if (confirm('Re-trigger setup? (এটি প্রাথমিক সেটআপ পুনরায় শুরু করবে)')) {
-                      await DataManager.saveUserName(''); // Clear name
+                   if (confirm('প্রাথমিক সেটআপ পুনরায় শুরু করতে চান?')) {
+                      await DataManager.saveUserName('');
                       window.location.reload();
                    }
                 }}
                 className="px-6 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-auto"
-                aria-label="Restart Setup"
               >
-                Restart
+                রিস্টার্ট
               </button>
             </div>
           </div>
@@ -579,17 +560,17 @@ const AISettingsPage: React.FC = () => {
         <footer className="pt-8 text-center space-y-8 pb-32">
           <button
             onClick={handleManualSave}
-            disabled={isSaving || !draftSettings}
+            disabled={isSaving || !isDirty}
             className={`w-full py-5 font-bold rounded-[2rem] flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${
               isDirty 
                 ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20" 
                 : "bg-white/5 text-white/20 cursor-default"
             }`}
-            aria-label="Save Settings"
+            aria-label="সেটিংস সংরক্ষণ"
             id="save-settings-button"
           >
-            {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Check size={20} />}
-            <span>{isSaving ? 'Saving...' : 'Save Settings (সেভ করুন)'}</span>
+            {isSaving ? <RefreshCw className="animate-spin" size={20} /> : <Check size={20} />}
+            <span>{isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সংরক্ষণ করুন'}</span>
           </button>
 
           <div className="space-y-4">
@@ -627,7 +608,7 @@ const AISettingsPage: React.FC = () => {
                     onClick={handleUndo}
                     className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                   >
-                    Undo
+                    আগে ফিরুন
                   </button>
                 )}
                 <button onClick={() => setStatus(null)} className="p-2 hover:bg-white/10 rounded-full transition-all">
@@ -635,6 +616,26 @@ const AISettingsPage: React.FC = () => {
                 </button>
               </div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Exit Warning Modal */}
+        <AnimatePresence>
+          {showExitWarning && (
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowExitWarning(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]" />
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-[#1A1A1A] border border-white/10 rounded-[2.5rem] p-8 z-[201] shadow-2xl">
+                <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mb-6 mx-auto">
+                  <AlertCircle size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-center mb-2">সেভ করা হয়নি!</h3>
+                <p className="text-sm text-white/40 text-center mb-8 leading-relaxed">আপনার কিছু পরিবর্তন সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বের হতে চান?</p>
+                <div className="flex flex-col gap-3">
+                  <button onClick={handleConfirmExit} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/20 active:scale-95">হ্যাঁ, বের হয়ে যান</button>
+                  <button onClick={() => setShowExitWarning(false)} className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/80 font-bold rounded-2xl transition-all active:scale-95">ফিরে যান</button>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </main>
