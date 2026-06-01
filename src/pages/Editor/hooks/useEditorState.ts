@@ -1,0 +1,555 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import localforage from 'localforage';
+
+import { DataManager, Note } from '../../../services/storage/DataManager';
+import { operationRunner } from '../../../services/storage/OperationRunner';
+import { EditorBlock, htmlToBlocks, blocksToHtml } from '../components/CustomBlockEditor';
+
+export function useEditorState(id: string | undefined) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const [isUnlocked, setIsUnlocked] = useState(location.state?.authorized || false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [note, setNote] = useState<Note | null>(null);
+  const [title, setTitle] = useState('');
+  const [emoji, setEmoji] = useState('📄');
+  const [description, setDescription] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [theme, setTheme] = useState<string>('default');
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeTasksCount, setActiveTasksCount] = useState(0);
+  const [workspaceName, setWorkspaceName] = useState('Workspace');
+  const [parentNote, setParentNote] = useState<Note | null>(null);
+  const [currentSubPages, setCurrentSubPages] = useState<Note[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+
+  // Editor Blocks State
+  const [blocks, setBlocks] = useState<EditorBlock[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchIndex, setSearchIndex] = useState(0);
+
+  const noteRef = useRef<Note | null>(null);
+  const titleRef = useRef(title);
+  const emojiRef = useRef(emoji);
+  const descriptionRef = useRef(description);
+  const tagsRef = useRef(tags);
+  const themeRef = useRef(theme);
+  const backupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isDeletingRef = useRef(false);
+
+  const blocksRef = useRef<EditorBlock[]>(blocks);
+  const lastSavedContentRef = useRef('');
+
+  useEffect(() => { noteRef.current = note; }, [note]);
+
+  const BACKUP_KEY = `note_backup_${id}`;
+
+  // Simple local search engine mimicking Tiptap's search & replace storage
+  useEffect(() => {
+    if (!searchTerm) {
+      setSearchResults([]);
+      setSearchIndex(0);
+      return;
+    }
+    const results: any[] = [];
+    blocks.forEach((block, bIdx) => {
+      if (block.content.toLowerCase().includes(searchTerm.toLowerCase())) {
+        results.push({ blockId: block.id, blockIdx: bIdx });
+      }
+    });
+    setSearchResults(results);
+    setSearchIndex(0);
+  }, [searchTerm, blocks]);
+
+  // Create Tiptap compat-shim controller
+  const editor = {
+    blocks,
+    setBlocks,
+    isReadOnly,
+    isDestroyed: false,
+    
+    getHTML: () => {
+      return blocksToHtml(blocks);
+    },
+
+    isActive: (type: string, attrs?: any) => {
+      if (type === 'bold') return document.queryCommandState?.('bold') || false;
+      if (type === 'italic') return document.queryCommandState?.('italic') || false;
+      if (type === 'strike') return document.queryCommandState?.('strikeThrough') || false;
+      if (type === 'underline') return document.queryCommandState?.('underline') || false;
+      if (type === 'code') return document.queryCommandValue?.('fontName') === 'monospace' || false;
+      
+      if (type === 'heading') {
+        if (attrs && attrs.level === 1) return blocks.some(b => b.type === 'h1');
+        if (attrs && attrs.level === 2) return blocks.some(b => b.type === 'h2');
+        if (attrs && attrs.level === 3) return blocks.some(b => b.type === 'h3');
+        return blocks.some(b => b.type === 'h1' || b.type === 'h2' || b.type === 'h3');
+      }
+      if (type === 'bulletList') return blocks.some(b => b.type === 'bullet');
+      if (type === 'orderedList') return blocks.some(b => b.type === 'ordered');
+      if (type === 'taskList') return blocks.some(b => b.type === 'todo');
+      if (type === 'blockquote') return blocks.some(b => b.type === 'quote');
+      return false;
+    },
+
+    storage: {
+      get searchAndReplace() {
+        return {
+          results: searchResults,
+          resultIndex: searchIndex
+        };
+      }
+    },
+
+    commands: {
+      setContent: (html: string) => {
+        const parsed = htmlToBlocks(html);
+        setBlocks(parsed);
+      },
+      insertContent: (html: string) => {
+        const parsed = htmlToBlocks(html);
+        setBlocks((prev) => [...prev, ...parsed]);
+      },
+      setSearchTerm: (term: string) => {
+        setSearchTerm(term);
+      },
+      nextSearchResult: () => {
+        setSearchIndex((p) => (searchResults.length > 0 ? (p + 1) % searchResults.length : 0));
+      },
+      previousSearchResult: () => {
+        setSearchIndex((p) => (searchResults.length > 0 ? (p - 1 + searchResults.length) % searchResults.length : 0));
+      }
+    },
+
+    chain: () => {
+      const focusChain = {
+        toggleBold: () => {
+          document.execCommand('bold', false);
+          return focusChain;
+        },
+        toggleItalic: () => {
+          document.execCommand('italic', false);
+          return focusChain;
+        },
+        toggleStrike: () => {
+          document.execCommand('strikeThrough', false);
+          return focusChain;
+        },
+        toggleUnderline: () => {
+          document.execCommand('underline', false);
+          return focusChain;
+        },
+        toggleCode: () => {
+          document.execCommand('fontName', false, 'monospace');
+          return focusChain;
+        },
+        toggleHeading: (attrs: { level: number }) => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: `h${attrs.level}` as any } : b);
+          });
+          return focusChain;
+        },
+        toggleBulletList: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'bullet' } : b);
+          });
+          return focusChain;
+        },
+        toggleOrderedList: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'ordered' } : b);
+          });
+          return focusChain;
+        },
+        toggleTaskList: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'todo', checked: false } : b);
+          });
+          return focusChain;
+        },
+        toggleBlockquote: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'quote' } : b);
+          });
+          return focusChain;
+        },
+        toggleCodeBlock: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'code', language: 'javascript' } : b);
+          });
+          return focusChain;
+        },
+        setParagraph: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'paragraph' } : b);
+          });
+          return focusChain;
+        },
+        setHorizontalRule: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return [...prev, { id: crypto.randomUUID(), type: 'hr', content: '' }];
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            const idx = next.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              next.splice(idx + 1, 0, { id: crypto.randomUUID(), type: 'hr', content: '' });
+              return next;
+            }
+            return [...prev, { id: crypto.randomUUID(), type: 'hr', content: '' }];
+          });
+          return focusChain;
+        },
+        setCallout: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { ...b, type: 'callout' } : b);
+          });
+          return focusChain;
+        },
+        setSandbox: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            return next.map(b => b.id === activeId ? { 
+              ...b, 
+              type: 'sandbox', 
+              content: '<h3>Title</h3>\n<p>Write your HTML/CSS/JS code block here...</p>' 
+            } : b);
+          });
+          return focusChain;
+        },
+        insertTable: (attrs: any) => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return [...prev, {
+              id: crypto.randomUUID(),
+              type: 'table',
+              content: '',
+              tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
+            }];
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            const idx = next.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              next.splice(idx + 1, 0, {
+                id: crypto.randomUUID(),
+                type: 'table',
+                content: '',
+                tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
+              });
+              return next;
+            }
+            return [...prev, {
+              id: crypto.randomUUID(),
+              type: 'table',
+              content: '',
+              tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
+            }];
+          });
+          return focusChain;
+        },
+        setMedia: (attrs: any) => {
+          setBlocks((prev) => {
+            const mediaBlock = {
+              id: crypto.randomUUID(),
+              type: 'media' as any,
+              content: '',
+              mediaData: {
+                id: attrs.id || crypto.randomUUID(),
+                type: attrs.type || 'image',
+                fileName: attrs.fileName || '',
+                fileSize: attrs.fileSize || '',
+                status: attrs.status || 'uploading',
+                url: attrs.url || ''
+              }
+            };
+            if (prev.length === 0) return [...prev, mediaBlock];
+            const next = [...prev];
+            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
+            const idx = next.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              next.splice(idx + 1, 0, mediaBlock);
+              return next;
+            }
+            return [...prev, mediaBlock];
+          });
+          return focusChain;
+        },
+        undo: () => { return focusChain; },
+        redo: () => { return focusChain; },
+        run: () => {}
+      };
+      return {
+        focus: () => focusChain
+      };
+    },
+
+    can: () => {
+      return {
+        undo: () => false,
+        redo: () => false
+      };
+    },
+
+    on: (event: string, handler: any) => {
+      // search-and-replace list triggers
+      window.addEventListener(`editor-event-${event}`, handler);
+    },
+    off: (event: string, handler: any) => {
+      window.removeEventListener(`editor-event-${event}`, handler);
+    },
+    triggerEvent: (event: string, detail?: any) => {
+      window.dispatchEvent(new CustomEvent(`editor-event-${event}`, { detail }));
+    }
+  };
+
+  // Trigger search transaction events
+  useEffect(() => {
+    editor.triggerEvent('transaction');
+  }, [searchResults, searchIndex]);
+
+  // Debounced auto-save triggers whenever blocks update
+  useEffect(() => {
+    if (blocks.length === 0) return;
+    
+    if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
+    backupTimerRef.current = setTimeout(() => {
+      const content = blocksToHtml(blocks);
+      
+      if (content === lastSavedContentRef.current) return;
+      
+      if (id) localforage.setItem(BACKUP_KEY, content).catch(console.error);
+      
+      saveNote(content);
+    }, 2000); // 2s debounce is highly efficient
+  }, [blocks, id]);
+
+  // Handle auto-save on unmount
+  useEffect(() => {
+    return () => {
+      if (backupTimerRef.current) {
+        clearTimeout(backupTimerRef.current);
+      }
+      
+      const currentBlocks = blocksRef.current;
+      if (currentBlocks.length > 0 && !isDeletingRef.current) {
+        const content = blocksToHtml(currentBlocks);
+        const hasChanges = 
+          content !== lastSavedContentRef.current || 
+          titleRef.current !== noteRef.current?.title ||
+          emojiRef.current !== noteRef.current?.emoji ||
+          descriptionRef.current !== noteRef.current?.description ||
+          themeRef.current !== noteRef.current?.theme ||
+          JSON.stringify(tagsRef.current) !== JSON.stringify(noteRef.current?.tags);
+
+        if (hasChanges && noteRef.current) {
+          const currentNote = noteRef.current;
+          const updatedTitle = titleRef.current || 'শিরোনামহীন';
+          const updatedEmoji = emojiRef.current || '📝';
+          
+          DataManager.saveNote({
+            ...currentNote,
+            title: updatedTitle,
+            content,
+            emoji: updatedEmoji,
+            description: descriptionRef.current,
+            tags: tagsRef.current,
+            theme: themeRef.current
+          }).catch(err => console.error('Auto-save on unmount failed:', err));
+        }
+      }
+    };
+  }, []);
+
+  const loadNote = useCallback(async (noteId: string) => {
+    const fetchedNote = await DataManager.getNoteById(noteId);
+    
+    // Check if we are joining a collaborative session via URL
+    const searchParams = new URLSearchParams(location.search);
+    const urlCollabId = searchParams.get('collab');
+
+    if (fetchedNote) {
+      setNote(fetchedNote);
+      setTitle(fetchedNote.title);
+      setEmoji(fetchedNote.emoji);
+      setDescription(fetchedNote.description || '');
+      setTags(fetchedNote.tags || []);
+      setTheme(fetchedNote.theme || 'default');
+      
+      let content = fetchedNote.content;
+      const backup = await localforage.getItem<string>(BACKUP_KEY);
+      if (backup && backup !== fetchedNote.content) content = backup;
+      
+      const resolvedContent = await DataManager.resolveMediaUrls(content);
+      lastSavedContentRef.current = resolvedContent;
+      
+      // Load blocks state
+      setBlocks(htmlToBlocks(resolvedContent));
+
+      const workspaces = await DataManager.getWorkspaces();
+      const ws = workspaces.find(w => w.id === (fetchedNote.workspaceId || 'default'));
+      if (ws) setWorkspaceName(ws.name);
+
+      const allNotes = await DataManager.getAllNotes();
+      setCurrentSubPages(allNotes.filter(n => n.parentId === fetchedNote.id && !n.isTrashed));
+
+      if (fetchedNote.parentId) {
+        DataManager.getNoteById(fetchedNote.parentId).then(setParentNote);
+      } else {
+        setParentNote(null);
+      }
+    } else if (urlCollabId) {
+      // Create a temporary/placeholder note locally so the editor does not redirect,
+      // and let the in-flight Yjs real-time updates overwrite and save it automatically as soon as it syncs.
+      const activeWorkspaceId = (await DataManager.getActiveWorkspaceId()) || 'default-workspace';
+      const tempNote: Note = {
+        id: noteId,
+        title: 'Connecting to collaboration...',
+        emoji: '🔄',
+        description: 'Synchronizing with host...',
+        content: '<p>Getting document real-time data from peer host...</p>',
+        theme: 'default',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isTrashed: false,
+        workspaceId: activeWorkspaceId
+      };
+      
+      await DataManager.saveNote(tempNote);
+      
+      setNote(tempNote);
+      setTitle(tempNote.title);
+      setEmoji(tempNote.emoji);
+      setDescription(tempNote.description || '');
+      setTags(tempNote.tags || []);
+      setTheme(tempNote.theme || 'default');
+      setBlocks(htmlToBlocks(tempNote.content));
+    } else {
+      navigate('/');
+    }
+  }, [id, navigate, BACKUP_KEY, location.search]);
+
+  const saveNote = useCallback(async (content: string, force: boolean = false) => {
+    if (noteRef.current) {
+      if (isSaving && !force) return;
+      
+      // Dirty check
+      if (!force && content === lastSavedContentRef.current && 
+          titleRef.current === noteRef.current.title &&
+          emojiRef.current === noteRef.current.emoji &&
+          descriptionRef.current === noteRef.current.description &&
+          themeRef.current === noteRef.current.theme &&
+          JSON.stringify(tagsRef.current) === JSON.stringify(noteRef.current.tags)) {
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        const updatedTitle = titleRef.current || 'শিরোনামহীন';
+        const updatedEmoji = emojiRef.current || '📝';
+        const updatedNote = await DataManager.saveNote({ 
+          ...noteRef.current, 
+          title: updatedTitle, 
+          content, 
+          emoji: updatedEmoji,
+          description: descriptionRef.current,
+          tags: tagsRef.current,
+          theme: themeRef.current
+        });
+        
+        lastSavedContentRef.current = updatedNote.content;
+        setNote(updatedNote);
+        await localforage.removeItem(BACKUP_KEY);
+      } catch (err) {
+        console.error('Save failed:', err);
+      } finally {
+        setTimeout(() => setIsSaving(false), 300);
+      }
+    }
+  }, [isSaving, BACKUP_KEY]);
+
+  useEffect(() => {
+    const unsub = operationRunner.subscribe(() => {
+      setActiveTasksCount(operationRunner.getActiveTasksCount());
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (id) loadNote(id);
+  }, [id, loadNote]);
+
+  const startListening = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            editor.commands.insertContent(event.results[i][0].transcript + ' ');
+          }
+        }
+      };
+      recognition.start();
+      (window as any).recognition = recognition;
+    } catch (err) {
+      setNotification({ message: "Microphone access required.", type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const stopListening = () => {
+    if ((window as any).recognition) {
+      (window as any).recognition.stop();
+      setIsListening(false);
+    }
+  };
+
+  return {
+    editor, note, setNote, title, setTitle, emoji, setEmoji, description, setDescription, 
+    tags, setTags, theme, setTheme, isSaving, 
+    activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages, isListening,
+    notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
+    saveNote, startListening, stopListening, loadNote, isDeletingRef, 
+    titleRef, emojiRef, descriptionRef, noteRef, themeRef
+  };
+}
