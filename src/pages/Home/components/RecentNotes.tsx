@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RecentNote } from '../../../services/management/HistoryManager';
+import { RecentNote } from '../../../services/storage/HistoryManager';
 
 interface RecentNotesProps {
   notes: RecentNote[];

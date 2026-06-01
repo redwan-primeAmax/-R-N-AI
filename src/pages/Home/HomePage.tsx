@@ -7,7 +7,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, ChevronUp } from 'lucide-react';
 import { DataManager, Note, Workspace } from '../../services/storage/DataManager';
-import { HistoryManager, RecentNote } from '../../services/management/HistoryManager';
+import { HistoryManager, RecentNote } from '../../services/storage/HistoryManager';
 import { motion, AnimatePresence } from 'framer-motion';
 import { operationRunner } from '../../services/storage/OperationRunner';
 

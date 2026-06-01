@@ -6,13 +6,13 @@
 import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Heading1, Heading2, Heading3, List, ListTodo, 
+  Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, 
   Code, Quote, ImageIcon, Minus, Table, 
   Type, MessageSquare, Mic, Hash, Plus, FilePlus
 } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { operationRunner } from '../../../services/storage/OperationRunner';
-import { cn } from '../../../lib/utils';
+import { cn } from '../../../utils/cn';
 
 interface BlockMenuProps {
   isOpen: boolean;
@@ -27,27 +27,38 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({ isOpen, onClose, editor, n
   if (!editor) return null;
 
   const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !editor) return;
+    try {
+      const file = e.target.files?.[0];
+      if (!file || !editor) return;
 
-    const fileId = crypto.randomUUID();
-    const type = file.type.startsWith('image/') ? 'image' : 
-                 file.type.startsWith('video/') ? 'video' : 
-                 file.type.startsWith('audio/') ? 'audio' : 'file';
+      // Limit size to 50MB
+      if (file.size > 50 * 1024 * 1024) {
+        alert("ফাইলটি অত্যন্ত বড় (সর্বোচ্চ ৫০ এমবি গ্রহণযোগ্য)!");
+        return;
+      }
 
-    // Insert the media block first
-    (editor.chain().focus() as any).setMedia({ 
-      id: fileId,
-      type,
-      fileName: file.name,
-      fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-      status: 'uploading'
-    }).run();
+      const fileId = crypto.randomUUID();
+      const type = file.type.startsWith('image/') ? 'image' : 
+                   file.type.startsWith('video/') ? 'video' : 
+                   file.type.startsWith('audio/') ? 'audio' : 'file';
 
-    // Start upload task
-    operationRunner.runUpload(file, noteRef.current?.id || 'temp', noteRef.current?.workspaceId || 'default', fileId);
+      // Insert the media block first
+      (editor.chain().focus() as any).setMedia({ 
+        id: fileId,
+        type,
+        fileName: file.name,
+        fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+        status: 'uploading'
+      }).run();
 
-    onClose();
+      // Start upload task
+      await operationRunner.runUpload(file, noteRef.current?.id || 'temp', noteRef.current?.workspaceId || 'default', fileId);
+
+      onClose();
+    } catch (err) {
+      console.error('File selection or upload starting failed:', err);
+      alert('ফাইল আপলোড শুরু করতে ব্যর্থ হয়েছে!');
+    }
   };
 
   const blocks = [
@@ -83,7 +94,7 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({ isOpen, onClose, editor, n
     },
     { 
       label: 'Numbered List', 
-      icon: <List size={20} className="rotate-180" />, 
+      icon: <ListOrdered size={20} />, 
       action: () => editor.chain().focus().toggleOrderedList().run(),
       description: 'Sequential ordered list.'
     },
@@ -220,7 +231,7 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({ isOpen, onClose, editor, n
                     ref={fileInputRef} 
                     className="hidden" 
                     onChange={handleMediaSelect}
-                    accept="image/*,video/*,audio/*,application/*"
+                    accept=".png,.jpg,.jpeg,.gif,.svg,.mp4,.webm,.ogg,.mp3,.wav,.pdf,.txt,.json"
                   />
                </div>
             </div>

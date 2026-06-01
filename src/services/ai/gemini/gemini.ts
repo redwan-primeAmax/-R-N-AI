@@ -4,8 +4,7 @@
  */
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
-import { AIService, AIServiceOptions } from '../../aiService';
-import { SYSTEM_PROMPTS } from '../../../constants/prompts';
+import { AIService, AIServiceOptions } from '../AIService';
 
 export const GEMINI_SYSTEM_PROMPT = `You are the Redwan Assistant (Gemini Edition).
 You are a professional Content Creator and AI Architect for a Notion-style editor.
@@ -60,62 +59,101 @@ export class GeminiService extends AIService {
   name = 'gemini';
 
   async sendMessage(prompt: string, options: AIServiceOptions): Promise<string> {
-    const { settings, onToken, systemPrompt } = options;
+    const { settings, onToken, systemPrompt, history = [], attachedNotes = [] } = options;
     const finalSystemPrompt = systemPrompt || GEMINI_SYSTEM_PROMPT;
     const userApiKey = settings.apiKeys.gemini;
-    const platformApiKey = process.env.GEMINI_API_KEY;
-    const apiKey = userApiKey || platformApiKey;
     const model = settings.selectedModels.gemini || 'gemini-1.5-flash';
 
-    if (!apiKey) {
-      throw new Error("Gemini API Key is missing.");
+    // 1. Prepare contents array with full history and attached notes (Bug 9)
+    const contents: any[] = [];
+    
+    // Add history messages
+    if (history && history.length > 0) {
+      history.forEach((msg) => {
+        const role = msg.role === 'user' ? 'user' : 'model';
+        contents.push({
+          role,
+          parts: [{ text: msg.text }]
+        });
+      });
     }
 
-    const contents = [
-      {
-        role: 'user',
-        parts: [{ text: `System Instruction: ${finalSystemPrompt}\n\nContext & History:\n${prompt}` }]
-      }
-    ];
-    
+    // Prepare prompt with attached notes context
+    let finalPrompt = prompt;
+    if (attachedNotes && attachedNotes.length > 0) {
+      const notesContext = attachedNotes.map(n => `Note Title: "${n.title}"\nContent:\n${n.content}`).join('\n\n---\n\n');
+      finalPrompt = `Attached Notes Context:\n${notesContext}\n\nUser Message:\n${prompt}`;
+    }
+
+    // Append current prompt
+    contents.push({
+      role: 'user',
+      parts: [{ text: finalPrompt }]
+    });
+
+    const isUsingProxy = !userApiKey;
+
     let response;
     try {
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
-        })
-      });
+      if (isUsingProxy) {
+        response = await fetch(`/api/ai/gemini`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            contents,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+          })
+        });
+      } else {
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${userApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents,
+            systemInstruction: {
+              parts: [{ text: finalSystemPrompt }]
+            },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+          })
+        });
+      }
     } catch (networkErr: any) {
-      throw new Error(`Connection Error: ${networkErr.message || "Failed to reach Gemini API. Please check your internet connection."} (কানেকশন এরর: ইন্টারনেট কানেকশন চেক করুন)`);
+      throw new Error(`Connection Error: ${networkErr.message || "Failed to reach Gemini. Please check your internet connection."} (কানেকশন এরর: ইন্টারনেট কানেকশন চেক করুন)`);
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `Gemini API Error (Status: ${response.status})`);
+      throw new Error(errorData.error?.message || `Gemini Error (Status: ${response.status})`);
     }
 
     const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Response stream reader couldn't be obtained. (স্ট্রিম রিডার পাওয়া যায়নি)");
+    }
+
     const decoder = new TextDecoder();
     let fullResponse = "";
 
-    while (true) {
-      const { done, value } = await reader!.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-      for (const line of lines) {
-        try {
-          const parsed = JSON.parse(line.replace('data: ', ''));
-          const text = parsed.candidates[0].content.parts[0].text;
-          if (text) {
-            fullResponse += text;
-            if (onToken) onToken(fullResponse);
-          }
-        } catch (e) {}
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line.replace('data: ', ''));
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              fullResponse += text;
+              if (onToken) onToken(fullResponse);
+            }
+          } catch (e) {}
+        }
       }
+    } finally {
+      reader.releaseLock();
     }
     return fullResponse;
   }

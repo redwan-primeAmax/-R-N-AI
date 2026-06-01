@@ -1,8 +1,7 @@
 import * as Y from 'yjs';
 import { Peer, DataConnection } from 'peerjs';
-import { EditorBlock } from '../pages/Editor/components/CustomBlockEditor';
+import { EditorBlock, blocksToHtml } from '../utils/blockParser';
 import { DataManager } from './storage/DataManager';
-import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
 
 export interface CollabMeta {
   title: string;

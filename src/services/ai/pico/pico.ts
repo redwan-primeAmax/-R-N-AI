@@ -4,7 +4,7 @@
  */
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
-import { AIService, AIServiceOptions } from '../../aiService';
+import { AIService, AIServiceOptions } from '../AIService';
 import { SYSTEM_PROMPTS } from '../../../constants/prompts';
 
 const PICO_SYSTEM_PROMPT = SYSTEM_PROMPTS.PICO;
@@ -19,6 +19,16 @@ export class PicoService extends AIService {
     return new Promise((resolve, reject) => {
       const socket = new WebSocket('wss://backend.buildpicoapps.com/ask_ai_streaming_v2');
       let response = "";
+      let isResolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          socket.close();
+          reject(new Error("Pico connection timed out. (কানেকশন টাইমআউট)"));
+        }
+      }, 20000); // 20s timeout
+
       socket.onopen = () => {
         socket.send(JSON.stringify({ 
           appId: options.settings?.selectedAppID || "default-001",
@@ -30,10 +40,23 @@ export class PicoService extends AIService {
         if (onToken) onToken(response);
       };
       socket.onclose = (e) => {
-        if (e.code === 1000) resolve(response);
-        else reject(new Error("Pico WebSocket Error: Monthly response limit reached or connection lost. (কোটা শেষ হতে পারে)"));
+        clearTimeout(timeout);
+        if (isResolved) return;
+        isResolved = true;
+        if (e.code === 1000) {
+          resolve(response);
+        } else if (e.code === 1006) {
+          reject(new Error("Connection lost: Network drop or server crashed. (নেটওয়ার্ক বা সার্ভার কানেকশন এরর)"));
+        } else {
+          reject(new Error(`Pico error (Code ${e.code}): Monthly quota reached or connection restricted. (কোটা শেষ বা লাইসেন্স সমস্যা)`));
+        }
       };
-      socket.onerror = () => reject(new Error("Pico Connection Failed. (কানেকশন ফেইলড)"));
+      socket.onerror = () => {
+        clearTimeout(timeout);
+        if (isResolved) return;
+        isResolved = true;
+        reject(new Error("Pico Connection Failed. (কানেকশন ফেইলড)"));
+      };
     });
   }
 }

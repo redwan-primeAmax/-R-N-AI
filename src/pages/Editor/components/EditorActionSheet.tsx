@@ -10,7 +10,7 @@ import {
   Plus, ChevronRight, FileText, Settings, Share2, Hash, Palette, Users
 } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
-import { cn } from '../../../lib/utils';
+import { cn } from '../../../utils/cn';
 import { useNavigate } from 'react-router-dom';
 
 interface EditorActionSheetProps {

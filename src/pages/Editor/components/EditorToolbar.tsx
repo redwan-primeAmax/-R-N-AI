@@ -9,7 +9,7 @@ import {
   List, ListTodo, Undo2, Redo2, Plus, 
   Quote, ListOrdered, Search
 } from 'lucide-react';
-import { cn } from '../../../lib/utils';
+import { cn } from '../../../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ContentSearch } from './ContentSearch';
 
@@ -174,9 +174,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                 }
               }
               if (currentLevel === 0 || currentLevel === 6) {
-                editor.chain().focus().setHeading({ level: 1 }).run();
+                editor.chain().focus().toggleHeading({ level: 1 }).run();
               } else {
-                editor.chain().focus().setHeading({ level: (currentLevel + 1) as any }).run();
+                editor.chain().focus().toggleHeading({ level: (currentLevel + 1) as any }).run();
               }
             }} 
             isActive={editor.isActive('heading')}

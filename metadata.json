@@ -1,5 +1,5 @@
 {
-  "name": "NotionClone Pro",
+  "name": "Redwan AI Note",
   "description": "An advanced, mobile-first Notion-like note-taking application with AI integration, local backup, and IndexedDB storage.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

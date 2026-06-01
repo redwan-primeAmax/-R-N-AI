@@ -39,9 +39,10 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
     try {
       // Simulate small delay for visual feedback
       await new Promise(resolve => setTimeout(resolve, 500));
-      onSave(trimmedName, trimmedWorkspace);
+      await onSave(trimmedName, trimmedWorkspace);
     } catch (err) {
       setError('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।');
+    } finally {
       setIsSubmitting(false);
     }
   };

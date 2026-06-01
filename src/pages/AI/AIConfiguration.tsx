@@ -37,9 +37,9 @@ import {
 } from 'lucide-react';
 import { VaultModal } from '../../components/modals/VaultModal';
 import { DataManager, AISettings, UserPreferences } from '../../services/storage/DataManager';
-import { LocalService } from './services/local/local';
+import { LocalService } from '../../services/ai/local/local';
 import { InputDialog, ConfirmDialog } from '../../components/modals/CustomDialogs';
-import { cn } from '../../lib/utils';
+import { cn } from '../../utils/cn';
 import appIDList from '../../constants/appIDList.json';
 import localforage from 'localforage';
 

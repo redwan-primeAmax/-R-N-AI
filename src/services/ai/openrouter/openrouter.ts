@@ -4,7 +4,7 @@
  */
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
-import { AIService, AIServiceOptions } from '../../aiService';
+import { AIService, AIServiceOptions } from '../AIService';
 import { SYSTEM_PROMPTS } from '../../../constants/prompts';
 
 const OPENROUTER_SYSTEM_PROMPT = SYSTEM_PROMPTS.OPENROUTER;
@@ -16,7 +16,7 @@ export class OpenRouterService extends AIService {
     const { settings, onToken, systemPrompt } = options;
     const finalSystemPrompt = systemPrompt || OPENROUTER_SYSTEM_PROMPT;
     const apiKey = settings.apiKeys.openrouter;
-    const model = settings.selectedModels.openrouter;
+    const model = settings.selectedModels.openrouter || 'openai/gpt-4o-mini';
 
     if (!apiKey) throw new Error("OpenRouter API Key is missing.");
 
@@ -49,26 +49,38 @@ export class OpenRouterService extends AIService {
     }
 
     const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Response body is null (রেসপন্স বডি পাওয়া যায়নি)");
+    }
+
     const decoder = new TextDecoder();
     let fullResponse = "";
+    let isStreamDone = false;
 
-    while (true) {
-      const { done, value } = await reader!.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-      for (const line of lines) {
-        const msg = line.replace('data: ', '');
-        if (msg === '[DONE]') break;
-        try {
-          const parsed = JSON.parse(msg);
-          const text = parsed.choices[0].delta.content;
-          if (text) {
-            fullResponse += text;
-            if (onToken) onToken(fullResponse);
+    try {
+      while (!isStreamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+        for (const line of lines) {
+          const msg = line.replace('data: ', '').trim();
+          if (msg === '[DONE]') {
+            isStreamDone = true;
+            break;
           }
-        } catch (e) {}
+          try {
+            const parsed = JSON.parse(msg);
+            const text = parsed.choices[0].delta.content;
+            if (text) {
+              fullResponse += text;
+              if (onToken) onToken(fullResponse);
+            }
+          } catch (e) {}
+        }
       }
+    } finally {
+      reader.releaseLock();
     }
     return fullResponse;
   }

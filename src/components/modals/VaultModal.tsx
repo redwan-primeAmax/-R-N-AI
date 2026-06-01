@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
-import { Lock, Search, FileText, X } from 'lucide-react';
+import { Lock, FileText, X } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { useNavigate } from 'react-router-dom';
 import { InputDialog } from './CustomDialogs';
+import { hashPassword } from '../../utils/crypto';
 
 interface VaultModalProps {
   isOpen: boolean;
@@ -38,8 +39,9 @@ export function VaultModal({ isOpen, onClose }: VaultModalProps) {
     setShowPasswordPrompt(true);
   };
 
-  const handleUnlock = (password: string) => {
-    if (selectedNote?.password === password) {
+  const handleUnlock = async (password: string) => {
+    const hashed = await hashPassword(password);
+    if (selectedNote?.password === hashed || selectedNote?.password === password) {
       setShowPasswordPrompt(false);
       onClose();
       navigate(`/editor/${selectedNote.id}`, { state: { authorized: true } });

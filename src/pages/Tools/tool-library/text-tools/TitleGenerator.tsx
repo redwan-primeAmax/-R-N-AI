@@ -8,7 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Sparkles, RefreshCw, Check, Search, FileText, Loader2, Copy } from 'lucide-react';
 import { DataManager, Note, AISettings } from '../../../../services/storage/DataManager';
-import { AIServiceFactory } from '../../../../services/serviceFactory';
+import { AIServiceFactory } from '../../../../services/ai/ServiceFactory';
 import TurndownService from 'turndown';
 import FloatingHomeButton from '../../../../components/FloatingHomeButton';
 

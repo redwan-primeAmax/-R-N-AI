@@ -98,10 +98,10 @@ export default function NetworkShield() {
           const loaders = [
             () => import('../Home/HomePage'),
             () => import('../Editor/EditorPage'),
-            () => import('../WorkspacePage'),
-            () => import('../RecycleBin'),
+            () => import('../Workspace/WorkspacePage'),
+            () => import('../Trash/RecycleBin'),
             () => import('../Search/SearchPage'),
-            () => import('../BrowseTemplates'),
+            () => import('../Templates/BrowseTemplates'),
             () => import('../AI/AIContentArchitect'),
             () => import('../AI/AIConfiguration'),
             () => import('../Tools/ToolsDashboard')

@@ -162,7 +162,7 @@ const AIChat: React.FC = () => {
     
     const syncHandler = DataManager.onSync(handleSync);
     
-    fetch('/system_prompt.txt')
+    fetch('/prompts/system.txt')
       .then(res => res.text())
       .then(text => {
         console.log('AIChat: System prompt loaded');

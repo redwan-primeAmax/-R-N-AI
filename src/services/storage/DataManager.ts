@@ -6,7 +6,7 @@
 import localforage from 'localforage';
 import { Index } from 'flexsearch';
 import { db, runMigrationFromLocalForage } from './DexieDB';
-import { HistoryManager } from '../management/HistoryManager';
+import { HistoryManager } from './HistoryManager';
 
 console.log('DataManager: File loaded');
 
@@ -732,7 +732,7 @@ export const DataManager = {
     const isNew = !existing;
 
     // Hacker-proof verification & database truncation sweep
-    const notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
+    let notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
     if (notesInWorkspace.length > 10000) {
       // Sort oldest first and delete any excess notes exceeding 10,000
       notesInWorkspace.sort((a, b) => a.createdAt - b.createdAt);
@@ -743,6 +743,8 @@ export const DataManager = {
       if (idsToDelete.includes(note.id)) {
         throw new Error('Workspace Note Limit Reached (Max 10,000)! Note is discarded to maintain device stability.');
       }
+      // Refetch note collection to avoid stale length blocking new creations (Bug 6)
+      notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
     }
 
     if (isNew && notesInWorkspace.length >= 10000) {
@@ -1043,8 +1045,6 @@ export const DataManager = {
       if (idsToDelete.length > 0) {
         await db.chat_history.bulkDelete(idsToDelete);
       }
-    } else {
-      await this.clearChatHistory();
     }
     
     syncChannel.postMessage({ type: 'UPDATE_CHAT' });

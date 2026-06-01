@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AISettings, ChatMessage, Note } from './storage/DataManager';
+import { AISettings, ChatMessage, Note } from '../storage/DataManager';
 
 export interface AIServiceOptions {
   settings: AISettings;

@@ -28,7 +28,8 @@ import { ThemeSelectorModal } from '../../components/modals/ThemeSelectorModal';
 import { NoteExportModal } from '../../components/modals/NoteExportModal';
 import { loadThemeConfig } from './themes/ThemeRegistry';
 import { ThemeConfig } from './themes/types';
-import { cn } from '../../lib/utils';
+import { cn } from '../../utils/cn';
+import { hashPassword } from '../../utils/crypto';
 
 const EMOJIS = ['📄', '📝', '💡', '🗓️', '✅', '📌', '🚀', '⭐', '📁', '🔥', '🎨', '💻', '🌍', '📊', '⚡', '🤖', '📚', '🛠️', '🔒', '🎯', '🗺️', '🎬', '🧩', '🎸', '🧬', '🧪', '🔭', '🪐'];
 
@@ -390,7 +391,7 @@ export default function EditorPage() {
       // We will dispatch this event from somewhere else, we need to handle it using standard event listener 
       // but without the early return issue.
       if (!note) return;
-      setNotification({ message: 'Generating PDF...', type: 'success' });
+      setNotification({ message: 'Generating PDF...', type: 'info' });
       
       const element = document.querySelector('.prose') as HTMLElement;
       if (!element) {
@@ -415,7 +416,7 @@ export default function EditorPage() {
         setNotification({ message: 'PDF Generated', type: 'success' });
       }).catch(err => {
         console.error('PDF generation failed:', err);
-        setNotification({ message: 'PDF failed!', type: 'success' });
+        setNotification({ message: 'PDF failed!', type: 'error' });
       }).finally(() => {
         setTimeout(() => setNotification(null), 2000);
       });
@@ -438,10 +439,11 @@ export default function EditorPage() {
   }
 
   if (note.isLocked && !isUnlocked) {
-    const handleAuthSubmit = () => {
+    const handleAuthSubmit = async () => {
       const trimmedInput = passwordInput.trim();
       if (!trimmedInput) return;
-      if (trimmedInput === note.password) {
+      const hashed = await hashPassword(trimmedInput);
+      if (hashed === note.password || trimmedInput === note.password) {
         setIsUnlocked(true);
       } else {
         setNotification({ message: 'ভুল পাসওয়ার্ড!', type: 'error' });
@@ -539,21 +541,39 @@ export default function EditorPage() {
 
   const handleDelete = async () => {
     isDeletingRef.current = true;
-    await DataManager.saveNote({ ...note!, isTrashed: true, updatedAt: Date.now() });
+    const currentNote = noteRef.current || note!;
+    await DataManager.saveNote({ ...currentNote, isTrashed: true, updatedAt: Date.now() });
     navigate('/');
   };
 
   const handleCopy = async () => {
-    const newNote = { ...note!, id: crypto.randomUUID(), title: (note!.title || 'শিরোনামহীন') + ' (Copy)', updatedAt: Date.now(), createdAt: Date.now() };
+    const currentNote = noteRef.current || note!;
+    const currentContent = blocksToHtml(editor.blocks);
+    const newNote = { 
+      ...currentNote, 
+      id: crypto.randomUUID(), 
+      title: (currentNote.title || 'শিরোনামহীন') + ' (Copy)', 
+      content: currentContent,
+      isLocked: false,
+      password: '',
+      collabRoomId: '',
+      isCollaborated: false,
+      publishedCode: '',
+      updatedAt: Date.now(), 
+      createdAt: Date.now() 
+    };
     await DataManager.saveNote(newNote);
     setNotification({ message: 'Note Duplicated', type: 'success' });
     setShowActionSheet(false);
     setTimeout(() => setNotification(null), 2000);
   };
 
-  const handleLock = (password: string) => {
-    if (password) {
-      DataManager.saveNote({ ...note!, isLocked: true, password, updatedAt: Date.now() });
+  const handleLock = async (password: string) => {
+    const trimmed = password.trim();
+    if (trimmed) {
+      const hashed = await hashPassword(trimmed);
+      const currentNote = noteRef.current || note!;
+      await DataManager.saveNote({ ...currentNote, isLocked: true, password: hashed, updatedAt: Date.now() });
       setNotification({ message: 'Page Locked', type: 'success' });
       setShowActionSheet(false);
       setTimeout(() => setNotification(null), 2000);

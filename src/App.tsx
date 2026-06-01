@@ -58,8 +58,8 @@ const AIChat = lazyWithRetry(() => import('./pages/AI/AIChat'));
 const AIConfiguration = lazyWithRetry(() => import('./pages/AI/AIConfiguration'));
 const AIContentArchitect = lazyWithRetry(() => import('./pages/AI/AIContentArchitect'));
 const TitleGenerator = lazyWithRetry(() => import('./pages/Tools/tool-library/text-tools/TitleGenerator'));
-const BrowseTemplates = lazyWithRetry(() => import('./pages/BrowseTemplates'));
-const RecycleBin = lazyWithRetry(() => import('./pages/RecycleBin'));
+const BrowseTemplates = lazyWithRetry(() => import('./pages/Templates/BrowseTemplates'));
+const RecycleBin = lazyWithRetry(() => import('./pages/Trash/RecycleBin'));
 const NetworkShield = lazyWithRetry(() => import('./pages/Settings/NetworkShield'));
 const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArchive'));
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
@@ -71,7 +71,7 @@ const NumberRemover = lazyWithRetry(() => import('./pages/Tools/tool-library/tex
 const Summarizer = lazyWithRetry(() => import('./pages/Tools/tool-library/text-tools/Summarizer'));
 const ZipFlattener = lazyWithRetry(() => import('./pages/Tools/tool-library/file-tools/ZipFlattener'));
 const NoteGenerator = lazyWithRetry(() => import('./pages/Tools/tool-library/file-tools/NoteGenerator'));
-const WorkspacePage = lazyWithRetry(() => import('./pages/WorkspacePage'));
+const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 
 function LoadingFallback() {
   return (
@@ -208,14 +208,18 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    let timer: any = null;
     const handleStorageWarning = (e: any) => {
       setNotification(e.detail);
+      if (timer) clearTimeout(timer);
       // Auto-hide after 5 seconds
-      const timer = setTimeout(() => setNotification(null), 5000);
-      return () => clearTimeout(timer);
+      timer = setTimeout(() => setNotification(null), 5000);
     };
     window.addEventListener('storage-warning', handleStorageWarning);
-    return () => window.removeEventListener('storage-warning', handleStorageWarning);
+    return () => {
+      window.removeEventListener('storage-warning', handleStorageWarning);
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -234,7 +238,7 @@ function AppContent() {
 
         // Step 3: Theme initialization
         const prefs = await DataManager.getUserPreferences();
-        setTheme('light');
+        setTheme(prefs.theme || 'light');
         setReducedMotion(!!prefs.reducedMotion);
       } catch (err) {
         console.error('App: Bootstrap failed', err);
@@ -256,7 +260,7 @@ function AppContent() {
     const handleSync = (data: any) => {
       if (data.type === 'SYNC_COMPLETE') {
         DataManager.getUserPreferences().then(prefs => {
-           setTheme('light');
+           setTheme(prefs.theme || 'light');
            setReducedMotion(!!prefs.reducedMotion);
         });
       }
@@ -270,15 +274,28 @@ function AppContent() {
   }, [navigate]);
 
   const handleSaveName = async (name: string, workspaceName: string) => {
-    await DataManager.saveUserName(name);
-    const workspaces = await DataManager.getWorkspaces();
-    const defaultWorkspace = workspaces[0];
-    defaultWorkspace.name = workspaceName;
-    await DataManager.saveWorkspace(defaultWorkspace);
-    DataManager.triggerSync('SYNC_COMPLETE');
-    
-    setUserName(name);
-    setShowPopup(false);
+    try {
+      await DataManager.saveUserName(name);
+      const workspaces = await DataManager.getWorkspaces();
+      if (workspaces && workspaces.length > 0) {
+        const defaultWorkspace = workspaces[0];
+        defaultWorkspace.name = workspaceName;
+        await DataManager.saveWorkspace(defaultWorkspace);
+      } else {
+        await DataManager.saveWorkspace({
+          id: 'default',
+          name: workspaceName,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+      DataManager.triggerSync('SYNC_COMPLETE');
+      
+      setUserName(name);
+      setShowPopup(false);
+    } catch (err) {
+      console.error('Failed to save name & workspace:', err);
+    }
   };
 
   const routingElement = useRoutes([
@@ -316,7 +333,7 @@ function AppContent() {
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 
-  const isLight = false;
+  const isLight = theme === 'light';
 
   useEffect(() => {
     document.documentElement.classList.toggle('light-theme', isLight);

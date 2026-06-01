@@ -9,7 +9,7 @@ import {
   List, ListTodo, Heading, ImageIcon, 
   Plus, X, Hash, Info, FileText 
 } from 'lucide-react';
-import { cn } from '../../../lib/utils';
+import { cn } from '../../../utils/cn';
 import { motion } from 'framer-motion';
 
 interface FloatingToolbarProps {

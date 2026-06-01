@@ -5,14 +5,14 @@ import {
   Layout, Loader2, MoreHorizontal, Home, Users 
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { DataManager } from '../services/storage/DataManager';
-import { globalCollabManager } from '../services/PeerCollabManager';
-import { ConfirmDialog } from '../components/modals/CustomDialogs';
-import { Workspace } from '../types';
+import { DataManager } from '../../services/storage/DataManager';
+import { globalCollabManager } from '../../services/PeerCollabManager';
+import { ConfirmDialog } from '../../components/modals/CustomDialogs';
+import { Workspace } from '../../types';
 
-import { WorkspaceLogoModal } from '../components/modals/WorkspaceLogoModal';
-import LoadingScreen from '../components/LoadingScreen';
-import { Modal } from '../components/modals/Modal';
+import { WorkspaceLogoModal } from '../../components/modals/WorkspaceLogoModal';
+import LoadingScreen from '../../components/LoadingScreen';
+import { Modal } from '../../components/modals/Modal';
 
 export default function WorkspacePage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);

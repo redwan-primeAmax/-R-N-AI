@@ -4,8 +4,7 @@
  */
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
-import { AIService, AIServiceOptions } from '../../aiService';
-import { SYSTEM_PROMPTS } from '../../../constants/prompts';
+import { AIService, AIServiceOptions } from '../AIService';
 
 export const FIREWORKS_SYSTEM_PROMPT = `You are Redwan AI (Fireworks Edition). 
 You help users manage a Notion-style workspace.

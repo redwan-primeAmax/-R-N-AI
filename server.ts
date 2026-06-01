@@ -9,27 +9,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // Safe path resolution for both ESM (development) and CommonJS (production bundle)
-let currentFilename = "";
-let currentDirname = process.cwd();
-
-try {
-  // Try using ESM's import.meta if available and has a url property.
-  // We safe-guard access to avoid runtime exceptions in CJS bundles.
-  const metaObj = (import.meta as any) || {};
-  if (metaObj.url) {
-    currentFilename = fileURLToPath(metaObj.url);
-    currentDirname = path.dirname(currentFilename);
-  }
-} catch (e) {
-  // Fallback to standard CJS globals if present and check execution contexts safely
-}
-
-if (!currentFilename && typeof __filename !== "undefined") {
-  currentFilename = __filename;
-}
-if (typeof __dirname !== "undefined") {
-  currentDirname = __dirname;
-}
+let currentFilename = typeof __filename !== "undefined" ? __filename : "";
+let currentDirname = typeof __dirname !== "undefined" ? __dirname : process.cwd();
 
 async function startServer() {
   const app = express();
@@ -40,6 +21,52 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Gemini Proxy Route
+  app.post("/api/ai/gemini", async (req: express.Request, res: express.Response) => {
+    try {
+      const { model, contents, generationConfig } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: { message: "Server Gemini API Key is missing. Please define GEMINI_API_KEY." } });
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-flash'}:streamGenerateContent?alt=sse&key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: generationConfig || { temperature: 0.7, maxOutputTokens: 8192 }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: { message: errorText || `Gemini proxy error status: ${response.status}` } };
+        }
+        return res.status(response.status).json(errorData);
+      }
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      if (response.body) {
+        // @ts-ignore
+        for await (const chunk of response.body) {
+          res.write(chunk);
+        }
+      }
+      res.end();
+    } catch (err: any) {
+      console.error("Gemini Proxy Route Error:", err);
+      res.status(500).json({ error: { message: err.message || "Internal server error" } });
+    }
   });
 
   // Catch-all for /api routes to return JSON 404 instead of HTML
@@ -67,4 +94,6 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("Failed to start server:", err);
+});

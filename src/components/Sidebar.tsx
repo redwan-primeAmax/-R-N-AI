@@ -10,7 +10,7 @@ import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
 import { globalCollabManager } from '../services/PeerCollabManager';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
-import { HistoryManager, RecentNote } from '../services/management/HistoryManager';
+import { HistoryManager, RecentNote } from '../services/storage/HistoryManager';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from './modals/Modal';

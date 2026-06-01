@@ -5,9 +5,9 @@ import {
   Trash, ChevronLeft, Loader2, AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { DataManager, Note } from '../services/storage/DataManager';
-import LoadingScreen from '../components/LoadingScreen';
-import { ConfirmDialog } from '../components/modals/CustomDialogs';
+import { DataManager, Note } from '../../services/storage/DataManager';
+import LoadingScreen from '../../components/LoadingScreen';
+import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 
 export default function RecycleBin() {
   const [trashedNotes, setTrashedNotes] = useState<Note[]>([]);
@@ -66,7 +66,7 @@ export default function RecycleBin() {
   };
 
   const handleBack = () => {
-    navigate('/');
+    navigate('/main');
   };
 
   return (

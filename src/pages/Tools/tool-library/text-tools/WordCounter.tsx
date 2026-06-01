@@ -22,7 +22,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { DataManager, Note } from '../../../../services/storage/DataManager';
-import { AIServiceFactory } from '../../../../services/serviceFactory';
+import { AIServiceFactory } from '../../../../services/ai/ServiceFactory';
 import FloatingHomeButton from '../../../../components/FloatingHomeButton';
 
 const WordCounter: React.FC = () => {

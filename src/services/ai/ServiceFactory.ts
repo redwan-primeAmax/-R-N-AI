@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AIService } from './aiService';
-import { GeminiService } from './ai/gemini/gemini';
-import { FireworksService } from './ai/fireworks/fireworks';
-import { OpenRouterService } from './ai/openrouter/openrouter';
-import { PicoService } from './ai/pico/pico';
-import { LocalHandler } from './ai/local/localHandler';
+import { AIService } from './AIService';
+import { GeminiService } from './gemini/gemini';
+import { FireworksService } from './fireworks/fireworks';
+import { OpenRouterService } from './openrouter/openrouter';
+import { PicoService } from './pico/pico';
+import { LocalHandler } from './local/localHandler';
 
 export class AIServiceFactory {
   static getService(provider: string): AIService {

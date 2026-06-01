@@ -9,7 +9,7 @@ import localforage from 'localforage';
 
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { operationRunner } from '../../../services/storage/OperationRunner';
-import { EditorBlock, htmlToBlocks, blocksToHtml } from '../components/CustomBlockEditor';
+import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 
 export function useEditorState(id: string | undefined) {
   const navigate = useNavigate();
@@ -161,6 +161,9 @@ export function useEditorState(id: string | undefined) {
             return next.map(b => b.id === activeId ? { ...b, type: `h${attrs.level}` as any } : b);
           });
           return focusChain;
+        },
+        setHeading: (attrs: { level: number }) => {
+          return focusChain.toggleHeading(attrs);
         },
         toggleBulletList: () => {
           setBlocks((prev) => {

@@ -5,7 +5,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn } from '../../utils/cn';
 
 import { ThemeMetadata } from '../../pages/Editor/themes/types';
 import { THEME_METADATA } from '../../pages/Editor/themes/ThemeRegistry';

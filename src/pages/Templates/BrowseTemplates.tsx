@@ -6,8 +6,8 @@
 import { useState, memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
-import { DataManager, Note } from '../services/storage/DataManager';
-import { TEMPLATES, Template } from '../templates/template-data';
+import { DataManager, Note } from '../../services/storage/DataManager';
+import { TEMPLATES, Template } from '../../templates/template-data';
 import { motion } from 'framer-motion';
 
 const TemplateCard = memo(({ template, onUse }: { template: Template; onUse: (t: Template) => void }) => (

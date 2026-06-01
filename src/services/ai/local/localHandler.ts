@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AIService, AIServiceOptions } from '../../aiService';
+import { AIService, AIServiceOptions } from '../AIService';
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
 
 export class LocalHandler extends AIService {
@@ -62,7 +62,7 @@ export const handleLocalSendMessage = async (
     const assistantMessage: ChatMessage = { role: 'model', text: response, timestamp: Date.now() };
     
     setMessages((prev: any) => [...prev, assistantMessage]);
-    setStreamingMessage('');
+    setStreamingMessage(null);
     await DataManager.saveChatMessage(assistantMessage);
   } catch (err: any) {
     console.error(err);

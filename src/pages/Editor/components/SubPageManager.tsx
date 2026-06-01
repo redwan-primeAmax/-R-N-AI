@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, FileText, ChevronRight, Plus } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '../../../lib/utils';
+import { cn } from '../../../utils/cn';
 
 interface SubPageManagerProps {
   currentNote: Note;

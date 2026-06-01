@@ -1,3 +1,3 @@
-export * from './note.types';
-export * from './ai.types';
-export * from './user.types';
+export * from './note';
+export * from './ai';
+export * from './user';
