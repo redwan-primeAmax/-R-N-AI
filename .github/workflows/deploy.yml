@@ -1,36 +1,49 @@
-name: Deploy
+name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
-      - run: npm ci
-      - run: npm run build
-      - name: Copy files to server
-        uses: easingthemes/ssh-deploy@main
+      - name: Install dependencies
+        run: npm install
+      - name: Build
+        run: |
+          npm run build
+          cp dist/index.html dist/404.html
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
-          ARGS: -avz --delete --exclude='.git' --exclude='node_modules' --exclude='src' --exclude='.github'
-          REMOTE_HOST: ${{ secrets.HOST }}
-          REMOTE_USER: ${{ secrets.USER }}
-          TARGET: ${{ secrets.TARGET }}
-          SOURCE: .
-      - name: Install deps & restart
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ${{ secrets.TARGET }}
-            npm ci --production
-            pm2 restart ecosystem.config.js || pm2 start npm --name "app" -- start
+          path: './dist'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
