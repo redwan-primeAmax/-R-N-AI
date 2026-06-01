@@ -12,7 +12,6 @@ export interface AIServiceOptions {
   onFullResponse?: (response: string) => void;
   history?: ChatMessage[];
   attachedNotes?: Note[];
-  signal?: AbortSignal;
 }
 
 export abstract class AIService {

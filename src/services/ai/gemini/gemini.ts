@@ -5,7 +5,7 @@
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
 import { AIService, AIServiceOptions } from '../../aiService';
-
+import { SYSTEM_PROMPTS } from '../../../constants/prompts';
 
 export const GEMINI_SYSTEM_PROMPT = `You are the Redwan Assistant (Gemini Edition).
 You are a professional Content Creator and AI Architect for a Notion-style editor.

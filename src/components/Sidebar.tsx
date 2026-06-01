@@ -205,21 +205,18 @@ export default function Sidebar({
     <>
       <AnimatePresence>
         {isOpen && (
+          <>
+            {/* Backdrop */}
           <motion.div
-            key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 bg-black/70 z-[100]"
           />
-        )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {isOpen && (
+          {/* Sidebar Content */}
           <motion.div
-            key="sidebar"
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
@@ -348,6 +345,7 @@ export default function Sidebar({
               </button>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 

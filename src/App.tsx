@@ -329,7 +329,7 @@ function AppContent() {
   return (
     <MotionConfig reducedMotion={reducedMotion ? "always" : "user"}>
     <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[#0A0A0A] text-white'} ${isFullPage ? '' : 'pb-32'} transition-colors duration-300`}>
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
         {isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning && (
           <Modal id="limit-warning-modal" isOpen={true} onClose={() => setHasDismissedLimitWarning(true)} title="একটি সতর্কতা (Note Limit Reached)">
