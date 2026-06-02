@@ -93,9 +93,22 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
   if (type === 'audio') {
     const togglePlay = () => {
       if (!audioRef.current) return;
-      if (isPlaying) audioRef.current.pause();
-      else audioRef.current.play();
-      setIsPlaying(!isPlaying);
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+            })
+            .catch(error => {
+              console.error("Playback failed:", error);
+              setIsPlaying(false);
+            });
+        }
+      }
     };
 
     const handleTimeUpdate = () => {

@@ -2,10 +2,10 @@ import { ThemeConfig } from '../types';
 
 export const DefaultTheme: ThemeConfig = {
   id: 'default',
-  name: 'Notion Light (ডিফল্ট)',
-  className: 'theme-notion-light',
-  previewColor: 'bg-[#FBFBFA] border-gray-200',
-  description: 'Clean Notion-style white theme with soft grey accents'
+  name: 'ডার্ক চারকোল (ডিফল্ট)',
+  className: 'theme-default',
+  previewColor: 'bg-[#1a1a1a] border-white/10',
+  description: 'Classic minimalist dark theme with clean charcoal styling'
 };
 
 export default DefaultTheme;

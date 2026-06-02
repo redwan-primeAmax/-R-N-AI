@@ -18,6 +18,9 @@ interface EditorCommandsProps {
   searchIndex: number;
   setSearchIndex: React.Dispatch<React.SetStateAction<number>>;
   setForceRefreshState: (state: any) => void;
+  historyRef?: React.MutableRefObject<EditorBlock[][]>;
+  historyPointer?: number;
+  setHistoryPointer?: (p: number) => void;
 }
 
 export function useEditorCommands({
@@ -31,7 +34,10 @@ export function useEditorCommands({
   searchResults,
   searchIndex,
   setSearchIndex,
-  setForceRefreshState
+  setForceRefreshState,
+  historyRef,
+  historyPointer,
+  setHistoryPointer
 }: EditorCommandsProps) {
   
   const editor = useMemo(() => ({
@@ -83,10 +89,31 @@ export function useEditorCommands({
     chain: () => {
       const focusChain = {
         focus: () => {
-          if (activeBlockId) {
-             const el = document.getElementById(activeBlockId);
-             if (el) el.focus();
-          }
+          // Delay focus slightly so React rendering finishes
+          setTimeout(() => {
+            let idToFocus = activeBlockId;
+            if (!idToFocus) {
+              const activeEls = document.querySelectorAll('[contenteditable="true"]');
+              if (activeEls.length > 0) {
+                idToFocus = activeEls[activeEls.length - 1].getAttribute('id');
+              }
+            }
+            if (idToFocus) {
+              const el = document.getElementById(idToFocus);
+              if (el) {
+                el.focus();
+                // Move cursor to end
+                try {
+                  const range = document.createRange();
+                  range.selectNodeContents(el);
+                  range.collapse(false);
+                  const sel = window.getSelection();
+                  sel?.removeAllRanges();
+                  sel?.addRange(range);
+                } catch (err) {}
+              }
+            }
+          }, 50);
           return focusChain;
         },
         toggleBold: () => {
@@ -266,7 +293,28 @@ export function useEditorCommands({
           });
           return focusChain;
         },
-        redo: () => focusChain,
+        undo: () => {
+          if (historyRef && setHistoryPointer && historyPointer !== undefined && historyPointer > 0) {
+            const currentHistory = historyRef.current;
+            const previousBlocks = currentHistory[historyPointer - 1];
+            setBlocks(previousBlocks);
+            setHistoryPointer(historyPointer - 1);
+          } else {
+            document.execCommand('undo', false);
+          }
+          return focusChain;
+        },
+        redo: () => {
+          if (historyRef && setHistoryPointer && historyPointer !== undefined && historyPointer < historyRef.current.length - 1) {
+            const currentHistory = historyRef.current;
+            const nextBlocks = currentHistory[historyPointer + 1];
+            setBlocks(nextBlocks);
+            setHistoryPointer(historyPointer + 1);
+          } else {
+            document.execCommand('redo', false);
+          }
+          return focusChain;
+        },
         run: () => {},
         runAudioGenerator: () => {
           setBlocks((prev) => {
@@ -276,7 +324,7 @@ export function useEditorCommands({
               content: '',
               meta: { text: '', status: 'idle' }
             };
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const idx = prev.findIndex(b => b.id === activeId);
             if (idx > -1) {
               const res = [...prev];
@@ -295,7 +343,72 @@ export function useEditorCommands({
               content: '',
               meta: { url: '', status: 'empty' }
             };
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        toggleToggleList: () => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'toggle' ? 'paragraph' : 'toggle', isExpanded: true } : b);
+          });
+          setForceRefreshState({});
+          return focusChain;
+        },
+        insertColumns: () => {
+          setBlocks((prev) => {
+            const newBlock = { id: crypto.randomUUID(), type: 'column' as any, content: '' };
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        insertTableView: () => {
+          setBlocks((prev) => {
+            const newBlock = { id: crypto.randomUUID(), type: 'table_view' as any, content: '' };
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        insertBoardView: () => {
+          setBlocks((prev) => {
+            const newBlock = { id: crypto.randomUUID(), type: 'board_view' as any, content: '' };
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        insertGalleryView: () => {
+          setBlocks((prev) => {
+            const newBlock = { id: crypto.randomUUID(), type: 'gallery_view' as any, content: '' };
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const idx = prev.findIndex(b => b.id === activeId);
             if (idx > -1) {
               const res = [...prev];
@@ -310,7 +423,7 @@ export function useEditorCommands({
       return { focus: () => focusChain };
     },
 
-    can: () => ({ undo: () => false, redo: () => false }),
+    can: () => ({ undo: () => true, redo: () => true }),
 
     on: (event: string, handler: any) => window.addEventListener(`editor-event-${event}`, handler),
     off: (event: string, handler: any) => window.removeEventListener(`editor-event-${event}`, handler),

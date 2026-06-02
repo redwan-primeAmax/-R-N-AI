@@ -53,6 +53,29 @@ export function useEditorState(id: string | undefined) {
   const lastSavedContentRef = useRef('');
   const [forceRefreshState, setForceRefreshState] = useState({});
 
+  // History state for UI update
+  const [historyPointer, setHistoryPointer] = useState(0);
+  const historyRef = useRef<EditorBlock[][]>([[]]);
+  
+  useEffect(() => {
+    blocksRef.current = blocks;
+    // Push history item if blocks change and we're not currently undoing/redoing
+    // We debounce this to capture data every 2 seconds as requested
+    const lastHistory = historyRef.current[historyPointer];
+    if (JSON.stringify(blocks) !== JSON.stringify(lastHistory)) {
+      const timer = setTimeout(() => {
+        // truncate future history
+        const newHistory = historyRef.current.slice(0, historyPointer + 1);
+        newHistory.push(blocks);
+        // keep at most 50 steps
+        if (newHistory.length > 50) newHistory.shift();
+        historyRef.current = newHistory;
+        setHistoryPointer(newHistory.length - 1);
+      }, 2000); // 2000ms debounce
+      return () => clearTimeout(timer);
+    }
+  }, [blocks, historyPointer]);
+
   useEffect(() => { noteRef.current = note; }, [note]);
 
   const BACKUP_KEY = `note_backup_${id}`;
@@ -86,7 +109,10 @@ export function useEditorState(id: string | undefined) {
     searchResults,
     searchIndex,
     setSearchIndex,
-    setForceRefreshState
+    setForceRefreshState,
+    historyRef,
+    historyPointer,
+    setHistoryPointer
   });
 
   // Trigger search transaction events
@@ -177,7 +203,7 @@ export function useEditorState(id: string | undefined) {
       if (ws) setWorkspaceName(ws.name);
 
       const allNotes = await DataManager.getAllNotes();
-      setCurrentSubPages(allNotes.filter(n => n.parentId === fetchedNote.id && !n.isTrashed));
+      setCurrentSubPages(allNotes.filter(n => n.parentId === fetchedNote.id && !n.isTrashed && n.id !== fetchedNote.id));
 
       if (fetchedNote.parentId) {
         DataManager.getNoteById(fetchedNote.parentId).then(setParentNote);

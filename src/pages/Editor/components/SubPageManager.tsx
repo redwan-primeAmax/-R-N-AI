@@ -43,12 +43,7 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
   }, [type, loadAvailableNotes]);
 
   const handleCreate = async () => {
-    const allNotes = await DataManager.getAllNotes();
-    const untitledCount = allNotes.filter(n => n.title.startsWith('শিরোনামহীন')).length;
-    const title = untitledCount === 0 ? 'শিরোনামহীন' : `শিরোনামহীন ${untitledCount + 1}`;
-    
     const newNote = await DataManager.createNote(currentNote.workspaceId || 'default', currentNote.id);
-    await DataManager.saveNote({ ...newNote, title });
     navigate(`/editor/${newNote.id}`);
     onClose();
   };

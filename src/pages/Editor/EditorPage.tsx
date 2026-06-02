@@ -148,6 +148,7 @@ export default function EditorPage() {
   useEffect(() => {
     if (id) {
       globalCollabManager.setActiveNoteId(id);
+      window.scrollTo(0, 0); // Scroll to top when opening a new page
     }
   }, [id]);
 
@@ -457,14 +458,7 @@ export default function EditorPage() {
     return () => window.removeEventListener('export-note-pdf', handlePdfExport);
   }, [note, setNotification]);
 
-  const isLight = activeTheme ? ['default', 'snow-white', 'yellow-ruled', 'grid-paper', 'soft-linen'].includes(activeTheme.id) : true;
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('light-theme', isLight);
-    return () => {
-      document.documentElement.classList.remove('light-theme');
-    };
-  }, [isLight]);
+  const isLight = activeTheme ? ['snow-white', 'yellow-ruled', 'grid-paper', 'soft-linen'].includes(activeTheme.id) : false;
 
   if (!editor || !note) {
     return <LoadingScreen />;
@@ -647,7 +641,7 @@ export default function EditorPage() {
   return (
     <div className={cn(
       "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
-      isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#121212] text-white"
+      isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
     )}>
       <EditorHeader 
         onBack={handleBack}
@@ -659,6 +653,7 @@ export default function EditorPage() {
         isCollaborating={!!collabRoom}
         collabPeerCount={activePeers}
         onStartCollab={handleStartCollab}
+        editor={editor}
         onNavigateToNote={(noteId) => {
           const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
           navigate(`/editor/${noteId}${collabParam}`);
@@ -668,21 +663,33 @@ export default function EditorPage() {
       <main 
         className={cn(
           "pt-14 pb-48 max-w-4xl mx-auto min-h-screen transition-colors duration-300 mb-20",
-          isLight ? "bg-white shadow-[0_0_80px_rgba(0,0,0,0.03)] border-x border-black/5" : "bg-[#121212]"
+          isLight ? "bg-white shadow-[0_0_80px_rgba(0,0,0,0.03)] border-x border-black/5" : "bg-[#1a1a1a]"
         )}
         onClick={(e) => {
           // Requirement 16: Click empty space to focus
-          if (e.target === e.currentTarget) {
-            const lastBlockId = editor.blocks[editor.blocks.length - 1]?.id;
-            if (lastBlockId) {
-              document.getElementById(lastBlockId)?.focus();
+          if (e.target === e.currentTarget && !isReadOnly) {
+            const blockId = editor.blocks[editor.blocks.length - 1]?.id;
+            if (blockId) {
+              document.getElementById(blockId)?.focus();
+              setActiveBlockId(blockId);
             }
           }
         }}
       >
-        <div className="px-6 md:px-20 pt-10">
+        <div 
+          className="px-6 md:px-20 pt-10 h-full min-h-[80vh] flex flex-col"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isReadOnly) {
+              const blockId = editor.blocks[editor.blocks.length - 1]?.id;
+              if (blockId) {
+                document.getElementById(blockId)?.focus();
+                setActiveBlockId(blockId);
+              }
+            }
+          }}
+        >
           {/* Requirement 3: Title at the absolute top */}
-          <div className="flex flex-col mb-4 items-start">
+          <div className="flex flex-col mb-10 items-start">
             <textarea
               autoFocus
               value={title}
@@ -691,29 +698,28 @@ export default function EditorPage() {
               rows={1}
               className={cn(
                 "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors",
-                isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.03]"
+                isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
               )}
             />
           </div>
 
-          <div className={cn(
-            "relative group w-full h-32 sm:h-40 flex items-center justify-center overflow-hidden mb-6 rounded-3xl transition-colors duration-300",
-            isLight ? "bg-[#f1f1f0]" : "bg-gradient-to-br from-black/20 via-[#1a1a1b] to-black"
-          )}>
-             <div className={cn(
-               "absolute inset-0 transition-opacity",
-               isLight ? "bg-white/10" : "bg-gradient-to-b from-[#121212]/0 via-[#121212]/50 to-[#121212]"
-             )} />
-          </div>
-
           <div 
-            className={cn("relative pb-48 min-h-[70vh] transition-all", themeClass)}
+            className={cn("relative pb-48 min-h-[70vh] transition-all flex border-0", themeClass)}
             data-darkreader-ignore={themeClass ? "true" : undefined}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isReadOnly) {
+                const blockId = editor.blocks[editor.blocks.length - 1]?.id;
+                if (blockId) {
+                  document.getElementById(blockId)?.focus();
+                  setActiveBlockId(blockId);
+                }
+              }
+            }}
           >
             <CustomBlockEditor 
               editor={editor} 
               className={cn(
-                "prose max-w-none focus:outline-none pb-20",
+                "prose max-w-none focus:outline-none pb-20 w-full",
                 !isLight && "prose-invert",
                 isReadOnly && "pointer-events-none select-none text-muted-foreground"
               )} 

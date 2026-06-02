@@ -816,7 +816,7 @@ export const DataManager = {
     cachedNotes = null;
     
     // Garbage Collection: Remove local note backups
-    await Object.keys(localStorage)
+    Object.keys(localStorage)
        .filter(k => k.startsWith(`note_backup_${id}`))
        .forEach(k => localStorage.removeItem(k));
     
@@ -829,7 +829,7 @@ export const DataManager = {
     cachedNotes = null;
     
     // Garbage Collection
-    await Object.keys(localStorage)
+    Object.keys(localStorage)
       .filter(k => k.startsWith(`note_backup_${id}`))
       .forEach(k => localStorage.removeItem(k));
     
@@ -842,7 +842,7 @@ export const DataManager = {
     cachedNotes = null;
     
     for (const id of ids) {
-      await Object.keys(localStorage)
+      Object.keys(localStorage)
         .filter(k => k.startsWith(`note_backup_${id}`))
         .forEach(k => localStorage.removeItem(k));
     }

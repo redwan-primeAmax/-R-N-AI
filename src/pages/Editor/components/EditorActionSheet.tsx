@@ -105,7 +105,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
             initial={{ y: "100%" }} 
             animate={{ y: 0 }} 
             exit={{ y: "100%" }}
-            className="relative w-full bg-[#0F0F0F] rounded-t-[48px] border-t border-white/[0.05] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            className="relative w-full bg-[#1a1a1a] rounded-t-[48px] border-t border-white/[0.05] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
           >
             <div className="w-12 h-1 bg-white/10 rounded-full mx-auto my-4 shrink-0" />
             
@@ -332,7 +332,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
               </div>
             </div>
 
-            <div className="p-6 bg-[#121212] border-t border-white/[0.05]">
+            <div className="p-6 bg-[#1a1a1a] border-t border-white/[0.05]">
               <button 
                 onClick={onClose}
                 className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-sm uppercase tracking-widest transition-all text-white/40"

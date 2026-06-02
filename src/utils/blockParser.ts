@@ -5,10 +5,12 @@
 
 export interface EditorBlock {
   id: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark';
+  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark' | 'toggle' | 'column' | 'page_link' | 'table_view' | 'board_view' | 'gallery_view';
   content: string;
+  indent?: number;
   checked?: boolean;
   language?: string;
+  isExpanded?: boolean;
   tableData?: string[][];
   withHeaderRow?: boolean;
   mediaData?: {
@@ -105,10 +107,15 @@ export function htmlToBlocks(html: string): EditorBlock[] {
 
   const addBlock = (type: EditorBlock['type'], content: string, extra: Partial<EditorBlock> = {}) => {
     const cleanedContent = cleanBlockHTML(content, type);
+    // Detection for indent from CSS or data-attributes
+    let indent = 0;
+    if (extra.indent !== undefined) indent = extra.indent;
+
     blocks.push({
       id: crypto.randomUUID(),
       type,
       content: cleanedContent,
+      indent,
       ...extra
     });
   };
@@ -209,34 +216,37 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
   blocks.forEach((block) => {
     switch (block.type) {
       case 'paragraph':
-        html += `<p>${block.content}</p>`;
+        html += `<p style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</p>`;
         break;
       case 'h1':
-        html += `<h1>${block.content}</h1>`;
+        html += `<h1 style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</h1>`;
         break;
       case 'h2':
-        html += `<h2>${block.content}</h2>`;
+        html += `<h2 style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</h2>`;
         break;
       case 'h3':
-        html += `<h3>${block.content}</h3>`;
+        html += `<h3 style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</h3>`;
         break;
       case 'quote':
-        html += `<blockquote>${block.content}</blockquote>`;
+        html += `<blockquote style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</blockquote>`;
         break;
       case 'hr':
-        html += `<hr />`;
+        html += `<hr style="margin-left: ${(block.indent || 0) * 24}px" />`;
         break;
       case 'bullet':
-        html += `<ul data-type="bullet"><li>${block.content}</li></ul>`;
+        html += `<ul data-type="bullet" style="margin-left: ${(block.indent || 0) * 24}px"><li>${block.content}</li></ul>`;
         break;
       case 'ordered':
-        html += `<ol data-type="ordered"><li>${block.content}</li></ol>`;
+        html += `<ol data-type="ordered" style="margin-left: ${(block.indent || 0) * 24}px"><li>${block.content}</li></ol>`;
         break;
       case 'todo':
-        html += `<ul data-type="taskList"><li class="${block.checked ? 'checked task-item-modern' : 'task-item-modern'}" data-checked="${block.checked ? 'true' : 'false'}"><input type="checkbox" ${block.checked ? 'checked' : ''} disabled><label>${block.content}</label></li></ul>`;
+        html += `<ul data-type="taskList" style="margin-left: ${(block.indent || 0) * 24}px"><li class="${block.checked ? 'checked task-item-modern' : 'task-item-modern'}" data-checked="${block.checked ? 'true' : 'false'}"><input type="checkbox" ${block.checked ? 'checked' : ''} disabled><label>${block.content}</label></li></ul>`;
+        break;
+      case 'toggle':
+        html += `<div class="toggle-list" data-type="toggle" style="margin-left: ${(block.indent || 0) * 24}px" data-expanded="${block.isExpanded ? 'true' : 'false'}">${block.content}</div>`;
         break;
       case 'code':
-        html += `<pre><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
+        html += `<pre style="margin-left: ${(block.indent || 0) * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
         break;
       case 'callout':
         html += `<div class="callout" data-type="callout">${block.content}</div>`;
