@@ -92,7 +92,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.1, ease: "linear" }}
-      className="w-full h-full"
+      className="w-full"
     >
       {children}
     </motion.div>
@@ -120,7 +120,7 @@ function AppContent() {
   const isFullPage = isEditorPage || isSearchPage || isToolsPage || isAIPage || isWorkspacePage || isSpecialPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('light');
+  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [notification, setNotification] = useState<{ message: string; severity: 'warning' | 'error' } | null>(null);
@@ -238,7 +238,7 @@ function AppContent() {
 
         // Step 3: Theme initialization
         const prefs = await DataManager.getUserPreferences();
-        setTheme(prefs.theme || 'light');
+        setTheme(prefs.theme || 'dark');
         setReducedMotion(!!prefs.reducedMotion);
       } catch (err) {
         console.error('App: Bootstrap failed', err);
@@ -260,7 +260,7 @@ function AppContent() {
     const handleSync = (data: any) => {
       if (data.type === 'SYNC_COMPLETE') {
         DataManager.getUserPreferences().then(prefs => {
-           setTheme(prefs.theme || 'light');
+           setTheme(prefs.theme || 'dark');
            setReducedMotion(!!prefs.reducedMotion);
         });
       }

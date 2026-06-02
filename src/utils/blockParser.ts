@@ -5,7 +5,7 @@
 
 export interface EditorBlock {
   id: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox';
+  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark';
   content: string;
   checked?: boolean;
   language?: string;
@@ -18,6 +18,14 @@ export interface EditorBlock {
     fileSize: string;
     status: 'uploading' | 'completed' | 'error';
     url?: string;
+  };
+  bookmarkData?: {
+    url: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    icon?: string;
+    siteName?: string;
   };
 }
 

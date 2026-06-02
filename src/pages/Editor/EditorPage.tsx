@@ -21,6 +21,8 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { BlockMenu } from './components/BlockMenu';
 import { SubPageManager } from './components/SubPageManager';
 import { EditorActionSheet } from './components/EditorActionSheet';
+import { LinkPageList } from './components/LinkPageList';
+import { PlusPanel } from './components/PlusPanel';
 import { InputDialog, ConfirmDialog } from '../../components/modals/CustomDialogs';
 import LoadingScreen from '../../components/LoadingScreen';
 import { TagManagerModal } from '../../components/modals/TagManagerModal';
@@ -31,7 +33,7 @@ import { ThemeConfig } from './themes/types';
 import { cn } from '../../utils/cn';
 import { hashPassword } from '../../utils/crypto';
 
-const EMOJIS = ['📄', '📝', '💡', '🗓️', '✅', '📌', '🚀', '⭐', '📁', '🔥', '🎨', '💻', '🌍', '📊', '⚡', '🤖', '📚', '🛠️', '🔒', '🎯', '🗺️', '🎬', '🧩', '🎸', '🧬', '🧪', '🔭', '🪐'];
+const ACTIVE_TASKS_LIMIT = 5;
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +48,22 @@ export default function EditorPage() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  
+  // Link Click Interception for Page Links (SPA navigation)
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a.page-link');
+      if (link) {
+        e.preventDefault();
+        const href = link.getAttribute('href');
+        if (href) navigate(href);
+      }
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, [navigate]);
+
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -59,6 +76,21 @@ export default function EditorPage() {
   const [passwordInput, setPasswordInput] = useState('');
   const [activeTheme, setActiveTheme] = useState<ThemeConfig | null>(null);
   const lastClickTime = useRef<number>(0);
+
+  const [showLinkPanel, setShowLinkPanel] = useState(false);
+
+  useEffect(() => {
+    const handleShowSubPageLinkList = () => setShowLinkPanel(true);
+    window.addEventListener('editor-event-showSubPageLinkList', handleShowSubPageLinkList);
+    return () => window.removeEventListener('editor-event-showSubPageLinkList', handleShowSubPageLinkList);
+  }, []);
+
+  const handleLinkPageSelect = (targetNote: any) => {
+    // Requirement 19: Insert link with arrow
+    const linkHtml = `<a href="/editor/${targetNote.id}" class="page-link" data-note-id="${targetNote.id}"><span class="link-arrow">⤴</span> ${targetNote.title || 'শিরোনামহীন'}</a>`;
+    document.execCommand('insertHTML', false, linkHtml);
+    setShowLinkPanel(false);
+  };
 
   // Collaboration P2P States
   const [collabRoom, setCollabRoom] = useState<string | null>(globalCollabManager.getRoomId(id));
@@ -425,7 +457,7 @@ export default function EditorPage() {
     return () => window.removeEventListener('export-note-pdf', handlePdfExport);
   }, [note, setNotification]);
 
-  const isLight = activeTheme ? ['snow-white', 'yellow-ruled', 'grid-paper', 'soft-linen'].includes(activeTheme.id) : false;
+  const isLight = activeTheme ? ['default', 'snow-white', 'yellow-ruled', 'grid-paper', 'soft-linen'].includes(activeTheme.id) : true;
 
   useEffect(() => {
     document.documentElement.classList.toggle('light-theme', isLight);
@@ -615,7 +647,7 @@ export default function EditorPage() {
   return (
     <div className={cn(
       "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
-      isLight ? "bg-gray-50 text-gray-900" : "bg-[#121212] text-white"
+      isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#121212] text-white"
     )}>
       <EditorHeader 
         onBack={handleBack}
@@ -626,88 +658,56 @@ export default function EditorPage() {
         onShowMenu={() => setShowActionSheet(true)}
         isCollaborating={!!collabRoom}
         collabPeerCount={activePeers}
+        onStartCollab={handleStartCollab}
         onNavigateToNote={(noteId) => {
           const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
           navigate(`/editor/${noteId}${collabParam}`);
         }}
       />
 
-      <main className={cn(
-        "pt-14 pb-48 max-w-3xl mx-auto min-h-screen border-x transition-colors duration-300",
-        isLight ? "bg-white border-gray-100" : "bg-[#121212] border-white/[0.02]"
-      )}>
-        {isHostOffline && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-500/90 backdrop-blur-xl animate-fade-in relative z-50">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span>Host is offline. You can continue editing; changes will sync when reconnected.</span>
-            </div>
-            <button
-              onClick={async () => {
-                try {
-                  const newNote = {
-                    ...note!,
-                    id: crypto.randomUUID(),
-                    title: `${note!.title || 'শিরোনামহীন'} (Copy)`,
-                    updatedAt: Date.now(),
-                    createdAt: Date.now()
-                  };
-                  await DataManager.saveNote(newNote);
-                  setNotification({ message: 'Copy saved to your notes successfully!', type: 'success' });
-                  setTimeout(() => setNotification(null), 3000);
-                } catch (err) {
-                  console.error(err);
-                  setNotification({ message: 'Failed to save copy.', type: 'error' });
-                  setTimeout(() => setNotification(null), 3000);
-                }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-wider rounded-xl text-[10px] active:scale-95 transition-all shadow-[0_4px_12px_rgba(245,158,11,0.2)]"
-            >
-              <Files size={12} />
-              Save a Copy
-            </button>
-          </div>
+      <main 
+        className={cn(
+          "pt-14 pb-48 max-w-4xl mx-auto min-h-screen transition-colors duration-300 mb-20",
+          isLight ? "bg-white shadow-[0_0_80px_rgba(0,0,0,0.03)] border-x border-black/5" : "bg-[#121212]"
         )}
-
-        <div className={cn(
-          "relative group w-full h-56 sm:h-72 flex items-center justify-center overflow-hidden mb-0 transition-colors duration-300 shadow-[inset_0_-80px_60px_-20px_rgba(0,0,0,0.5)]",
-          isLight ? "bg-gradient-to-br from-blue-100 via-purple-50 to-white" : "bg-gradient-to-br from-black/20 via-[#1a1a1b] to-black"
-        )}>
-           <div className={cn(
-             "absolute inset-0 transition-opacity",
-             isLight ? "bg-white/20" : "bg-gradient-to-b from-[#121212]/0 via-[#121212]/50 to-[#121212]"
-           )} />
-           
-           {/* Repositioned Emoji Button in Hero Section */}
-           <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={cn(
-                "absolute bottom-8 left-8 z-40 text-6xl p-4 rounded-[2rem] transition-all shadow-2xl border-4",
-                isLight ? "bg-white border-white shadow-gray-200" : "bg-[#121212] border-white/5 shadow-black"
-              )}
-            >
-              {emoji}
-            </motion.button>
-        </div>
-
-        <div className="px-6 md:px-16 relative z-30">
-          <div className="flex flex-col mb-12 mt-12 items-start">
+        onClick={(e) => {
+          // Requirement 16: Click empty space to focus
+          if (e.target === e.currentTarget) {
+            const lastBlockId = editor.blocks[editor.blocks.length - 1]?.id;
+            if (lastBlockId) {
+              document.getElementById(lastBlockId)?.focus();
+            }
+          }
+        }}
+      >
+        <div className="px-6 md:px-20 pt-10">
+          {/* Requirement 3: Title at the absolute top */}
+          <div className="flex flex-col mb-4 items-start">
             <textarea
+              autoFocus
               value={title}
               onChange={(e) => updateTitle(e.target.value)}
               placeholder="শিরোনামহীন"
               rows={1}
               className={cn(
-                "w-full bg-transparent text-5xl sm:text-6xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tighter resize-none leading-[1.1] transition-colors",
+                "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors",
                 isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.03]"
               )}
             />
           </div>
-          
+
+          <div className={cn(
+            "relative group w-full h-32 sm:h-40 flex items-center justify-center overflow-hidden mb-6 rounded-3xl transition-colors duration-300",
+            isLight ? "bg-[#f1f1f0]" : "bg-gradient-to-br from-black/20 via-[#1a1a1b] to-black"
+          )}>
+             <div className={cn(
+               "absolute inset-0 transition-opacity",
+               isLight ? "bg-white/10" : "bg-gradient-to-b from-[#121212]/0 via-[#121212]/50 to-[#121212]"
+             )} />
+          </div>
+
           <div 
-            className={cn("relative pt-8 pb-48 -mb-48 min-h-[85vh] -mx-6 md:-mx-16 px-6 md:px-16 !rounded-b-none !border-b-0", themeClass)}
+            className={cn("relative pb-48 min-h-[70vh] transition-all", themeClass)}
             data-darkreader-ignore={themeClass ? "true" : undefined}
           >
             <CustomBlockEditor 
@@ -715,7 +715,7 @@ export default function EditorPage() {
               className={cn(
                 "prose max-w-none focus:outline-none pb-20",
                 !isLight && "prose-invert",
-                isReadOnly && "pointer-events-none select-none"
+                isReadOnly && "pointer-events-none select-none text-muted-foreground"
               )} 
             />
           </div>
@@ -729,11 +729,18 @@ export default function EditorPage() {
         isLight={isLight}
       />
 
-      <BlockMenu 
+      <PlusPanel 
         isOpen={showBlockMenu} 
         onClose={() => setShowBlockMenu(false)} 
         editor={editor}
-        noteRef={noteRef}
+        isLight={isLight}
+      />
+
+      <LinkPageList 
+        isOpen={showLinkPanel}
+        onClose={() => setShowLinkPanel(false)}
+        onSelect={handleLinkPageSelect}
+        workspaceId={note?.workspaceId || 'default'}
       />
 
       <AnimatePresence>
@@ -795,37 +802,6 @@ export default function EditorPage() {
         onTagsUpdated={handleTagSaveSubmit} 
       />
 
-      <AnimatePresence>
-        {showEmojiPicker && (
-          <div className="fixed inset-0 z-[150] flex items-end">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowEmojiPicker(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative w-full bg-[#181818] rounded-t-[40px] p-6 pb-12 border-t border-white/10 shadow-2xl">
-              <div className="grid grid-cols-5 gap-4 max-h-[400px] overflow-y-auto no-scrollbar">
-                {EMOJIS.map(e => (
-                  <button key={e} onClick={() => { setEmoji(e); emojiRef.current = e; saveNote(editor.getHTML()); setShowEmojiPicker(false); }} className="text-4xl p-4 hover:bg-white/5 rounded-3xl transition-all">
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <NoteExportModal 
-        isOpen={showExportModal} 
-        onClose={() => setShowExportModal(false)}
-        note={note}
-        onPdfExport={() => window.dispatchEvent(new CustomEvent('export-note-pdf'))}
-      />
-
-      <ThemeSelectorModal 
-        isOpen={showThemeSelector} 
-        onClose={() => setShowThemeSelector(false)} 
-        onSelect={handleThemeSelect}
-        currentTheme={theme}
-      />
-
       {notification && (
         <motion.div initial={{ y: -50 }} animate={{ y: 20 }} exit={{ y: -50 }} className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-full bg-white text-black text-xs font-black uppercase">
           {notification.message}
@@ -834,3 +810,4 @@ export default function EditorPage() {
     </div>
   );
 }
+

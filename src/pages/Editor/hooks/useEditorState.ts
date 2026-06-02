@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import localforage from 'localforage';
 
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { operationRunner } from '../../../services/storage/OperationRunner';
 import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
+import { useEditorCommands } from './useEditorCommands';
 
 export function useEditorState(id: string | undefined) {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export function useEditorState(id: string | undefined) {
 
   // Editor Blocks State
   const [blocks, setBlocks] = useState<EditorBlock[]>([]);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchIndex, setSearchIndex] = useState(0);
@@ -49,6 +51,7 @@ export function useEditorState(id: string | undefined) {
 
   const blocksRef = useRef<EditorBlock[]>(blocks);
   const lastSavedContentRef = useRef('');
+  const [forceRefreshState, setForceRefreshState] = useState({});
 
   useEffect(() => { noteRef.current = note; }, [note]);
 
@@ -71,273 +74,20 @@ export function useEditorState(id: string | undefined) {
     setSearchIndex(0);
   }, [searchTerm, blocks]);
 
-  // Create Tiptap compat-shim controller
-  const editor = {
+  // Create Tiptap compat-shim controller via modular hook
+  const editor = useEditorCommands({
     blocks,
     setBlocks,
+    activeBlockId,
+    setActiveBlockId,
     isReadOnly,
-    isDestroyed: false,
-    
-    getHTML: () => {
-      return blocksToHtml(blocks);
-    },
-
-    isActive: (type: string, attrs?: any) => {
-      if (type === 'bold') return document.queryCommandState?.('bold') || false;
-      if (type === 'italic') return document.queryCommandState?.('italic') || false;
-      if (type === 'strike') return document.queryCommandState?.('strikeThrough') || false;
-      if (type === 'underline') return document.queryCommandState?.('underline') || false;
-      if (type === 'code') return document.queryCommandValue?.('fontName') === 'monospace' || false;
-      
-      if (type === 'heading') {
-        if (attrs && attrs.level === 1) return blocks.some(b => b.type === 'h1');
-        if (attrs && attrs.level === 2) return blocks.some(b => b.type === 'h2');
-        if (attrs && attrs.level === 3) return blocks.some(b => b.type === 'h3');
-        return blocks.some(b => b.type === 'h1' || b.type === 'h2' || b.type === 'h3');
-      }
-      if (type === 'bulletList') return blocks.some(b => b.type === 'bullet');
-      if (type === 'orderedList') return blocks.some(b => b.type === 'ordered');
-      if (type === 'taskList') return blocks.some(b => b.type === 'todo');
-      if (type === 'blockquote') return blocks.some(b => b.type === 'quote');
-      return false;
-    },
-
-    storage: {
-      get searchAndReplace() {
-        return {
-          results: searchResults,
-          resultIndex: searchIndex
-        };
-      }
-    },
-
-    commands: {
-      setContent: (html: string) => {
-        const parsed = htmlToBlocks(html);
-        setBlocks(parsed);
-      },
-      insertContent: (html: string) => {
-        const parsed = htmlToBlocks(html);
-        setBlocks((prev) => [...prev, ...parsed]);
-      },
-      setSearchTerm: (term: string) => {
-        setSearchTerm(term);
-      },
-      nextSearchResult: () => {
-        setSearchIndex((p) => (searchResults.length > 0 ? (p + 1) % searchResults.length : 0));
-      },
-      previousSearchResult: () => {
-        setSearchIndex((p) => (searchResults.length > 0 ? (p - 1 + searchResults.length) % searchResults.length : 0));
-      }
-    },
-
-    chain: () => {
-      const focusChain = {
-        toggleBold: () => {
-          document.execCommand('bold', false);
-          return focusChain;
-        },
-        toggleItalic: () => {
-          document.execCommand('italic', false);
-          return focusChain;
-        },
-        toggleStrike: () => {
-          document.execCommand('strikeThrough', false);
-          return focusChain;
-        },
-        toggleUnderline: () => {
-          document.execCommand('underline', false);
-          return focusChain;
-        },
-        toggleCode: () => {
-          document.execCommand('fontName', false, 'monospace');
-          return focusChain;
-        },
-        toggleHeading: (attrs: { level: number }) => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: `h${attrs.level}` as any } : b);
-          });
-          return focusChain;
-        },
-        setHeading: (attrs: { level: number }) => {
-          return focusChain.toggleHeading(attrs);
-        },
-        toggleBulletList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'bullet' } : b);
-          });
-          return focusChain;
-        },
-        toggleOrderedList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'ordered' } : b);
-          });
-          return focusChain;
-        },
-        toggleTaskList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'todo', checked: false } : b);
-          });
-          return focusChain;
-        },
-        toggleBlockquote: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'quote' } : b);
-          });
-          return focusChain;
-        },
-        toggleCodeBlock: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'code', language: 'javascript' } : b);
-          });
-          return focusChain;
-        },
-        setParagraph: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'paragraph' } : b);
-          });
-          return focusChain;
-        },
-        setHorizontalRule: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return [...prev, { id: crypto.randomUUID(), type: 'hr', content: '' }];
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            const idx = next.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              next.splice(idx + 1, 0, { id: crypto.randomUUID(), type: 'hr', content: '' });
-              return next;
-            }
-            return [...prev, { id: crypto.randomUUID(), type: 'hr', content: '' }];
-          });
-          return focusChain;
-        },
-        setCallout: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { ...b, type: 'callout' } : b);
-          });
-          return focusChain;
-        },
-        setSandbox: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            return next.map(b => b.id === activeId ? { 
-              ...b, 
-              type: 'sandbox', 
-              content: '<h3>Title</h3>\n<p>Write your HTML/CSS/JS code block here...</p>' 
-            } : b);
-          });
-          return focusChain;
-        },
-        insertTable: (attrs: any) => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return [...prev, {
-              id: crypto.randomUUID(),
-              type: 'table',
-              content: '',
-              tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
-            }];
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            const idx = next.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              next.splice(idx + 1, 0, {
-                id: crypto.randomUUID(),
-                type: 'table',
-                content: '',
-                tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
-              });
-              return next;
-            }
-            return [...prev, {
-              id: crypto.randomUUID(),
-              type: 'table',
-              content: '',
-              tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
-            }];
-          });
-          return focusChain;
-        },
-        setMedia: (attrs: any) => {
-          setBlocks((prev) => {
-            const mediaBlock = {
-              id: crypto.randomUUID(),
-              type: 'media' as any,
-              content: '',
-              mediaData: {
-                id: attrs.id || crypto.randomUUID(),
-                type: attrs.type || 'image',
-                fileName: attrs.fileName || '',
-                fileSize: attrs.fileSize || '',
-                status: attrs.status || 'uploading',
-                url: attrs.url || ''
-              }
-            };
-            if (prev.length === 0) return [...prev, mediaBlock];
-            const next = [...prev];
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || next[next.length - 1].id;
-            const idx = next.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              next.splice(idx + 1, 0, mediaBlock);
-              return next;
-            }
-            return [...prev, mediaBlock];
-          });
-          return focusChain;
-        },
-        undo: () => { return focusChain; },
-        redo: () => { return focusChain; },
-        run: () => {}
-      };
-      return {
-        focus: () => focusChain
-      };
-    },
-
-    can: () => {
-      return {
-        undo: () => false,
-        redo: () => false
-      };
-    },
-
-    on: (event: string, handler: any) => {
-      // search-and-replace list triggers
-      window.addEventListener(`editor-event-${event}`, handler);
-    },
-    off: (event: string, handler: any) => {
-      window.removeEventListener(`editor-event-${event}`, handler);
-    },
-    triggerEvent: (event: string, detail?: any) => {
-      window.dispatchEvent(new CustomEvent(`editor-event-${event}`, { detail }));
-    }
-  };
+    searchTerm,
+    setSearchTerm,
+    searchResults,
+    searchIndex,
+    setSearchIndex,
+    setForceRefreshState
+  });
 
   // Trigger search transaction events
   useEffect(() => {

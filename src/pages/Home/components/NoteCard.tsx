@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, FileText } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -43,8 +43,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       
       <div className="flex items-start justify-between">
-        <div className="w-14 h-14 bg-white/[0.03] rounded-[22px] flex items-center justify-center text-3xl shadow-inner border border-white/5 group-hover:scale-110 transition-transform duration-500">
-          {note.emoji || '📄'}
+        <div className="w-14 h-14 bg-white/[0.03] rounded-[22px] flex items-center justify-center shadow-inner border border-white/5 group-hover:scale-110 transition-transform duration-500">
+          <FileText size={28} className="text-white/20" />
         </div>
         <div className="flex items-center gap-2">
           {note.isCollaborated && (

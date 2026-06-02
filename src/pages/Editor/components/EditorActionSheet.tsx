@@ -112,8 +112,8 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
             <div className="overflow-y-auto px-6 pb-12 flex-1 no-scrollbar">
               {/* Header Info */}
               <div className="flex items-center gap-4 mb-8 p-2">
-                <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center text-4xl shadow-inner border border-white/5">
-                  {note.emoji}
+                <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center shadow-inner border border-white/5">
+                  <FileText size={32} className="text-white/20" />
                 </div>
                 <div>
                   <h3 className="font-black text-xl tracking-tight">{note.title || 'শিরোনামহীন'}</h3>
@@ -147,7 +147,9 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                         }}
                         className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/5 transition-all text-left"
                       >
-                        <span className="text-xl">{sub.emoji}</span>
+                        <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center text-white/20">
+                          <FileText size={16} />
+                        </div>
                         <span className="font-bold text-xs text-white/70 truncate flex-1">{sub.title || 'শিরোনামহীন'}</span>
                         <ChevronRight size={14} className="text-white/20" />
                       </button>

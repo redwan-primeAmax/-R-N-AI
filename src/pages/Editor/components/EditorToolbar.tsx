@@ -5,9 +5,9 @@
 
 import React, { useState } from 'react';
 import { 
-  Bold, Italic, Underline, Strikethrough, Code, 
-  List, ListTodo, Undo2, Redo2, Plus, 
-  Quote, ListOrdered, Search
+  Underline, Strikethrough, Code, 
+  Undo2, Redo2, Plus, 
+  Search, Link2, ChevronRight
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -29,6 +29,15 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   const [showHeadings, setShowHeadings] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [, forceUpdate] = useState({});
+
+  React.useEffect(() => {
+    const handleSelectionChange = () => {
+      forceUpdate({});
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
@@ -71,6 +80,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       onPointerDown={(e) => {
         // Prevent focus loss/keyboard closing
         e.preventDefault();
+        // Give tactile feedback on mobile
+        if (typeof window !== 'undefined' && window.navigator.vibrate) {
+          window.navigator.vibrate(5);
+        }
       }}
       onClick={(e) => {
         e.preventDefault();
@@ -128,17 +141,18 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           <div className={cn("w-[1px] h-6 mx-1 flex-shrink-0", isLight ? "bg-gray-200" : "bg-white/10")} />
 
           <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleBold().run()} 
-            isActive={editor.isActive('bold')}
+            onClick={() => {
+              // Trigger link to page list
+              window.dispatchEvent(new CustomEvent('editor-event-showSubPageLinkList'));
+            }} 
+            className={cn(
+              isLight ? "text-indigo-600 bg-indigo-50 hover:bg-indigo-100" : "text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20"
+            )}
           >
-            <Bold size={18} />
-          </ToolbarButton>
-
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleItalic().run()} 
-            isActive={editor.isActive('italic')}
-          >
-            <Italic size={18} />
+            <div className="flex items-center gap-1">
+              <Link2 size={18} />
+              <span className="text-[10px] font-black uppercase tracking-tighter">Link</span>
+            </div>
           </ToolbarButton>
 
           <ToolbarButton 
@@ -160,65 +174,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             isActive={editor.isActive('code')}
           >
             <Code size={18} />
-          </ToolbarButton>
-
-          <div className={cn("w-[1px] h-6 mx-1 flex-shrink-0", isLight ? "bg-gray-200" : "bg-white/10")} />
-
-          <ToolbarButton 
-            onClick={() => {
-              let currentLevel = 0;
-              for (let i = 1; i <= 6; i++) {
-                if (editor.isActive('heading', { level: i })) {
-                  currentLevel = i;
-                  break;
-                }
-              }
-              if (currentLevel === 0 || currentLevel === 6) {
-                editor.chain().focus().toggleHeading({ level: 1 }).run();
-              } else {
-                editor.chain().focus().toggleHeading({ level: (currentLevel + 1) as any }).run();
-              }
-            }} 
-            isActive={editor.isActive('heading')}
-            className="relative"
-          >
-            <div className="flex items-center">
-              <span className="text-[10px] font-black mr-0.5">H</span>
-              {editor.isActive('heading', { level: 1 }) ? '1' : 
-               editor.isActive('heading', { level: 2 }) ? '2' : 
-               editor.isActive('heading', { level: 3 }) ? '3' : 
-               editor.isActive('heading', { level: 4 }) ? '4' : 
-               editor.isActive('heading', { level: 5 }) ? '5' : 
-               editor.isActive('heading', { level: 6 }) ? '6' : ''}
-            </div>
-          </ToolbarButton>
-
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleBulletList().run()} 
-            isActive={editor.isActive('bulletList')}
-          >
-            <List size={18} />
-          </ToolbarButton>
-
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleOrderedList().run()} 
-            isActive={editor.isActive('orderedList')}
-          >
-            <ListOrdered size={18} />
-          </ToolbarButton>
-
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleTaskList().run()} 
-            isActive={editor.isActive('taskList')}
-          >
-            <ListTodo size={18} />
-          </ToolbarButton>
-
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleBlockquote().run()} 
-            isActive={editor.isActive('blockquote')}
-          >
-            <Quote size={18} />
           </ToolbarButton>
 
           <div className={cn("w-[1px] h-6 mx-1 flex-shrink-0", isLight ? "bg-gray-200" : "bg-white/10")} />

@@ -148,7 +148,9 @@ export default function Sidebar({
             </button>
           )}
           {!children.length && <div className="w-6" />}
-          <span className="text-lg">{note.emoji || '📄'}</span>
+          <div className="w-5 h-5 flex items-center justify-center text-white/20">
+            <FileText size={16} />
+          </div>
           <span className="text-sm font-bold truncate flex-1">{note.title || 'Untitled'}</span>
         </div>
         {isExpanded && children.length > 0 && (

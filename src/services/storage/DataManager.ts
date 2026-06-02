@@ -4,7 +4,6 @@
  */
 
 import localforage from 'localforage';
-import { Index } from 'flexsearch';
 import { db, runMigrationFromLocalForage } from './DexieDB';
 import { HistoryManager } from './HistoryManager';
 
@@ -70,20 +69,7 @@ let isFullyIndexed = false;
 let cachedStorageUsage: { used: number; quota: number } | null = null;
 let lastStorageCheck = 0;
 
-// Initialize FlexSearch index
-let searchIndex: Index;
-try {
-  searchIndex = new Index({
-    preset: 'score',
-    tokenize: 'forward',
-    cache: true
-  });
-  console.log('FlexSearch index initialized successfully');
-} catch (e) {
-  console.error('Failed to initialize FlexSearch index:', e);
-}
-
-const NOTES_KEY = 'notes';
+// Internal helper to trigger sync both locally and remotely
 const CHAT_HISTORY_KEY = 'chat_history';
 const TASKS_KEY = 'ai_tasks';
 const CONTEXT_SUMMARY_KEY = 'context_summary';
@@ -97,14 +83,7 @@ const CUSTOM_EXTENSION = '.redwan';
 // Debounce indexing to avoid performance issues during rapid typing
 let indexingTimeout: NodeJS.Timeout | null = null;
 const scheduleIndexing = (note: Note) => {
-  if (indexingTimeout) clearTimeout(indexingTimeout);
-  indexingTimeout = setTimeout(() => {
-    if (searchIndex) {
-      const strippedContent = note.content.replace(/<[^>]*>/g, ' ').substring(0, 5000); // Only index first 5000 chars of text for performance
-      searchIndex.add(note.id, `${note.title} ${note.tags?.join(' ') || ''} ${strippedContent}`);
-      console.log('DataManager: Search index updated for', note.id);
-    }
-  }, 500); // Reduced to 500ms but optimized payload
+  // RST Search handles indexing via worker sync, so we just clear legacy placeholders here
 };
 
 // Encryption/decryption helpers (AES-GCM for better security)
@@ -234,7 +213,7 @@ export const DataManager = {
   async getUserPreferences(): Promise<UserPreferences> {
     const record = await db.key_value_pairs.get('user_preferences');
     const prefs = record ? record.value : null;
-    return prefs || { reducedMotion: false, theme: 'light' };
+    return prefs || { reducedMotion: false, theme: 'dark' };
   },
 
   async saveUserPreferences(prefs: UserPreferences): Promise<void> {
@@ -593,24 +572,9 @@ export const DataManager = {
       if (userName) await this.saveUserName(userName);
     });
     
-    // Reset cache and index
+    // Reset cache
     cachedNotes = null;
     isFullyIndexed = false;
-    if (searchIndex) {
-      try {
-        searchIndex = new Index({
-          preset: 'score',
-          tokenize: 'forward',
-          cache: true
-        });
-        for (const note of clampedNotes) {
-           const strippedContent = (note.content || '').replace(/<[^>]*>/g, ' ').substring(0, 5000);
-           searchIndex.add(note.id, `${note.title || ''} ${note.tags?.join(' ') || ''} ${strippedContent}`);
-        }
-      } catch (e) {
-        console.error('Failed to re-index after import:', e);
-      }
-    }
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'SYNC_COMPLETE' });
@@ -653,7 +617,7 @@ export const DataManager = {
       id: 'welcome-note',
       title: 'স্বাগতম RETWAN Assistant-এ!',
       content: 'আপনার প্রথম নোটটি এখানে শুরু করুন। আপনি বাম পাশের মেনু থেকে নতুন নোট তৈরি করতে পারেন এবং সেটিংস থেকে এআই কনফিগার করতে পারেন।',
-      emoji: '👋',
+      emoji: '',
       workspaceId: 'default',
       isPinned: true,
       createdAt: Date.now(),
@@ -683,7 +647,7 @@ export const DataManager = {
       HistoryManager.addNoteToHistory({
         id: note.id,
         title: note.title || 'Untitled',
-        emoji: note.emoji || '📄'
+        emoji: ''
       });
     }
     return note || null;
@@ -700,7 +664,7 @@ export const DataManager = {
       id: crypto.randomUUID(),
       title: '',
       content: '',
-      emoji: '📄',
+      emoji: '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       workspaceId,
@@ -856,10 +820,6 @@ export const DataManager = {
        .filter(k => k.startsWith(`note_backup_${id}`))
        .forEach(k => localStorage.removeItem(k));
     
-    if (searchIndex) {
-      searchIndex.remove(id);
-    }
-    
     notifySync({ type: 'DELETE_NOTE', id });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
@@ -872,7 +832,6 @@ export const DataManager = {
     await Object.keys(localStorage)
       .filter(k => k.startsWith(`note_backup_${id}`))
       .forEach(k => localStorage.removeItem(k));
-    if (searchIndex) searchIndex.remove(id);
     
     notifySync({ type: 'PERMANENT_DELETE_NOTE', id });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
@@ -886,9 +845,6 @@ export const DataManager = {
       await Object.keys(localStorage)
         .filter(k => k.startsWith(`note_backup_${id}`))
         .forEach(k => localStorage.removeItem(k));
-      if (searchIndex) {
-        searchIndex.remove(id);
-      }
     }
     
     notifySync({ type: 'DELETE_NOTES', ids });
@@ -941,33 +897,11 @@ export const DataManager = {
     const notes = await this.getAllNotes();
     if (!query) return notes;
 
-    if (searchIndex) {
-      if (!isFullyIndexed) {
-        const indexAll = () => {
-          notes.forEach(n => {
-            searchIndex.add(n.id, `${n.title} ${n.content.replace(/<[^>]*>/g, '')}`);
-          });
-          isFullyIndexed = true;
-        };
-        
-        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(indexAll);
-        } else {
-          indexAll();
-        }
-      }
-
-      const results = searchIndex.search(query);
-      const resultIds = new Set(results);
-      
-      return notes.filter(n => resultIds.has(n.id));
-    } else {
-      const lowerQuery = query.toLowerCase();
-      return notes.filter(n => 
-        n.title.toLowerCase().includes(lowerQuery) || 
-        n.content.toLowerCase().includes(lowerQuery)
-      );
-    }
+    const lowerQuery = query.toLowerCase();
+    return notes.filter(n => 
+      n.title.toLowerCase().includes(lowerQuery) || 
+      n.content.toLowerCase().includes(lowerQuery)
+    );
   },
 
   // --- Chat History Operations ---
@@ -1167,7 +1101,7 @@ export const DataManager = {
         id: crypto.randomUUID(),
         title: 'Project Alpha',
         content: '<p>Initial brainstorm for project alpha.</p>',
-        emoji: '🚀',
+        emoji: '',
         createdAt: Date.now() - 86400000,
         updatedAt: Date.now() - 86400000,
         workspaceId: wsId,
@@ -1177,7 +1111,7 @@ export const DataManager = {
         id: crypto.randomUUID(),
         title: 'Meeting Notes',
         content: '<p>Discussed the quarterly goals.</p>',
-        emoji: '👥',
+        emoji: '',
         createdAt: Date.now() - 172800000,
         updatedAt: Date.now() - 172800000,
         workspaceId: wsId,
@@ -1187,7 +1121,7 @@ export const DataManager = {
         id: crypto.randomUUID(),
         title: 'Deleted Note',
         content: '<p>This note was deleted for testing purposes.</p>',
-        emoji: '🗑️',
+        emoji: '',
         createdAt: Date.now() - 500000,
         updatedAt: Date.now(),
         workspaceId: wsId,
@@ -1249,8 +1183,8 @@ export const DataManager = {
       console.error(e);
     }
 
-    // 5. Search Index
-    const searchIndexSize = searchIndex ? new Blob([JSON.stringify(searchIndex)]).size : 0;
+    // 5. Search Index (Deprecated)
+    const searchIndexSize = 0;
 
     return {
       trashedNotesCount,
@@ -1298,16 +1232,8 @@ export const DataManager = {
       // 5. Clear huge internal backups that multiply storage size unexpectedly
       await db.key_value_pairs.delete('internal_backups');
       
-      // 6. Re-index search properly for speed (sync, without broken timeout wrapper)
-      if (searchIndex) {
-        searchIndex = new Index({ preset: 'score', tokenize: 'forward', cache: true });
-        const notes = await db.notes.toArray();
-        for (const note of notes) {
-           const strippedContent = (note.content || '').replace(/<[^>]*>/g, ' ').substring(0, 5000);
-           searchIndex.add(note.id, `${note.title || ''} ${note.tags?.join(' ') || ''} ${strippedContent}`);
-        }
-        isFullyIndexed = true;
-      }
+      // 6. Re-index search properly for speed (sync)
+      isFullyIndexed = false;
 
       this.resetStorageCache();
       console.log('DataManager: Optimization successful.');
@@ -1362,23 +1288,6 @@ export const DataManager = {
   },
 
   async reindexAll(): Promise<void> {
-    if (searchIndex) {
-      try {
-        searchIndex = new Index({
-          preset: 'score',
-          tokenize: 'forward',
-          cache: true
-        });
-        const notes = await db.notes.toArray();
-        for (const note of notes) {
-           const contentStr = note.content || '';
-           const strippedContent = contentStr.replace(/<[^>]*>/g, ' ').substring(0, 5000);
-           searchIndex.add(note.id, `${note.title || ''} ${note.tags?.join(' ') || ''} ${strippedContent}`);
-        }
-        isFullyIndexed = true;
-      } catch (e) {
-        console.error('Failed to re-index:', e);
-      }
-    }
+    isFullyIndexed = false;
   }
 };

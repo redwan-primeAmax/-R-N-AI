@@ -9,10 +9,10 @@ import { ThemeMetadata, ThemeConfig } from './types';
 export const THEME_METADATA: ThemeMetadata[] = [
   {
     id: 'default',
-    name: 'ক্লিন ডার্ক (ডিফল্ট চারকোল)',
-    description: 'Classic professional dark theme with sleek grayish-black canvas',
-    previewColor: 'bg-[#0c0c0d] border-white/5',
-    previewClassName: 'bg-[#0c0c0d]'
+    name: 'মডার্ন ক্লিন (ডিফল্ট)',
+    description: 'Clean Notion-style white theme with soft grey accents',
+    previewColor: 'bg-[#FBFBFA] border-gray-200',
+    previewClassName: 'bg-[#FBFBFA]'
   },
   {
     id: 'snow-white',
