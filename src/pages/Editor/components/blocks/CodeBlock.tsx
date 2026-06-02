@@ -17,6 +17,27 @@ interface CodeBlockProps {
 }
 
 export const CodeBlock = ({ block, isReadOnly, setFocusedId, editor, handleBlockChange }: CodeBlockProps) => {
+  const localRef = React.useRef<HTMLDivElement | null>(null);
+  const localValRef = React.useRef<string | null>(null);
+
+  // Sync state changes with the DOM element only if they differ
+  // This is crucial for remote updates and Undo/Redo
+  React.useEffect(() => {
+    if (localRef.current) {
+      const sanitized = DOMPurify.sanitize(block.content);
+      if (localValRef.current !== block.content && localRef.current.innerHTML !== sanitized) {
+        localRef.current.innerHTML = sanitized;
+        localValRef.current = block.content;
+      }
+    }
+  }, [block.content]);
+
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const rawHTML = e.currentTarget.innerHTML;
+    localValRef.current = rawHTML;
+    handleBlockChange(block.id, rawHTML);
+  };
+
   return (
     <div className="flex-1 border border-white/10 rounded-2xl overflow-hidden bg-[#111111] shadow-2xl text-left antialiased ring-1 ring-white/5">
       <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.03] border-b border-white/10">
@@ -33,8 +54,10 @@ export const CodeBlock = ({ block, isReadOnly, setFocusedId, editor, handleBlock
         </button>
       </div>
       <div
+        ref={localRef}
         contentEditable={!isReadOnly}
         suppressContentEditableWarning={true}
+        onInput={handleInput}
         onFocus={() => {
           setFocusedId(block.id);
           if (editor.setActiveBlockId) editor.setActiveBlockId(block.id);
@@ -44,7 +67,6 @@ export const CodeBlock = ({ block, isReadOnly, setFocusedId, editor, handleBlock
           if (editor.setActiveBlockId) editor.setActiveBlockId(null);
           handleBlockChange(block.id, e.currentTarget.innerHTML);
         }}
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.content) }}
         className="w-full bg-transparent p-6 font-mono text-[13px] leading-relaxed text-blue-400 border-none outline-none focus:outline-none min-h-[140px] whitespace-pre-wrap selection:bg-blue-500/30"
         data-placeholder="// Paste your code block here..."
       />

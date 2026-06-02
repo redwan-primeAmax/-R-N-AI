@@ -671,7 +671,7 @@ export default function EditorPage() {
             const blockId = editor.blocks[editor.blocks.length - 1]?.id;
             if (blockId) {
               document.getElementById(blockId)?.focus();
-              setActiveBlockId(blockId);
+              editor.setActiveBlockId(blockId);
             }
           }
         }}
@@ -683,7 +683,7 @@ export default function EditorPage() {
               const blockId = editor.blocks[editor.blocks.length - 1]?.id;
               if (blockId) {
                 document.getElementById(blockId)?.focus();
-                setActiveBlockId(blockId);
+                editor.setActiveBlockId(blockId);
               }
             }
           }}
@@ -711,7 +711,7 @@ export default function EditorPage() {
                 const blockId = editor.blocks[editor.blocks.length - 1]?.id;
                 if (blockId) {
                   document.getElementById(blockId)?.focus();
-                  setActiveBlockId(blockId);
+                  editor.setActiveBlockId(blockId);
                 }
               }
             }}

@@ -29,14 +29,39 @@ export const EditableBlock = ({
   editor, 
   handleBlockChange 
 }: EditableBlockProps) => {
+  const localRef = React.useRef<HTMLDivElement | null>(null);
+  const localValRef = React.useRef<string | null>(null);
+
+  // Sync state changes with the DOM element only if they differ
+  // This is crucial for remote updates and Undo/Redo
+  React.useEffect(() => {
+    if (localRef.current) {
+      const sanitized = DOMPurify.sanitize(block.content);
+      if (localValRef.current !== block.content && localRef.current.innerHTML !== sanitized) {
+        localRef.current.innerHTML = sanitized;
+        localValRef.current = block.content;
+      }
+    }
+  }, [block.content]);
+
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const rawHTML = e.currentTarget.innerHTML;
+    localValRef.current = rawHTML;
+    handleBlockChange(block.id, rawHTML);
+  };
+
   return (
     <div 
       id={block.id}
       data-block-id={block.id}
-      ref={(el) => { blockRefs.current[block.id] = el; }}
+      ref={(el) => { 
+        blockRefs.current[block.id] = el; 
+        localRef.current = el;
+      }}
       contentEditable={!isReadOnly}
       suppressContentEditableWarning={true}
       onKeyDown={(e) => handleKeyDown(e, block, idx)}
+      onInput={handleInput}
       onFocus={() => {
         setFocusedId(block.id);
         if (editor.setActiveBlockId) editor.setActiveBlockId(block.id);
@@ -46,7 +71,6 @@ export const EditableBlock = ({
         if (editor.setActiveBlockId) editor.setActiveBlockId(null);
         handleBlockChange(block.id, e.currentTarget.innerHTML);
       }}
-      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.content) }}
       className={cn(
         "flex-1 text-left min-h-[30px] font-sans focus:outline-none placeholder:opacity-20",
         block.type === 'paragraph' && "text-[15px] sm:text-base leading-relaxed editor-p",

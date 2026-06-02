@@ -119,24 +119,52 @@ export function useEditorCommands({
         toggleBold: () => {
           focusChain.focus();
           document.execCommand('bold', false);
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
           setForceRefreshState({});
           return focusChain;
         },
         toggleItalic: () => {
           focusChain.focus();
           document.execCommand('italic', false);
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
           setForceRefreshState({});
           return focusChain;
         },
         toggleStrike: () => {
           focusChain.focus();
           document.execCommand('strikeThrough', false);
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
           setForceRefreshState({});
           return focusChain;
         },
         toggleUnderline: () => {
           focusChain.focus();
           document.execCommand('underline', false);
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
           setForceRefreshState({});
           return focusChain;
         },
@@ -144,6 +172,13 @@ export function useEditorCommands({
           focusChain.focus();
           const isCode = document.queryCommandValue('fontName')?.toLowerCase()?.includes('monospace');
           document.execCommand('fontName', false, isCode ? 'inherit' : 'monospace');
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
           setForceRefreshState({});
           return focusChain;
         },
