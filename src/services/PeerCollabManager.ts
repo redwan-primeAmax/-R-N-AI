@@ -300,6 +300,7 @@ export class PeerCollabManager {
     session.memberLimit = options.memberLimit || 10;
 
     session.peer = new Peer(options.customRoomId || undefined, {
+      debug: 1,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -313,10 +314,18 @@ export class PeerCollabManager {
 
     return new Promise((resolve, reject) => {
       if (!session.peer) return reject('Failed to create Peer instance');
+      
       session.peer.on('open', (id) => {
         session.roomId = id;
         this.statusListeners.forEach(l => l(`Live P2P Session for Note started!`, 'success'));
         resolve(id);
+      });
+
+      session.peer.on('disconnected', () => {
+        if (session.roomId === options.customRoomId) {
+          console.warn('Host Peer lost connection to signaling server. Attempting to reconnect...');
+          session.peer?.reconnect();
+        }
       });
 
       session.peer.on('connection', (conn) => {
@@ -331,7 +340,10 @@ export class PeerCollabManager {
         conn.on('open', () => {
           conn.send({ type: 'session-info', maxMembers: session.memberLimit, currentMembers: session.connections.size });
           if (session.password) conn.send({ type: 'auth-required', method: 'password' });
-          else { session.authenticatedPeers.add(conn.peer); this.sendInitialSync(session, conn); }
+          else { 
+            session.authenticatedPeers.add(conn.peer); 
+            this.sendInitialSync(session, conn); 
+          }
         });
         conn.on('data', (data: any) => this.handleIncomingMessage(session, conn.peer, data));
         conn.on('close', () => {
@@ -341,7 +353,10 @@ export class PeerCollabManager {
           this.triggerReactCallback();
         });
       });
-      session.peer.on('error', (err) => { this.statusListeners.forEach(l => l(`Host Error: ${err.message}`, 'error')); reject(err); });
+      session.peer.on('error', (err) => { 
+        this.statusListeners.forEach(l => l(`Host Error: ${err.message}`, 'error')); 
+        reject(err); 
+      });
     });
   }
 
@@ -363,6 +378,7 @@ export class PeerCollabManager {
     session.roomId = roomId;
 
     session.peer = new Peer({
+      debug: 1,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -376,24 +392,82 @@ export class PeerCollabManager {
 
     return new Promise((resolve, reject) => {
       if (!session.peer) return reject('Failed to create Peer instance');
+      
+      session.peer.on('disconnected', () => {
+        if (session.roomId === roomId) {
+          console.warn('Client Peer lost connection to signaling server. Attempting to reconnect...');
+          session.peer?.reconnect();
+        }
+      });
+
       session.peer.on('open', () => {
-        const conn = session.peer!.connect(roomId);
+        const conn = session.peer!.connect(roomId, { reliable: true });
         session.connections.set(roomId, conn);
+        
         conn.on('open', () => {
-          if (options.password) conn.send({ type: 'auth-response', password: options.password });
+          if (options.password) {
+            conn.send({ type: 'auth-response', password: options.password });
+          } else {
+            // No password required; send client's sync vector directly to establish 2-way sync
+            const localVector = Y.encodeStateVector(session.yDoc);
+            conn.send({ type: 'sync-vector', vector: Array.from(localVector) });
+          }
           resolve();
         });
+        
         conn.on('data', (data: any) => this.handleIncomingMessage(session, roomId, data));
-        conn.on('close', () => { session.connections.delete(roomId); this.triggerReactCallback(); });
-        conn.on('error', (err) => { session.connections.delete(roomId); reject(err); });
+        
+        conn.on('close', () => {
+          session.connections.delete(roomId);
+          this.triggerReactCallback();
+          
+          if (session.roomId === roomId && !session.isHosting) {
+            this.statusListeners.forEach(l => l(`Connection lost. Reconnecting in 3 seconds...`, 'info'));
+            setTimeout(() => {
+              if (session.roomId === roomId && !session.isHosting) {
+                this.joinSession(roomId, options).catch(() => {});
+              }
+            }, 3000);
+          }
+        });
+        
+        conn.on('error', (err) => {
+          session.connections.delete(roomId);
+          if (session.roomId === roomId && !session.isHosting) {
+            setTimeout(() => {
+              if (session.roomId === roomId && !session.isHosting) {
+                this.joinSession(roomId, options).catch(() => {});
+              }
+            }, 3000);
+          }
+          reject(err);
+        });
       });
+      
       session.peer.on('error', (err) => reject(err));
     });
   }
 
   private handleIncomingMessage(session: SessionData, senderId: string, msg: any) {
-    if (msg.type === 'auth-failed') { this.statusListeners.forEach(l => l(msg.reason, 'error')); this.disconnect(session.noteId); return; }
-    if (msg.type === 'auth-required') { window.dispatchEvent(new CustomEvent('collab-auth-required', { detail: { senderId, noteId: session.noteId, method: msg.method } })); return; }
+    if (msg.type === 'auth-failed') { 
+      this.statusListeners.forEach(l => l(msg.reason, 'error')); 
+      this.disconnect(session.noteId); 
+      return; 
+    }
+    if (msg.type === 'auth-required') { 
+      window.dispatchEvent(new CustomEvent('collab-auth-required', { detail: { senderId, noteId: session.noteId, method: msg.method } })); 
+      return; 
+    }
+    if (msg.type === 'auth-success') {
+      this.statusListeners.forEach(l => l('Authenticated successfully!', 'success'));
+      const localVector = Y.encodeStateVector(session.yDoc);
+      const conn = session.connections.get(session.roomId!);
+      if (conn) {
+        conn.send({ type: 'sync-vector', vector: Array.from(localVector) });
+      }
+      return;
+    }
+
     if (session.isHosting) {
       if (msg.type === 'auth-response') {
         if (session.password && msg.password !== session.password) {
@@ -402,15 +476,26 @@ export class PeerCollabManager {
         } else {
           session.authenticatedPeers.add(senderId);
           const conn = session.connections.get(senderId);
-          if (conn) this.sendInitialSync(session, conn);
+          if (conn) {
+            this.sendInitialSync(session, conn);
+            conn.send({ type: 'auth-success' });
+          }
         }
         return;
       }
       if (!session.authenticatedPeers.has(senderId)) return;
     }
 
-    if (msg.type === 'session-info') { session.memberLimit = msg.maxMembers; window.dispatchEvent(new CustomEvent('collab-session-info', { detail: { ...msg, noteId: session.noteId } })); return; }
-    if (msg.type === 'kick-peer') { this.statusListeners.forEach(l => l('Kicked by host.', 'error')); this.disconnect(session.noteId); return; }
+    if (msg.type === 'session-info') { 
+      session.memberLimit = msg.maxMembers; 
+      window.dispatchEvent(new CustomEvent('collab-session-info', { detail: { ...msg, noteId: session.noteId } })); 
+      return; 
+    }
+    if (msg.type === 'kick-peer') { 
+      this.statusListeners.forEach(l => l('Kicked by host.', 'error')); 
+      this.disconnect(session.noteId); 
+      return; 
+    }
 
     if (msg.type === 'sync-vector') {
       const vector = new Uint8Array(msg.vector);
@@ -427,8 +512,11 @@ export class PeerCollabManager {
       try {
         Y.applyUpdate(session.yDoc, update, 'remote');
         this.triggerReactCallback(session.noteId);
-      } catch (err) { console.error('Sync update apply failed', err); }
-      finally { this.isApplyingRemoteUpdate = false; }
+      } catch (err) { 
+        console.error('Sync update apply failed', err); 
+      } finally { 
+        this.isApplyingRemoteUpdate = false; 
+      }
       if (session.isHosting) this.broadcast(session, msg, senderId);
     }
   }

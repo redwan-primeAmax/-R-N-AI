@@ -97,6 +97,7 @@ export default function EditorPage() {
   const [activePeers, setActivePeers] = useState(0);
   const [isHostOffline, setIsHostOffline] = useState(false);
   const [collaborators, setCollaborators] = useState<any[]>([]);
+  const lastSyncedStateRef = useRef<any>(null);
 
   // Read if we need to auto-join from URL parameter "collab" on mount
   useEffect(() => {
@@ -212,7 +213,7 @@ export default function EditorPage() {
       (syncedState) => {
         // Authoritative state reconciliation when applying remote updates
         if (globalCollabManager.isApplyingRemoteUpdate) {
-          // ... (same as before)
+          lastSyncedStateRef.current = syncedState;
           if (syncedState.title !== titleRef.current) {
             setTitle(syncedState.title);
             titleRef.current = syncedState.title;
@@ -321,6 +322,24 @@ export default function EditorPage() {
 
   // Synchronize local edits to the Yjs Doc (which broadcasts updates automatically to remote peers)
   useEffect(() => {
+    if (!collabRoom) return;
+
+    // Check if the current React state is identical to what we just got from the remote peer
+    const lastSynced = lastSyncedStateRef.current;
+    if (lastSynced) {
+      const isIdentical = 
+        lastSynced.title === title &&
+        lastSynced.emoji === emoji &&
+        lastSynced.description === description &&
+        lastSynced.theme === theme &&
+        JSON.stringify(lastSynced.blocks) === JSON.stringify(editor.blocks);
+        
+      if (isIdentical) {
+        // This is a remote update that React just got done rendering, do not echo it back.
+        return;
+      }
+    }
+
     if (collabRoom && !globalCollabManager.isApplyingRemoteUpdate) {
       globalCollabManager.updateFromLocalState({
         blocks: editor.blocks,
