@@ -1081,7 +1081,9 @@ export const DataManager = {
   
   async saveMedia(blob: Blob): Promise<string> {
     const id = `media_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    await db.media.put({ id, blob });
+    // Reconstruct input blob as a clean, serializable, native Blob to avoid browser-specific File class storage issues
+    const cleanBlob = new Blob([blob], { type: blob.type });
+    await db.media.put({ id, blob: cleanBlob });
     return id;
   },
 

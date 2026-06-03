@@ -34,7 +34,17 @@ export function useEditorState(id: string | undefined) {
 
 
   // Editor Blocks State
-  const [blocks, setBlocks] = useState<EditorBlock[]>([]);
+  const [blocks, setBlocksState] = useState<EditorBlock[]>([]);
+  const blocksRef = useRef<EditorBlock[]>([]);
+
+  const setBlocks = useCallback((newBlocksVal: any) => {
+    setBlocksState((prev) => {
+      const next = typeof newBlocksVal === 'function' ? newBlocksVal(prev) : newBlocksVal;
+      blocksRef.current = next;
+      return next;
+    });
+  }, []);
+
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -49,7 +59,6 @@ export function useEditorState(id: string | undefined) {
   const backupTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isDeletingRef = useRef(false);
 
-  const blocksRef = useRef<EditorBlock[]>(blocks);
   const lastSavedContentRef = useRef('');
   const [forceRefreshState, setForceRefreshState] = useState({});
 
@@ -58,7 +67,6 @@ export function useEditorState(id: string | undefined) {
   const historyRef = useRef<EditorBlock[][]>([[]]);
   
   useEffect(() => {
-    blocksRef.current = blocks;
     // Push history item if blocks change and we're not currently undoing/redoing
     // We debounce this to capture data every 2 seconds as requested
     const lastHistory = historyRef.current[historyPointer];

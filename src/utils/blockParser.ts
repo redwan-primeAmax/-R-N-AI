@@ -152,8 +152,14 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       } catch (e) {
         text = child.getAttribute('data-text') || '';
       }
+      let title = '';
+      try {
+        title = decodeURIComponent(child.getAttribute('data-title') || '');
+      } catch (e) {
+        title = child.getAttribute('data-title') || '';
+      }
       const status = child.getAttribute('data-status') || 'idle';
-      addBlock('audio_generator', '', { meta: { text, status } });
+      addBlock('audio_generator', '', { meta: { text, status, title } });
     } else if (child.classList.contains('column-block') || dataType === 'column') {
       let col1Content = '';
       let col2Content = '';
@@ -267,7 +273,7 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         html += `<div class="bookmark-block" data-type="bookmark" data-url="${block.meta?.url || ''}" data-status="${block.meta?.status || 'empty'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
         break;
       case 'audio_generator':
-        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
         break;
       case 'column':
         html += `<div class="column-block" data-type="column" data-col1="${encodeURIComponent(block.col1Content || '')}" data-col2="${encodeURIComponent(block.col2Content || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;

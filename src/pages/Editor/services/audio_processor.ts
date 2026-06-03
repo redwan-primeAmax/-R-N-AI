@@ -29,9 +29,52 @@ export class AudioProcessor {
     if (options.voiceIndex !== undefined && voices[options.voiceIndex]) {
       utterance.voice = voices[options.voiceIndex];
     } else if (voices.length > 0) {
-      // Default to first English voice if available
-      const enVoice = voices.find(v => v.lang.startsWith('en'));
-      if (enVoice) utterance.voice = enVoice;
+      // Find language of the text. If any Bengali characters, find a Bengali voice
+      const hasBengali = /[\u0980-\u09FF]/.test(text);
+      if (hasBengali) {
+        const bnVoice = voices.find(v => v.lang.startsWith('bn'));
+        if (bnVoice) {
+          utterance.voice = bnVoice;
+        } else {
+          // fallback to standard male voice
+          const maleVoice = voices.find(v => {
+            const name = v.name.toLowerCase();
+            return name.includes('male') || name.includes('david') || name.includes('mark') || name.includes('george') || name.includes('daniel') || name.includes('guy') || name.includes('sam');
+          }) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+          utterance.voice = maleVoice;
+        }
+      } else {
+        // Look for male english voice
+        const maleEnVoice = voices.find(v => {
+          const name = v.name.toLowerCase();
+          const lang = v.lang.toLowerCase();
+          return lang.startsWith('en') && (
+            name.includes('male') || 
+            name.includes('david') || 
+            name.includes('mark') || 
+            name.includes('george') || 
+            name.includes('daniel') || 
+            name.includes('guy') || 
+            name.includes('sam') || 
+            name.includes('google us english') || 
+            name.includes('microsoft david')
+          );
+        });
+        if (maleEnVoice) {
+          utterance.voice = maleEnVoice;
+        } else {
+          const maleAnyVoice = voices.find(v => {
+            const name = v.name.toLowerCase();
+            return name.includes('male') || name.includes('david') || name.includes('mark') || name.includes('george') || name.includes('daniel') || name.includes('guy');
+          });
+          if (maleAnyVoice) {
+            utterance.voice = maleAnyVoice;
+          } else {
+            const enVoice = voices.find(v => v.lang.startsWith('en'));
+            if (enVoice) utterance.voice = enVoice;
+          }
+        }
+      }
     }
 
     utterance.onstart = () => {

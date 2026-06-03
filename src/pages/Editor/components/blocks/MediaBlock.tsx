@@ -12,7 +12,7 @@ import { EditorBlock } from '../../../../utils/blockParser';
 interface MediaBlockProps {
   block: EditorBlock;
   blocks: EditorBlock[];
-  setBlocks: (blocks: EditorBlock[]) => void;
+  setBlocks: React.Dispatch<React.SetStateAction<EditorBlock[]>>;
 }
 
 export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
@@ -31,41 +31,46 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
         if (task) {
           setProgress(task.progress);
           if (task.status === 'completed' && (task as any).result?.url) {
-            const updated = (blocks as EditorBlock[]).map((b: EditorBlock) => b.id === block.id ? {
+            setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? {
               ...b,
               mediaData: { 
                 ...b.mediaData!, 
                 status: 'completed' as const, 
                 url: (task as any).result.url 
               }
-            } : b);
-            setBlocks(updated);
+            } : b));
           }
         }
       });
       return unsub;
     }
-  }, [status, id, block.id, blocks, setBlocks]);
+  }, [status, id, block.id, setBlocks]);
 
   useEffect(() => {
+    let active = true;
+    let objectUrl = '';
+    
     if (url?.startsWith('media:')) {
       const mediaId = url.split('media:')[1];
-      let objectUrl = '';
       
       const loadMedia = async () => {
         const blob = await DataManager.getMedia(mediaId);
-        if (blob) {
+        if (blob && active) {
           objectUrl = URL.createObjectURL(blob);
           setResolvedUrl(objectUrl);
         }
       };
       loadMedia();
-      return () => {
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
-      };
     } else {
       setResolvedUrl(url || '');
     }
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
   }, [url]);
 
   const formatTime = (time: number) => {

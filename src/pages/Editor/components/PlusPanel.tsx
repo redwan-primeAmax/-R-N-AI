@@ -33,6 +33,17 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
   onUploadStart,
   onUploadComplete
 }) => {
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!editor) return null;
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -100,7 +111,7 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
       label: 'Link (QuickClip)',
       detail: 'Web link bookmark preview',
       icon: <BookmarkIcon size={20} />,
-      action: () => (window as any).editorEvents?.emit('runWebBookmark')
+      action: () => (editor.chain().focus() as any).runWebBookmark?.()
     },
     { 
       label: 'Column Layout', 
@@ -125,12 +136,6 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
       detail: 'Visual line separator',
       icon: <Plus size={20} className="rotate-45" />, 
       action: () => editor.chain().focus().setHorizontalRule().run() 
-    },
-    { 
-      label: 'Table View', 
-      detail: 'Database table view',
-      icon: <Table size={20} />, 
-      action: () => (editor.chain().focus() as any).insertTableView?.()
     },
     { 
       label: 'Audio Generator', 
@@ -163,7 +168,7 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 20, stiffness: 150 }}
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-[251] rounded-t-[32px] p-6 shadow-2xl h-[45vh] overflow-y-auto no-scrollbar border-t",
+              "fixed bottom-0 left-0 right-0 z-[251] rounded-t-[32px] p-6 shadow-2xl h-[45vh] overflow-y-auto overscroll-contain no-scrollbar border-t",
               isLight ? "bg-white border-gray-100" : "bg-[#1a1a1a] border-white/5"
             )}
           >

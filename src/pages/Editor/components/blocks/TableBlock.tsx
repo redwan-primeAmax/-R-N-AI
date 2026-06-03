@@ -34,7 +34,7 @@ export const TableBlock = ({ block, isReadOnly, setBlocks }: TableBlockProps) =>
                         setBlocks((prev: EditorBlock[]) => {
                           const updated = prev.map((b: EditorBlock) => {
                             if (b.id !== block.id) return b;
-                            const newTable = [...(b.tableData || [])];
+                            const newTable = (b.tableData || []).map(r => [...r]);
                             if (newTable[rIdx]) {
                               newTable[rIdx][cIdx] = val;
                             }
