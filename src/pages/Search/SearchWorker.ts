@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { searchWithRST, initializeRST } from './RSTSearch/RSTSearch';
+import { searchWithRSTParallel, initializeRST } from './RSTSearch/RSTSearch';
 import { Note } from './RSTSearch/types';
 
 /**
@@ -32,8 +32,8 @@ self.onmessage = async (e: MessageEvent) => {
     try {
       const startTime = performance.now();
       
-      // Execute the high-performance RST Core Scan
-      const results = searchWithRST(localNotes, query, isAccurateMode);
+      // Execute the high-performance parallel chunked RST Core Scan
+      const results = await searchWithRSTParallel(localNotes, query, isAccurateMode);
       
       const endTime = performance.now();
       const timeMs = (endTime - startTime).toFixed(2);

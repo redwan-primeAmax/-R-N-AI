@@ -77,7 +77,7 @@ export const EditableBlock = ({
         block.type === 'h1' && "text-3xl sm:text-4xl font-black tracking-tight pt-2 editor-h",
         block.type === 'h2' && "text-2xl sm:text-3xl font-black tracking-tight pt-2 editor-h",
         block.type === 'h3' && "text-xl sm:text-2xl font-black tracking-tight pt-1 editor-h",
-        block.type === 'quote' && "border-l-4 border-blue-500 pl-4 py-1 italic text-[15px] sm:text-base rounded-r-xl pr-4 editor-quote",
+        block.type === 'quote' && "border-l-[4px] border-neutral-400 dark:border-neutral-500 bg-neutral-100 dark:bg-neutral-800/80 pl-4 py-2.5 font-medium italic text-[15px] sm:text-base rounded-r-xl pr-4 text-neutral-800 dark:text-neutral-200 editor-quote leading-relaxed shadow-sm",
         block.type === 'callout' && "p-4 rounded-2xl border border-blue-500/10 leading-relaxed text-[15px] sm:text-base editor-callout",
         block.type === 'todo' && block.checked && "line-through editor-todo-checked"
       )}

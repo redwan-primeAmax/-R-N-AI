@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, FileText, ChevronRight, Plus } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
@@ -14,13 +14,15 @@ interface SubPageManagerProps {
   currentNote: Note;
   onClose: () => void;
   type: 'attach' | 'create';
+  editor?: any;
 }
 
-export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onClose, type }) => {
+export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onClose, type, editor }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [availableNotes, setAvailableNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
+  const hasCreatedActive = useRef(false);
 
   const loadAvailableNotes = useCallback(async () => {
     setLoading(true);
@@ -43,15 +45,66 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
   }, [type, loadAvailableNotes]);
 
   const handleCreate = async () => {
+    if (hasCreatedActive.current) return;
+    hasCreatedActive.current = true;
+
     const newNote = await DataManager.createNote(currentNote.workspaceId || 'default', currentNote.id);
-    navigate(`/editor/${newNote.id}`);
+    
+    if (editor && editor.setBlocks) {
+      const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || editor.activeBlockId;
+      const newBlock = {
+        id: crypto.randomUUID(),
+        type: 'page_link' as any,
+        content: newNote.title || 'Untitled Page',
+        subPageId: newNote.id
+      };
+      
+      editor.setBlocks((prev: any[]) => {
+        const idx = prev.findIndex(b => b.id === activeId);
+        if (idx > -1) {
+          const res = [...prev];
+          res.splice(idx + 1, 0, newBlock);
+          return res;
+        }
+        return [...prev, newBlock];
+      });
+
+      // Navigate immediately as requested!
+      setTimeout(() => {
+        navigate(`/editor/${newNote.id}`);
+      }, 100);
+    } else {
+      navigate(`/editor/${newNote.id}`);
+    }
+    
     onClose();
   };
 
   const handleAttach = async (noteToAttach: Note) => {
     await DataManager.saveNote({ ...noteToAttach, parentId: currentNote.id });
+    
+    if (editor && editor.setBlocks) {
+      const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || editor.activeBlockId;
+      const newBlock = {
+        id: crypto.randomUUID(),
+        type: 'page_link' as any,
+        content: noteToAttach.title || 'Untitled Page',
+        subPageId: noteToAttach.id
+      };
+      editor.setBlocks((prev: any[]) => {
+        const idx = prev.findIndex(b => b.id === activeId);
+        if (idx > -1) {
+          const res = [...prev];
+          res.splice(idx + 1, 0, newBlock);
+          return res;
+        }
+        return [...prev, newBlock];
+      });
+    } else {
+      window.location.reload(); // Fallback reload
+    }
+    
     onClose();
-    window.location.reload(); // Refresh to show subpages
   };
 
   if (type === 'create') return null; // Handled by handleCreate

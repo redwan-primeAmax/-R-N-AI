@@ -5,11 +5,12 @@
 
 export interface EditorBlock {
   id: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark' | 'toggle' | 'column' | 'page_link' | 'table_view' | 'board_view' | 'gallery_view';
+  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark' | 'toggle' | 'column' | 'page_link' | 'table_view';
   content: string;
   indent?: number;
   checked?: boolean;
   language?: string;
+  emoji?: string;
   isExpanded?: boolean;
   tableData?: string[][];
   withHeaderRow?: boolean;
@@ -29,6 +30,10 @@ export interface EditorBlock {
     icon?: string;
     siteName?: string;
   };
+  meta?: any;
+  col1Content?: string;
+  col2Content?: string;
+  subPageId?: string;
 }
 
 // Helper to clean up HTML from unnecessary tags, forcing tag mappings and nesting rules
@@ -128,8 +133,47 @@ export function htmlToBlocks(html: string): EditorBlock[] {
 
   children.forEach((child) => {
     const tagName = child.tagName.toLowerCase();
+    const dataType = child.getAttribute('data-type');
 
-    if (tagName === 'h1' || child.classList.contains('h1')) {
+    if (child.classList.contains('bookmark-block') || dataType === 'bookmark') {
+      const url = child.getAttribute('data-url') || '';
+      const status = child.getAttribute('data-status') || 'empty';
+      let title = '';
+      try {
+        title = decodeURIComponent(child.getAttribute('data-title') || '');
+      } catch (e) {
+        title = child.getAttribute('data-title') || '';
+      }
+      addBlock('bookmark', '', { meta: { url, status, title } });
+    } else if (child.classList.contains('audio-generator-block') || dataType === 'audio_generator') {
+      let text = '';
+      try {
+        text = decodeURIComponent(child.getAttribute('data-text') || '');
+      } catch (e) {
+        text = child.getAttribute('data-text') || '';
+      }
+      const status = child.getAttribute('data-status') || 'idle';
+      addBlock('audio_generator', '', { meta: { text, status } });
+    } else if (child.classList.contains('column-block') || dataType === 'column') {
+      let col1Content = '';
+      let col2Content = '';
+      try {
+        col1Content = decodeURIComponent(child.getAttribute('data-col1') || '');
+      } catch (e) {
+        col1Content = child.getAttribute('data-col1') || '';
+      }
+      try {
+        col2Content = decodeURIComponent(child.getAttribute('data-col2') || '');
+      } catch (e) {
+        col2Content = child.getAttribute('data-col2') || '';
+      }
+      addBlock('column', '', { col1Content, col2Content });
+    } else if (child.classList.contains('page-link-block') || dataType === 'page_link') {
+      const subPageId = child.getAttribute('data-subpageid') || '';
+      addBlock('page_link', child.innerHTML, { subPageId });
+    } else if (child.classList.contains('table-view-block') || dataType === 'table_view') {
+      addBlock('table_view', '');
+    } else if (tagName === 'h1' || child.classList.contains('h1')) {
       addBlock('h1', child.innerHTML);
     } else if (tagName === 'h2' || child.classList.contains('h2')) {
       addBlock('h2', child.innerHTML);
@@ -173,7 +217,8 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       const lang = code?.getAttribute('class')?.replace('language-', '') || 'javascript';
       addBlock('code', text, { language: lang });
     } else if (child.classList.contains('callout') || child.getAttribute('data-type') === 'callout') {
-      addBlock('callout', child.innerHTML);
+      const emoji = child.getAttribute('data-emoji') || '💡';
+      addBlock('callout', child.innerHTML, { emoji });
     } else if (child.classList.contains('sandbox-block') || child.getAttribute('data-type') === 'sandbox') {
       addBlock('sandbox', child.innerHTML);
     } else if (child.classList.contains('media-block') || child.getAttribute('data-type') === 'media' || child.classList.contains('media-upload-block')) {
@@ -215,6 +260,21 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
 
   blocks.forEach((block) => {
     switch (block.type) {
+      case 'table_view':
+        html += `<div class="table-view-block" data-type="table_view" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
+      case 'bookmark':
+        html += `<div class="bookmark-block" data-type="bookmark" data-url="${block.meta?.url || ''}" data-status="${block.meta?.status || 'empty'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
+      case 'audio_generator':
+        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
+      case 'column':
+        html += `<div class="column-block" data-type="column" data-col1="${encodeURIComponent(block.col1Content || '')}" data-col2="${encodeURIComponent(block.col2Content || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
+      case 'page_link':
+        html += `<div class="page-link-block" data-type="page_link" data-subpageid="${block.subPageId || ''}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content || ''}</div>`;
+        break;
       case 'paragraph':
         html += `<p style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</p>`;
         break;
@@ -249,7 +309,7 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         html += `<pre style="margin-left: ${(block.indent || 0) * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
         break;
       case 'callout':
-        html += `<div class="callout" data-type="callout">${block.content}</div>`;
+        html += `<div class="callout" data-type="callout" data-emoji="${block.emoji || '💡'}">${block.content}</div>`;
         break;
       case 'sandbox':
         html += `<div class="sandbox-block" data-type="sandbox">${block.content}</div>`;

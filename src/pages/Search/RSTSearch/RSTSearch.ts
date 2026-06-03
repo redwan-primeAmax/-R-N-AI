@@ -171,3 +171,151 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
     .sort((a, b) => b.score - a.score)
     .map(r => r.note);
 }
+
+/**
+ * Asynchronously searches a slice/chunk of notes
+ */
+async function searchChunkAsync(
+  chunkNotes: Note[], 
+  query: string, 
+  isAccurate: boolean
+): Promise<Note[]> {
+  // Yield execution to the event loop so other parallel chunks can start and share CPU time
+  await new Promise(resolve => setTimeout(resolve, 0));
+  
+  // Create virtual Storage buffers and indices for this isolated chunk to prevent race conditions
+  const chunkStorage = new StorageBuffer(chunkNotes);
+  const chunkIndex = new InvertedIndex(chunkStorage);
+  
+  const queryLower = normalizeText(query);
+  const queryWords = queryLower.split(/\s+/).filter(t => t.length > 0);
+  if (queryWords.length === 0) return [];
+
+  let candidateIndices = new Set<number>();
+
+  if (isAccurate) {
+    for (let i = 0; i < chunkStorage.size; i++) {
+       const text = chunkStorage.getRawText(i);
+       if (text.includes(queryLower)) candidateIndices.add(i);
+    }
+  } else {
+    let wordSets: Set<number>[] = [];
+    
+    for (const word of queryWords) {
+      const termSet = new Set<number>();
+      const expanded = expandQueryTerm(word);
+      
+      for (const t of expanded) {
+        const matches = chunkIndex.lookupPrefix(t);
+        for (const m of matches) termSet.add(m);
+      }
+      
+      if (termSet.size === 0 && word.length > 2) {
+         for (let i = 0; i < chunkStorage.size; i++) {
+            if (calculateFuzzyScore(chunkStorage.getRawText(i), word) < 0.4) {
+               termSet.add(i);
+            }
+         }
+      }
+      wordSets.push(termSet);
+    }
+
+    if (wordSets.length > 0) {
+      const firstSet = wordSets[0];
+      for (const idx of firstSet) {
+        if (wordSets.every(s => s.has(idx))) {
+          candidateIndices.add(idx);
+        }
+      }
+    }
+
+    if (candidateIndices.size === 0) {
+      for (let i = 0; i < chunkStorage.size; i++) {
+        const docText = chunkStorage.getRawText(i);
+        if (docText.includes(queryLower) || calculateFuzzyScore(docText, queryLower) < 0.5) {
+          candidateIndices.add(i);
+        }
+      }
+    }
+  }
+
+  if (candidateIndices.size === 0) return [];
+
+  const avgDocLength = Array.from({ length: chunkStorage.size }, (_, i) => chunkStorage.getDocLength(i))
+    .reduce((a, b) => a + b, 0) / chunkStorage.size;
+  const totalDocs = chunkStorage.size;
+
+  const rankedResults: SearchResult[] = [];
+  for (const docIdx of candidateIndices) {
+    const docText = chunkStorage.getRawText(docIdx);
+    const docLen = chunkStorage.getDocLength(docIdx);
+    const note = chunkStorage.getNote(docIdx);
+    const titleLower = normalizeText(note.title);
+
+    let score = 0;
+
+    if (docText.includes(queryLower)) score += 500;
+    if (titleLower.includes(queryLower)) score += 1000;
+
+    score += calculateProximityBonus(docText, queryWords);
+
+    const fuzzyS = calculateFuzzyScore(docText, queryLower);
+    score += (1 - fuzzyS) * 200;
+
+    for (const term of queryWords) {
+      const termFreq = getTermFrequency(docText, term);
+      const docsWithTerm = chunkIndex.lookup(term).length || 1;
+      let bmScore = calculateBM25(termFreq, docLen, avgDocLength, totalDocs, docsWithTerm);
+      
+      if (titleLower.includes(term)) {
+        bmScore *= 5.0;
+        if (titleLower.startsWith(term)) bmScore *= 2.0;
+      }
+      score += bmScore;
+    }
+
+    rankedResults.push({ note, score });
+  }
+
+  return rankedResults
+    .sort((a, b) => b.score - a.score)
+    .map(r => r.note);
+}
+
+/**
+ * Searches across all notes by chunking them into partitions of 2000 notes,
+ * and running up to 5 processes/promises concurrently in the background.
+ */
+export async function searchWithRSTParallel(
+  notes: Note[],
+  query: string,
+  isAccurate: boolean = false
+): Promise<Note[]> {
+  if (!query || query.trim().length === 0) return notes;
+
+  const CHUNK_SIZE = 2000;
+  const chunks: Note[][] = [];
+  for (let i = 0; i < notes.length; i += CHUNK_SIZE) {
+    chunks.push(notes.slice(i, i + CHUNK_SIZE));
+  }
+
+  const allResults: Note[][] = [];
+  const CONCURRENCY_LIMIT = 5;
+
+  for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
+    const batch = chunks.slice(i, i + CONCURRENCY_LIMIT);
+    // Launch these chunk searches concurrently (up to 5 in parallel)
+    const batchPromises = batch.map(chunk => searchChunkAsync(chunk, query, isAccurate));
+    const batchResults = await Promise.all(batchPromises);
+    allResults.push(...batchResults);
+  }
+
+  // Merge results from all parallel executions
+  const mergedNotes = allResults.flat();
+
+  // Re-rank the merged result pool globally
+  if (mergedNotes.length <= 1) return mergedNotes;
+
+  // Score and sort using standard searchWithRST
+  return searchWithRST(mergedNotes, query, isAccurate);
+}

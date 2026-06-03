@@ -9,7 +9,7 @@ import { Search as SearchIcon, X, ChevronRight, Hash, Tag as TagIcon } from 'luc
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { motion, AnimatePresence } from 'framer-motion';
 import FloatingHomeButton from '../../components/FloatingHomeButton';
-import { searchWithRST } from './RSTSearch/RSTSearch';
+import { searchWithRST, searchWithRSTParallel } from './RSTSearch/RSTSearch';
 import localforage from 'localforage';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -42,6 +42,7 @@ export default function SearchPage() {
   });
 
   const workerRef = useRef<Worker | null>(null);
+  const prevResultsRef = useRef<Note[]>([]);
 
   useEffect(() => {
     // Initialize RST Search Worker on mount
@@ -145,7 +146,7 @@ export default function SearchPage() {
         });
       } else {
         // Fallback to main thread RST
-        const searchResults = searchWithRST(notes as any, currentQuery, currentAccurateMode);
+        const searchResults = await searchWithRSTParallel(notes as any, currentQuery, currentAccurateMode);
         const endTime = performance.now();
         const timeMs = (endTime - startTimeMain).toFixed(2);
         const memKb = ((totalAvailable * 44 + currentQuery.length * 2) / 1024).toFixed(1);
@@ -190,32 +191,45 @@ export default function SearchPage() {
     
     if (targetResults.length === 0) {
       setRenderedResults([]);
+      prevResultsRef.current = results;
       return;
     }
 
-    let active = true;
-    let currentIndex = 0;
+    const hasResultsChanged = results !== prevResultsRef.current;
 
-    // Start with first result loaded to avoid blank flash
-    setRenderedResults([targetResults[0]]);
+    if (hasResultsChanged) {
+      // Net-new query search results: reset and perform beautiful waterfall entry animation
+      prevResultsRef.current = results;
+      
+      let active = true;
+      let currentIndex = 0;
 
-    const animateNext = () => {
-      if (!active) return;
-      if (currentIndex < targetResults.length - 1) {
-        currentIndex++;
-        setRenderedResults(targetResults.slice(0, currentIndex + 1));
-        // Speed interval: 15ms per card creates a super elegant, ultra-fluid waterfall loading effect
-        setTimeout(animateNext, 15);
+      // Start with first result loaded to avoid initial blank flash
+      setRenderedResults([targetResults[0]]);
+
+      const animateNext = () => {
+        if (!active) return;
+        if (currentIndex < targetResults.length - 1) {
+          currentIndex++;
+          setRenderedResults(targetResults.slice(0, currentIndex + 1));
+          // Speed interval: 12ms per card creates a super elegant, ultra-fluid waterfall loading effect
+          setTimeout(animateNext, 12);
+        }
+      };
+
+      if (targetResults.length > 1) {
+        setTimeout(animateNext, 12);
       }
-    };
 
-    if (targetResults.length > 1) {
-      setTimeout(animateNext, 15);
+      return () => {
+        active = false;
+      };
+    } else {
+      // Results are identical reference, meaning the user merely scrolled down to load more!
+      // This is the critical fix: DO NOT reset the entire rendered list, which collapses layout height.
+      // Simply update the renderedResults to include the appended items seamlessly.
+      setRenderedResults(targetResults);
     }
-
-    return () => {
-      active = false;
-    };
   }, [results, visibleSearchCount]);
 
   // Observer to load more search results progressively when nearing viewport bottom

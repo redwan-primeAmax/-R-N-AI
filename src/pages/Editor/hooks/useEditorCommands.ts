@@ -117,7 +117,10 @@ export function useEditorCommands({
           return focusChain;
         },
         toggleBold: () => {
-          focusChain.focus();
+          const activeEl = document.activeElement as HTMLElement;
+          if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+            focusChain.focus();
+          }
           document.execCommand('bold', false);
           if (document.activeElement instanceof HTMLElement) {
             const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
@@ -130,7 +133,10 @@ export function useEditorCommands({
           return focusChain;
         },
         toggleItalic: () => {
-          focusChain.focus();
+          const activeEl = document.activeElement as HTMLElement;
+          if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+            focusChain.focus();
+          }
           document.execCommand('italic', false);
           if (document.activeElement instanceof HTMLElement) {
             const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
@@ -143,7 +149,10 @@ export function useEditorCommands({
           return focusChain;
         },
         toggleStrike: () => {
-          focusChain.focus();
+          const activeEl = document.activeElement as HTMLElement;
+          if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+            focusChain.focus();
+          }
           document.execCommand('strikeThrough', false);
           if (document.activeElement instanceof HTMLElement) {
             const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
@@ -156,7 +165,10 @@ export function useEditorCommands({
           return focusChain;
         },
         toggleUnderline: () => {
-          focusChain.focus();
+          const activeEl = document.activeElement as HTMLElement;
+          if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+            focusChain.focus();
+          }
           document.execCommand('underline', false);
           if (document.activeElement instanceof HTMLElement) {
             const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
@@ -169,9 +181,36 @@ export function useEditorCommands({
           return focusChain;
         },
         toggleCode: () => {
-          focusChain.focus();
+          const activeEl = document.activeElement as HTMLElement;
+          if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+            focusChain.focus();
+          }
           const isCode = document.queryCommandValue('fontName')?.toLowerCase()?.includes('monospace');
           document.execCommand('fontName', false, isCode ? 'inherit' : 'monospace');
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
+          setForceRefreshState({});
+          return focusChain;
+        },
+        setTextColor: (color: string) => {
+          document.execCommand('foreColor', false, color);
+          if (document.activeElement instanceof HTMLElement) {
+            const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+            if (activeId) {
+              const html = document.activeElement.innerHTML;
+              setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+            }
+          }
+          setForceRefreshState({});
+          return focusChain;
+        },
+        setBackgroundColor: (color: string) => {
+          document.execCommand('backColor', false, color);
           if (document.activeElement instanceof HTMLElement) {
             const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
             if (activeId) {
@@ -186,13 +225,20 @@ export function useEditorCommands({
           setBlocks((prev) => {
             if (prev.length === 0) return prev;
             const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            return prev.map(b => {
-              if (b.id === activeId) {
-                const targetType = `h${attrs.level}` as any;
-                return { ...b, type: b.type === targetType ? 'paragraph' : targetType };
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            const targetType = `h${attrs.level}` as any;
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: targetType, content: '' };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
               }
-              return b;
-            });
+              return [...prev, newBlock];
+            }
+            return prev.map(b => b.id === activeId ? { ...b, type: b.type === targetType ? 'paragraph' : targetType } : b);
           });
           setForceRefreshState({});
           return focusChain;
@@ -202,6 +248,18 @@ export function useEditorCommands({
           setBlocks((prev) => {
             if (prev.length === 0) return prev;
             const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'bullet' as any, content: '' };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'bullet' ? 'paragraph' : 'bullet' } : b);
           });
           setForceRefreshState({});
@@ -211,6 +269,18 @@ export function useEditorCommands({
           setBlocks((prev) => {
             if (prev.length === 0) return prev;
             const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'ordered' as any, content: '' };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'ordered' ? 'paragraph' : 'ordered' } : b);
           });
           setForceRefreshState({});
@@ -220,6 +290,18 @@ export function useEditorCommands({
           setBlocks((prev) => {
             if (prev.length === 0) return prev;
             const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'todo' as any, content: '', checked: false };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'todo' ? 'paragraph' : 'todo', checked: false } : b);
           });
           setForceRefreshState({});
@@ -229,6 +311,18 @@ export function useEditorCommands({
           setBlocks((prev) => {
             if (prev.length === 0) return prev;
             const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'quote' as any, content: '' };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'quote' ? 'paragraph' : 'quote' } : b);
           });
           setForceRefreshState({});
@@ -238,6 +332,18 @@ export function useEditorCommands({
           setBlocks((prev) => {
             if (prev.length === 0) return prev;
             const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'code' as any, content: '', language: 'javascript' };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'code' ? 'paragraph' : 'code', language: 'javascript' } : b);
           });
           setForceRefreshState({});
@@ -260,7 +366,7 @@ export function useEditorCommands({
               const res = [...prev];
               res.splice(idx + 1, 0, newBlock);
               return res;
-            }
+             }
             return [...prev, newBlock];
           });
           return focusChain;
@@ -268,6 +374,18 @@ export function useEditorCommands({
         setCallout: () => {
           setBlocks((prev) => {
             const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'callout' as any, content: '', emoji: '💡' };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { ...b, type: 'callout' } : b);
           });
           return focusChain;
@@ -275,10 +393,23 @@ export function useEditorCommands({
         setSandbox: () => {
           setBlocks((prev) => {
             const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeBlock = prev.find(b => b.id === activeId);
+            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
+            const templateHtml = '<h3>Title</h3>\n<p>Write your HTML/CSS/JS code block here...</p>';
+            if (isSpecialized) {
+              const newBlock = { id: crypto.randomUUID(), type: 'sandbox' as any, content: templateHtml };
+              const idx = prev.findIndex(b => b.id === activeId);
+              if (idx > -1) {
+                const res = [...prev];
+                res.splice(idx + 1, 0, newBlock);
+                return res;
+              }
+              return [...prev, newBlock];
+            }
             return prev.map(b => b.id === activeId ? { 
               ...b, 
               type: 'sandbox', 
-              content: '<h3>Title</h3>\n<p>Write your HTML/CSS/JS code block here...</p>' 
+              content: templateHtml 
             } : b);
           });
           return focusChain;
@@ -415,34 +546,6 @@ export function useEditorCommands({
         insertTableView: () => {
           setBlocks((prev) => {
             const newBlock = { id: crypto.randomUUID(), type: 'table_view' as any, content: '' };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
-          return focusChain;
-        },
-        insertBoardView: () => {
-          setBlocks((prev) => {
-            const newBlock = { id: crypto.randomUUID(), type: 'board_view' as any, content: '' };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
-          return focusChain;
-        },
-        insertGalleryView: () => {
-          setBlocks((prev) => {
-            const newBlock = { id: crypto.randomUUID(), type: 'gallery_view' as any, content: '' };
             const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const idx = prev.findIndex(b => b.id === activeId);
             if (idx > -1) {

@@ -78,6 +78,8 @@ export default function EditorPage() {
   const lastClickTime = useRef<number>(0);
 
   const [showLinkPanel, setShowLinkPanel] = useState(false);
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const handleShowSubPageLinkList = () => setShowLinkPanel(true);
@@ -712,6 +714,8 @@ export default function EditorPage() {
             <textarea
               autoFocus
               value={title}
+              onFocus={() => setIsTitleFocused(true)}
+              onBlur={() => setIsTitleFocused(false)}
               onChange={(e) => updateTitle(e.target.value)}
               placeholder="শিরোনামহীন"
               rows={1}
@@ -752,6 +756,7 @@ export default function EditorPage() {
         onPlusClick={() => setShowBlockMenu(true)}
         isReadOnly={isReadOnly}
         isLight={isLight}
+        isTitleFocused={isTitleFocused}
       />
 
       <PlusPanel 
@@ -759,6 +764,9 @@ export default function EditorPage() {
         onClose={() => setShowBlockMenu(false)} 
         editor={editor}
         isLight={isLight}
+        note={note}
+        onUploadStart={() => setIsUploading(true)}
+        onUploadComplete={() => setIsUploading(false)}
       />
 
       <LinkPageList 
@@ -773,6 +781,7 @@ export default function EditorPage() {
           <SubPageManager 
             currentNote={note!} 
             type={subPageMode} 
+            editor={editor}
             onClose={() => setSubPageMode(null)} 
           />
         )}
@@ -832,6 +841,8 @@ export default function EditorPage() {
           {notification.message}
         </motion.div>
       )}
+
+      {isUploading && <LoadingScreen />}
     </div>
   );
 }

@@ -3,6 +3,31 @@ import { Peer, DataConnection } from 'peerjs';
 import { EditorBlock, blocksToHtml } from '../utils/blockParser';
 import { DataManager } from './storage/DataManager';
 
+// Helper to apply string diff to Y.Text in-place for atomic keyboard-stroke synchronization
+export function applyStringDiff(yText: Y.Text, newStr: string) {
+  const oldStr = yText.toString();
+  if (oldStr === newStr) return;
+
+  let start = 0;
+  while (start < oldStr.length && start < newStr.length && oldStr[start] === newStr[start]) {
+    start++;
+  }
+
+  let oldEnd = oldStr.length - 1;
+  let newEnd = newStr.length - 1;
+  while (oldEnd >= start && newEnd >= start && oldStr[oldEnd] === newStr[oldEnd]) {
+    oldEnd--;
+    newEnd--;
+  }
+
+  if (oldEnd >= start) {
+    yText.delete(start, oldEnd - start + 1);
+  }
+  if (newEnd >= start) {
+    yText.insert(start, newStr.substring(start, newEnd + 1));
+  }
+}
+
 export interface CollabMeta {
   title: string;
   emoji: string;
@@ -142,17 +167,16 @@ export class PeerCollabManager {
     if (!id) return { title: '', emoji: '📝', description: '', theme: 'default', blocks: [], noteId: '', parentId: '', syncedSubPages: [] };
     
     const session = this.getSession(id);
-    const idStr = id ? '-' + id : '';
 
-    const metaMap = session.yDoc.getMap<string>('metadata' + idStr);
+    const metaMap = session.yDoc.getMap<string>('metadata');
     const title = metaMap.get('title') || '';
     const emoji = metaMap.get('emoji') || '📝';
     const description = metaMap.get('description') || '';
     const theme = metaMap.get('theme') || 'default';
     const parentId = metaMap.get('parentId') || '';
 
-    const orderArray = session.yDoc.getArray<string>('blocksOrder' + idStr);
-    const dataMap = session.yDoc.getMap<Y.Map<any>>('blocksData' + idStr);
+    const orderArray = session.yDoc.getArray<string>('blocksOrder');
+    const dataMap = session.yDoc.getMap<Y.Map<any>>('blocksData');
 
     const blocks: EditorBlock[] = [];
     orderArray.forEach((blockId) => {
@@ -163,6 +187,7 @@ export class PeerCollabManager {
         const content = yText ? yText.toString() : (bMap.get('contentText') || '');
         const checked = bMap.get('checked') === true;
         const language = bMap.get('language') || 'javascript';
+        const blockEmoji = bMap.get('emoji') || '💡';
         
         let tableData: string[][] | undefined = undefined;
         const tRaw = bMap.get('tableData');
@@ -176,12 +201,12 @@ export class PeerCollabManager {
           try { mediaData = typeof mRaw === 'string' ? JSON.parse(mRaw) : mRaw; } catch (e) {}
         }
 
-        blocks.push({ id: blockId, type, content, checked, language, tableData, mediaData });
+        blocks.push({ id: blockId, type, content, checked, language, emoji: blockEmoji, tableData, mediaData });
       }
     });
 
     let syncedSubPages: any[] = [];
-    const subpagesArray = session.yDoc.getArray<any>('subpages-list-' + id);
+    const subpagesArray = session.yDoc.getArray<any>('subpages-list');
     syncedSubPages = subpagesArray.toArray();
 
     return { title, emoji, description, theme, blocks, noteId: id, parentId, syncedSubPages };
@@ -211,10 +236,9 @@ export class PeerCollabManager {
 
     const session = this.getSession(noteId);
     session.isSeeded = true;
-    const idStr = '-' + noteId;
 
     session.yDoc.transact(() => {
-      const metaMap = session.yDoc.getMap<string>('metadata' + idStr);
+      const metaMap = session.yDoc.getMap<string>('metadata');
       if (metaMap.get('title') !== data.title) metaMap.set('title', data.title);
       if (metaMap.get('emoji') !== data.emoji) metaMap.set('emoji', data.emoji);
       if (metaMap.get('description') !== data.description) metaMap.set('description', data.description);
@@ -223,7 +247,7 @@ export class PeerCollabManager {
       if (data.parentId && metaMap.get('parentId') !== data.parentId) metaMap.set('parentId', data.parentId);
 
       if (data.subPages) {
-        const subpagesArray = session.yDoc.getArray<any>('subpages-list-' + noteId);
+        const subpagesArray = session.yDoc.getArray<any>('subpages-list');
         const currentSubRaw = data.subPages.map(sub => ({
           id: sub.id,
           title: sub.title || '',
@@ -251,8 +275,8 @@ export class PeerCollabManager {
         }
       }
 
-      const orderArray = session.yDoc.getArray<string>('blocksOrder' + idStr);
-      const dataMap = session.yDoc.getMap<Y.Map<any>>('blocksData' + idStr);
+      const orderArray = session.yDoc.getArray<string>('blocksOrder');
+      const dataMap = session.yDoc.getMap<Y.Map<any>>('blocksData');
       const currentIds = data.blocks.map(b => b.id);
       const yIds = orderArray.toArray();
       let orderChanged = currentIds.length !== yIds.length;
@@ -273,13 +297,14 @@ export class PeerCollabManager {
         let yText = bMap.get('content') as Y.Text | undefined;
         if (!yText) { yText = new Y.Text(); bMap.set('content', yText); }
         const localContent = localBlock.content || '';
-        if (yText.toString() !== localContent) {
-          yText.delete(0, yText.length);
-          yText.insert(0, localContent);
-          bMap.set('contentText', localContent);
-        }
+        
+        // Character level atomic diff application!
+        applyStringDiff(yText, localContent);
+        bMap.set('contentText', localContent);
+
         if (bMap.get('checked') !== localBlock.checked) bMap.set('checked', !!localBlock.checked);
         if (bMap.get('language') !== localBlock.language) bMap.set('language', localBlock.language || 'javascript');
+        if (localBlock.emoji && bMap.get('emoji') !== localBlock.emoji) bMap.set('emoji', localBlock.emoji);
         if (localBlock.tableData) bMap.set('tableData', JSON.stringify(localBlock.tableData));
         if (localBlock.mediaData) bMap.set('mediaData', JSON.stringify(localBlock.mediaData));
       });

@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   CheckSquare, Square, MessageSquare, ChevronRight, Layout, Columns, Table as TableIcon, Bookmark, Plus
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
+import { DataManager } from '../../../services/storage/DataManager';
 
 import { EditorBlock, cleanBlockHTML, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 import { MediaBlock } from './blocks/MediaBlock';
@@ -26,6 +27,47 @@ interface CustomBlockEditorProps {
 }
 
 // Add this before CustomBlockEditor component definition
+const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isReadOnly: boolean }> = ({ subPageId, defaultTitle, isReadOnly }) => {
+  const [title, setTitle] = useState(defaultTitle || 'শিরোনামহীন');
+
+  useEffect(() => {
+    let active = true;
+    const fetchTitle = async () => {
+      try {
+        const note = await DataManager.getNoteById(subPageId);
+        if (note && active) {
+          setTitle(note.title || 'শিরোনামহীন');
+        }
+      } catch (err) {
+        console.error('Failed to resolve subpage title:', err);
+      }
+    };
+    fetchTitle();
+
+    window.addEventListener('workspace-notes-changed', fetchTitle);
+    return () => {
+      active = false;
+      window.removeEventListener('workspace-notes-changed', fetchTitle);
+    };
+  }, [subPageId]);
+
+  return (
+    <button
+      onClick={() => {
+        if (isReadOnly) {
+          window.location.href = `/editor/${subPageId}`;
+        }
+      }}
+      className={cn(
+        "text-sm font-bold text-blue-500 hover:text-blue-400 border-b border-dashed border-blue-500/50 pb-0.5 text-left transition-all",
+        isReadOnly ? "cursor-pointer" : "cursor-default"
+      )}
+    >
+      {title}
+    </button>
+  );
+};
+
 const MemoizedBlockRow = React.memo(({ 
   block, 
   idx, 
@@ -41,6 +83,8 @@ const MemoizedBlockRow = React.memo(({
   indentStyle,
   currentHiddenIndent
 }: any) => {
+  const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+
   if (currentHiddenIndent !== null && (block.indent || 0) > currentHiddenIndent) {
     return null;
   }
@@ -93,18 +137,23 @@ const MemoizedBlockRow = React.memo(({
       )}
 
       {/* Ordered Type Digit */}
-      {block.type === 'ordered' && (
-        <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-1 text-[13px] font-medium text-gray-400">
-          {idx + 1}.
-        </div>
-      )}
-
-      {/* Special Callout Header Area */}
-      {block.type === 'callout' && (
-        <div className="w-9 h-9 bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-500 mt-1">
-          <MessageSquare size={18} />
-        </div>
-      )}
+      {block.type === 'ordered' && (() => {
+        let count = 1;
+        const currentIndent = block.indent || 0;
+        for (let k = idx - 1; k >= 0; k--) {
+          const prevB = blocks[k];
+          if (prevB && prevB.type === 'ordered' && (prevB.indent || 0) === currentIndent) {
+            count++;
+          } else {
+            break;
+          }
+        }
+        return (
+          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-1 text-[13px] font-semibold text-gray-400">
+            {count}.
+          </div>
+        );
+      })()}
 
       {/* Toggle Type Icon */}
       {block.type === 'toggle' && (
@@ -127,45 +176,88 @@ const MemoizedBlockRow = React.memo(({
           <div className="w-full h-[1px] bg-gray-100 dark:bg-white/10" />
         </div>
       ) : block.type === 'column' ? (
-        <div className="flex-1 min-w-0 grid grid-cols-2 gap-4 py-4">
-           <div className="p-8 border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center gap-2 text-white/20 hover:text-white/40 hover:border-white/10 transition-all">
-              <Columns size={32} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Col 1</span>
-           </div>
-           <div className="p-8 border-2 border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center gap-2 text-white/20 hover:text-white/40 hover:border-white/10 transition-all">
-              <Columns size={32} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Col 2</span>
-           </div>
+        <div className="flex-1 min-w-0 grid grid-cols-2 gap-4 py-3">
+          <div className="p-4 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl transition-all flex flex-col gap-2">
+            <span className="text-[9px] font-black uppercase tracking-wider text-blue-500/60 font-mono">Column A</span>
+            <div
+              contentEditable={!isReadOnly}
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                const val = e.currentTarget.innerHTML;
+                const col2Val = block.col2Content || '';
+                setBlocks((prev: any) => prev.map((b: any) => b.id === block.id ? { ...b, col1Content: val, col2Content: col2Val } : b));
+              }}
+              dangerouslySetInnerHTML={{ __html: block.col1Content || '' }}
+              className="text-sm font-sans focus:outline-none min-h-[50px] leading-relaxed empty:before:content-['Type_left_column...'] empty:before:opacity-30 empty:before:italic"
+            />
+          </div>
+          <div className="p-4 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl transition-all flex flex-col gap-2">
+            <span className="text-[9px] font-black uppercase tracking-wider text-purple-500/60 font-mono">Column B</span>
+            <div
+              contentEditable={!isReadOnly}
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                const val = e.currentTarget.innerHTML;
+                const col1Val = block.col1Content || '';
+                setBlocks((prev: any) => prev.map((b: any) => b.id === block.id ? { ...b, col1Content: col1Val, col2Content: val } : b));
+              }}
+              dangerouslySetInnerHTML={{ __html: block.col2Content || '' }}
+              className="text-sm font-sans focus:outline-none min-h-[50px] leading-relaxed empty:before:content-['Type_right_column...'] empty:before:opacity-30 empty:before:italic"
+            />
+          </div>
         </div>
-      ) : block.type.includes('_view') ? (
+      ) : block.type === 'table_view' ? (
          <div className="flex-1 min-w-0 py-4">
             <div className="p-10 bg-white/5 border border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 text-center group/view cursor-pointer hover:bg-white/10 transition-all ring-1 ring-white/5">
                <div className="w-16 h-16 bg-blue-500 rounded-[24px] flex items-center justify-center shadow-2xl shadow-blue-500/20 group-hover/view:scale-110 transition-transform">
-                  {block.type === 'table_view' && <TableIcon className="text-white" />}
-                  {block.type === 'board_view' && <Layout className="text-white" />}
-                  {block.type === 'gallery_view' && <Bookmark className="text-white" />}
+                  <TableIcon className="text-white" />
                </div>
                <div>
                   <div className="text-sm font-black uppercase tracking-widest text-white/90">
-                     {block.type.replace('_', ' ')}
+                     Table View
                   </div>
                   <div className="text-[10px] text-white/40 font-bold mt-1">Click to configure database source</div>
                </div>
             </div>
          </div>
       ) : block.type === 'page_link' ? (
-         <button 
-            onClick={() => (window as any).editorEvents?.emit('createSubPage')}
-            className="flex-1 min-w-0 py-2 group/page flex items-center gap-4 px-4 hover:bg-white/5 rounded-2xl transition-all"
-         >
-            <div className="w-10 h-10 bg-white/5 border border-white/5 rounded-xl flex items-center justify-center group-hover/page:bg-blue-500/10 group-hover/page:border-blue-500/20 transition-all">
-               <Plus size={20} className="text-white/40 group-hover/page:text-blue-500" />
-            </div>
-            <div className="flex flex-col items-start">
-               <div className="text-sm font-bold text-white/70 group-hover:text-white">Untitled Page</div>
-               <div className="text-[9px] text-white/20 uppercase tracking-widest font-black">Click to open or create</div>
-            </div>
-         </button>
+         block.subPageId ? (
+           <div className="flex-1 min-w-0 py-2.5 flex items-center justify-between group/page bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl px-4 transition-all">
+             <div className="flex items-center gap-2.5 min-w-0">
+               <div className="w-5 h-5 flex items-center justify-center text-blue-400 shrink-0">
+                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                 </svg>
+               </div>
+               
+               <DynamicPageLink subPageId={block.subPageId} defaultTitle={block.content} isReadOnly={isReadOnly} />
+             </div>
+
+             {!isReadOnly && (
+               <button
+                 onClick={() => {
+                   window.location.href = `/editor/${block.subPageId}`;
+                 }}
+                 className="text-[10px] font-black uppercase tracking-wider text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 py-1.5 px-3 rounded-lg opacity-0 group-hover/page:opacity-100 transition-all font-mono"
+               >
+                 Open Page
+               </button>
+             )}
+           </div>
+         ) : (
+           <button 
+              onClick={() => (window as any).editorEvents?.emit('createSubPage')}
+              className="flex-1 min-w-0 py-2 group/page flex items-center gap-4 px-4 hover:bg-white/5 rounded-2xl transition-all text-left"
+           >
+              <div className="w-10 h-10 bg-white/5 border border-white/5 rounded-xl flex items-center justify-center group-hover/page:bg-blue-500/10 group-hover/page:border-blue-500/20 transition-all">
+                 <Plus size={20} className="text-white/40 group-hover/page:text-blue-500 font-bold" />
+              </div>
+              <div className="flex flex-col items-start">
+                 <div className="text-sm font-bold text-white/70 group-hover:text-white">Untitled Page</div>
+                 <div className="text-[9px] text-white/20 uppercase tracking-widest font-black">Click to open or create</div>
+              </div>
+           </button>
+         )
       ) : block.type === 'media' ? (
         <div className="flex-1 min-w-0">
           <MediaBlock block={block} blocks={blocks} setBlocks={setBlocks} />
@@ -179,6 +271,7 @@ const MemoizedBlockRow = React.memo(({
           setFocusedId={setFocusedId} 
           editor={editor} 
           handleBlockChange={handleBlockChange} 
+          setBlocks={setBlocks}
         />
       ) : block.type === 'sandbox' ? (
         <SandboxBlock block={block} handleBlockChange={handleBlockChange} isReadOnly={isReadOnly} />
@@ -186,6 +279,44 @@ const MemoizedBlockRow = React.memo(({
         <AudioGeneratorBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
       ) : block.type === 'bookmark' ? (
         <BookmarkBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
+      ) : block.type === 'callout' ? (
+        <div className="flex-1 flex items-start gap-3 p-4 rounded-2xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/5 shadow-sm text-left relative overflow-visible">
+          <div className="relative flex-shrink-0 mt-0.5">
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="w-8 h-8 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg flex items-center justify-center text-lg transition-all"
+            >
+              {block.emoji || '💡'}
+            </button>
+            {showEmojiPicker && (
+              <div className="absolute top-10 left-0 z-50 p-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/15 rounded-xl shadow-2xl flex gap-1 flex-wrap w-40 backdrop-blur-lg">
+                {['💡', '📝', '📌', '⚠️', '⭐', '🚀', '🎯', '📁', '🔍', 'ℹ️'].map((em) => (
+                  <button
+                    key={em}
+                    onClick={() => {
+                      setBlocks((prev: any) => prev.map((b: any) => b.id === block.id ? { ...b, emoji: em } : b));
+                      setShowEmojiPicker(false);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg text-base transition-all active:scale-90"
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <EditableBlock 
+            block={block}
+            idx={idx}
+            isReadOnly={isReadOnly}
+            blockRefs={blockRefs}
+            handleKeyDown={handleKeyDown}
+            setFocusedId={setFocusedId}
+            editor={editor}
+            handleBlockChange={handleBlockChange}
+          />
+        </div>
       ) : (
         <EditableBlock 
           block={block}
@@ -301,20 +432,27 @@ export default function CustomBlockEditor({ editor, className }: CustomBlockEdit
       addBlockAfter(block.id, isListType ? block.type : 'paragraph', block.indent || 0);
       lastActionRef.current = 'CreateBlock';
       return;
-    } else if (e.key === 'Backspace' && block.content === '' && block.type !== 'table' && blocks.length > 1) {
-      // If indented, backspace decreases indent first
-      if ((block.indent || 0) > 0) {
-        e.preventDefault();
-        handleBlockIndentChange(block.id, (block.indent || 0) - 1);
-        return;
-      }
+    } else if (e.key === 'Backspace' && block.type !== 'table' && blocks.length > 1) {
+      const target = e.target as HTMLElement;
+      const cleanText = target.innerHTML.replace(/<[^>]*>/g, '').trim();
+      const isEmpty = cleanText === '' || cleanText === '&nbsp;' || !target.textContent?.trim();
 
-      if (block.type !== 'paragraph') {
-        e.preventDefault();
-        handleBlockTypeChange(block.id, 'paragraph');
-      } else {
-        e.preventDefault();
-        deleteBlock(block.id);
+      if (isEmpty) {
+        // If indented, backspace decreases indent first
+        if ((block.indent || 0) > 0) {
+          e.preventDefault();
+          handleBlockIndentChange(block.id, (block.indent || 0) - 1);
+          return;
+        }
+
+        if (block.type !== 'paragraph') {
+          e.preventDefault();
+          target.innerHTML = ''; // reset element display
+          handleBlockTypeChange(block.id, 'paragraph');
+        } else {
+          e.preventDefault();
+          deleteBlock(block.id);
+        }
       }
     } else if (e.key === 'ArrowUp') {
       const prev = blocks[idx - 1];
@@ -360,8 +498,27 @@ export default function CustomBlockEditor({ editor, className }: CustomBlockEdit
   // Visibility logic for toggles
   let currentHiddenIndent: number | null = null;
 
+  const handleAddNewParagraphAtEnd = () => {
+    if (isReadOnly || !setBlocks) return;
+    const lastBlock = blocks[blocks.length - 1];
+    if (lastBlock && lastBlock.content === '' && lastBlock.type === 'paragraph') {
+      blockRefs.current[lastBlock.id]?.focus();
+      return;
+    }
+    const newBlock: EditorBlock = {
+      id: crypto.randomUUID(),
+      type: 'paragraph',
+      content: '',
+      indent: 0
+    };
+    setBlocks((prev: EditorBlock[]) => [...prev, newBlock]);
+    setTimeout(() => {
+      blockRefs.current[newBlock.id]?.focus();
+    }, 50);
+  };
+
   return (
-    <div className={cn("space-y-0 pb-24", className)}>
+    <div className={cn("space-y-0 pb-12", className)}>
       {blocks.map((block: EditorBlock, idx: number) => {
         // If we are currently hiding blocks due to a parent toggle
         if (currentHiddenIndent !== null) {
@@ -399,6 +556,14 @@ export default function CustomBlockEditor({ editor, className }: CustomBlockEdit
           />
         );
       })}
+
+      {/* Notion-like click below to create new line */}
+      {!isReadOnly && (
+        <div 
+          onClick={handleAddNewParagraphAtEnd}
+          className="w-full min-h-[180px] cursor-text rounded-2xl border-2 border-dashed border-transparent hover:border-neutral-200/20 active:scale-[0.99] transition-all bg-transparent mt-4"
+        />
+      )}
     </div>
   );
 }

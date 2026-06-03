@@ -12,16 +12,52 @@ import {
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { ListIcon, TodoIcon, PageIcon, TableIcon, MicIcon, BookmarkIcon, ToggleIcon } from '../svg/EditorIcons';
+import { uploadAndInsertMedia } from '../services/mediaUploader';
 
 interface PlusPanelProps {
   isOpen: boolean;
   onClose: () => void;
   editor: any;
   isLight?: boolean;
+  note?: any;
+  onUploadStart?: () => void;
+  onUploadComplete?: () => void;
 }
 
-export const PlusPanel: React.FC<PlusPanelProps> = ({ isOpen, onClose, editor, isLight = false }) => {
+export const PlusPanel: React.FC<PlusPanelProps> = ({ 
+  isOpen, 
+  onClose, 
+  editor, 
+  isLight = false, 
+  note,
+  onUploadStart,
+  onUploadComplete
+}) => {
   if (!editor) return null;
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await uploadAndInsertMedia({
+      file,
+      editor,
+      noteId: note?.id || 'temp',
+      workspaceId: note?.workspaceId || 'default',
+      onStart: () => {
+        if (onUploadStart) onUploadStart();
+      },
+      onComplete: () => {
+        if (onUploadComplete) onUploadComplete();
+        onClose();
+      },
+      onError: () => {
+        if (onUploadComplete) onUploadComplete();
+      }
+    });
+  };
 
   const items = [
     { 
@@ -54,32 +90,29 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({ isOpen, onClose, editor, i
       icon: <PageIcon size={20} />, 
       action: () => (window as any).editorEvents?.emit('createSubPage')
     },
+    { 
+      label: 'Attach Page', 
+      detail: 'Link an existing sub-page',
+      icon: <FilePlus size={20} />, 
+      action: () => (window as any).editorEvents?.emit('attachSubPage')
+    },
     {
-      label: 'Link',
-      detail: 'Web link attachment',
+      label: 'Link (QuickClip)',
+      detail: 'Web link bookmark preview',
       icon: <BookmarkIcon size={20} />,
-      action: () => {
-        const url = window.prompt('Enter URL:');
-        if (url) editor.chain().focus().setLink({ href: url }).run();
-      }
+      action: () => (window as any).editorEvents?.emit('runWebBookmark')
     },
     { 
       label: 'Column Layout', 
-      detail: 'Side-by-side layout',
+      detail: 'Editable side-by-side layout',
       icon: <Layout size={20} />, 
       action: () => (editor.chain().focus() as any).insertColumns?.()
     },
     { 
       label: 'Code Block', 
-      detail: 'Code with syntax highligting',
+      detail: 'Code with syntax highlighting',
       icon: <Code size={20} />, 
       action: () => editor.chain().focus().toggleCodeBlock().run() 
-    },
-    { 
-      label: 'Quote', 
-      detail: 'Capture a quotation',
-      icon: <Quote size={20} />, 
-      action: () => editor.chain().focus().toggleBlockquote().run() 
     },
     { 
       label: 'Table', 
@@ -100,28 +133,16 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({ isOpen, onClose, editor, i
       action: () => (editor.chain().focus() as any).insertTableView?.()
     },
     { 
-      label: 'Board View', 
-      detail: 'Kanban board view',
-      icon: <Layout size={20} className="rotate-90" />, 
-      action: () => (editor.chain().focus() as any).insertBoardView?.()
-    },
-    { 
-      label: 'Gallery View', 
-      detail: 'Visual card view',
-      icon: <BookmarkIcon size={20} />, 
-      action: () => (editor.chain().focus() as any).insertGalleryView?.()
-    },
-    { 
       label: 'Audio Generator', 
       detail: 'Text to speech audio',
       icon: <MicIcon size={20} />, 
       action: () => (editor.chain().focus() as any).runAudioGenerator?.()
     },
     { 
-      label: 'QuickClip', 
-      detail: 'Save link with preview',
-      icon: <BookmarkIcon size={20} />, 
-      action: () => (editor.chain().focus() as any).runWebBookmark?.()
+      label: 'Image / File Upload', 
+      detail: 'Upload document, images, audio',
+      icon: <FilePlus size={20} />, 
+      action: () => fileInputRef.current?.click()
     }
   ];
 
@@ -147,6 +168,13 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({ isOpen, onClose, editor, i
             )}
           >
             <div className="w-12 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full mx-auto mb-6" />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleMediaSelect} 
+              className="hidden" 
+              accept="*/*"
+            />
             
             {/* Requirement 8: 2x1 Grid layout (interpreted as 2 columns) */}
             <div className="grid grid-cols-2 gap-3">

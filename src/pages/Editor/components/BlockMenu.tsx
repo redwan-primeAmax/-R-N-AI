@@ -11,7 +11,7 @@ import {
   Type, MessageSquare, Mic, Hash, Plus, FilePlus
 } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
-import { operationRunner } from '../../../services/storage/OperationRunner';
+import { uploadAndInsertMedia } from '../services/mediaUploader';
 import { cn } from '../../../utils/cn';
 
 interface BlockMenuProps {
@@ -19,46 +19,42 @@ interface BlockMenuProps {
   onClose: () => void;
   editor: any;
   noteRef: React.MutableRefObject<Note | null>;
+  onUploadStart?: () => void;
+  onUploadComplete?: () => void;
 }
 
-export const BlockMenu: React.FC<BlockMenuProps> = ({ isOpen, onClose, editor, noteRef }) => {
+export const BlockMenu: React.FC<BlockMenuProps> = ({ 
+  isOpen, 
+  onClose, 
+  editor, 
+  noteRef,
+  onUploadStart,
+  onUploadComplete
+}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   if (!editor) return null;
 
   const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file || !editor) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      // Limit size to 50MB
-      if (file.size > 50 * 1024 * 1024) {
-        alert("ফাইলটি অত্যন্ত বড় (সর্বোচ্চ ৫০ এমবি গ্রহণযোগ্য)!");
-        return;
+    await uploadAndInsertMedia({
+      file,
+      editor,
+      noteId: noteRef.current?.id || 'temp',
+      workspaceId: noteRef.current?.workspaceId || 'default',
+      onStart: () => {
+        if (onUploadStart) onUploadStart();
+      },
+      onComplete: () => {
+        if (onUploadComplete) onUploadComplete();
+        onClose();
+      },
+      onError: () => {
+        if (onUploadComplete) onUploadComplete();
       }
-
-      const fileId = crypto.randomUUID();
-      const type = file.type.startsWith('image/') ? 'image' : 
-                   file.type.startsWith('video/') ? 'video' : 
-                   file.type.startsWith('audio/') ? 'audio' : 'file';
-
-      // Insert the media block first
-      (editor.chain().focus() as any).setMedia({ 
-        id: fileId,
-        type,
-        fileName: file.name,
-        fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-        status: 'uploading'
-      }).run();
-
-      // Start upload task
-      await operationRunner.runUpload(file, noteRef.current?.id || 'temp', noteRef.current?.workspaceId || 'default', fileId);
-
-      onClose();
-    } catch (err) {
-      console.error('File selection or upload starting failed:', err);
-      alert('ফাইল আপলোড শুরু করতে ব্যর্থ হয়েছে!');
-    }
+    });
   };
 
   const blocks = [

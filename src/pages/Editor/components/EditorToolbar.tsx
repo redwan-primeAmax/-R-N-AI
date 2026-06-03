@@ -7,26 +7,28 @@ import React, { useState } from 'react';
 import { 
   Underline, Strikethrough, Code, 
   Undo2, Redo2, Plus, 
-  Search, Link2, ChevronRight
+  Link2, ArrowLeft, Palette, 
+  Keyboard
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ContentSearch } from './ContentSearch';
 
 interface EditorToolbarProps {
   editor: any;
   onPlusClick: () => void;
   isReadOnly: boolean;
   isLight?: boolean;
+  isTitleFocused?: boolean;
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ 
   editor, 
   onPlusClick,
   isReadOnly,
-  isLight = false
+  isLight = false,
+  isTitleFocused = false
 }) => {
-  const [showHeadings, setShowHeadings] = useState(false);
+  const [currentMenu, setCurrentMenu] = useState<'main' | 'formatting' | 'colors'>('main');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [, forceUpdate] = useState({});
 
@@ -64,6 +66,33 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
   if (!editor || isReadOnly) return null;
 
+  const handleKeyboardCollapse = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
+
+  const textColors = [
+    { name: 'Default', value: isLight ? '#37352f' : '#ffffff' },
+    { name: 'Red', value: '#ef4444' },
+    { name: 'Blue', value: '#3b82f6' },
+    { name: 'Green', value: '#22c55e' },
+    { name: 'Yellow', value: '#eab308' },
+    { name: 'Purple', value: '#a855f7' },
+    { name: 'Orange', value: '#f97316' }
+  ];
+
+  const bgColors = [
+    { name: 'Clear', value: 'transparent' },
+    { name: 'Red Highlight', value: 'rgba(239, 68, 68, 0.25)' },
+    { name: 'Blue Highlight', value: 'rgba(59, 130, 246, 0.25)' },
+    { name: 'Green Highlight', value: 'rgba(34, 197, 94, 0.25)' },
+    { name: 'Yellow Highlight', value: 'rgba(234, 179, 8, 0.25)' },
+    { name: 'Purple Highlight', value: 'rgba(168, 85, 247, 0.25)' },
+    { name: 'Orange Highlight', value: 'rgba(249, 115, 22, 0.25)' }
+  ];
+
   const ToolbarButton = ({ 
     onClick, 
     isActive = false, 
@@ -73,13 +102,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   }: any) => (
     <button
       onMouseDown={(e) => {
-        // Prevent focus loss/keyboard closing
         e.preventDefault();
       }}
       onPointerDown={(e) => {
-        // Prevent focus loss/keyboard closing
         e.preventDefault();
-        // Give tactile feedback on mobile
         if (typeof window !== 'undefined' && window.navigator.vibrate) {
           window.navigator.vibrate(5);
         }
@@ -109,64 +135,164 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       )}
       style={{ bottom: `${keyboardHeight}px` }}
     >
-      <div className="max-w-3xl mx-auto flex items-center h-14 px-2 overflow-x-auto no-scrollbar gap-0.5">
-        <ToolbarButton 
-          onClick={(e: any) => {
-            // Hide keyboard on Plus click
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            onPlusClick();
-          }} 
-          className={cn(
-            "mr-1",
-            isLight ? "text-gray-800 bg-gray-100 hover:bg-gray-200" : "text-white/90 bg-white/5 hover:bg-white/10"
-          )}
-        >
-          <Plus size={20} />
-        </ToolbarButton>
+      <div className="max-w-3xl mx-auto flex items-center h-14 px-2 overflow-x-auto no-scrollbar justify-between">
+        {isTitleFocused ? (
+          // Title specific minimalist bar: contains only keyboard off button at the far right
+          <div className="flex w-full justify-end px-2">
+            <ToolbarButton onClick={handleKeyboardCollapse}>
+              <Keyboard size={20} className="text-blue-500" />
+            </ToolbarButton>
+          </div>
+        ) : (
+          <div className="flex items-center w-full gap-0.5 min-w-0">
+            <AnimatePresence mode="wait">
+              {currentMenu === 'main' && (
+                <motion.div 
+                  key="main"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center gap-0.5 flex-1 min-w-0"
+                >
+                  <ToolbarButton 
+                    onClick={(e: any) => {
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur();
+                      }
+                      onPlusClick();
+                    }} 
+                    className={cn(
+                      "mr-1",
+                      isLight ? "text-gray-800 bg-gray-100 hover:bg-gray-200" : "text-white/90 bg-white/5 hover:bg-white/10"
+                    )}
+                  >
+                    <Plus size={20} />
+                  </ToolbarButton>
 
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleBold().run()} 
-            isActive={editor.isActive('bold')}
-          >
-            <span className="font-bold font-serif text-lg leading-none">B</span>
-          </ToolbarButton>
+                  {/* Aa Formatting Options Button */}
+                  <ToolbarButton 
+                    onClick={() => setCurrentMenu('formatting')}
+                    isActive={false}
+                  >
+                    <span className="font-extrabold text-sm leading-none font-sans tracking-tight">Aa</span>
+                  </ToolbarButton>
 
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleItalic().run()} 
-            isActive={editor.isActive('italic')}
-          >
-            <span className="italic font-serif text-lg leading-none">I</span>
-          </ToolbarButton>
+                  <div className={cn("w-[1px] h-6 mx-1 flex-shrink-0", isLight ? "bg-gray-200" : "bg-white/10")} />
 
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleUnderline().run()} 
-            isActive={editor.isActive('underline')}
-          >
-            <Underline size={18} />
-          </ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+                    <Undo2 size={18} />
+                  </ToolbarButton>
 
-          <ToolbarButton 
-            onClick={() => editor.chain().focus().toggleStrike().run()} 
-            isActive={editor.isActive('strike')}
-          >
-            <Strikethrough size={18} />
-          </ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+                    <Redo2 size={18} />
+                  </ToolbarButton>
 
-          <div className={cn("w-[1px] h-6 mx-1 flex-shrink-0", isLight ? "bg-gray-200" : "bg-white/10")} />
+                  <div className="flex-1" />
 
-          <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
-            <Undo2 size={18} />
-          </ToolbarButton>
+                  {/* Collapse Keyboard Button */}
+                  <ToolbarButton onClick={handleKeyboardCollapse}>
+                    <Keyboard size={20} />
+                  </ToolbarButton>
+                </motion.div>
+              )}
 
-          <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
-            <Redo2 size={18} />
-          </ToolbarButton>
-        </div>
+              {currentMenu === 'formatting' && (
+                <motion.div 
+                  key="formatting"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto no-scrollbar pr-2"
+                >
+                  <ToolbarButton onClick={() => setCurrentMenu('main')} className="bg-blue-500/10 text-blue-500 mr-1 flex-shrink-0">
+                    <ArrowLeft size={18} />
+                  </ToolbarButton>
 
-      <AnimatePresence>
-      </AnimatePresence>
+                  <ToolbarButton 
+                    onClick={() => editor.chain().focus().toggleBold().run()} 
+                    isActive={editor.isActive('bold')}
+                    className="flex-shrink-0"
+                  >
+                    <span className="font-black font-serif text-lg leading-none">B</span>
+                  </ToolbarButton>
+
+                  <ToolbarButton 
+                    onClick={() => editor.chain().focus().toggleItalic().run()} 
+                    isActive={editor.isActive('italic')}
+                    className="flex-shrink-0"
+                  >
+                    <span className="italic font-serif text-lg leading-none">I</span>
+                  </ToolbarButton>
+
+                  <ToolbarButton 
+                    onClick={() => editor.chain().focus().toggleUnderline().run()} 
+                    isActive={editor.isActive('underline')}
+                    className="flex-shrink-0"
+                  >
+                    <Underline size={18} />
+                  </ToolbarButton>
+
+                  <ToolbarButton 
+                    onClick={() => editor.chain().focus().toggleStrike().run()} 
+                    isActive={editor.isActive('strike')}
+                    className="flex-shrink-0"
+                  >
+                    <Strikethrough size={18} />
+                  </ToolbarButton>
+
+                  <ToolbarButton 
+                    onClick={() => editor.chain().focus().toggleCode().run()} 
+                    isActive={editor.isActive('code')}
+                    className="flex-shrink-0"
+                  >
+                    <Code size={18} />
+                  </ToolbarButton>
+
+                  <div className={cn("w-[1px] h-6 flex-shrink-0 mx-1", isLight ? "bg-gray-200" : "bg-white/10")} />
+
+                  {/* Text Colors Panel inside Aa formatting view */}
+                  <span className="text-[10px] font-black uppercase tracking-wider text-white/40 select-none flex-shrink-0">রং:</span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {textColors.map(tc => (
+                      <button
+                        key={tc.name}
+                        title={tc.name}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => editor.chain().focus().setTextColor(tc.value).run()}
+                        className="w-5 h-5 rounded-full border border-white/20 flex-shrink-0 transition-transform active:scale-75 shadow-sm hover:scale-105"
+                        style={{ backgroundColor: tc.value }}
+                      />
+                    ))}
+                  </div>
+
+                  <div className={cn("w-[1px] h-6 flex-shrink-0 mx-1", isLight ? "bg-gray-200" : "bg-white/10")} />
+
+                  {/* Highlights Background Colors Panel inside Aa formatting view */}
+                  <span className="text-[10px] font-black uppercase tracking-wider text-white/40 select-none flex-shrink-0">ব্যাকগ্রাউন্ড:</span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {bgColors.map(bc => (
+                      <button
+                        key={bc.name}
+                        title={bc.name}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => editor.chain().focus().setBackgroundColor(bc.value).run()}
+                        className="w-5 h-5 rounded border border-white/10 flex-shrink-0 transition-transform active:scale-75 shadow-sm hover:scale-105 relative overflow-hidden"
+                        style={{ backgroundColor: bc.value === 'transparent' ? 'transparent' : bc.value }}
+                      >
+                        {bc.value === 'transparent' && (
+                          <div className="absolute inset-0 bg-red-500 rotate-45 h-[1.5px] mt-2 w-full scale-125" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
