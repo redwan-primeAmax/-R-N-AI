@@ -38,31 +38,45 @@ function findIndexHtml(dir: string, base: string = ''): string | null {
 async function startServer() {
   const app = express();
   const PORT = 3000;
-  const RUNTIME_PATH = path.join(process.cwd(), 'extension_runtime');
+  const RUNTIME_BASE = path.join(process.cwd(), 'runtime_sessions');
   const UPLOADS_PATH = path.join(process.cwd(), 'uploads');
 
   // Ensure directories exist
-  [RUNTIME_PATH, UPLOADS_PATH].forEach(dir => {
+  [RUNTIME_BASE, UPLOADS_PATH].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   });
 
   app.use(express.json({ limit: '50mb' }));
 
-  // Middleware to fix absolute path requests from extensions (e.g., fetch('/tools/index.json') -> /runtime/tools/index.json)
+  // Middleware to fix absolute path requests from extensions
   app.use((req, res, next) => {
     const referer = req.get('Referer');
-    // If request is from the runtime sandbox and isn't seeking global API or runtime itself
-    if (referer && referer.includes('/runtime/') && !req.url.startsWith('/runtime/') && !req.url.startsWith('/api/')) {
-      const potentialPath = path.join(RUNTIME_PATH, req.url);
-      if (fs.existsSync(potentialPath) && fs.statSync(potentialPath).isFile()) {
-        return res.sendFile(potentialPath);
+    if (referer && referer.includes('/runtime/')) {
+      const match = referer.match(/\/runtime\/([^\/]+)\//);
+      if (match && !req.url.startsWith('/runtime/') && !req.url.startsWith('/api/')) {
+        const sessionId = match[1];
+        
+        // 1. Try resolving relative to the session root
+        const sessionRootPath = path.join(RUNTIME_BASE, sessionId, req.url);
+        if (fs.existsSync(sessionRootPath) && fs.statSync(sessionRootPath).isFile()) {
+           return res.sendFile(sessionRootPath);
+        }
+
+        // 2. Try resolving relative to the index.html directory (baseDir)
+        const sessionInfo = (app as any)._sessions?.[sessionId];
+        if (sessionInfo?.baseDir) {
+          const baseDirPath = path.join(RUNTIME_BASE, sessionId, sessionInfo.baseDir, req.url);
+          if (fs.existsSync(baseDirPath) && fs.statSync(baseDirPath).isFile()) {
+             return res.sendFile(baseDirPath);
+          }
+        }
       }
     }
     next();
   });
   
   // Static host for the modules
-  app.use('/runtime', express.static(RUNTIME_PATH));
+  app.use('/runtime', express.static(RUNTIME_BASE));
 
   // Extension Interaction API (Add to my collection)
   app.post("/api/add-extension", (req, res) => {
@@ -81,31 +95,32 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  // Extension Deployment API
+  // Extension Deployment API (Optimized with Session)
   app.post("/api/extensions/deploy", upload.single('zip'), (req: any, res: any) => {
     try {
       if (!req.file) throw new Error("No zip file provided");
       
-      const zipPath = req.file.path;
-      
-      // Cleanup previous runtime content
-      fs.rmSync(RUNTIME_PATH, { recursive: true, force: true });
-      fs.mkdirSync(RUNTIME_PATH, { recursive: true });
+      const sessionId = `ext_${Date.now()}`;
+      const sessionPath = path.join(RUNTIME_BASE, sessionId);
+      fs.mkdirSync(sessionPath, { recursive: true });
 
-      const zip = new AdmZip(zipPath);
-      zip.extractAllTo(RUNTIME_PATH, true);
+      const zip = new AdmZip(req.file.path);
+      zip.extractAllTo(sessionPath, true);
       
       // Cleanup the uploaded temp zip manually
-      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
       // Find actual index.html path
-      const indexPath = findIndexHtml(RUNTIME_PATH);
-      if (!indexPath) throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
+      const indexPath = findIndexHtml(sessionPath);
+      if (!indexPath) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
+      }
 
       // Inject <base> tag into index.html for correct asset resolution
-      const fullIndexPath = path.join(RUNTIME_PATH, indexPath);
+      const fullIndexPath = path.join(sessionPath, indexPath);
       const indexDir = path.dirname(indexPath);
-      const baseHref = indexDir === '.' ? '/runtime/' : `/runtime/${indexDir}/`;
+      const baseHref = indexDir === '.' ? `/runtime/${sessionId}/` : `/runtime/${sessionId}/${indexDir}/`;
       
       let html = fs.readFileSync(fullIndexPath, 'utf8');
       if (!html.includes('<base')) {
@@ -113,15 +128,21 @@ async function startServer() {
         fs.writeFileSync(fullIndexPath, html);
       }
 
-      // Return the launch URL
-      res.json({ success: true, url: `/runtime/${indexPath}` });
+      // Store session metadata (like index directory) for better routing
+      (app as any)._sessions = (app as any)._sessions || {};
+      (app as any)._sessions[sessionId] = { 
+        baseDir: indexDir === '.' ? '' : indexDir 
+      };
+
+      // Return the launch URL with session
+      res.json({ success: true, url: `/runtime/${sessionId}/${indexPath}`, sessionId });
     } catch (err: any) {
       console.error("Deploy Error:", err);
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // Proxy for remote zip (MediaFire, etc)
+  // Proxy for remote zip (Optimized with Session)
   app.get("/api/extensions/proxy", async (req, res) => {
     try {
       const url = req.query.url as string;
@@ -131,30 +152,27 @@ async function startServer() {
       if (!response.ok) throw new Error("Failed to fetch remote module. Please provide a direct download link.");
       
       const buffer = await response.arrayBuffer();
+      const sessionId = `ext_${Date.now()}`;
+      const sessionPath = path.join(RUNTIME_BASE, sessionId);
+      const tempZip = path.join(UPLOADS_PATH, `${sessionId}.zip`);
       
-      if (!fs.existsSync(UPLOADS_PATH)) {
-        fs.mkdirSync(UPLOADS_PATH, { recursive: true });
+      fs.mkdirSync(sessionPath, { recursive: true });
+      fs.writeFileSync(tempZip, Buffer.from(buffer));
+      
+      const zip = new AdmZip(tempZip);
+      zip.extractAllTo(sessionPath, true);
+      fs.unlinkSync(tempZip);
+
+      const indexPath = findIndexHtml(sessionPath);
+      if (!indexPath) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
       }
-      
-      const tempPath = path.join(UPLOADS_PATH, `remote_${Date.now()}.zip`);
-      fs.writeFileSync(tempPath, Buffer.from(buffer));
-      
-      // Cleanup runtime
-      fs.rmSync(RUNTIME_PATH, { recursive: true, force: true });
-      fs.mkdirSync(RUNTIME_PATH, { recursive: true });
-
-      const zip = new AdmZip(tempPath);
-      zip.extractAllTo(RUNTIME_PATH, true);
-      
-      fs.unlinkSync(tempPath);
-
-      const indexPath = findIndexHtml(RUNTIME_PATH);
-      if (!indexPath) throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
 
       // Inject <base> tag
-      const fullIndexPath = path.join(RUNTIME_PATH, indexPath);
+      const fullIndexPath = path.join(sessionPath, indexPath);
       const indexDir = path.dirname(indexPath);
-      const baseHref = indexDir === '.' ? '/runtime/' : `/runtime/${indexDir}/`;
+      const baseHref = indexDir === '.' ? `/runtime/${sessionId}/` : `/runtime/${sessionId}/${indexDir}/`;
       
       let html = fs.readFileSync(fullIndexPath, 'utf8');
       if (!html.includes('<base')) {
@@ -162,7 +180,13 @@ async function startServer() {
         fs.writeFileSync(fullIndexPath, html);
       }
 
-      res.json({ success: true, url: `/runtime/${indexPath}` });
+      // Store session metadata
+      (app as any)._sessions = (app as any)._sessions || {};
+      (app as any)._sessions[sessionId] = { 
+        baseDir: indexDir === '.' ? '' : indexDir 
+      };
+
+      res.json({ success: true, url: `/runtime/${sessionId}/${indexPath}`, sessionId });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

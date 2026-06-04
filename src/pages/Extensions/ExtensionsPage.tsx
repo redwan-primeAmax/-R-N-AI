@@ -5,7 +5,6 @@ import {
   AlertCircle, ShieldCheck, X, Upload, CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import JSZip from 'jszip';
 
 export default function ExtensionsPage() {
   const navigate = useNavigate();
@@ -64,190 +63,43 @@ export default function ExtensionsPage() {
   };
 
   const handleLoadExtension = async (fileSource?: File) => {
-    if (!url.trim() && !fileSource) return;
-    
     setIsDownloading(true);
     setError(null);
-    setLoadingStep(fileSource ? 'Parsing ZIP Module...' : 'Fetching Remote Package...');
+    setLoadingStep(fileSource ? 'Uploading Module...' : 'Downloading Package...');
 
     try {
-      let zipData: ArrayBuffer;
-
+      let result;
       if (fileSource) {
-        zipData = await fileSource.arrayBuffer();
+        const formData = new FormData();
+        formData.append('zip', fileSource);
+        
+        const response = await fetch('/api/extensions/deploy', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) throw new Error('সার্ভারে আপলোড করতে সমস্যা হয়েছে।');
+        result = await response.json();
       } else {
-        // We still use a small proxy to bypass CORS if it's a remote URL, 
-        // but the processing stays in the browser.
         const response = await fetch(`/api/extensions/proxy?url=${encodeURIComponent(url.trim())}`);
         if (!response.ok) throw new Error('লিংকটি থেকে ডাটা ফেচ করা যাচ্ছে না।');
-        
-        // The server proxy should just return the file stream ideally
-        zipData = await response.arrayBuffer();
+        result = await response.json();
       }
 
-      setLoadingStep('Initializing Virtual Runtime...');
-      const zip = new JSZip();
-      const content = await zip.loadAsync(zipData);
-      
-      // Map of relative paths to Blob URLs
-      const fileMap: Record<string, string> = {};
-      
-      // Create Blobs for all files
-      setLoadingStep('Mapping Neural Resources...');
-      const filePromises = Object.entries(content.files).map(async ([path, file]) => {
-        if (file.dir) return;
-        
-        const blob = await file.async('blob');
-        const mimeType = getMimeType(path);
-        const typedBlob = new Blob([blob], { type: mimeType });
-        const blobUrl = URL.createObjectURL(typedBlob);
-        
-        fileMap[path] = blobUrl;
-        blobUrlsRef.current.push(blobUrl);
-      });
-
-      await Promise.all(filePromises);
-
-      // Find index.html
-      const indexPath = Object.keys(fileMap).find(p => p.endsWith('index.html'));
-      if (!indexPath) throw new Error('ZIP এর ভেতর index.html পাওয়া যায়নি।');
-
-      setLoadingStep('Injecting Sandbox Logic...');
-      const indexContent = await content.file(indexPath)!.async('string');
-      const baseDir = indexPath.substring(0, indexPath.lastIndexOf('/') + 1);
-
-      // Rewriting index.html to point to blob URLs
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(indexContent, 'text/html');
-
-      // 1. Better path resolver that handles nesting
-      const resolvePath = (relPath: string) => {
-        if (!relPath || relPath.startsWith('http') || relPath.startsWith('data:') || relPath.startsWith('blob:')) return relPath;
-        
-        let target = relPath.startsWith('/') ? relPath.substring(1) : baseDir + relPath;
-        const parts = target.split('/');
-        const stack: string[] = [];
-        for (const part of parts) {
-          if (part === '..') stack.pop();
-          else if (part !== '.' && part !== '') stack.push(part);
-        }
-        const resolved = stack.join('/');
-        return fileMap[resolved] || relPath;
-      };
-
-      // 2. Map static resource tags in the HTML
-      const resourceTags = [
-        { tag: 'script', attr: 'src' },
-        { tag: 'link', attr: 'href' },
-        { tag: 'img', attr: 'src' },
-        { tag: 'video', attr: 'src' },
-        { tag: 'audio', attr: 'src' },
-        { tag: 'source', attr: 'src' }
-      ];
-
-      resourceTags.forEach(({ tag, attr }) => {
-        const elements = doc.getElementsByTagName(tag);
-        for (let i = 0; i < elements.length; i++) {
-          const val = elements[i].getAttribute(attr);
-          if (val) elements[i].setAttribute(attr, resolvePath(val));
-        }
-      });
-
-      // 3. Generate Import Map for ESM support
-      const importMap = { imports: {} as Record<string, string> };
-      Object.entries(fileMap).forEach(([path, url]) => {
-         const relPath = './' + path.replace(baseDir, '');
-         importMap.imports[relPath] = url;
-         // Also add alias for the full path
-         importMap.imports[path] = url;
-      });
-
-      const importMapScript = doc.createElement('script');
-      importMapScript.type = 'importmap';
-      importMapScript.textContent = JSON.stringify(importMap);
-      doc.head.prepend(importMapScript);
-
-      // 4. Inject Virtual File System Bridge (VFS)
-      // This intercepts runtime requests like fetch('/tools/index.json') 
-      // and routes them to the local blob URLs in memory.
-      const bridgeScript = doc.createElement('script');
-      bridgeScript.textContent = `
-        (function() {
-          const VFS_MAP = ${JSON.stringify(fileMap)};
-          const BASE_DIR = "${baseDir}";
-          const _origFetch = window.fetch;
-          const _origXHR = window.XMLHttpRequest;
-
-          function resolve(path) {
-            if (typeof path !== 'string') return path;
-            if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) return path;
-            
-            let target = path.startsWith('/') ? path.substring(1) : BASE_DIR + path;
-            const parts = target.split('/');
-            const stack = [];
-            for (const part of parts) {
-              if (part === '..') stack.pop();
-              else if (part !== '.' && part !== '') stack.push(part);
-            }
-            const resolved = stack.join('/');
-            return VFS_MAP[resolved] || path;
-          }
-
-          window.fetch = async (url, options) => {
-            const target = resolve(url);
-            if (target.startsWith('blob:')) return _origFetch(target, options);
-            return _origFetch(url, options);
-          };
-
-          window.XMLHttpRequest = function() {
-            const xhr = new _origXHR();
-            const _open = xhr.open;
-            xhr.open = function(method, url, ...args) {
-              return _open.call(this, method, resolve(url), ...args);
-            };
-            return xhr;
-          };
-
-          window.addEventListener('message', (e) => {
-             if (e.data && e.data.type === 'PING') window.parent.postMessage({ type: 'PONG' }, '*');
-          });
-
-          console.log('%c[Neural VFS Bridge Active]', 'color: #3b82f6; font-weight: bold');
-        })();
-      `;
-      doc.head.prepend(bridgeScript);
-
-      // Final index blob
-      const finalHtml = doc.documentElement.outerHTML;
-      const indexBlob = new Blob([finalHtml], { type: 'text/html' });
-      const finalUrl = URL.createObjectURL(indexBlob);
-      blobUrlsRef.current.push(finalUrl);
-
-      setLoadingStep('Finalizing Deploy...');
-      setIframeSrc(finalUrl);
-      setUrl('');
+      if (result.success) {
+        setLoadingStep('Syncing Environment...');
+        setIframeSrc(`${result.url}?v=${Date.now()}`);
+        setUrl('');
+        // Extend loader visibility slightly to cover initial iframe blank state
+        setTimeout(() => setIsDownloading(false), 1500);
+      } else {
+        throw new Error(result.error || 'সেটআপ ব্যর্থ হয়েছে।');
+      }
 
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'ডাউনলোড বা সেটআপে সমস্যা হয়েছে।');
-    } finally {
+      setError(err.message || 'এক্সটেনশন লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
       setIsDownloading(false);
-    }
-  };
-
-  const getMimeType = (path: string) => {
-    const ext = path.split('.').pop()?.toLowerCase();
-    switch (ext) {
-      case 'html': return 'text/html';
-      case 'css': return 'text/css';
-      case 'js': return 'application/javascript';
-      case 'json': return 'application/json';
-      case 'png': return 'image/png';
-      case 'jpg':
-      case 'jpeg': return 'image/jpeg';
-      case 'gif': return 'image/gif';
-      case 'svg': return 'image/svg+xml';
-      default: return 'application/octet-stream';
     }
   };
 
@@ -347,7 +199,7 @@ export default function ExtensionsPage() {
               <div className="flex items-center gap-6 p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl max-w-lg">
                 <ShieldCheck size={32} className="text-white/10 shrink-0" />
                 <p className="text-[9px] text-white/30 leading-relaxed uppercase tracking-[0.1em] font-medium">
-                  এই এনভায়রনমেন্টটি সম্পূর্ণ ব্রাউজার-বেসড এবং আইসোলেটেড। এক্সটেনশনটি বন্ধ করার সাথে সাথে সকল মেমোরি ক্লিয়ার করে দেওয়া হবে।
+                  এই এনভায়রনমেন্টটি সম্পূর্ণ আইসোলেটেড। এক্সটেনশনটি বন্ধ করার সাথে সাথে সকল ফাইল মেমোরি থেকে মুছে ফেলা হবে।
                 </p>
               </div>
             </motion.div>
@@ -376,7 +228,7 @@ export default function ExtensionsPage() {
               </motion.button>
               
               <div className="fixed bottom-6 right-8 pointer-events-none opacity-10 text-black text-[8px] font-black uppercase tracking-[0.8em]">
-                Live Module Environment (Local-Only)
+                Live Module Environment
               </div>
             </motion.div>
           )}
@@ -415,7 +267,7 @@ export default function ExtensionsPage() {
               <div className="text-center space-y-3">
                 <h2 className="text-xl font-black uppercase tracking-[0.5em] text-white/80">{loadingStep}</h2>
                 <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-white/20 animate-pulse">
-                  Local memory processing...
+                  Decoding architecture resources...
                 </p>
               </div>
             </div>
