@@ -104,7 +104,7 @@ export default function NetworkShield() {
             () => import('../Templates/BrowseTemplates'),
             () => import('../AI/AIContentArchitect'),
             () => import('../AI/AIConfiguration'),
-            () => import('../Tools/ToolsDashboard')
+            () => import('../Extensions/ExtensionsPage')
           ];
           
           for (const load of loaders) {

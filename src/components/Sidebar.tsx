@@ -271,7 +271,7 @@ export default function Sidebar({
                   { icon: <Search size={14} />, label: 'Search Notes', path: '/search', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', glow: 'shadow-[0_0_15px_rgba(56,189,248,0.1)]' },
                   { icon: <Clock size={14} />, label: 'Recent Activity', path: '/main', color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', glow: 'shadow-[0_0_15px_rgba(129,140,248,0.1)]' },
                   { icon: <Box size={14} />, label: 'Browse Templates', path: '/templates', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]' },
-                  { icon: <Zap size={14} />, label: 'Tool Library', path: '/tools', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
+                  { icon: <Boxes size={14} />, label: 'Extensions & Themes', path: '/extensions', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
                   { icon: <Sparkles size={14} />, label: 'AI Content Architect', path: '/external-ai-import', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },
                   { icon: <Users size={14} />, label: 'কোলাবোরেশন জয়েন', action: 'join-collab', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.1)]' },
                   { icon: <Database size={14} />, label: 'ডাটা ম্যানেজমেন্ট', path: '/data-management', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]' },
@@ -318,35 +318,9 @@ export default function Sidebar({
 
             </div>
 
-            {/* Storage Progress Bar (Bottom) */}
-            <div className="p-4 mt-auto">
-              <button 
-                onClick={() => handleNavigation('/storage')}
-                className="w-full text-left bg-[#151516] border border-white/[0.05] rounded-[24px] p-5 shadow-2xl relative overflow-hidden group transition-all hover:bg-[#1a1a1b] active:scale-95"
-              >
-                <div className="absolute inset-0 bg-blue-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="flex items-center justify-between mb-3 relative z-10">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/10">সার্ভার স্টোরেজ</span>
-                  <div className="flex items-baseline gap-1 font-mono">
-                    <span className="text-xs font-black text-blue-400">{formatSize(storageInfo?.used || 0)}</span>
-                    <span className="text-[8px] font-bold text-white/10">/ {(storageInfo?.quota && storageInfo.quota > 0) ? formatSize(storageInfo.quota) : 'Unlimited'}</span>
-                  </div>
-                </div>
-                <div className="h-1 w-full bg-white/[0.03] rounded-full overflow-hidden relative z-10">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${usagePercent}%` }}
-                    className={cn(
-                      "h-full rounded-full transition-all duration-1000",
-                      isFull ? "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]" : "bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
-                    )}
-                  />
-                </div>
-                <div className="mt-3 flex items-center justify-between relative z-10">
-                  <span className="text-[8px] font-bold text-white/5 italic">ট্যাপ করে বিস্তারিত দেখুন</span>
-                  <ChevronRight size={12} className="text-white/5 group-hover:text-blue-500 transition-colors" />
-                </div>
-              </button>
+            {/* Footer Notice */}
+            <div className="p-8 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/10">Diamond Road v1.0</p>
             </div>
           </motion.div>
           </>

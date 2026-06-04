@@ -7,20 +7,118 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
+import AdmZip from "adm-zip";
+import multer from "multer";
 
-// Safe path resolution for both ESM (development) and CommonJS (production bundle)
-let currentFilename = typeof __filename !== "undefined" ? __filename : "";
-let currentDirname = typeof __dirname !== "undefined" ? __dirname : process.cwd();
+const upload = multer({ dest: 'uploads/' });
+
+// Helper to find index.html recursively
+function findIndexHtml(dir: string, base: string = ''): string | null {
+  const files = fs.readdirSync(dir);
+  
+  // Look for index.html in current dir first
+  if (files.some(f => f.toLowerCase() === 'index.html')) {
+    const found = files.find(f => f.toLowerCase() === 'index.html');
+    return path.join(base, found!);
+  }
+
+  // Look in subdirs
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      const found = findIndexHtml(fullPath, path.join(base, file));
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const RUNTIME_PATH = path.join(process.cwd(), 'extension_runtime');
+  const UPLOADS_PATH = path.join(process.cwd(), 'uploads');
 
-  app.use(express.json({ limit: '10mb' }));
+  // Ensure directories exist
+  [RUNTIME_PATH, UPLOADS_PATH].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  });
+
+  app.use(express.json({ limit: '50mb' }));
+  
+  // Static host for the modules
+  app.use('/runtime', express.static(RUNTIME_PATH));
 
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Extension Deployment API
+  app.post("/api/extensions/deploy", upload.single('zip'), (req: any, res: any) => {
+    try {
+      if (!req.file) throw new Error("No zip file provided");
+      
+      const zipPath = req.file.path;
+      
+      // Cleanup previous runtime content
+      fs.rmSync(RUNTIME_PATH, { recursive: true, force: true });
+      fs.mkdirSync(RUNTIME_PATH, { recursive: true });
+
+      const zip = new AdmZip(zipPath);
+      zip.extractAllTo(RUNTIME_PATH, true);
+      
+      // Cleanup the uploaded temp zip manually
+      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+
+      // Find actual index.html path
+      const indexPath = findIndexHtml(RUNTIME_PATH);
+      if (!indexPath) throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
+
+      // Return the launch URL
+      res.json({ success: true, url: `/runtime/${indexPath}` });
+    } catch (err: any) {
+      console.error("Deploy Error:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Proxy for remote zip (MediaFire, etc)
+  app.get("/api/extensions/proxy", async (req, res) => {
+    try {
+      const url = req.query.url as string;
+      if (!url) return res.status(400).send("URL required");
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch remote module. Please provide a direct download link.");
+      
+      const buffer = await response.arrayBuffer();
+      
+      if (!fs.existsSync(UPLOADS_PATH)) {
+        fs.mkdirSync(UPLOADS_PATH, { recursive: true });
+      }
+      
+      const tempPath = path.join(UPLOADS_PATH, `remote_${Date.now()}.zip`);
+      fs.writeFileSync(tempPath, Buffer.from(buffer));
+      
+      // Cleanup runtime
+      fs.rmSync(RUNTIME_PATH, { recursive: true, force: true });
+      fs.mkdirSync(RUNTIME_PATH, { recursive: true });
+
+      const zip = new AdmZip(tempPath);
+      zip.extractAllTo(RUNTIME_PATH, true);
+      
+      fs.unlinkSync(tempPath);
+
+      const indexPath = findIndexHtml(RUNTIME_PATH);
+      if (!indexPath) throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
+
+      res.json({ success: true, url: `/runtime/${indexPath}` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // Gemini Proxy Route

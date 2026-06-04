@@ -57,20 +57,13 @@ const EditorPage = lazyWithRetry(() => import('./pages/Editor/EditorPage'));
 const AIChat = lazyWithRetry(() => import('./pages/AI/AIChat'));
 const AIConfiguration = lazyWithRetry(() => import('./pages/AI/AIConfiguration'));
 const AIContentArchitect = lazyWithRetry(() => import('./pages/AI/AIContentArchitect'));
-const TitleGenerator = lazyWithRetry(() => import('./pages/Tools/tool-library/text-tools/TitleGenerator'));
 const BrowseTemplates = lazyWithRetry(() => import('./pages/Templates/BrowseTemplates'));
 const RecycleBin = lazyWithRetry(() => import('./pages/Trash/RecycleBin'));
 const NetworkShield = lazyWithRetry(() => import('./pages/Settings/NetworkShield'));
 const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArchive'));
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
-const ToolsDashboard = lazyWithRetry(() => import('./pages/Tools/ToolsDashboard'));
-const StorageViewer = lazyWithRetry(() => import('./pages/Tools/StorageViewer'));
-const WordCounter = lazyWithRetry(() => import('./pages/Tools/tool-library/text-tools/WordCounter'));
-const NumberRemover = lazyWithRetry(() => import('./pages/Tools/tool-library/text-tools/remove-number-from-text'));
-const Summarizer = lazyWithRetry(() => import('./pages/Tools/tool-library/text-tools/Summarizer'));
-const ZipFlattener = lazyWithRetry(() => import('./pages/Tools/tool-library/file-tools/ZipFlattener'));
-const NoteGenerator = lazyWithRetry(() => import('./pages/Tools/tool-library/file-tools/NoteGenerator'));
+const ExtensionsPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionsPage'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 
 function LoadingFallback() {
@@ -105,19 +98,19 @@ function AppContent() {
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
-  const isToolsPage = location.pathname.startsWith('/tools');
-  const isAIPage = location.pathname.startsWith('/ai') || 
+    const isExtensionsPage = location.pathname.startsWith('/extensions');
+    const isAIPage = location.pathname.startsWith('/ai') || 
                    location.pathname.startsWith('/manual-control') || 
                    location.pathname === '/ai-auto' ||
                    location.pathname === '/settings' ||
                    location.pathname === '/external-ai-import';
-  const isWorkspacePage = location.pathname === '/workspaces';
-  const isSpecialPage = location.pathname === '/recycle-bin' || 
+    const isWorkspacePage = location.pathname === '/workspaces';
+    const isSpecialPage = location.pathname === '/recycle-bin' || 
                        location.pathname === '/offline' || 
                        location.pathname === '/backup' ||
                        location.pathname === '/data-management' ||
                        location.pathname === '/templates';
-  const isFullPage = isEditorPage || isSearchPage || isToolsPage || isAIPage || isWorkspacePage || isSpecialPage;
+    const isFullPage = isEditorPage || isSearchPage || isExtensionsPage || isAIPage || isWorkspacePage || isSpecialPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -320,16 +313,9 @@ function AppContent() {
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },
     { path: "/ai/settings", element: <Navigate to="/settings" replace /> },
     { path: "/ai/external-import", element: <Navigate to="/external-ai-import" replace /> },
-    { path: "/tools/title-generator", element: <PageWrapper><TitleGenerator /></PageWrapper> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
-    { path: "/tools", element: <PageWrapper><ToolsDashboard /></PageWrapper> },
-    { path: "/tools/word-counter", element: <PageWrapper><WordCounter /></PageWrapper> },
-    { path: "/tools/number-remover", element: <PageWrapper><NumberRemover /></PageWrapper> },
-    { path: "/tools/summarizer", element: <PageWrapper><Summarizer /></PageWrapper> },
-    { path: "/tools/zip-flattener", element: <PageWrapper><ZipFlattener /></PageWrapper> },
-    { path: "/tools/note-generator", element: <PageWrapper><NoteGenerator /></PageWrapper> },
-    { path: "/storage", element: <PageWrapper><StorageViewer /></PageWrapper> },
+    { path: "/extensions", element: <PageWrapper><ExtensionsPage /></PageWrapper> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 
