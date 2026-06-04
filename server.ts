@@ -77,6 +77,17 @@ async function startServer() {
       const indexPath = findIndexHtml(RUNTIME_PATH);
       if (!indexPath) throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
 
+      // Inject <base> tag into index.html for correct asset resolution
+      const fullIndexPath = path.join(RUNTIME_PATH, indexPath);
+      const indexDir = path.dirname(indexPath);
+      const baseHref = indexDir === '.' ? '/runtime/' : `/runtime/${indexDir}/`;
+      
+      let html = fs.readFileSync(fullIndexPath, 'utf8');
+      if (!html.includes('<base')) {
+        html = html.replace('<head>', `<head>\n    <base href="${baseHref}">`);
+        fs.writeFileSync(fullIndexPath, html);
+      }
+
       // Return the launch URL
       res.json({ success: true, url: `/runtime/${indexPath}` });
     } catch (err: any) {
@@ -114,6 +125,17 @@ async function startServer() {
 
       const indexPath = findIndexHtml(RUNTIME_PATH);
       if (!indexPath) throw new Error("ZIP ফাইলের ভেতর কোনো index.html পাওয়া যায়নি।");
+
+      // Inject <base> tag
+      const fullIndexPath = path.join(RUNTIME_PATH, indexPath);
+      const indexDir = path.dirname(indexPath);
+      const baseHref = indexDir === '.' ? '/runtime/' : `/runtime/${indexDir}/`;
+      
+      let html = fs.readFileSync(fullIndexPath, 'utf8');
+      if (!html.includes('<base')) {
+        html = html.replace('<head>', `<head>\n    <base href="${baseHref}">`);
+        fs.writeFileSync(fullIndexPath, html);
+      }
 
       res.json({ success: true, url: `/runtime/${indexPath}` });
     } catch (err: any) {

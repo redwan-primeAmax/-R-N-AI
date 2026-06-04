@@ -47,9 +47,7 @@ export default function ExtensionsPage() {
       }
 
       if (result.success) {
-        setLoadingStep('Initializing Neural Link...');
-        // Small delay for dramatic effect/setup
-        await new Promise(resolve => setTimeout(resolve, 800));
+        setLoadingStep('Syncing Environment...');
         setIframeSrc(`${result.url}?v=${Date.now()}`);
         setUrl('');
       } else {
