@@ -47,9 +47,34 @@ async function startServer() {
   });
 
   app.use(express.json({ limit: '50mb' }));
+
+  // Middleware to fix absolute path requests from extensions (e.g., fetch('/tools/index.json') -> /runtime/tools/index.json)
+  app.use((req, res, next) => {
+    const referer = req.get('Referer');
+    // If request is from the runtime sandbox and isn't seeking global API or runtime itself
+    if (referer && referer.includes('/runtime/') && !req.url.startsWith('/runtime/') && !req.url.startsWith('/api/')) {
+      const potentialPath = path.join(RUNTIME_PATH, req.url);
+      if (fs.existsSync(potentialPath) && fs.statSync(potentialPath).isFile()) {
+        return res.sendFile(potentialPath);
+      }
+    }
+    next();
+  });
   
   // Static host for the modules
   app.use('/runtime', express.static(RUNTIME_PATH));
+
+  // Extension Interaction API (Add to my collection)
+  app.post("/api/add-extension", (req, res) => {
+    try {
+      const extensionData = req.body;
+      console.log("Extension adding requested:", extensionData.id);
+      // For now, we return success. In a real persistence layer, this would be saved to a database.
+      res.json({ success: true, message: `${extensionData.name} added to your workspace.` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // API Routes
   app.get("/api/health", (req, res) => {

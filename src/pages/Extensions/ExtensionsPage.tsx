@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Download, Loader2, Sparkles, 
-  AlertCircle, ShieldCheck, X, Upload
+  AlertCircle, ShieldCheck, X, Upload, CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import JSZip from 'jszip';
 
 export default function ExtensionsPage() {
   const navigate = useNavigate();
@@ -13,11 +14,53 @@ export default function ExtensionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
   const [loadingStep, setLoadingStep] = useState('');
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Storage for generated blob URLs to prevent memory leaks
+  const blobUrlsRef = useRef<string[]>([]);
+
+  const cleanupObjectURLs = () => {
+    blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    blobUrlsRef.current = [];
+  };
+
+  useEffect(() => {
+    return cleanupObjectURLs; // Cleanup on unmount
+  }, []);
+
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (typeof event.data !== 'object') return;
+      const { type, payload, action } = event.data;
+
+      if (type === 'ADD_TO_WORKSPACE' || action === 'ADD_EXTENSION') {
+        const extensionData = payload || event.data.extension;
+        try {
+          const response = await fetch('/api/add-extension', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(extensionData)
+          });
+          const result = await response.json();
+          if (result.success) {
+            setSuccessMsg(`"${extensionData.name || 'Extension'}" সফলভাবে যোগ করা হয়েছে!`);
+            setTimeout(() => setSuccessMsg(null), 3000);
+          }
+        } catch (err) {
+          console.error("Failed to persist extension:", err);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   const cleanup = () => {
     setIframeSrc(null);
     setError(null);
+    cleanupObjectURLs();
   };
 
   const handleLoadExtension = async (fileSource?: File) => {
@@ -25,40 +68,133 @@ export default function ExtensionsPage() {
     
     setIsDownloading(true);
     setError(null);
-    setLoadingStep(fileSource ? 'Uploading Module...' : 'Downloading Package...');
+    setLoadingStep(fileSource ? 'Parsing ZIP Module...' : 'Fetching Remote Package...');
 
     try {
-      let result;
+      let zipData: ArrayBuffer;
+
       if (fileSource) {
-        const formData = new FormData();
-        formData.append('zip', fileSource);
-        
-        const response = await fetch('/api/extensions/deploy', {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (!response.ok) throw new Error('সার্ভারে আপলোড করতে সমস্যা হয়েছে।');
-        result = await response.json();
+        zipData = await fileSource.arrayBuffer();
       } else {
+        // We still use a small proxy to bypass CORS if it's a remote URL, 
+        // but the processing stays in the browser.
         const response = await fetch(`/api/extensions/proxy?url=${encodeURIComponent(url.trim())}`);
         if (!response.ok) throw new Error('লিংকটি থেকে ডাটা ফেচ করা যাচ্ছে না।');
-        result = await response.json();
+        
+        // The server proxy should just return the file stream ideally
+        zipData = await response.arrayBuffer();
       }
 
-      if (result.success) {
-        setLoadingStep('Syncing Environment...');
-        setIframeSrc(`${result.url}?v=${Date.now()}`);
-        setUrl('');
-      } else {
-        throw new Error(result.error || 'সেটআপ ব্যর্থ হয়েছে।');
-      }
+      setLoadingStep('Initializing Virtual Runtime...');
+      const zip = new JSZip();
+      const content = await zip.loadAsync(zipData);
+      
+      // Map of relative paths to Blob URLs
+      const fileMap: Record<string, string> = {};
+      
+      // Create Blobs for all files
+      setLoadingStep('Mapping Neural Resources...');
+      const filePromises = Object.entries(content.files).map(async ([path, file]) => {
+        if (file.dir) return;
+        
+        const blob = await file.async('blob');
+        const mimeType = getMimeType(path);
+        const typedBlob = new Blob([blob], { type: mimeType });
+        const blobUrl = URL.createObjectURL(typedBlob);
+        
+        fileMap[path] = blobUrl;
+        blobUrlsRef.current.push(blobUrl);
+      });
+
+      await Promise.all(filePromises);
+
+      // Find index.html
+      const indexPath = Object.keys(fileMap).find(p => p.endsWith('index.html'));
+      if (!indexPath) throw new Error('ZIP এর ভেতর index.html পাওয়া যায়নি।');
+
+      setLoadingStep('Injecting Sandbox Logic...');
+      const indexContent = await content.file(indexPath)!.async('string');
+      const baseDir = indexPath.substring(0, indexPath.lastIndexOf('/') + 1);
+
+      // Rewriting index.html to point to blob URLs
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(indexContent, 'text/html');
+
+      // Helper to resolve relative paths
+      const resolvePath = (relPath: string) => {
+        if (relPath.startsWith('http') || relPath.startsWith('data:') || relPath.startsWith('/')) return relPath;
+        
+        let target = baseDir + relPath;
+        // Basic path traversal cleanup (e.g. ./ or ../)
+        const parts = target.split('/');
+        const stack: string[] = [];
+        for (const part of parts) {
+          if (part === '..') stack.pop();
+          else if (part !== '.' && part !== '') stack.push(part);
+        }
+        const resolved = stack.join('/');
+        return fileMap[resolved] || relPath;
+      };
+
+      // Rewriting all resource tags
+      const resourceTags = [
+        { tag: 'script', attr: 'src' },
+        { tag: 'link', attr: 'href' },
+        { tag: 'img', attr: 'src' },
+        { tag: 'video', attr: 'src' },
+        { tag: 'audio', attr: 'src' },
+        { tag: 'source', attr: 'src' }
+      ];
+
+      resourceTags.forEach(({ tag, attr }) => {
+        const elements = doc.getElementsByTagName(tag);
+        for (let i = 0; i < elements.length; i++) {
+          const val = elements[i].getAttribute(attr);
+          if (val) elements[i].setAttribute(attr, resolvePath(val));
+        }
+      });
+
+      // Injecting bridge script for host app communication
+      const script = doc.createElement('script');
+      script.textContent = `
+        window.addEventListener('message', (e) => {
+           // Relay messages from host if needed
+        });
+        console.log('Neural Sandbox Bridge Active');
+      `;
+      doc.head.prepend(script);
+
+      // Final index blob
+      const finalHtml = doc.documentElement.outerHTML;
+      const indexBlob = new Blob([finalHtml], { type: 'text/html' });
+      const finalUrl = URL.createObjectURL(indexBlob);
+      blobUrlsRef.current.push(finalUrl);
+
+      setLoadingStep('Finalizing Deploy...');
+      setIframeSrc(finalUrl);
+      setUrl('');
 
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'ডাউনলোড বা সেটআপে সমস্যা হয়েছে।');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const getMimeType = (path: string) => {
+    const ext = path.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'html': return 'text/html';
+      case 'css': return 'text/css';
+      case 'js': return 'application/javascript';
+      case 'json': return 'application/json';
+      case 'png': return 'image/png';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'gif': return 'image/gif';
+      case 'svg': return 'image/svg+xml';
+      default: return 'application/octet-stream';
     }
   };
 
@@ -72,13 +208,11 @@ export default function ExtensionsPage() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleLoadExtension(file);
-          // Reset input so same file can be uploaded again if needed
           e.target.value = '';
         }}
       />
 
       <div className="max-w-4xl mx-auto w-full space-y-6 flex-1 flex flex-col">
-        
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -89,7 +223,7 @@ export default function ExtensionsPage() {
             </button>
             <div>
               <h1 className="text-xl font-black tracking-tight uppercase italic underline decoration-blue-500/50 underline-offset-8">Neural Sandbox</h1>
-              <p className="text-white/40 text-[9px] font-bold tracking-[0.4em] uppercase mt-1">Diamond Road v1.0 Module Engine</p>
+              <p className="text-white/40 text-[9px] font-bold tracking-[0.4em] uppercase mt-1">Diamond Road v2.0 Browser Engine</p>
             </div>
           </div>
         </div>
@@ -160,7 +294,7 @@ export default function ExtensionsPage() {
               <div className="flex items-center gap-6 p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl max-w-lg">
                 <ShieldCheck size={32} className="text-white/10 shrink-0" />
                 <p className="text-[9px] text-white/30 leading-relaxed uppercase tracking-[0.1em] font-medium">
-                  এই এনভায়রনমেন্টটি সম্পূর্ণ আইসোলেটেড। এক্সটেনশনটি বন্ধ করার সাথে সাথে সকল ফাইল ডিলিট করে দেওয়া হবে।
+                  এই এনভায়রনমেন্টটি সম্পূর্ণ ব্রাউজার-বেসড এবং আইসোলেটেড। এক্সটেনশনটি বন্ধ করার সাথে সাথে সকল মেমোরি ক্লিয়ার করে দেওয়া হবে।
                 </p>
               </div>
             </motion.div>
@@ -189,12 +323,26 @@ export default function ExtensionsPage() {
               </motion.button>
               
               <div className="fixed bottom-6 right-8 pointer-events-none opacity-10 text-black text-[8px] font-black uppercase tracking-[0.8em]">
-                Live Module Environment
+                Live Module Environment (Local-Only)
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {successMsg && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[10000] bg-emerald-500 text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4 border border-emerald-400/50 backdrop-blur-xl"
+          >
+            <CheckCircle2 size={24} />
+            <span className="font-black text-xs uppercase tracking-[0.2em]">{successMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isDownloading && (
@@ -214,7 +362,7 @@ export default function ExtensionsPage() {
               <div className="text-center space-y-3">
                 <h2 className="text-xl font-black uppercase tracking-[0.5em] text-white/80">{loadingStep}</h2>
                 <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-white/20 animate-pulse">
-                  Decoding architecture resources...
+                  Local memory processing...
                 </p>
               </div>
             </div>

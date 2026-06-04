@@ -2,24 +2,43 @@
 export type ExtensionType = 'theme' | 'tool' | 'widget';
 
 export interface AppAPI {
-  // Theme management
+  id: string; // The extension ID
+  
+  // UI Methods
+  ui: {
+    registerTool: (config: any) => void;
+    addMenuItem: (item: any) => void;
+    addButton: (btn: any) => void;
+    registerSidebarItem: (item: SidebarExtensionItem) => void;
+    notify: (message: string, type?: 'info' | 'error' | 'success') => void;
+  };
+
+  // Theme Methods
+  theme: {
+    setVariable: (name: string, value: string) => void;
+    setVariables: (vars: Record<string, string>) => void;
+    injectCSS: (css: string) => void;
+    reset: () => void;
+  };
+  
+  // Storage Methods
+  storage: {
+    get: (key: string) => any;
+    set: (key: string, value: any) => void;
+    remove: (key: string) => void;
+    clear: () => void;
+  };
+
+  // Legacy/Compatibility
   setThemeVariable: (name: string, value: string) => void;
-  resetThemeVariables: () => void;
-  
-  // UI Slots
   registerSidebarItem: (item: SidebarExtensionItem) => void;
-  
-  // Storage
-  getStorage: () => any; // DataManager access
-  
-  // Notifications
-  notify: (message: string, type?: 'info' | 'error' | 'success') => void;
+  getStorage: () => any;
 }
 
 export interface SidebarExtensionItem {
   id: string;
   label: string;
-  icon: string; // Lucide icon name or SVG
+  icon: any; 
   path: string;
   color?: string;
   onClick?: () => void;
