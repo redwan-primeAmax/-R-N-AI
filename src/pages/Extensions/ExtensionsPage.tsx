@@ -120,12 +120,11 @@ export default function ExtensionsPage() {
       const parser = new DOMParser();
       const doc = parser.parseFromString(indexContent, 'text/html');
 
-      // Helper to resolve relative paths
+      // 1. Better path resolver that handles nesting
       const resolvePath = (relPath: string) => {
-        if (relPath.startsWith('http') || relPath.startsWith('data:') || relPath.startsWith('/')) return relPath;
+        if (!relPath || relPath.startsWith('http') || relPath.startsWith('data:') || relPath.startsWith('blob:')) return relPath;
         
-        let target = baseDir + relPath;
-        // Basic path traversal cleanup (e.g. ./ or ../)
+        let target = relPath.startsWith('/') ? relPath.substring(1) : baseDir + relPath;
         const parts = target.split('/');
         const stack: string[] = [];
         for (const part of parts) {
@@ -136,7 +135,7 @@ export default function ExtensionsPage() {
         return fileMap[resolved] || relPath;
       };
 
-      // Rewriting all resource tags
+      // 2. Map static resource tags in the HTML
       const resourceTags = [
         { tag: 'script', attr: 'src' },
         { tag: 'link', attr: 'href' },
@@ -154,15 +153,69 @@ export default function ExtensionsPage() {
         }
       });
 
-      // Injecting bridge script for host app communication
-      const script = doc.createElement('script');
-      script.textContent = `
-        window.addEventListener('message', (e) => {
-           // Relay messages from host if needed
-        });
-        console.log('Neural Sandbox Bridge Active');
+      // 3. Generate Import Map for ESM support
+      const importMap = { imports: {} as Record<string, string> };
+      Object.entries(fileMap).forEach(([path, url]) => {
+         const relPath = './' + path.replace(baseDir, '');
+         importMap.imports[relPath] = url;
+         // Also add alias for the full path
+         importMap.imports[path] = url;
+      });
+
+      const importMapScript = doc.createElement('script');
+      importMapScript.type = 'importmap';
+      importMapScript.textContent = JSON.stringify(importMap);
+      doc.head.prepend(importMapScript);
+
+      // 4. Inject Virtual File System Bridge (VFS)
+      // This intercepts runtime requests like fetch('/tools/index.json') 
+      // and routes them to the local blob URLs in memory.
+      const bridgeScript = doc.createElement('script');
+      bridgeScript.textContent = `
+        (function() {
+          const VFS_MAP = ${JSON.stringify(fileMap)};
+          const BASE_DIR = "${baseDir}";
+          const _origFetch = window.fetch;
+          const _origXHR = window.XMLHttpRequest;
+
+          function resolve(path) {
+            if (typeof path !== 'string') return path;
+            if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) return path;
+            
+            let target = path.startsWith('/') ? path.substring(1) : BASE_DIR + path;
+            const parts = target.split('/');
+            const stack = [];
+            for (const part of parts) {
+              if (part === '..') stack.pop();
+              else if (part !== '.' && part !== '') stack.push(part);
+            }
+            const resolved = stack.join('/');
+            return VFS_MAP[resolved] || path;
+          }
+
+          window.fetch = async (url, options) => {
+            const target = resolve(url);
+            if (target.startsWith('blob:')) return _origFetch(target, options);
+            return _origFetch(url, options);
+          };
+
+          window.XMLHttpRequest = function() {
+            const xhr = new _origXHR();
+            const _open = xhr.open;
+            xhr.open = function(method, url, ...args) {
+              return _open.call(this, method, resolve(url), ...args);
+            };
+            return xhr;
+          };
+
+          window.addEventListener('message', (e) => {
+             if (e.data && e.data.type === 'PING') window.parent.postMessage({ type: 'PONG' }, '*');
+          });
+
+          console.log('%c[Neural VFS Bridge Active]', 'color: #3b82f6; font-weight: bold');
+        })();
       `;
-      doc.head.prepend(script);
+      doc.head.prepend(bridgeScript);
 
       // Final index blob
       const finalHtml = doc.documentElement.outerHTML;
