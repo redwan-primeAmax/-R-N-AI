@@ -122,7 +122,10 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
     if (candidateIndices.size === 0) {
       for (let i = 0; i < storage.size; i++) {
         const docText = storage.getRawText(i);
-        if (docText.includes(queryLower) || calculateFuzzyScore(docText, queryLower) < 0.5) {
+        const words = docText.split(/[^a-z0-9\-\u0980-\u09FF]+/);
+        // Robust check: match if query is part of any word, or word is part of query, or fuzzy match
+        if (docText.includes(queryLower) || 
+            words.some(w => w.includes(queryLower) || queryLower.includes(w) || calculateFuzzyScore(w, queryLower) < 0.6)) {
           candidateIndices.add(i);
         }
       }
@@ -232,7 +235,9 @@ async function searchChunkAsync(
     if (candidateIndices.size === 0) {
       for (let i = 0; i < chunkStorage.size; i++) {
         const docText = chunkStorage.getRawText(i);
-        if (docText.includes(queryLower) || calculateFuzzyScore(docText, queryLower) < 0.5) {
+        const words = docText.split(/[^a-z0-9\-\u0980-\u09FF]+/);
+        if (docText.includes(queryLower) || 
+            words.some(w => w.includes(queryLower) || queryLower.includes(w) || calculateFuzzyScore(w, queryLower) < 0.6)) {
           candidateIndices.add(i);
         }
       }

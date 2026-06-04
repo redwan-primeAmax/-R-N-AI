@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  X, Trash2, 
+  X, Trash2, Search,
   Settings2, Settings, Sun, Moon, Layers, Plus, Sparkles,
   ChevronRight, FileText, ChevronDown, MoreHorizontal,
   Box, Download, Zap, Database, AlertCircle, FileDown, Users,
@@ -268,6 +268,8 @@ export default function Sidebar({
               {/* Core Features */}
               <div className="bg-[#151516]/50 border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
                 {[
+                  { icon: <Search size={14} />, label: 'Search Notes', path: '/search', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', glow: 'shadow-[0_0_15px_rgba(56,189,248,0.1)]' },
+                  { icon: <Clock size={14} />, label: 'Recent Activity', path: '/main', color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', glow: 'shadow-[0_0_15px_rgba(129,140,248,0.1)]' },
                   { icon: <Box size={14} />, label: 'Browse Templates', path: '/templates', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]' },
                   { icon: <Zap size={14} />, label: 'Tool Library', path: '/tools', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
                   { icon: <Sparkles size={14} />, label: 'AI Content Architect', path: '/external-ai-import', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },

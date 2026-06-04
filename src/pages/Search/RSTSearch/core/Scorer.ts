@@ -26,11 +26,21 @@ export function calculateFuzzyScore(text: string, pattern: string): number {
     charMask[patternLower.charCodeAt(i) & 0xff] &= ~(1 << i);
   }
 
-  let R = ~1;
+  let R0 = ~1;
+  let R1 = ~0;
+  
   for (let i = 0; i < textLower.length; i++) {
-    R |= charMask[textLower.charCodeAt(i) & 0xff];
-    R <<= 1;
-    if ((R & (1 << m)) === 0) return 0.4; // Found with 1 error or bitshift offset
+    const oldR0 = R0;
+    R0 |= charMask[textLower.charCodeAt(i) & 0xff];
+    R0 <<= 1;
+    
+    if ((R0 & (1 << m)) === 0) return 0.2; // Exact or shift match
+
+    // R1 handles 1-error matches
+    const charMatch = charMask[textLower.charCodeAt(i) & 0xff];
+    R1 = (R1 | charMatch) << 1 & (oldR0 | (oldR0 << 1) | R1);
+    
+    if ((R1 & (1 << m)) === 0) return 0.5; // Found with small error variance
   }
 
   return 1.0; // No match

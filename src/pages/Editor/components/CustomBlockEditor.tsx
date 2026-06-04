@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   CheckSquare, Square, MessageSquare, ChevronRight, Layout, Columns, Table as TableIcon, Bookmark, Plus
 } from 'lucide-react';
@@ -29,6 +30,7 @@ interface CustomBlockEditorProps {
 // Add this before CustomBlockEditor component definition
 const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isReadOnly: boolean }> = ({ subPageId, defaultTitle, isReadOnly }) => {
   const [title, setTitle] = useState(defaultTitle || 'শিরোনামহীন');
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
@@ -55,7 +57,7 @@ const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isRea
     <button
       onClick={() => {
         if (isReadOnly) {
-          window.location.href = `/editor/${subPageId}`;
+          navigate(`/editor/${subPageId}`, { state: { fromParent: true } });
         }
       }}
       className={cn(
@@ -84,6 +86,7 @@ const MemoizedBlockRow = React.memo(({
   currentHiddenIndent
 }: any) => {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const navigate = useNavigate();
 
   if (currentHiddenIndent !== null && (block.indent || 0) > currentHiddenIndent) {
     return null;
@@ -236,7 +239,7 @@ const MemoizedBlockRow = React.memo(({
              {!isReadOnly && (
                <button
                  onClick={() => {
-                   window.location.href = `/editor/${block.subPageId}`;
+                   navigate(`/editor/${block.subPageId}`, { state: { fromParent: true } });
                  }}
                  className="text-[10px] font-black uppercase tracking-wider text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 py-1.5 px-3 rounded-lg opacity-0 group-hover/page:opacity-100 transition-all font-mono"
                >
@@ -341,6 +344,7 @@ const MemoizedBlockRow = React.memo(({
 });
 
 export default function CustomBlockEditor({ editor, className }: CustomBlockEditorProps) {
+  const navigate = useNavigate();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const blocks = editor?.blocks || [];
   const setBlocks = editor?.setBlocks;

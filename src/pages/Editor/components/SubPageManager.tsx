@@ -71,10 +71,10 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
 
       // Navigate immediately as requested!
       setTimeout(() => {
-        navigate(`/editor/${newNote.id}`);
+        navigate(`/editor/${newNote.id}`, { state: { fromParent: true } });
       }, 100);
     } else {
-      navigate(`/editor/${newNote.id}`);
+      navigate(`/editor/${newNote.id}`, { state: { fromParent: true } });
     }
     
     onClose();

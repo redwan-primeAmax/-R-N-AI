@@ -56,6 +56,12 @@ export function useEditorState(id: string | undefined) {
   const descriptionRef = useRef(description);
   const tagsRef = useRef(tags);
   const themeRef = useRef(theme);
+
+  useEffect(() => { titleRef.current = title; }, [title]);
+  useEffect(() => { emojiRef.current = emoji; }, [emoji]);
+  useEffect(() => { descriptionRef.current = description; }, [description]);
+  useEffect(() => { tagsRef.current = tags; }, [tags]);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
   const backupTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isDeletingRef = useRef(false);
 
@@ -87,6 +93,44 @@ export function useEditorState(id: string | undefined) {
   useEffect(() => { noteRef.current = note; }, [note]);
 
   const BACKUP_KEY = `note_backup_${id}`;
+
+  const savePreviousNoteIfNeeded = useCallback(async (prevId: string) => {
+    const currentBlocks = blocksRef.current;
+    const currentNote = noteRef.current;
+    
+    if (currentNote && currentNote.id === prevId && currentBlocks.length > 0 && !isDeletingRef.current) {
+      const content = blocksToHtml(currentBlocks);
+      const isContentDiff = content !== lastSavedContentRef.current;
+      const isTitleDiff = titleRef.current !== currentNote.title;
+      const isEmojiDiff = emojiRef.current !== currentNote.emoji;
+      const isDescDiff = descriptionRef.current !== (currentNote.description || '');
+      const isThemeDiff = themeRef.current !== (currentNote.theme || 'default');
+      const isTagsDiff = JSON.stringify(tagsRef.current) !== JSON.stringify(currentNote.tags || []);
+      
+      const hasChanges = isContentDiff || isTitleDiff || isEmojiDiff || isDescDiff || isThemeDiff || isTagsDiff;
+
+      if (hasChanges) {
+        const updatedTitle = titleRef.current || 'শিরোনামহীন';
+        const updatedEmoji = emojiRef.current || '📝';
+        
+        try {
+          await DataManager.saveNote({
+            ...currentNote,
+            title: updatedTitle,
+            content,
+            emoji: updatedEmoji,
+            description: descriptionRef.current,
+            tags: tagsRef.current,
+            theme: themeRef.current
+          });
+          lastSavedContentRef.current = content;
+          console.log(`Saved previous note ${prevId} successfully.`);
+        } catch (err) {
+          console.error('Failed to save previous note:', err);
+        }
+      }
+    }
+  }, []);
 
   // Simple local search engine mimicking Tiptap's search & replace storage
   useEffect(() => {
@@ -144,15 +188,32 @@ export function useEditorState(id: string | undefined) {
     }, 2000); // 2s debounce is highly efficient
   }, [blocks, id]);
 
-  // Handle auto-save on unmount
+  // Synchronous hot-backup of current draft state to localStorage (immediate & immune to exit data loss)
   useEffect(() => {
-    return () => {
-      if (backupTimerRef.current) {
-        clearTimeout(backupTimerRef.current);
-      }
-      
+    if (!id || blocks.length === 0) return;
+    
+    const draftData = {
+      blocks,
+      title: titleRef.current,
+      emoji: emojiRef.current,
+      description: descriptionRef.current,
+      tags: tagsRef.current,
+      theme: themeRef.current,
+      timestamp: Date.now()
+    };
+    try {
+      localStorage.setItem(`note_draft_${id}`, JSON.stringify(draftData));
+    } catch (e) {
+      console.warn('LocalStorage draft write error:', e);
+    }
+  }, [blocks, title, emoji, description, tags, theme, id]);
+
+  // Instant hot-save on tab close / tab hide / unload (Diamond Road security logic)
+  useEffect(() => {
+    if (!id) return;
+    const handleVisibilityOrUnload = () => {
       const currentBlocks = blocksRef.current;
-      if (currentBlocks.length > 0 && !isDeletingRef.current) {
+      if (currentBlocks.length > 0 && !isDeletingRef.current && noteRef.current) {
         const content = blocksToHtml(currentBlocks);
         const hasChanges = 
           content !== lastSavedContentRef.current || 
@@ -162,7 +223,7 @@ export function useEditorState(id: string | undefined) {
           themeRef.current !== noteRef.current?.theme ||
           JSON.stringify(tagsRef.current) !== JSON.stringify(noteRef.current?.tags);
 
-        if (hasChanges && noteRef.current) {
+        if (hasChanges) {
           const currentNote = noteRef.current;
           const updatedTitle = titleRef.current || 'শিরোনামহীন';
           const updatedEmoji = emojiRef.current || '📝';
@@ -175,13 +236,66 @@ export function useEditorState(id: string | undefined) {
             description: descriptionRef.current,
             tags: tagsRef.current,
             theme: themeRef.current
+          }).then(() => {
+            lastSavedContentRef.current = content;
+            localStorage.removeItem(`note_draft_${id}`);
+          }).catch(err => console.error('Emergency save failed:', err));
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleVisibilityOrUnload);
+    document.addEventListener('visibilitychange', handleVisibilityOrUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleVisibilityOrUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityOrUnload);
+    };
+  }, [id]);
+
+  // Handle auto-save on unmount
+  useEffect(() => {
+    return () => {
+      if (backupTimerRef.current) {
+        clearTimeout(backupTimerRef.current);
+      }
+      
+      const currentBlocks = blocksRef.current;
+      if (currentBlocks.length > 0 && !isDeletingRef.current && noteRef.current) {
+        const content = blocksToHtml(currentBlocks);
+        const hasChanges = 
+          content !== lastSavedContentRef.current || 
+          titleRef.current !== noteRef.current?.title ||
+          emojiRef.current !== noteRef.current?.emoji ||
+          descriptionRef.current !== noteRef.current?.description ||
+          themeRef.current !== noteRef.current?.theme ||
+          JSON.stringify(tagsRef.current) !== JSON.stringify(noteRef.current?.tags);
+
+        if (hasChanges) {
+          const currentNote = noteRef.current;
+          const updatedTitle = titleRef.current || 'শিরোনামহীন';
+          const updatedEmoji = emojiRef.current || '📝';
+          
+          DataManager.saveNote({
+            ...currentNote,
+            title: updatedTitle,
+            content,
+            emoji: updatedEmoji,
+            description: descriptionRef.current,
+            tags: tagsRef.current,
+            theme: themeRef.current
+          }).then(() => {
+            if (id) localStorage.removeItem(`note_draft_${id}`);
           }).catch(err => console.error('Auto-save on unmount failed:', err));
         }
       }
     };
-  }, []);
+  }, [id]);
 
   const loadNote = useCallback(async (noteId: string) => {
+    if (noteRef.current && noteRef.current.id !== noteId) {
+      await savePreviousNoteIfNeeded(noteRef.current.id);
+    }
     const fetchedNote = await DataManager.getNoteById(noteId);
     
     // Check if we are joining a collaborative session via URL
@@ -190,15 +304,47 @@ export function useEditorState(id: string | undefined) {
 
     if (fetchedNote) {
       setNote(fetchedNote);
-      setTitle(fetchedNote.title);
-      setEmoji(fetchedNote.emoji);
-      setDescription(fetchedNote.description || '');
-      setTags(fetchedNote.tags || []);
-      setTheme(fetchedNote.theme || 'default');
+
+      let titleVal = fetchedNote.title;
+      let emojiVal = fetchedNote.emoji;
+      let descVal = fetchedNote.description || '';
+      let tagsVal = fetchedNote.tags || [];
+      let themeVal = fetchedNote.theme || 'default';
+      let contentVal = fetchedNote.content;
+
+      // Hot draft recovery check (Diamond Road Data Integrity validation)
+      const draftStr = localStorage.getItem(`note_draft_${noteId}`);
+      let draftRestored = false;
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr);
+          if (draft && draft.timestamp > (fetchedNote.updatedAt || 0)) {
+            titleVal = draft.title || fetchedNote.title;
+            emojiVal = draft.emoji || fetchedNote.emoji;
+            descVal = draft.description || fetchedNote.description || '';
+            tagsVal = draft.tags || fetchedNote.tags || [];
+            themeVal = draft.theme || fetchedNote.theme || 'default';
+            if (draft.blocks && draft.blocks.length > 0) {
+              contentVal = blocksToHtml(draft.blocks);
+              draftRestored = true;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to restore hot draft:', e);
+        }
+      }
+
+      setTitle(titleVal);
+      setEmoji(emojiVal);
+      setDescription(descVal);
+      setTags(tagsVal);
+      setTheme(themeVal);
       
-      let content = fetchedNote.content;
-      const backup = await localforage.getItem<string>(BACKUP_KEY);
-      if (backup && backup !== fetchedNote.content) content = backup;
+      let content = contentVal;
+      if (!draftRestored) {
+        const backup = await localforage.getItem<string>(BACKUP_KEY);
+        if (backup && backup !== fetchedNote.content) content = backup;
+      }
       
       const resolvedContent = await DataManager.resolveMediaUrls(content);
       lastSavedContentRef.current = resolvedContent;
@@ -217,6 +363,11 @@ export function useEditorState(id: string | undefined) {
         DataManager.getNoteById(fetchedNote.parentId).then(setParentNote);
       } else {
         setParentNote(null);
+      }
+
+      if (draftRestored) {
+        setNotification({ message: 'অসংরক্ষিত ড্রাফট উদ্ধার করা হয়েছে (Unsaved draft restored!)', type: 'info' });
+        setTimeout(() => setNotification(null), 3000);
       }
     } else if (urlCollabId) {
       // Create a temporary/placeholder note locally so the editor does not redirect,
@@ -280,13 +431,15 @@ export function useEditorState(id: string | undefined) {
         lastSavedContentRef.current = updatedNote.content;
         setNote(updatedNote);
         await localforage.removeItem(BACKUP_KEY);
+        // Clear hot-draft as it matches database now
+        if (id) localStorage.removeItem(`note_draft_${id}`);
       } catch (err) {
         console.error('Save failed:', err);
       } finally {
         setTimeout(() => setIsSaving(false), 300);
       }
     }
-  }, [isSaving, BACKUP_KEY]);
+  }, [isSaving, BACKUP_KEY, id]);
 
   useEffect(() => {
     const unsub = operationRunner.subscribe(() => {
@@ -337,6 +490,6 @@ export function useEditorState(id: string | undefined) {
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages, isListening,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, startListening, stopListening, loadNote, isDeletingRef, 
-    titleRef, emojiRef, descriptionRef, noteRef, themeRef
+    titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef
   };
 }

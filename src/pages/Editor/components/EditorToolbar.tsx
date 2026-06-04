@@ -36,8 +36,17 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     const handleSelectionChange = () => {
       forceUpdate({});
     };
+    const handleFocusBlur = () => {
+      forceUpdate({});
+    };
     document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('focusin', handleFocusBlur);
+    document.addEventListener('focusout', handleFocusBlur);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('focusin', handleFocusBlur);
+      document.removeEventListener('focusout', handleFocusBlur);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -66,10 +75,34 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
   if (!editor || isReadOnly) return null;
 
-  const handleKeyboardCollapse = (e: React.MouseEvent) => {
+  const isKeyboardFocused = () => {
+    const el = document.activeElement;
+    return !!(el && el.getAttribute('contenteditable') === 'true');
+  };
+
+  const handleKeyboardToggle = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
+    const focusedEl = document.activeElement;
+    const isFocused = focusedEl && focusedEl.getAttribute('contenteditable') === 'true';
+
+    if (isFocused) {
+      if (focusedEl instanceof HTMLElement) {
+        focusedEl.blur();
+      }
+    } else {
+      const blockId = editor.activeBlockId || (editor.blocks && editor.blocks[0]?.id);
+      if (blockId) {
+        const el = document.getElementById(blockId);
+        if (el) {
+          el.focus();
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(el);
+          range.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
     }
   };
 
@@ -139,7 +172,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         {isTitleFocused ? (
           // Title specific minimalist bar: contains only keyboard off button at the far right
           <div className="flex w-full justify-end px-2">
-            <ToolbarButton onClick={handleKeyboardCollapse}>
+            <ToolbarButton onClick={handleKeyboardToggle} isActive={true}>
               <Keyboard size={20} className="text-blue-500" />
             </ToolbarButton>
           </div>
@@ -191,7 +224,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                   <div className="flex-1" />
 
                   {/* Collapse Keyboard Button */}
-                  <ToolbarButton onClick={handleKeyboardCollapse}>
+                  <ToolbarButton onClick={handleKeyboardToggle} isActive={isKeyboardFocused()}>
                     <Keyboard size={20} />
                   </ToolbarButton>
                 </motion.div>
@@ -252,8 +285,31 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
                   <div className={cn("w-[1px] h-6 flex-shrink-0 mx-1", isLight ? "bg-gray-200" : "bg-white/10")} />
 
-                  {/* Text Colors Panel inside Aa formatting view */}
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/40 select-none flex-shrink-0">রং:</span>
+                  {/* Palette button triggers colors view */}
+                  <ToolbarButton 
+                    onClick={() => setCurrentMenu('colors')}
+                    className="bg-purple-500/10 text-purple-500 flex-shrink-0"
+                  >
+                    <Palette size={18} />
+                  </ToolbarButton>
+                </motion.div>
+              )}
+
+              {currentMenu === 'colors' && (
+                <motion.div 
+                  key="colors"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto no-scrollbar pr-2"
+                >
+                  <ToolbarButton onClick={() => setCurrentMenu('formatting')} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 mr-1 flex-shrink-0">
+                    <span className="font-extrabold text-[15px]">✕</span>
+                  </ToolbarButton>
+
+                  {/* Text Colors Panel */}
+                  <span className={cn("text-[10px] font-black uppercase tracking-wider select-none flex-shrink-0", isLight ? "text-gray-500" : "text-white/40")}>রং:</span>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {textColors.map(tc => (
                       <button
@@ -269,8 +325,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
                   <div className={cn("w-[1px] h-6 flex-shrink-0 mx-1", isLight ? "bg-gray-200" : "bg-white/10")} />
 
-                  {/* Highlights Background Colors Panel inside Aa formatting view */}
-                  <span className="text-[10px] font-black uppercase tracking-wider text-white/40 select-none flex-shrink-0">ব্যাকগ্রাউন্ড:</span>
+                  {/* Highlights Background Colors Panel */}
+                  <span className={cn("text-[10px] font-black uppercase tracking-wider select-none flex-shrink-0", isLight ? "text-gray-500" : "text-white/40")}>ব্যাকগ্রাউন্ড:</span>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {bgColors.map(bc => (
                       <button

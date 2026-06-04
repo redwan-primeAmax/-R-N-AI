@@ -43,7 +43,7 @@ export default function EditorPage() {
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages, isListening,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, loadNote, isDeletingRef, 
-    titleRef, emojiRef, descriptionRef, noteRef, themeRef
+    titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef
   } = useEditorState(id);
   
   const navigate = useNavigate();
@@ -556,6 +556,9 @@ export default function EditorPage() {
   }
 
   const handleBack = () => {
+    // Save current blocks instantly before navigating using the most current ref
+    saveNote(blocksToHtml(blocksRef.current), true);
+
     const now = Date.now();
     const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
 
@@ -568,11 +571,15 @@ export default function EditorPage() {
 
     // Step-by-Step Back Navigation
     if (note?.parentId) {
-      // Go to Parent Note if it exists
-      navigate(`/editor/${note.parentId}${collabParam}`);
+      if (location.state?.fromParent) {
+        navigate(-1);
+      } else {
+        // Go to Parent Note if it exists with replace to prevent routing loops in history
+        navigate(`/editor/${note.parentId}${collabParam}`, { replace: true });
+      }
     } else {
       // Otherwise, go back in history or to Home
-      if (window.history.length > 1) {
+      if (location.state?.fromOutside) {
         navigate(-1);
       } else {
         navigate(`/${collabParam}`);
@@ -655,7 +662,7 @@ export default function EditorPage() {
 
   const handleAddSubPage = async () => {
     const newSub = await DataManager.createNote(note!.workspaceId || 'default', note!.id);
-    navigate(`/editor/${newSub.id}`);
+    navigate(`/editor/${newSub.id}`, { state: { fromParent: true } });
     setShowActionSheet(false);
   };
 

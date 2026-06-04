@@ -127,7 +127,7 @@ export default function HomePage() {
     return unsub;
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     loadData();
     const syncHandler = DataManager.onSync(loadData);
     
@@ -139,10 +139,14 @@ export default function HomePage() {
     };
     window.addEventListener('history-updated', handleHistoryUpdate);
 
+    const handleWorkspaceChange = () => loadData();
+    window.addEventListener('workspace-notes-changed', handleWorkspaceChange);
+
     return () => {
       DataManager.offSync(syncHandler);
       window.removeEventListener('open-external-import', handleOpenExternal);
       window.removeEventListener('history-updated', handleHistoryUpdate);
+      window.removeEventListener('workspace-notes-changed', handleWorkspaceChange);
     };
   }, [loadData, navigate]);
 
@@ -158,7 +162,7 @@ export default function HomePage() {
     if (isSelectionMode) {
       setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     } else {
-      navigate(`/editor/${id}`);
+      navigate(`/editor/${id}`, { state: { fromOutside: true } });
     }
   };
 
@@ -209,7 +213,7 @@ export default function HomePage() {
 
       <RecentNotes 
         notes={historyNotes}
-        onNoteClick={(id) => navigate(`/editor/${id}`)}
+        onNoteClick={(id) => navigate(`/editor/${id}`, { state: { fromOutside: true } })}
       />
 
       <AnimatedDivider />
@@ -249,7 +253,7 @@ export default function HomePage() {
       <ActionMenu 
         note={activeMenuNote}
         onClose={() => setActiveMenuNote(null)}
-        onEdit={(id) => { navigate(`/editor/${id}`); setActiveMenuNote(null); }}
+        onEdit={(id) => { navigate(`/editor/${id}`, { state: { fromOutside: true } }); setActiveMenuNote(null); }}
         onCopy={handleCopyNote}
         onDelete={(id) => { handleSoftDelete(id); setActiveMenuNote(null); }}
         onToggleSelection={(id) => {

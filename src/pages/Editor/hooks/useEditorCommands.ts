@@ -359,7 +359,7 @@ export function useEditorCommands({
         },
         setHorizontalRule: () => {
           setBlocks((prev) => {
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const idx = prev.findIndex(b => b.id === activeId);
             const newBlock: EditorBlock = { id: crypto.randomUUID(), type: 'hr' as const, content: '' };
             if (idx > -1) {
@@ -373,10 +373,10 @@ export function useEditorCommands({
         },
         setCallout: () => {
           setBlocks((prev) => {
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const activeBlock = prev.find(b => b.id === activeId);
             const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized) {
+            if (isSpecialized || !activeId || !activeBlock) {
               const newBlock = { id: crypto.randomUUID(), type: 'callout' as any, content: '', emoji: '💡' };
               const idx = prev.findIndex(b => b.id === activeId);
               if (idx > -1) {
@@ -392,11 +392,11 @@ export function useEditorCommands({
         },
         setSandbox: () => {
           setBlocks((prev) => {
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const activeBlock = prev.find(b => b.id === activeId);
             const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
             const templateHtml = '<h3>Title</h3>\n<p>Write your HTML/CSS/JS code block here...</p>';
-            if (isSpecialized) {
+            if (isSpecialized || !activeId || !activeBlock) {
               const newBlock = { id: crypto.randomUUID(), type: 'sandbox' as any, content: templateHtml };
               const idx = prev.findIndex(b => b.id === activeId);
               if (idx > -1) {
@@ -422,7 +422,7 @@ export function useEditorCommands({
               content: '',
               tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
             };
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const idx = prev.findIndex(b => b.id === activeId);
             if (idx > -1) {
               const res = [...prev];
@@ -448,7 +448,7 @@ export function useEditorCommands({
                 url: attrs.url || ''
               }
             };
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id');
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
             const idx = prev.findIndex(b => b.id === activeId);
             if (idx > -1) {
               const res = [...prev];

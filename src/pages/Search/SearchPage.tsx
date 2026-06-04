@@ -482,7 +482,7 @@ export default function SearchPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.98 }}
                     transition={{ duration: 0.15 }}
-                    onClick={() => navigate(`/editor/${note.id}`)}
+                    onClick={() => navigate(`/editor/${note.id}`, { state: { fromOutside: true } })}
                     className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/[0.05] rounded-[32px] hover:bg-white/5 hover:border-white/10 transition-all cursor-pointer group shadow-xl hover:shadow-2xl hover:scale-[1.01] duration-300"
                   >
                     <div className="flex-shrink-0 w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner">
