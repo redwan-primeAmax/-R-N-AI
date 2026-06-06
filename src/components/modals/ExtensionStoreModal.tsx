@@ -25,7 +25,25 @@ export const ExtensionStoreModal: React.FC<ExtensionStoreModalProps> = ({ isOpen
       const unsub = extensionManager.onChange(() => {
         setInstalledExtensions(extensionManager.getInstalledExtensions());
       });
-      return () => { unsub(); };
+
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.data?.type === 'install-extension' && event.data?.folder) {
+          try {
+            const manifest = await extensionManager.installFromLibrary(event.data.folder);
+            window.dispatchEvent(new CustomEvent('app-notification', { 
+              detail: { message: `"${manifest.name}" সফলভাবে ইনস্টল হয়েছে!`, type: 'success' } 
+            }));
+          } catch (err: any) {
+            alert(`ইনস্টলেশন ব্যর্থ: ${err.message}`);
+          }
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+      return () => { 
+        unsub(); 
+        window.removeEventListener('message', handleMessage);
+      };
     }
   }, [isOpen]);
 
@@ -37,12 +55,15 @@ export const ExtensionStoreModal: React.FC<ExtensionStoreModalProps> = ({ isOpen
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
-          // By default, manual ZIP upload for testing is persistent = true for now, 
-          // but we can make it session-only if needed.
-          // User said "cache until refresh", so persist = false.
-          const manifest = await extensionManager.loadExtensionFromZip(file, false);
-          extensionManager.reloadApp();
-          alert(`Extension "${manifest.name}" loaded for this session.`);
+          const result = await extensionManager.loadLibraryZip(file);
+          if (result.hasUI) {
+            setTab('marketplace');
+            window.dispatchEvent(new CustomEvent('app-notification', { 
+              detail: { message: 'এক্সটেনশন লাইব্রেরি লোড হয়েছে।', type: 'info' } 
+            }));
+          } else {
+            alert(`লাইব্রেরি লোড হয়েছে (${result.extensionCount} টি এক্সটেনশন পাওয়া গেছে) কিন্তু কোনো ইনডেক্স ফাইল নেই।`);
+          }
         } catch (err: any) {
           alert(`Error: ${err.message}`);
         }
@@ -52,10 +73,19 @@ export const ExtensionStoreModal: React.FC<ExtensionStoreModalProps> = ({ isOpen
   };
 
   const handleRemove = async (id: string, name: string) => {
-    if (window.confirm(`আপনি কি নিশ্চিতভাবে "${name}" এক্সটেনশনটি মুছে ফেলতে চান? এটি সিস্টেম থেকে সম্পূর্ণ মুছে যাবে।`)) {
-      await extensionManager.unregister(id);
-      extensionManager.reloadApp();
-      setSelectedExtension(null);
+    if (window.confirm(`আপনি কি নিশ্চিতভাবে "${name}" এক্সটেনশনটি মুছে ফেলতে চান? এটি সিস্টেম থেকে সম্পূর্ণ এবং পাকাপাকিভাবে মুছে যাবে।`)) {
+      const success = await extensionManager.unregister(id);
+      if (success) {
+        // "Internal Reload" effect - dispatch notification directly
+        window.dispatchEvent(new CustomEvent('app-notification', { 
+          detail: { message: 'অ্যাপ্লিকেশন স্টেট রিসেট করা হচ্ছে...', type: 'info' } 
+        }));
+        extensionManager.reloadApp();
+        setSelectedExtension(null);
+        setTab('marketplace');
+      } else {
+        alert('এক্সটেনশনটি ডিলিট করতে সমস্যা হয়েছে।');
+      }
     }
   };
 
@@ -204,49 +234,77 @@ export const ExtensionStoreModal: React.FC<ExtensionStoreModalProps> = ({ isOpen
                 </div>
               </div>
 
-              {/* Grid */}
+              {/* Grid / Library UI */}
               <div className="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {(tab === 'marketplace' ? filteredMarketplace : installedExtensions).map((ext) => (
-                    <motion.div 
-                      layoutId={ext.id}
-                      key={ext.id}
-                      onClick={() => setSelectedExtension(ext)}
-                      className="group p-6 bg-white/[0.02] border border-white/5 rounded-[24px] hover:bg-white/[0.05] hover:border-white/10 transition-all cursor-pointer active:scale-[0.98] relative overflow-hidden"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                          {ext.icon || '📦'}
-                        </div>
-                        {isInstalled(ext.id) && (
+                {tab === 'marketplace' ? (
+                  extensionManager.getLibraryUI() ? (
+                    <div className="w-full h-full bg-white rounded-3xl overflow-hidden border border-white/10">
+                      <iframe 
+                        srcDoc={extensionManager.getLibraryUI()!}
+                        className="w-full h-full border-none"
+                        title="Library Marketplace"
+                        sandbox="allow-scripts"
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-center py-20 bg-white/[0.01] border border-dashed border-white/5 rounded-[32px]">
+                      <div className="w-20 h-20 rounded-[24px] bg-orange-500/10 flex items-center justify-center mb-6">
+                        <Download size={32} className="text-orange-500/40" />
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-2">কোনো লাইব্রেরি লোড করা নেই</h3>
+                      <p className="text-sm text-white/40 max-w-sm mb-8">
+                        এক্সটেনশন লাইব্রেরি দেখার জন্য আপনার কম্পিউটার থেকে একটি জিপ ফাইল ইম্পোর্ট করুন। 
+                        জিপটির রুটে একটি <b>index.html</b> ফাইল থাকতে হবে।
+                      </p>
+                      <button 
+                        onClick={handleUploadZip}
+                        className="px-8 py-3 bg-white text-black rounded-2xl font-bold hover:scale-105 transition-all"
+                      >
+                        লাইব্রেরি জিপ আপলোড করুন
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {installedExtensions.map((ext) => (
+                      <motion.div 
+                        layoutId={ext.id}
+                        key={ext.id}
+                        onClick={() => setSelectedExtension(ext)}
+                        className="group p-6 bg-white/[0.02] border border-white/5 rounded-[24px] hover:bg-white/[0.05] hover:border-white/10 transition-all cursor-pointer active:scale-[0.98] relative overflow-hidden"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                            {ext.icon || '📦'}
+                          </div>
                           <div className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] uppercase font-black tracking-widest border border-green-500/20 flex items-center gap-1">
                             <CheckCircle2 size={10} />
                             Active
                           </div>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors uppercase tracking-tight mb-2">
-                        {ext.name}
-                      </h3>
-                      <p className="text-sm text-white/40 line-clamp-2 mb-4 leading-relaxed">
-                        {ext.description}
-                      </p>
-                      <div className="flex items-center gap-2 mt-auto">
-                        <span className="text-[10px] text-white/20 uppercase font-black">By {ext.author}</span>
-                      </div>
-                    </motion.div>
-                  ))}
+                        </div>
+                        <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors uppercase tracking-tight mb-2">
+                          {ext.name}
+                        </h3>
+                        <p className="text-sm text-white/40 line-clamp-2 mb-4 leading-relaxed">
+                          {ext.description}
+                        </p>
+                        <div className="flex items-center gap-2 mt-auto">
+                          <span className="text-[10px] text-white/20 uppercase font-black">By {ext.author}</span>
+                        </div>
+                      </motion.div>
+                    ))}
 
-                  {tab === 'installed' && installedExtensions.length === 0 && (
-                    <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
-                      <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                        <Box size={32} className="text-white/10" />
+                    {installedExtensions.length === 0 && (
+                      <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
+                        <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
+                          <Box size={32} className="text-white/10" />
+                        </div>
+                        <h3 className="text-white font-bold opacity-40">No Extensions Installed</h3>
+                        <p className="text-sm text-white/20">Try importing a ZIP file or explore the library.</p>
                       </div>
-                      <h3 className="text-white font-bold opacity-40">No Extensions Installed</h3>
-                      <p className="text-sm text-white/20">Try importing a ZIP file or explore the library.</p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -303,6 +361,23 @@ export const ExtensionStoreModal: React.FC<ExtensionStoreModalProps> = ({ isOpen
                       {selectedExtension.description}
                     </p>
                   </section>
+
+                  {selectedExtension._html && (
+                    <section>
+                      <h4 className="text-[10px] uppercase font-black tracking-[0.2em] text-orange-500 mb-4">Extension Interface (index.html)</h4>
+                      <div className="w-full h-[400px] bg-white rounded-2xl overflow-hidden border border-white/10 relative">
+                        <iframe 
+                          srcDoc={selectedExtension._html}
+                          className="w-full h-full border-none"
+                          title="Extension Preview"
+                          sandbox="allow-scripts"
+                        />
+                        <div className="absolute top-4 right-4 px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[8px] font-black uppercase tracking-widest text-white/60 pointer-events-none">
+                          Rendered Preview
+                        </div>
+                      </div>
+                    </section>
+                  )}
 
                   <section>
                     <h4 className="text-[10px] uppercase font-black tracking-[0.2em] text-orange-500 mb-4">Core Features</h4>

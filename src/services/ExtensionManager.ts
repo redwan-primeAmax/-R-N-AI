@@ -4,7 +4,9 @@ import JSZip from 'jszip';
 import localforage from 'localforage';
 
 class ExtensionManager {
-  private extensions: Map<string, AppExtension & { _script?: string; _isPersistent?: boolean }> = new Map();
+  private extensions: Map<string, AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null }> = new Map();
+  private libraryUI: string | null = null;
+  private libraryFiles: Map<string, { manifest: any; script: string }> = new Map();
   private sidebarItems: SidebarExtensionItem[] = [];
   private themeVariables: Map<string, string> = new Map();
   private listeners: Set<() => void> = new Set();
@@ -233,45 +235,52 @@ class ExtensionManager {
 
   async unregister(id: string) {
     const extension = this.extensions.get(id);
-    if (extension) {
-      try {
-        if (extension.destroy) {
-          try {
-            extension.destroy(this.createAPI(id));
-          } catch (e) {
-            console.error(`Deactivate Error [${id}]:`, e);
-          }
+    if (!extension) return false;
+
+    try {
+      if (extension.destroy) {
+        try {
+          extension.destroy(this.createAPI(id));
+        } catch (e) {
+          console.error(`Deactivate Error [${id}]:`, e);
         }
-        
-        this.extensions.delete(id);
-        this.removeStyle(id);
-        
-        // Remove from persistent storage
-        await this.persistExtensions();
-
-        // Cleanup sidebar items linked to this extension
-        this.sidebarItems = this.sidebarItems.filter(item => !item.id.startsWith(id));
-        
-        // Cleanup toolbar buttons
-        if ((window as any).__toolbarButtons) {
-          (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => b.extensionId !== id);
-        }
-
-        // Cleanup filters (Requires a way to track callbacks, but for now we clear common refs)
-        // Clear caches
-        this.notify();
-
-        // Dispatch system-wide reload event
-        window.dispatchEvent(new CustomEvent('extension-system-reload', { detail: { uninstalled: id } }));
-        
-        console.log(`Extension Purged Successfully: ${id}`);
-        return true;
-      } catch (error) {
-        console.error(`Purge Error [${id}]:`, error);
-        return false;
       }
+      
+      // 1. Remove from active memory
+      this.extensions.delete(id);
+      this.removeStyle(id);
+      
+      // 2. Remove all local storage data for this extension
+      const storagePrefix = `ext_${id}_`;
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(storagePrefix)) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // 3. Remove from persistent database (localforage)
+      await this.persistExtensions();
+
+      // 4. Cleanup UI slots
+      this.sidebarItems = this.sidebarItems.filter(item => !item.id.startsWith(id));
+      
+      // Cleanup toolbar buttons if present
+      if ((window as any).__toolbarButtons) {
+        (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => b.extensionId !== id);
+      }
+
+      // 5. Notify all components to re-render
+      this.notify();
+
+      // 6. Dispatch system-wide reload event for non-react listeners
+      window.dispatchEvent(new CustomEvent('extension-system-reload', { detail: { uninstalled: id } }));
+      
+      console.log(`Extension Purged Successfully: ${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Purge Error [${id}]:`, error);
+      return false;
     }
-    return false;
   }
 
   async loadExtensionFromZip(file: File, persist: boolean = false) {
@@ -281,6 +290,7 @@ class ExtensionManager {
       
       const manifestFile = content.file('manifest.json');
       const indexFile = content.file('index.js');
+      const htmlFile = content.file('index.html');
       
       if (!manifestFile || !indexFile) {
         throw new Error('ZIP must contain manifest.json and index.js');
@@ -288,6 +298,7 @@ class ExtensionManager {
       
       const manifest = JSON.parse(await manifestFile.async('text'));
       const script = await indexFile.async('text');
+      const html = htmlFile ? await htmlFile.async('text') : null;
       
       // Basic validation
       if (!manifest.id || !manifest.name || !manifest.version) {
@@ -299,9 +310,10 @@ class ExtensionManager {
       const url = URL.createObjectURL(blob);
       const module = await import(/* @vite-ignore */ url);
       
-      const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
+      const extension: AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null } = {
         ...manifest,
         _script: script,
+        _html: html,
         _isPersistent: persist,
         init: module.default?.activate || module.activate || (() => {}),
         destroy: module.default?.deactivate || module.deactivate || (() => {})
@@ -341,6 +353,80 @@ class ExtensionManager {
 
   reloadApp() {
     this.notify();
+  }
+
+  getLibraryUI() { return this.libraryUI; }
+
+  async installFromLibrary(folderName: string) {
+    const fileData = this.libraryFiles.get(folderName);
+    if (!fileData) throw new Error(`Extension "${folderName}" not found in current library.`);
+
+    const { manifest, script } = fileData;
+    const blob = new Blob([script], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const module = await import(/* @vite-ignore */ url);
+
+    const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
+      ...manifest,
+      _script: script,
+      _isPersistent: true, // Installed ones are persistent
+      init: module.default?.activate || module.activate || (() => {}),
+      destroy: module.default?.deactivate || module.deactivate || (() => {})
+    };
+
+    this.register(extension);
+    await this.persistExtensions();
+    return manifest;
+  }
+
+  async loadLibraryZip(file: File) {
+    try {
+      const zip = new JSZip();
+      const content = await zip.loadAsync(file);
+      
+      // 1. Look for root index.html (The Store UI)
+      const htmlFile = content.file('index.html');
+      if (htmlFile) {
+        this.libraryUI = await htmlFile.async('text');
+      }
+
+      // 2. Scan extensions/ folder
+      this.libraryFiles.clear();
+      const extensionsFolder = content.folder('extensions');
+      
+      if (extensionsFolder) {
+        // Find distinct subfolders in extensions/
+        const folderNames = new Set<string>();
+        Object.keys(content.files).forEach(path => {
+          if (path.startsWith('extensions/') && path !== 'extensions/') {
+            const relative = path.replace('extensions/', '');
+            const folderName = relative.split('/')[0];
+            if (folderName) folderNames.add(folderName);
+          }
+        });
+
+        for (const folder of folderNames) {
+          const mFile = content.file(`extensions/${folder}/manifest.json`);
+          const iFile = content.file(`extensions/${folder}/index.js`);
+          
+          if (mFile && iFile) {
+            const manifest = JSON.parse(await mFile.async('text'));
+            const script = await iFile.async('text');
+            this.libraryFiles.set(folder, { manifest, script });
+            console.log(`Discovered library extension: ${manifest.name} in folder ${folder}`);
+          }
+        }
+      }
+
+      this.notify();
+      return { 
+        hasUI: !!this.libraryUI, 
+        extensionCount: this.libraryFiles.size 
+      };
+    } catch (err) {
+      console.error('Library Zip Error:', err);
+      throw err;
+    }
   }
 
   getInstalledExtensions() {

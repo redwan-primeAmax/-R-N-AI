@@ -280,11 +280,9 @@ export default function Sidebar({
               {/* Core Features */}
               <div className="bg-[#151516]/50 border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
                 {[
-                  { icon: <Box size={14} />, label: 'Browse Templates', path: '/templates', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]' },
-                  { icon: <Sparkles size={14} />, label: 'AI Content Architect', path: '/external-ai-import', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },
-                  { icon: <Database size={14} />, label: 'ডাটা ম্যানেজমেন্ট', path: '/data-management', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]' },
+                  { icon: <Plus size={14} />, label: 'নতুন নোট', path: '/editor/new', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]' },
+                  { icon: <Zap size={14} />, label: 'এক্সটেনশন', action: 'add-extension', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.1)]' },
                   { icon: <Settings size={14} />, label: 'সেটিংস', path: '/settings', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
-                  { icon: <Zap size={14} />, label: 'এক্সটেনশন ম্যানেজার', action: 'add-extension', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.1)]' },
                   { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]' }
                 ].map((item, idx) => (
                   <button 

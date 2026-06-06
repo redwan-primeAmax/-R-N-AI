@@ -1,145 +1,106 @@
-# 📘 নোশন ক্লোন এক্সটেনশন ডেভেলপমেন্ট গাইডলাইন (v3.0 - Professional & Amateur Friendly)
+# 📘 এক্সটেনশন এবং লাইব্রেরি ডেভেলপমেন্ট গাইডলাইন (v4.0 - Universal Store Edition)
 
-এই ডকুমেন্টটি নোশন ক্লোন অ্যাপের জন্য এক্সটেনশন তৈরির চূড়ান্ত এবং সবথেকে আধুনিক গাইডলাইন। এটি এমনভাবে ডিজাইন করা হয়েছে যাতে একদম নতুন কেউ (Amateur) থেকে শুরু করে প্রফেশনাল ডেভেলপার পর্যন্ত সবাই এটি সহজে বুঝতে পারে।
+এই গাইডলাইনটি নোশন ক্লোন অ্যাপের নতুন **"সেন্ট্রাল লাইব্রেরি"** সিস্টেম এবং এক্সটেনশন ইঞ্জিনের জন্য তৈরি করা হয়েছে। এখন আপনি শুধুমাত্র একটি টুল নয়, বরং একটি সম্পূর্ণ "এক্সটেনশন স্টোর" তৈরি করতে পারবেন।
 
 ---
 
-## ১. কোর ডেভেলপমেন্ট ফিলোসফি (The Architecture)
+## ১. ফাইল স্ট্রাকচার (The Library Package)
 
-আমাদের অ্যাপটি একটি **Registry-Based Extension System** এর ওপর দাঁড়িয়ে। এর মানে হলো আপনি যখন একটি এক্সটেনশন লোড করেন, সেটি অ্যাপের কোর কোডকে পরিবর্তন করে না, বরং অ্যাপের ভেতরে থাকা নির্দিষ্ট কিছু "স্লট" (Slot) বা "হুক" (Hook) এ নিজের কাজ রেজিস্ট্রি করে।
-
-### ফাইল স্ট্রাকচার (The Bundle)
-আপনার এক্সটেনশনটি একটি ফোল্ডার হিসেবে থাকবে যা পরবর্তীতে ZIP করতে হবে। স্ট্রাকচারটি এরকম হওয়া উচিত:
+আপনার সম্পূর্ণ প্যাকেজটি একটি ZIP ফাইল হতে হবে। এর ভেতরে স্ট্রাকচারটি নিচের মতো হওয়া বাধ্যতামূলক:
 
 ```text
-my-extension/
-├── manifest.json   (আপনার এক্সটেনশনের ডিটেইলস)
-├── index.js        (আপনার আসল জাভাস্ক্রিপ্ট কোড)
-└── index.html      (যদি আপনি কাস্টম ইন্টারফেস বানাতে চান)
+my-library.zip/
+├── index.html          (স্টোর বা লাইব্রেরির কাস্টম ইউআই - এটিই প্রথম লোড হবে)
+├── extensions/         (এই ফোল্ডারের ভেতর সব এক্সটেনশন থাকবে)
+│   ├── ai-summarizer/
+│   │   ├── manifest.json
+│   │   └── index.js
+│   ├── dark-theme/
+│   │   ├── manifest.json
+│   │   └── index.js
 ```
+
+### কেন এই স্ট্রাকচার?
+- **index.html**: এটি আপনার তৈরি করা স্টোরের "ইন্টারফেস"। এখানে আপনি আপনার সব এক্সটেনশনের কার্ড দেখাতে পারেন এবং অ্যাপের সাথে যোগাযোগ করতে পারেন।
+- **extensions/**: এর ভেতর প্রতিটি ফোল্ডার একটি আলাদা এক্সটেনশন হিসেবে গণ্য হবে।
 
 ---
 
-## ২. ম্যানিফেস্ট ফাইল (manifest.json)
+## ২. লাইব্রেরি ইউআই (index.html) এবং হোস্ট অ্যাপ কমিউনিকেশন
 
-আপনার এক্সটেনশন সম্পর্কে অ্যাপকে জানানোর জন্য এটি অপরিহার্য।
+আপনার `index.html` ফাইলটি একটি আইফ্রেমে লোড হবে। যখন কোনো ইউজার আপনার স্টোর থেকে একটি নির্দিষ্ট এক্সটেনশন ইনস্টল করতে চাইবে, আপনাকে নিচের কোডটি ব্যবহার করে হোস্ট অ্যাপকে সিগন্যাল পাঠাতে হবে:
 
-```json
-{
-  "id": "com.example.my-ai-tool",
-  "name": "AI Summarizer",
-  "version": "1.0.0",
-  "author": "John Doe",
-  "description": "এটি আপনার নোটকে এআই দিয়ে সংক্ষেপ করবে।",
-  "icon": "🧠",
-  "features": ["Content Interception", "Sidebar Button"],
-  "permissions": ["EditorContent", "AI_API"],
-  "releaseDate": "2026-06-06"
+```javascript
+// আপনার index.html এর ভেতর থেকে এটি কল করুন
+function installExtension(folderName) {
+  window.parent.postMessage({ 
+    type: 'install-extension', 
+    folder: folderName // যেমন: 'ai-summarizer'
+  }, '*');
 }
 ```
 
 ---
 
-## ৩. কোডিং উদাহরণ (Professional Examples)
+## ৩. স্লট এবং হুক সিস্টেম (Available Slots)
 
-আমরা এখানে ৩টি ভিন্ন ধরণের ব্যবহারের উদাহরণ দিচ্ছি:
+আমাদের ইঞ্জিনে বেশ কিছু স্লট রয়েছে যেখানে আপনি আপনার ফিচার ইনজেক্ট করতে পারেন:
 
-### উদাহরণ ১: সাইডবারে বাটন এবং নোটিফিকেশন যোগ করা
-এটি সবথেকে সাধারণ এবং সহজ উপায় যা যেকোনো ইন্টারঅ্যাকশন শুরু করতে পারে।
-
+### ক. সাইডবার স্লট (Sidebar Item)
 ```javascript
-// index.js
-export const activate = (api) => {
-  api.ui.registerSidebarItem({
-    id: 'hello-tool',
-    label: 'Hello World',
-    icon: '👋',
-    onClick: () => {
-      api.notify("হ্যালো! এক্সটেনশন থেকে স্বাগতম।", "success");
-    }
-  });
-};
-
-export const deactivate = (api) => {
-  // অ্যাপ অটোমেটিক ক্লিনআপ করে নেয়
-};
+api.ui.registerSidebarItem({
+  id: 'my-id',
+  label: 'My Extension',
+  icon: '🛠️',
+  onClick: () => { /* আপনার কাজ */ }
+});
 ```
 
-### উদাহরণ ২: নতুন এডিটর ব্লক তৈরি করা (Custom Block Registry)
-আপনি এডিটরে সম্পূর্ণ নতুন ধরণের কন্টেন্ট যোগ করতে পারেন।
-
+### খ. এডিটর ব্লক স্লট (Block Registry)
+এডিটরে নতুন ধরণের কন্টেন্ট যোগ করার জন্য:
 ```javascript
-export const activate = (api) => {
-  // 'alert-box' টাইপের একটি নতুন ব্লক রেজিস্টার করা
-  api.registerBlock('alert-box', (props) => {
-    const { block } = props;
-    return React.createElement('div', {
-      style: {
-        border: '2px solid red',
-        padding: '10px',
-        borderRadius: '8px',
-        background: '#fff0f0',
-        color: 'red',
-        fontWeight: 'bold'
-      }
-    }, block.content || 'সতর্কতা: কোনো তথ্য নেই!');
-  });
-};
+api.registerBlock('my-block-type', (props) => {
+  return React.createElement('div', null, 'আমি একটি নতুন টাইপের ব্লক!');
+});
 ```
 
-### উদাহরণ ৩: ডাটা সেভ হওয়ার আগে ফিল্টার করা (Data Privacy)
-ডাটাবেজে সেভ হওয়ার ঠিক আগে আপনি তথ্য পরিবর্তন করতে পারেন।
+### গ. ডাটা ফিল্টার স্লট (Data Hooks)
+ডাটা সেভ বা লোড হওয়ার সময় পরিবর্তন আনতে:
+- `beforeSave`: সেভ হওয়ার ঠিক আগে ডাটা পরিবর্তন।
+- `afterLoad`: লোড হওয়ার পর ডাটা প্রসেস করা।
 
 ```javascript
-export const activate = (api) => {
-  api.addFilter('beforeSave', (blocks) => {
-    // উদাহরণস্বরূপ: সব ব্লকের টেক্সট আপারকেস করা (জাস্ট টেস্টিং এর জন্য)
-    return blocks.map(b => ({
-      ...b,
-      content: b.content ? b.content.replace('BadWord', '***') : b.content
-    }));
-  });
-};
+api.addFilter('beforeSave', (blocks) => {
+  return blocks.map(b => (/* কিচু পরিবর্তন করুন */));
+});
 ```
 
-### উদাহরণ ৪: কাস্টম এইচটিএমএল (Custom HTML Interface)
-আপনি যদি রিঅ্যাক্ট (React) না জানেন, তবে সরাসরি এইচটিএমএল স্ট্রিং ইনজেক্ট করতে পারেন।
-
+### ঘ. টুলবার বাটন (Toolbar Button)
+নোশন এডিটরের উপরের টুলবারে বাটন যোগ করতে:
 ```javascript
-export const activate = (api) => {
-  api.registerBlock('custom-html-tool', (props) => {
-    // সরাসরি HTML স্ট্রিং ব্যবহার করা
-    const myHtml = `
-      <div style="background: #222; color: #0f0; padding: 15px; font-family: monospace; border-left: 5px solid #0f0;">
-        <h3>My Custom Terminal</h3>
-        <p>This is rendered via raw HTML!</p>
-        <button onclick="alert('Action from HTML!')">Click Me</button>
-      </div>
-    `;
-
-    return React.createElement('div', {
-      dangerouslySetInnerHTML: { __html: myHtml }
-    });
-  });
-};
+api.ui.addButton({
+  label: 'Translate',
+  onClick: () => { /* এআই ট্রান্সলেশন লজিক */ }
+});
 ```
 
 ---
 
-## ৪. সিকিউরিটি এবং লিমিটেশন (Crucial Rules)
+## ৪. সিকিউরিটি এবং গুরুত্বপূর্ণ নিয়ম
 
-১. **Direct DOM Manipulation নিষেধ:** কখনোই `document.getElementById` বা অ্যাপের ভেতরের HTML সরাসরি সিলেক্ট করবেন না। এটি অ্যাপ ক্র্যাশ করাতে পারে। সবসময় `api` মেথড ব্যবহার করুন।
-২. **মেমোরি ম্যানেজমেন্ট:** আপনার এক্সটেনশন যদি কোনো ইন্টারভাল (`setInterval`) চালায়, তবে সেটি `deactivate` এর সময় বন্ধ করে দিন।
-৩. **HTML Injection:** যদি আপনার ইন্টারফেসের জন্য HTML লাগে, তবে তা React-এর মাধ্যমে বা `api.ui` স্লটে ইনজেক্ট করতে হবে।
-৪. **কঠোর ডিলিট লজিক:** আপনি যখন "রিমুভ" বাটনে ক্লিক করবেন, অ্যাপ আপনার এক্সটেনশনের সমস্ত রেজিস্ট্রি মুছে দিবে এবং একটি রিলোড ট্রিগার করবে যাতে সিস্টেম আবার ফ্রেশ হয়ে যায়।
+১. **পার্থ ইউসেজ (Path Usage):** হোস্ট অ্যাপ কেবল `extensions/` ফোল্ডারের ভেতরের ফোল্ডারগুলোকেই এক্সটেনশন হিসেবে চেনে। স্পেলিং ঠিক রাখা জরুরি।
+২. **মেমোরি সেফটি:** আপনার এক্সটেনশন যদি কোনো গ্লোবাল ভ্যারিয়েবল বা ইভেন্ট লিসেনার সেট করে, তবে তা `deactivate` এর সময় রিমুভ করুন।
+৩. **HTML Preview:** আপনি এখন আপনার এক্সটেনশনের ভেতর `index.html` রাখলে সেটি এক্সটেনশন ডিটেইলস পেজে প্রিভিউ হিসেবে দেখাবে।
+৪. **ডাটা আইসোলেশন:** প্রতিটি এক্সটেনশনের জন্য আলাদা `localStorage` প্রিফিক্স দেওয়া হয়। তাই এক এক্সটেনশনের ডাটা অন্যটির সাথে মিশে যাবে না।
 
 ---
 
-## ৫. কিভাবে টেস্টিং করবেন?
+## ৫. উদাহরণ প্রজেক্ট (Quick Example)
 
-১. আপনার তৈরি করা ফাইলগুলো ZIP করুন।
-২. নোশন ক্লোন অ্যাপের **"এক্সটেনশন ম্যানেজার"** এ যান।
-৩. **"Import ZIP"** বাটনে ক্লিক করে লোড করুন।
-৪. কাজ শেষে **"Installed"** ট্যাব থেকে রিমুভ করে চেক করুন।
+যদি আপনি একটি **"AI Summarizer"** বানাতে চান:
+১. `extensions/ai-sum/manifest.json` তৈরি করুন।
+২. `extensions/ai-sum/index.js` এ `api.ui.registerSidebarItem` ব্যবহার করুন।
+৩. অন-ক্লিক ইভেন্টে `api.notify("Summarizing...", "info")` কল করুন।
+৪. পুরো প্যাকেজ জিপ করে আপলোড দিন।
 
-এখন আপনি আপনার নিজের নতুন টুল বানাতে প্রস্তুত! 🚀
+এই স্ট্রং সিস্টেমটি ব্যবহার করে আপনি এখন অনেক শক্তিশালী এবং বাগ-মুক্ত অ্যাপলিকেশন ইকোসিস্টেম তৈরি করতে পারবেন। 🚀
