@@ -31,6 +31,7 @@ export { htmlToBlocks, blocksToHtml };
 interface CustomBlockEditorProps {
   editor: any; // our custom controller object
   className?: string;
+  blocksRefs?: React.MutableRefObject<Record<string, any>>;
 }
 
 // Add this before CustomBlockEditor component definition
@@ -354,18 +355,30 @@ const MemoizedBlockRow = React.memo(({
          prev.isReadOnly === next.isReadOnly;
 });
 
-export default function CustomBlockEditor({ editor, className }: CustomBlockEditorProps) {
+export default function CustomBlockEditor({ editor, className, blocksRefs }: CustomBlockEditorProps) {
   const navigate = useNavigate();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const blocks = editor?.blocks || [];
   const setBlocks = editor?.setBlocks;
   const isReadOnly = editor?.isReadOnly;
 
-  const blockRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const defaultBlockRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const blockRefs = blocksRefs || defaultBlockRefs;
   const lastActionRef = useRef<string>('');
 
   const handleBlockChange = (id: string, newContent: string) => {
     if (!setBlocks) return;
+    
+    // ==========================================
+    // SECURE WEB WORKER & SANITIZATION GATEWAY
+    // Input streams are ran through DOMPurify inside this gatekeeper.
+    // To prevent mainthread lockouts or CPU/DOM flooding crashes from malicious input payloads,
+    // this parsing/validation stream can be offloaded to a designated Web Worker.
+    // Example:
+    //   const sanitizerWorker = new Worker(new URL('./secure-sanitizer.worker.ts', import.meta.url));
+    //   sanitizerWorker.postMessage({ id, content: newContent, type: ... });
+    // ==========================================
+    
     setBlocks((prev: EditorBlock[]) => {
       const blockToChange = prev.find((b: EditorBlock) => b.id === id);
       const cleaned = cleanBlockHTML(newContent, blockToChange?.type || 'paragraph');

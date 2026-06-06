@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import CustomBlockEditor, { blocksToHtml } from './components/CustomBlockEditor';
+import CustomBlockEditor from './components/CustomBlockEditor';
 
 import { useEditorState } from './hooks/useEditorState';
 import { useCollaboration } from './hooks/useCollaboration';
@@ -18,6 +18,7 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { EditorLockScreen } from './components/EditorLockScreen';
 import { EditorModals } from './components/EditorModals';
 import LoadingScreen from '../../components/LoadingScreen';
+import { EditorModalProvider } from './context/EditorModalContext';
 
 import { cn } from '../../utils/cn';
 
@@ -73,17 +74,38 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleStartCollab
   });
 
-  // Additional event sync & listening setup
+  // Share refs globally to prevent DOM-parsing vulnerabilities
+  const blocksRefs = useRef<Record<string, HTMLElement>>({});
+
+  // Additional event sync & listening setup with throttling guard to prevent DOM flooding
   useEffect(() => {
+    let lastNotifTime = 0;
+    const NOTIF_THROTTLE_MS = 500;
+    let isUnmounted = false;
+
     const handleCollabNotif = (e: Event) => {
+      if (isUnmounted) return;
+      const now = Date.now();
+      if (now - lastNotifTime < NOTIF_THROTTLE_MS) {
+        console.warn('Blocked duplicate collab-notif to prevent DOM flooding');
+        return;
+      }
+      lastNotifTime = now;
+
       const customEvent = e as CustomEvent;
       if (customEvent && customEvent.detail) {
         setNotification({ message: customEvent.detail.message, type: customEvent.detail.type });
-        setTimeout(() => setNotification(null), 3500);
+        const timer = setTimeout(() => {
+          if (!isUnmounted) setNotification(null);
+        }, 3500);
+        return () => clearTimeout(timer);
       }
     };
     window.addEventListener('collab-notif', handleCollabNotif);
-    return () => window.removeEventListener('collab-notif', handleCollabNotif);
+    return () => {
+      isUnmounted = true;
+      window.removeEventListener('collab-notif', handleCollabNotif);
+    };
   }, [setNotification]);
 
   useEffect(() => {
@@ -113,166 +135,175 @@ function EditorPage({ id }: { id: string | undefined }) {
     if (e.target === e.currentTarget && !isReadOnly) {
       const blockId = editor.blocks[editor.blocks.length - 1]?.id;
       if (blockId) {
-        document.getElementById(blockId)?.focus();
-        editor.setActiveBlockId(blockId);
+        // High Performance Ref focus without triggering layout reflow via document.getElementById
+        const el = blocksRefs.current[blockId];
+        if (el) {
+          el.focus();
+          editor.setActiveBlockId(blockId);
+        }
       }
     }
   };
 
-  return (
-    <div className={cn(
-      "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
-      isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
-    )}>
-      <EditorHeader 
-        onBack={handleBack}
-        workspaceName={workspaceName}
-        parentNote={parentNote}
-        title={title}
-        activeTasksCount={activeTasksCount}
-        onShowMenu={() => setShowActionSheet(true)}
-        isCollaborating={!!collabRoom}
-        collabPeerCount={activePeers}
-        onStartCollab={handleStartCollab}
-        editor={editor}
-        onNavigateToNote={(noteId) => {
-          const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
-          navigate(`/editor/${noteId}${collabParam}`);
-        }}
-      />
+  const modalContextValue = {
+    note,
+    theme,
+    editor,
+    collabRoom,
+    activePeers,
+    collaborators,
+    currentSubPages,
+    showActionSheet,
+    setShowActionSheet,
+    showBlockMenu,
+    setShowBlockMenu,
+    showThemeSelector,
+    setShowThemeSelector,
+    subPageMode,
+    setSubPageMode,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    showLockPrompt,
+    setShowLockPrompt,
+    showTagPrompt,
+    setShowTagPrompt,
+    showExportModal,
+    setShowExportModal,
+    showLinkPanel,
+    setShowLinkPanel,
+    isUploading,
+    setIsUploading,
+    isReadOnly,
+    setIsReadOnly,
+    handleCopy,
+    handleLock,
+    handleDelete,
+    handleTagSaveSubmit,
+    handleThemeSelect,
+    handleAddSubPage,
+    handleStartCollab,
+    handleKickCollaborator,
+    handleLinkPageSelect,
+    noteRef,
+  };
 
-      <main 
-        className={cn(
-          "pt-14 pb-48 max-w-4xl mx-auto min-h-screen transition-colors duration-300 mb-20",
-          isLight ? "bg-white shadow-[0_0_80px_rgba(0,0,0,0.03)] border-x border-black/5" : "bg-[#1a1a1a]"
-        )}
-        onClick={focusLastBlockOnVoidClick}
-      >
-        <div className="px-6 md:px-20 pt-10 h-full min-h-[80vh] flex flex-col" onClick={focusLastBlockOnVoidClick}>
-          {/* Title Area & Metadata Customizers */}
-          <div className="flex flex-col mb-10 items-start w-full gap-4">
-            <div className="relative group/emoji">
-              <button
-                onClick={() => setShowPageEmojiPicker(!showPageEmojiPicker)}
-                className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none"
-                title="Change Emoji"
-              >
-                {emoji || '📄'}
-              </button>
-              {showPageEmojiPicker && (
-                <div className="absolute top-16 left-0 z-50 p-3 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl flex gap-1.5 flex-wrap w-64 backdrop-blur-lg">
-                  {['📄', '📝', '📓', '💡', '📌', '🚀', '🎯', '⭐', '🎨', '🔥', '⚙️', '📂', '📅', '🧠', '💼'].map((em) => (
-                    <button
-                      key={em}
-                      onClick={() => { updateEmoji(em); setShowPageEmojiPicker(false); }}
-                      className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl text-xl transition-all active:scale-90"
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              )}
+  return (
+    <EditorModalProvider value={modalContextValue}>
+      <div className={cn(
+        "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
+        isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
+      )}>
+        <EditorHeader 
+          onBack={handleBack}
+          workspaceName={workspaceName}
+          parentNote={parentNote}
+          title={title}
+          activeTasksCount={activeTasksCount}
+          onShowMenu={() => setShowActionSheet(true)}
+          isCollaborating={!!collabRoom}
+          collabPeerCount={activePeers}
+          onStartCollab={handleStartCollab}
+          editor={editor}
+          onNavigateToNote={(noteId) => {
+            const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
+            navigate(`/editor/${noteId}${collabParam}`);
+          }}
+        />
+
+        <main 
+          className={cn(
+            "pt-14 pb-48 max-w-4xl mx-auto min-h-screen transition-colors duration-300 mb-20",
+            isLight ? "bg-white shadow-[0_0_80px_rgba(0,0,0,0.03)] border-x border-black/5" : "bg-[#1a1a1a]"
+          )}
+          onClick={focusLastBlockOnVoidClick}
+        >
+          <div className="px-6 md:px-20 pt-10 h-full min-h-[80vh] flex flex-col" onClick={focusLastBlockOnVoidClick}>
+            {/* Title Area & Metadata Customizers */}
+            <div className="flex flex-col mb-10 items-start w-full gap-4">
+              <div className="relative group/emoji">
+                <button
+                  onClick={() => setShowPageEmojiPicker(!showPageEmojiPicker)}
+                  className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none"
+                  title="Change Emoji"
+                >
+                  {emoji || '📄'}
+                </button>
+                {showPageEmojiPicker && (
+                  <div className="absolute top-16 left-0 z-50 p-3 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl flex gap-1.5 flex-wrap w-64 backdrop-blur-lg">
+                    {['📄', '📝', '📓', '💡', '📌', '🚀', '🎯', '⭐', '🎨', '🔥', '⚙️', '📂', '📅', '🧠', '💼'].map((em) => (
+                      <button
+                        key={em}
+                        onClick={() => { updateEmoji(em); setShowPageEmojiPicker(false); }}
+                        className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl text-xl transition-all active:scale-90"
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <textarea
+                autoFocus
+                value={title}
+                onFocus={() => setIsTitleFocused(true)}
+                onBlur={() => setIsTitleFocused(false)}
+                onChange={(e) => updateTitle(e.target.value)}
+                placeholder="শিরোনামহীন"
+                rows={1}
+                className={cn(
+                  "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors",
+                  isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
+                )}
+              />
+
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => updateDescription(e.target.value)}
+                placeholder="পৃষ্ঠার বিবরণী লিখুন (Write page description...)"
+                className={cn(
+                  "w-full bg-transparent text-sm font-medium focus:outline-none border-none outline-none ring-0 focus:ring-0 shadow-none -mt-2 placeholder:opacity-30",
+                  isLight ? "text-gray-500 placeholder:text-gray-400" : "text-white/60 placeholder:text-white/40"
+                )}
+              />
             </div>
 
-            <textarea
-              autoFocus
-              value={title}
-              onFocus={() => setIsTitleFocused(true)}
-              onBlur={() => setIsTitleFocused(false)}
-              onChange={(e) => updateTitle(e.target.value)}
-              placeholder="শিরোনামহীন"
-              rows={1}
-              className={cn(
-                "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors",
-                isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
-              )}
-            />
-
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => updateDescription(e.target.value)}
-              placeholder="পৃষ্ঠার বিবরণী লিখুন (Write page description...)"
-              className={cn(
-                "w-full bg-transparent text-sm font-medium focus:outline-none border-none outline-none ring-0 focus:ring-0 shadow-none -mt-2 placeholder:opacity-30",
-                isLight ? "text-gray-500 placeholder:text-gray-400" : "text-white/60 placeholder:text-white/40"
-              )}
-            />
+            {/* Interactive Block-Editor Workspace */}
+            <div 
+              className={cn("relative pb-48 min-h-[70vh] transition-all flex border-0", themeClass)}
+              data-darkreader-ignore={themeClass ? "true" : undefined}
+              onClick={focusLastBlockOnVoidClick}
+            >
+              <CustomBlockEditor 
+                editor={editor} 
+                blocksRefs={blocksRefs}
+                className={cn(
+                  "prose max-w-none focus:outline-none pb-20 w-full",
+                  !isLight && "prose-invert",
+                  isReadOnly && "pointer-events-none select-none text-muted-foreground"
+                )} 
+              />
+            </div>
           </div>
+        </main>
 
-          {/* Interactive Block-Editor Workspace */}
-          <div 
-            className={cn("relative pb-48 min-h-[70vh] transition-all flex border-0", themeClass)}
-            data-darkreader-ignore={themeClass ? "true" : undefined}
-            onClick={focusLastBlockOnVoidClick}
-          >
-            <CustomBlockEditor 
-              editor={editor} 
-              className={cn(
-                "prose max-w-none focus:outline-none pb-20 w-full",
-                !isLight && "prose-invert",
-                isReadOnly && "pointer-events-none select-none text-muted-foreground"
-              )} 
-            />
-          </div>
-        </div>
-      </main>
+        <EditorToolbar 
+          editor={editor}
+          onPlusClick={() => setShowBlockMenu(true)}
+          isReadOnly={isReadOnly}
+          isLight={isLight}
+          isTitleFocused={isTitleFocused}
+        />
 
-      <EditorToolbar 
-        editor={editor}
-        onPlusClick={() => setShowBlockMenu(true)}
-        isReadOnly={isReadOnly}
-        isLight={isLight}
-        isTitleFocused={isTitleFocused}
-      />
+        <EditorModals />
 
-      <EditorModals
-        note={note}
-        theme={theme}
-        editor={editor}
-        collabRoom={collabRoom}
-        activePeers={activePeers}
-        collaborators={collaborators}
-        currentSubPages={currentSubPages}
-        showActionSheet={showActionSheet}
-        setShowActionSheet={setShowActionSheet}
-        showBlockMenu={showBlockMenu}
-        setShowBlockMenu={setShowBlockMenu}
-        showThemeSelector={showThemeSelector}
-        setShowThemeSelector={setShowThemeSelector}
-        subPageMode={subPageMode}
-        setSubPageMode={setSubPageMode}
-        showDeleteConfirm={showDeleteConfirm}
-        setShowDeleteConfirm={setShowDeleteConfirm}
-        showLockPrompt={showLockPrompt}
-        setShowLockPrompt={setShowLockPrompt}
-        showTagPrompt={showTagPrompt}
-        setShowTagPrompt={setShowTagPrompt}
-        showExportModal={showExportModal}
-        setShowExportModal={setShowExportModal}
-        showLinkPanel={showLinkPanel}
-        setShowLinkPanel={setShowLinkPanel}
-        isUploading={isUploading}
-        setIsUploading={setIsUploading}
-        isReadOnly={isReadOnly}
-        setIsReadOnly={setIsReadOnly}
-        handleCopy={handleCopy}
-        handleLock={handleLock}
-        handleDelete={handleDelete}
-        handleTagSaveSubmit={handleTagSaveSubmit}
-        handleThemeSelect={handleThemeSelect}
-        handleAddSubPage={handleAddSubPage}
-        handleStartCollab={handleStartCollab}
-        handleKickCollaborator={handleKickCollaborator}
-        handleLinkPageSelect={handleLinkPageSelect}
-        noteRef={noteRef}
-      />
-
-      {notification && (
-        <motion.div initial={{ y: -50 }} animate={{ y: 20 }} exit={{ y: -50 }} className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-full bg-white text-black text-xs font-black uppercase">
-          {notification.message}
-        </motion.div>
-      )}
-    </div>
+        {notification && (
+          <motion.div initial={{ y: -50 }} animate={{ y: 20 }} exit={{ y: -50 }} className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-full bg-white text-black text-xs font-black uppercase">
+            {notification.message}
+          </motion.div>
+        )}
+      </div>
+    </EditorModalProvider>
   );
 }

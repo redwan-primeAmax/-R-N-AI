@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Note } from '../../../services/storage/DataManager';
 import { BlockMenu } from './BlockMenu';
 import { LinkPageList } from './LinkPageList';
 import { SubPageManager } from './SubPageManager';
@@ -15,92 +14,51 @@ import { TagManagerModal } from '../../../components/modals/TagManagerModal';
 import { ThemeSelectorModal } from '../../../components/modals/ThemeSelectorModal';
 import { NoteExportModal } from '../../../components/modals/NoteExportModal';
 import LoadingScreen from '../../../components/LoadingScreen';
+import { useEditorModal } from '../context/EditorModalContext';
 
-interface EditorModalsProps {
-  note: Note;
-  theme: string;
-  editor: any;
-  collabRoom: string | null;
-  activePeers: number;
-  collaborators: any[];
-  currentSubPages: Note[];
-  
-  showActionSheet: boolean;
-  setShowActionSheet: (val: boolean) => void;
-  showBlockMenu: boolean;
-  setShowBlockMenu: (val: boolean) => void;
-  showThemeSelector: boolean;
-  setShowThemeSelector: (val: boolean) => void;
-  subPageMode: 'attach' | 'create' | null;
-  setSubPageMode: (val: 'attach' | 'create' | null) => void;
-  showDeleteConfirm: boolean;
-  setShowDeleteConfirm: (val: boolean) => void;
-  showLockPrompt: boolean;
-  setShowLockPrompt: (val: boolean) => void;
-  showTagPrompt: boolean;
-  setShowTagPrompt: (val: boolean) => void;
-  showExportModal: boolean;
-  setShowExportModal: (val: boolean) => void;
-  showLinkPanel: boolean;
-  setShowLinkPanel: (val: boolean) => void;
-  isUploading: boolean;
-  setIsUploading: (val: boolean) => void;
-  isReadOnly: boolean;
-  setIsReadOnly: (val: boolean) => void;
+export const EditorModals: React.FC = () => {
+  const {
+    note,
+    theme,
+    editor,
+    collabRoom,
+    activePeers,
+    collaborators,
+    currentSubPages,
+    showActionSheet,
+    setShowActionSheet,
+    showBlockMenu,
+    setShowBlockMenu,
+    showThemeSelector,
+    setShowThemeSelector,
+    subPageMode,
+    setSubPageMode,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    showLockPrompt,
+    setShowLockPrompt,
+    showTagPrompt,
+    setShowTagPrompt,
+    showExportModal,
+    setShowExportModal,
+    showLinkPanel,
+    setShowLinkPanel,
+    isUploading,
+    setIsUploading,
+    isReadOnly,
+    setIsReadOnly,
+    handleCopy,
+    handleLock,
+    handleDelete,
+    handleTagSaveSubmit,
+    handleThemeSelect,
+    handleAddSubPage,
+    handleStartCollab,
+    handleKickCollaborator,
+    handleLinkPageSelect,
+    noteRef,
+  } = useEditorModal();
 
-  handleCopy: () => void;
-  handleLock: (password: string) => void;
-  handleDelete: () => void;
-  handleTagSaveSubmit: (tags: string[]) => void;
-  handleThemeSelect: (themeId: string) => void;
-  handleAddSubPage: () => void;
-  handleStartCollab: () => void;
-  handleKickCollaborator: (peerId: string) => void;
-  handleLinkPageSelect: (targetNote: any) => void;
-  noteRef: React.MutableRefObject<Note | null>;
-}
-
-export const EditorModals: React.FC<EditorModalsProps> = ({
-  note,
-  theme,
-  editor,
-  collabRoom,
-  activePeers,
-  collaborators,
-  currentSubPages,
-  showActionSheet,
-  setShowActionSheet,
-  showBlockMenu,
-  setShowBlockMenu,
-  showThemeSelector,
-  setShowThemeSelector,
-  subPageMode,
-  setSubPageMode,
-  showDeleteConfirm,
-  setShowDeleteConfirm,
-  showLockPrompt,
-  setShowLockPrompt,
-  showTagPrompt,
-  setShowTagPrompt,
-  showExportModal,
-  setShowExportModal,
-  showLinkPanel,
-  setShowLinkPanel,
-  isUploading,
-  setIsUploading,
-  isReadOnly,
-  setIsReadOnly,
-  handleCopy,
-  handleLock,
-  handleDelete,
-  handleTagSaveSubmit,
-  handleThemeSelect,
-  handleAddSubPage,
-  handleStartCollab,
-  handleKickCollaborator,
-  handleLinkPageSelect,
-  noteRef,
-}) => {
   return (
     <>
       <BlockMenu 
