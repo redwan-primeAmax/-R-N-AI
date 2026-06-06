@@ -21,8 +21,12 @@ import LoadingScreen from '../../components/LoadingScreen';
 
 import { cn } from '../../utils/cn';
 
-export default function EditorPage() {
+export default function EditorPageWrapper() {
   const { id } = useParams<{ id: string }>();
+  return <EditorPage id={id} />;
+}
+
+function EditorPage({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const location = useLocation();
 
