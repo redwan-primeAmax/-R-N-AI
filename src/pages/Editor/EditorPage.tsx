@@ -22,7 +22,6 @@ import { BlockMenu } from './components/BlockMenu';
 import { SubPageManager } from './components/SubPageManager';
 import { EditorActionSheet } from './components/EditorActionSheet';
 import { LinkPageList } from './components/LinkPageList';
-import { PlusPanel } from './components/PlusPanel';
 import { InputDialog, ConfirmDialog } from '../../components/modals/CustomDialogs';
 import LoadingScreen from '../../components/LoadingScreen';
 import { TagManagerModal } from '../../components/modals/TagManagerModal';
@@ -818,12 +817,11 @@ export default function EditorPage() {
         isTitleFocused={isTitleFocused}
       />
 
-      <PlusPanel 
+      <BlockMenu 
         isOpen={showBlockMenu} 
         onClose={() => setShowBlockMenu(false)} 
         editor={editor}
-        isLight={isLight}
-        note={note}
+        noteRef={noteRef}
         onUploadStart={() => setIsUploading(true)}
         onUploadComplete={() => setIsUploading(false)}
       />
