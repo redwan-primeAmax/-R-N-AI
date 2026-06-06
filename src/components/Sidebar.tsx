@@ -280,15 +280,11 @@ export default function Sidebar({
               {/* Core Features */}
               <div className="bg-[#151516]/50 border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
                 {[
-                  { icon: <Search size={14} />, label: 'Search Notes', path: '/search', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', glow: 'shadow-[0_0_15px_rgba(56,189,248,0.1)]' },
-                  { icon: <Clock size={14} />, label: 'Recent Activity', path: '/main', color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', glow: 'shadow-[0_0_15px_rgba(129,140,248,0.1)]' },
                   { icon: <Box size={14} />, label: 'Browse Templates', path: '/templates', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]' },
-                  { icon: <Boxes size={14} />, label: 'Extensions & Themes', path: '/extensions', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
                   { icon: <Sparkles size={14} />, label: 'AI Content Architect', path: '/external-ai-import', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },
-                  { icon: <Users size={14} />, label: 'কোলাবোরেশন জয়েন', action: 'join-collab', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.1)]' },
                   { icon: <Database size={14} />, label: 'ডাটা ম্যানেজমেন্ট', path: '/data-management', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]' },
                   { icon: <Settings size={14} />, label: 'সেটিংস', path: '/settings', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
-                  { icon: <Zap size={14} />, label: 'এক্সটেনশন যোগ করুন', action: 'add-extension', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.1)]' },
+                  { icon: <Zap size={14} />, label: 'এক্সটেনশন ম্যানেজার', action: 'add-extension', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.1)]' },
                   { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]' }
                 ].map((item, idx) => (
                   <button 
@@ -298,6 +294,7 @@ export default function Sidebar({
                         onClose();
                         onJoinCollabClick();
                       } else if (item.action === 'add-extension') {
+                        onClose();
                         setShowExtensionStore(true);
                       } else if (item.path) { 
                         handleNavigation(item.path); 

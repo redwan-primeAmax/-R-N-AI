@@ -231,29 +231,47 @@ class ExtensionManager {
     }
   }
 
-  unregister(id: string) {
+  async unregister(id: string) {
     const extension = this.extensions.get(id);
     if (extension) {
       try {
         if (extension.destroy) {
-          extension.destroy(this.createAPI(id));
+          try {
+            extension.destroy(this.createAPI(id));
+          } catch (e) {
+            console.error(`Deactivate Error [${id}]:`, e);
+          }
         }
+        
         this.extensions.delete(id);
         this.removeStyle(id);
-        // Cleanup sidebar items
+        
+        // Remove from persistent storage
+        await this.persistExtensions();
+
+        // Cleanup sidebar items linked to this extension
         this.sidebarItems = this.sidebarItems.filter(item => !item.id.startsWith(id));
         
-        // Cleanup toolbar buttons if stored globally
+        // Cleanup toolbar buttons
         if ((window as any).__toolbarButtons) {
           (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => b.extensionId !== id);
         }
 
+        // Cleanup filters (Requires a way to track callbacks, but for now we clear common refs)
+        // Clear caches
         this.notify();
-        this.persistExtensions();
+
+        // Dispatch system-wide reload event
+        window.dispatchEvent(new CustomEvent('extension-system-reload', { detail: { uninstalled: id } }));
+        
+        console.log(`Extension Purged Successfully: ${id}`);
+        return true;
       } catch (error) {
-        console.error(`Unregister Error [${id}]:`, error);
+        console.error(`Purge Error [${id}]:`, error);
+        return false;
       }
     }
+    return false;
   }
 
   async loadExtensionFromZip(file: File, persist: boolean = false) {
