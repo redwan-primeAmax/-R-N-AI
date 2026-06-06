@@ -303,6 +303,11 @@ export function useEditorState(id: string | undefined) {
   }, [id]);
 
   const loadNote = useCallback(async (noteId: string) => {
+    // 1. Reset state to trigger LoadingScreen immediately on ID change
+    setNote(null);
+    setBlocksState([]);
+    setTitle('');
+    
     if (noteRef.current && noteRef.current.id !== noteId) {
       await savePreviousNoteIfNeeded(noteRef.current.id);
     }
@@ -340,15 +345,21 @@ export function useEditorState(id: string | undefined) {
       if (draftStr) {
         try {
           const draft = JSON.parse(draftStr);
-          if (draft && draft.timestamp > (fetchedNote.updatedAt || 0)) {
-            titleVal = draft.title || fetchedNote.title;
-            emojiVal = draft.emoji || fetchedNote.emoji;
-            descVal = draft.description || fetchedNote.description || '';
-            tagsVal = draft.tags || fetchedNote.tags || [];
-            themeVal = draft.theme || fetchedNote.theme || 'default';
-            if (draft.blocks && draft.blocks.length > 0) {
-              contentVal = blocksToHtml(draft.blocks);
+          // Only restore if draft is strictly newer AND content differs to avoid false positives
+          const isNewer = draft && draft.timestamp > (fetchedNote.updatedAt || 0) + 1000;
+          if (isNewer && draft.blocks && draft.blocks.length > 0) {
+            const draftHtml = blocksToHtml(draft.blocks);
+            if (draftHtml !== fetchedNote.content) {
+              titleVal = draft.title || fetchedNote.title;
+              emojiVal = draft.emoji || fetchedNote.emoji;
+              descVal = draft.description || fetchedNote.description || '';
+              tagsVal = draft.tags || fetchedNote.tags || [];
+              themeVal = draft.theme || fetchedNote.theme || 'default';
+              contentVal = draftHtml;
               draftRestored = true;
+            } else {
+              // Draft matches disk exactly, just silent cleanup
+              if (noteId) localStorage.removeItem(`note_draft_${noteId}`);
             }
           }
         } catch (e) {
@@ -457,8 +468,9 @@ export function useEditorState(id: string | undefined) {
         
         lastSavedContentRef.current = updatedNote.content;
         setNote(updatedNote);
+        
+        // Immediate robust cleanup of all temporary buffers
         await db.key_value_pairs.delete(BACKUP_KEY);
-        // Clear hot-draft as it matches database now
         if (id) localStorage.removeItem(`note_draft_${id}`);
       } catch (err) {
         console.error('Save failed:', err);

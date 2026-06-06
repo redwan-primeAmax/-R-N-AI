@@ -20,6 +20,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { extensionManager } from '../services/ExtensionManager';
+import { ExtensionStoreModal } from './modals/ExtensionStoreModal';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -41,6 +42,7 @@ export default function Sidebar({
   onJoinCollabClick
 }: SidebarProps) {
   const navigate = useNavigate();
+  const [showExtensionStore, setShowExtensionStore] = useState(false);
   const { id: activeNoteId } = useParams();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [sidebarView, setSidebarView] = useState<'main' | 'tags' | 'subpages'>('main');
@@ -296,21 +298,7 @@ export default function Sidebar({
                         onClose();
                         onJoinCollabClick();
                       } else if (item.action === 'add-extension') {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = '.zip';
-                        input.onchange = async (e) => {
-                          const file = (e.target as HTMLInputElement).files?.[0];
-                          if (file) {
-                            try {
-                              const manifest = await extensionManager.loadExtensionFromZip(file);
-                              alert(`Extension "${manifest.name}" loaded successfully!`);
-                            } catch (err: any) {
-                              alert(`Failed to load extension: ${err.message}`);
-                            }
-                          }
-                        };
-                        input.click();
+                        setShowExtensionStore(true);
                       } else if (item.path) { 
                         handleNavigation(item.path); 
                       }
@@ -394,6 +382,11 @@ export default function Sidebar({
         searchQuery={moveSearch}
         onSearchChange={setMoveToSearch}
         currentNote={showMoveTo}
+      />
+
+      <ExtensionStoreModal 
+        isOpen={showExtensionStore}
+        onClose={() => setShowExtensionStore(false)}
       />
     </>
   );

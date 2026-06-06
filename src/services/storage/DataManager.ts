@@ -742,11 +742,12 @@ export const DataManager = {
     }
 
     const processedContent = await this.extractMediaFromContent(note.content);
+    const now = Date.now();
     const updatedNote = { 
       ...note, 
       content: processedContent, 
-      updatedAt: Date.now(),
-      createdAt: isNew ? Date.now() : (existing.createdAt || Date.now())
+      updatedAt: now,
+      createdAt: isNew ? now : (existing.createdAt || now)
     };
 
     const contentSize = new Blob([updatedNote.content]).size;

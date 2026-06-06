@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import localforage from 'localforage';
 
 class ExtensionManager {
-  private extensions: Map<string, AppExtension & { _script?: string }> = new Map();
+  private extensions: Map<string, AppExtension & { _script?: string; _isPersistent?: boolean }> = new Map();
   private sidebarItems: SidebarExtensionItem[] = [];
   private themeVariables: Map<string, string> = new Map();
   private listeners: Set<() => void> = new Set();
@@ -26,9 +26,10 @@ class ExtensionManager {
             const url = URL.createObjectURL(blob);
             const module = await import(/* @vite-ignore */ url);
             
-            const extension: AppExtension & { _script?: string } = {
+            const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
               ...extData.manifest,
               _script: extData.script,
+              _isPersistent: true,
               init: module.default?.activate || module.activate || (() => {}),
               destroy: module.default?.deactivate || module.deactivate || (() => {})
             };
@@ -156,6 +157,9 @@ class ExtensionManager {
       },
 
       // Legacy Compatibility
+      notify: (message: string, type: 'info' | 'error' | 'success' = 'info') => {
+        window.dispatchEvent(new CustomEvent('app-notification', { detail: { message, type } }));
+      },
       setThemeVariable: (name, value) => this.themeVariables.set(name, value),
       getStorage: () => (window as any).DataManager,
       registerSidebarItem: (item) => this.api.ui.registerSidebarItem(item)
@@ -196,7 +200,7 @@ class ExtensionManager {
     return true;
   }
 
-  register(extension: AppExtension & { _script?: string }) {
+  register(extension: AppExtension & { _script?: string; _isPersistent?: boolean }) {
     // Conflict resolution: latest wins
     if (this.extensions.has(extension.id)) {
       this.unregister(extension.id);
@@ -215,7 +219,7 @@ class ExtensionManager {
       setTimeout(() => {
         try {
           extension.init(this.createAPI(extension.id));
-          console.log(`Extension Loaded: ${extension.name} v${extension.version}`);
+          console.log(`Extension Loaded: ${extension.name} v${extension.version} (Persistent: ${!!extension._isPersistent})`);
           this.notify();
         } catch (initError) {
           console.error(`Init Error [${extension.id}]:`, initError);
@@ -231,18 +235,18 @@ class ExtensionManager {
     const extension = this.extensions.get(id);
     if (extension) {
       try {
-        extension.destroy();
+        if (extension.destroy) {
+          extension.destroy(this.createAPI(id));
+        }
         this.extensions.delete(id);
         this.removeStyle(id);
         // Cleanup sidebar items
         this.sidebarItems = this.sidebarItems.filter(item => !item.id.startsWith(id));
         
-        // Cleanup filters
-        this.filters.forEach((set) => {
-          // Note: Since we don't track which callback belongs to which extension, 
-          // a better way would be required for full cleanup.
-          // For now, we rely on the extension's destroy method or manual cleanup if needed.
-        });
+        // Cleanup toolbar buttons if stored globally
+        if ((window as any).__toolbarButtons) {
+          (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => b.extensionId !== id);
+        }
 
         this.notify();
         this.persistExtensions();
@@ -252,7 +256,7 @@ class ExtensionManager {
     }
   }
 
-  async loadExtensionFromZip(file: File) {
+  async loadExtensionFromZip(file: File, persist: boolean = false) {
     try {
       const zip = new JSZip();
       const content = await zip.loadAsync(file);
@@ -277,17 +281,19 @@ class ExtensionManager {
       const url = URL.createObjectURL(blob);
       const module = await import(/* @vite-ignore */ url);
       
-      const extension: AppExtension & { _script?: string } = {
+      const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
         ...manifest,
         _script: script,
+        _isPersistent: persist,
         init: module.default?.activate || module.activate || (() => {}),
         destroy: module.default?.deactivate || module.deactivate || (() => {})
       };
       
       this.register(extension);
       
-      // Persist for next session
-      await this.persistExtensions();
+      if (persist) {
+        await this.persistExtensions();
+      }
       
       return manifest;
     } catch (err) {
@@ -297,7 +303,9 @@ class ExtensionManager {
   }
 
   private async persistExtensions() {
-    const data = Array.from(this.extensions.entries()).map(([id, ext]) => ({
+    const data = Array.from(this.extensions.entries())
+      .filter(([_, ext]) => (ext as any)._isPersistent)
+      .map(([id, ext]) => ({
       id,
       manifest: {
         id: ext.id,
@@ -307,10 +315,18 @@ class ExtensionManager {
         description: ext.description,
         author: ext.author
       },
-      script: ext._script
+      script: (ext as any)._script
     })).filter(item => !!item.script);
     
     await localforage.setItem('installed_extensions', data);
+  }
+
+  reloadApp() {
+    this.notify();
+  }
+
+  getInstalledExtensions() {
+    return Array.from(this.extensions.values());
   }
 
   applyFilters(hook: string, data: any): any {

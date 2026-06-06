@@ -34,6 +34,7 @@ export interface AppAPI {
   };
 
   // Legacy/Compatibility
+  notify: (message: string, type?: 'info' | 'error' | 'success') => void;
   setThemeVariable: (name: string, value: string) => void;
   registerSidebarItem: (item: SidebarExtensionItem) => void;
   getStorage: () => any;
@@ -58,5 +59,5 @@ export interface AppExtension {
   
   // Lifecycle
   init: (api: AppAPI) => void;
-  destroy: () => void;
+  destroy: (api: AppAPI) => void;
 }
