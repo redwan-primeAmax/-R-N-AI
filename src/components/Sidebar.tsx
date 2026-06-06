@@ -19,6 +19,8 @@ import LoadingScreen from './LoadingScreen';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+import { extensionManager } from '../services/ExtensionManager';
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -51,6 +53,14 @@ export default function Sidebar({
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [iconsLoaded, setIconsLoaded] = useState(false);
+  const [extensionItems, setExtensionItems] = useState(extensionManager.getSidebarItems());
+
+  useEffect(() => {
+    const unsub = extensionManager.onChange(() => {
+      setExtensionItems(extensionManager.getSidebarItems());
+    });
+    return () => { unsub(); };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -276,14 +286,31 @@ export default function Sidebar({
                   { icon: <Users size={14} />, label: 'কোলাবোরেশন জয়েন', action: 'join-collab', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.1)]' },
                   { icon: <Database size={14} />, label: 'ডাটা ম্যানেজমেন্ট', path: '/data-management', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]' },
                   { icon: <Settings size={14} />, label: 'সেটিংস', path: '/settings', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
+                  { icon: <Zap size={14} />, label: 'এক্সটেনশন যোগ করুন', action: 'add-extension', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.1)]' },
                   { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]' }
                 ].map((item, idx) => (
                   <button 
                     key={idx}
-                    onClick={() => { 
+                    onClick={async () => { 
                       if (item.action === 'join-collab') {
                         onClose();
                         onJoinCollabClick();
+                      } else if (item.action === 'add-extension') {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.zip';
+                        input.onchange = async (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            try {
+                              const manifest = await extensionManager.loadExtensionFromZip(file);
+                              alert(`Extension "${manifest.name}" loaded successfully!`);
+                            } catch (err: any) {
+                              alert(`Failed to load extension: ${err.message}`);
+                            }
+                          }
+                        };
+                        input.click();
                       } else if (item.path) { 
                         handleNavigation(item.path); 
                       }
@@ -314,6 +341,38 @@ export default function Sidebar({
                     </div>
                   </button>
                 ))}
+
+                {/* Extension Items */}
+                {extensionItems.map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <button 
+                      key={`ext-${item.id}-${idx}`}
+                      onClick={() => { 
+                        if (item.onClick) {
+                          item.onClick();
+                        } else if (item.path) { 
+                          handleNavigation(item.path); 
+                        }
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between p-4 bg-[#1C1C1D] hover:bg-[#222223] rounded-2xl transition-all group relative overflow-hidden active:scale-[0.98]",
+                        item.color ? `shadow-[0_0_15px_rgba(0,0,0,0.1)]` : ""
+                      )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-inner bg-white/5 text-white/40 group-hover:text-white",
+                          item.color || "border-white/5"
+                        )}>
+                          {typeof Icon === 'string' ? <span>{Icon}</span> : <Icon size={14} />}
+                        </div>
+                        <span className="font-black text-[10px] uppercase tracking-[0.15em] text-white/40 group-hover:text-white transition-colors">{item.label}</span>
+                      </div>
+                      <ChevronRight size={14} className="text-white/20 group-hover:text-white" />
+                    </button>
+                  );
+                })}
               </div>
 
             </div>

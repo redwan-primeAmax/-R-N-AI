@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Table as TableIcon, 
   Kanban, 
@@ -22,6 +22,60 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../../utils/cn';
+
+interface DatabaseCellInputProps {
+  initialValue: any;
+  type: string;
+  isReadOnly?: boolean;
+  onUpdate: (val: any) => void;
+  className?: string;
+  placeholder?: string;
+}
+
+const DatabaseCellInput: React.FC<DatabaseCellInputProps> = ({ 
+  initialValue, 
+  type, 
+  isReadOnly, 
+  onUpdate,
+  className,
+  placeholder
+}) => {
+  const [val, setVal] = useState(initialValue || '');
+
+  // Keep state synchronized if it changes externally
+  useEffect(() => {
+    setVal(initialValue || '');
+  }, [initialValue]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVal(e.target.value);
+  };
+
+  const handleBlur = () => {
+    if (val !== initialValue) {
+      onUpdate(val);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
+  };
+
+  return (
+    <input
+      disabled={isReadOnly}
+      type={type}
+      value={val}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className={className}
+      placeholder={placeholder}
+    />
+  );
+};
 
 interface DatabaseBlockProps {
   block: any;
@@ -308,11 +362,11 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                             ))}
                           </select>
                         ) : (
-                          <input
-                            disabled={isReadOnly}
+                          <DatabaseCellInput
+                            isReadOnly={isReadOnly}
                             type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
-                            value={row[col.id] || ''}
-                            onChange={(e) => updateCellValue(row.id, col.id, e.target.value)}
+                            initialValue={row[col.id] || ''}
+                            onUpdate={(newValue) => updateCellValue(row.id, col.id, newValue)}
                             className={cn(
                               "w-full bg-transparent hover:bg-white/5 focus:bg-white/5 outline-none px-2.5 py-2 rounded-xl text-white transition-all border border-transparent focus:border-white/15",
                               col.id === 'title' ? "font-bold text-sm text-purple-400 focus:text-purple-300" : "font-semibold text-xs text-white/80"

@@ -5,8 +5,13 @@
 import { tokenize } from '../core/Tokenizer';
 import { StorageBuffer } from '../core/StorageBuffer';
 
+class TrieNode {
+  children: { [char: string]: TrieNode } = {};
+  docIndices: Set<number> = new Set();
+}
+
 export class InvertedIndex {
-  // Map of Word -> List of Document Indices
+  private root: TrieNode = new TrieNode();
   private dictionary: Map<string, number[]> = new Map();
 
   constructor(storage: StorageBuffer) {
@@ -19,6 +24,16 @@ export class InvertedIndex {
           this.dictionary.set(token, []);
         }
         this.dictionary.get(token)!.push(i);
+
+        // Trie indexing for fast prefix matching
+        let node = this.root;
+        for (const char of token) {
+          if (!node.children[char]) {
+            node.children[char] = new TrieNode();
+          }
+          node = node.children[char];
+          node.docIndices.add(i);
+        }
       }
     }
   }
@@ -31,15 +46,14 @@ export class InvertedIndex {
   }
 
   /**
-   * Prefix search for fuzzy/partial matching
+   * Prefix search for fuzzy/partial matching utilizing the Trie structure
    */
   public lookupPrefix(prefix: string): number[] {
-    const results = new Set<number>();
-    for (const [word, docIndices] of this.dictionary.entries()) {
-      if (word.startsWith(prefix)) {
-        for (const idx of docIndices) results.add(idx);
-      }
+    let node = this.root;
+    for (const char of prefix) {
+      if (!node.children[char]) return [];
+      node = node.children[char];
     }
-    return Array.from(results);
+    return Array.from(node.docIndices);
   }
 }

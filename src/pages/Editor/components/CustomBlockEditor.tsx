@@ -26,6 +26,8 @@ import { TocBlockRenderer } from '../renderers/TocBlockRenderer';
 import { ColumnBlockRenderer } from '../renderers/ColumnBlockRenderer';
 import { CalloutBlockRenderer } from '../renderers/CalloutBlockRenderer';
 
+import { extensionManager } from '../../../services/ExtensionManager';
+
 export { htmlToBlocks, blocksToHtml };
 
 interface CustomBlockEditorProps {
@@ -95,6 +97,15 @@ const MemoizedBlockRow = React.memo(({
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
 
+  const [sidebarExtensions, setSidebarExtensions] = useState(extensionManager.getSidebarItems());
+
+  useEffect(() => {
+    const unsub = extensionManager.onChange(() => {
+      setSidebarExtensions(extensionManager.getSidebarItems());
+    });
+    return () => { unsub(); };
+  }, []);
+
   if (currentHiddenIndent !== null && (block.indent || 0) > currentHiddenIndent) {
     return null;
   }
@@ -163,6 +174,26 @@ const MemoizedBlockRow = React.memo(({
             {count}.
           </div>
         );
+      })()}
+
+      {/* Extension/Custom Block Renderer */}
+      {(() => {
+        const CustomComponent = extensionManager.getBlockComponent(block.type);
+        if (CustomComponent) {
+          return (
+            <div className="flex-1 min-w-0" data-extension-id={block.type}>
+              <CustomComponent 
+                block={block} 
+                setBlocks={setBlocks} 
+                isReadOnly={isReadOnly}
+                idx={idx}
+                blocks={blocks}
+                editor={editor}
+              />
+            </div>
+          );
+        }
+        return null;
       })()}
 
       {/* Toggle Type Icon */}

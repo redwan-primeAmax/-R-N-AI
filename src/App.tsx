@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter as Router, useLocation, useRoutes, Navigate, useNavigate } from 'react-router-dom';
-import HomePage from './pages/Home/HomePage';
 import Navigation from './components/Navigation';
 import { DataManager } from './services/storage/DataManager';
 import localforage from 'localforage';
@@ -52,6 +51,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
 }
 
 // Lazy load other components
+const HomePage = lazyWithRetry(() => import('./pages/Home/HomePage'));
 const SearchPage = lazyWithRetry(() => import('./pages/Search/SearchPage'));
 const EditorPage = lazyWithRetry(() => import('./pages/Editor/EditorPage'));
 const AIChat = lazyWithRetry(() => import('./pages/AI/AIChat'));

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
@@ -25,6 +25,16 @@ export function JoinCollabModal({ isOpen, onClose }: JoinCollabModalProps) {
   const [collabStatus, setCollabStatus] = useState<string | null>(null);
   const [collabError, setCollabError] = useState<string | null>(null);
   const [isAuthRequired, setIsAuthRequired] = useState(false);
+  const unregisterRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (unregisterRef.current) {
+        unregisterRef.current();
+        unregisterRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -76,6 +86,9 @@ export function JoinCollabModal({ isOpen, onClose }: JoinCollabModalProps) {
     }, 15000);
 
     try {
+      if (unregisterRef.current) {
+        unregisterRef.current();
+      }
       globalCollabManager.disconnect();
 
       const unregister = globalCollabManager.registerCallbacks(async (syncedData) => {
@@ -84,6 +97,7 @@ export function JoinCollabModal({ isOpen, onClose }: JoinCollabModalProps) {
           active = false;
           clearTimeout(timeoutId);
           unregister();
+          unregisterRef.current = null;
           
           let note = await DataManager.getNoteById(noteId);
           if (!note) {
@@ -128,6 +142,8 @@ export function JoinCollabModal({ isOpen, onClose }: JoinCollabModalProps) {
           setCollabStatus(null);
         }
       });
+
+      unregisterRef.current = unregister;
 
       await globalCollabManager.joinSession(targetRoomId, {
         password: passwordInput.trim() || undefined

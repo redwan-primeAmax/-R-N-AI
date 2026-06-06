@@ -13,6 +13,10 @@ export interface AppAPI {
     notify: (message: string, type?: 'info' | 'error' | 'success') => void;
   };
 
+  // Extension System Enhancements
+  registerBlock: (type: string, component: React.ComponentType<any>) => void;
+  addFilter: (hook: string, callback: (data: any) => any) => void;
+
   // Theme Methods
   theme: {
     setVariable: (name: string, value: string) => void;

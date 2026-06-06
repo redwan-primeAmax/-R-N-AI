@@ -19,6 +19,38 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function highlightText(text: string, queryWords: string[]) {
+  if (!text) return '';
+  if (!queryWords || queryWords.length === 0) return text;
+
+  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const sortedWords = [...queryWords].sort((a, b) => b.length - a.length);
+  const regexStr = sortedWords
+    .map(word => escapeRegExp(word))
+    .filter(word => word.length > 0)
+    .join('|');
+
+  if (!regexStr) return text;
+
+  try {
+    const regex = new RegExp(`(${regexStr})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) => {
+      const isMatch = regex.test(part);
+      return isMatch ? (
+        <mark key={i} className="bg-blue-500/30 text-blue-300 font-bold px-0.5 rounded">
+          {part}
+        </mark>
+      ) : (
+        part
+      );
+    });
+  } catch (e) {
+    return text;
+  }
+}
+
 export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Note[]>([]);
@@ -41,8 +73,48 @@ export default function SearchPage() {
     memoryEstimate: '0 KB',
   });
 
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  // Load search history on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('recent_searches');
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.warn('Failed to load search history:', e);
+    }
+  }, []);
+
+  // Save unique term to search history
+  const saveToHistory = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed) return;
+    setRecentSearches(prev => {
+      const filtered = prev.filter(x => x.toLowerCase() !== trimmed.toLowerCase());
+      const updated = [trimmed, ...filtered].slice(0, 8); // Keep top 8 searches
+      try {
+        localStorage.setItem('recent_searches', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save search history:', e);
+      }
+      return updated;
+    });
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    try {
+      localStorage.removeItem('recent_searches');
+      setRecentSearches([]);
+    } catch (e) {
+      console.warn('Failed to clear search history:', e);
+    }
+  }, []);
+
   const workerRef = useRef<Worker | null>(null);
   const prevResultsRef = useRef<Note[]>([]);
+  const activeListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
 
   useEffect(() => {
     // Initialize RST Search Worker on mount
@@ -53,6 +125,9 @@ export default function SearchPage() {
     }
 
     return () => {
+      if (activeListenerRef.current) {
+        workerRef.current?.removeEventListener('message', activeListenerRef.current);
+      }
       workerRef.current?.terminate();
     };
   }, []);
@@ -109,6 +184,11 @@ export default function SearchPage() {
       if (workerRef.current) {
         const requestId = Date.now();
         
+        if (activeListenerRef.current) {
+          workerRef.current.removeEventListener('message', activeListenerRef.current);
+          activeListenerRef.current = null;
+        }
+
         // Setup listener for this specific request
         const handleMessage = (e: MessageEvent) => {
           if (e.data.requestId === requestId && e.data.type === 'SEARCH_RESULTS') {
@@ -125,9 +205,13 @@ export default function SearchPage() {
             setVisibleSearchCount(20);
             setIsSearching(false);
             workerRef.current?.removeEventListener('message', handleMessage);
+            if (activeListenerRef.current === handleMessage) {
+              activeListenerRef.current = null;
+            }
           }
         };
         
+        activeListenerRef.current = handleMessage;
         workerRef.current.addEventListener('message', handleMessage);
 
         // Sync first to ensure worker has latest data (optimized sync internally)
@@ -291,9 +375,13 @@ export default function SearchPage() {
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim() === '') return;
+    saveToHistory(query);
     setSelectedTags([]); // Clear tags if query is entered and user submits search
     performSearch(query, [], isAccurateMode);
   };
+
+  const queryLower = query.toLowerCase().normalize('NFC');
+  const queryWords = queryLower.split(/\s+/).filter(t => t.length > 0);
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
@@ -348,6 +436,37 @@ export default function SearchPage() {
               </span>
             </button>
           </div>
+
+          {/* Recent Searches / Search History */}
+          {recentSearches.length > 0 && !query && selectedTags.length === 0 && (
+            <div className="space-y-2 px-1 py-1">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/30">
+                <span>সাম্প্রতিক অনুসন্ধান (Recent Searches)</span>
+                <button 
+                  type="button" 
+                  onClick={clearHistory} 
+                  className="hover:text-red-400 transition-colors cursor-pointer text-[10px]"
+                >
+                  সব মুছুন (Clear All)
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {recentSearches.map((h, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setQuery(h);
+                      performSearch(h, [], isAccurateMode);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] active:bg-white/[0.12] border border-white/5 hover:border-white/10 rounded-full text-xs text-white/70 hover:text-white transition-all cursor-pointer shadow-sm hover:scale-[1.03] duration-150"
+                  >
+                    <span>{h}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Accurate Mode and Search Engine Metrics Summary */}
           <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-1">
@@ -482,17 +601,29 @@ export default function SearchPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.98 }}
                     transition={{ duration: 0.15 }}
-                    onClick={() => navigate(`/editor/${note.id}`, { state: { fromOutside: true } })}
+                    onClick={() => {
+                      if (query) {
+                        saveToHistory(query);
+                      }
+                      navigate(`/editor/${note.id}`, { state: { fromOutside: true } });
+                    }}
                     className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/[0.05] rounded-[32px] hover:bg-white/5 hover:border-white/10 transition-all cursor-pointer group shadow-xl hover:shadow-2xl hover:scale-[1.01] duration-300"
                   >
                     <div className="flex-shrink-0 w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner">
                       {note.emoji || '📄'}
                     </div>
-                    <div className="flex-grow min-w-0">
+                    <div className="flex-grow min-w-0 font-sans">
                       <h3 className="font-bold text-[14px] text-white/90 truncate group-hover:text-white">
-                        {note.title || 'শিরোনামহীন'}
+                        {highlightText(note.title || 'শিরোনামহীন', queryWords)}
                       </h3>
-                      <div className="flex items-center gap-2 mt-1">
+                      
+                      {(note as any).snippet && (
+                        <p className="text-[12px] text-white/40 line-clamp-2 mt-1 leading-relaxed">
+                          {highlightText((note as any).snippet, queryWords)}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">{new Date(note.updatedAt).toLocaleDateString()}</span>
                         {note.tags && note.tags.length > 0 && (
                           <>

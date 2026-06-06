@@ -11,7 +11,7 @@ export class AudioProcessor {
     onStart: () => void,
     onEnd: () => void,
     onError: (err: any) => void,
-    options: { rate?: number; pitch?: number; voiceIndex?: number } = {}
+    options: { rate?: number; pitch?: number; voiceIndex?: number; onBoundary?: (charIndex: number, totalLength: number) => void } = {}
   ): Promise<void> {
     if (!this.synthesis) {
       onError(new Error('Speech synthesis not supported in this browser.'));
@@ -87,6 +87,12 @@ export class AudioProcessor {
 
     utterance.onerror = (event) => {
       onError(event);
+    };
+
+    utterance.onboundary = (event) => {
+      if (options.onBoundary && event.name === 'word') {
+        options.onBoundary(event.charIndex, text.length);
+      }
     };
 
     this.synthesis.speak(utterance);

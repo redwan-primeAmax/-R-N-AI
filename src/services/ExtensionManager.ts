@@ -1,11 +1,48 @@
 import { AppExtension, AppAPI, SidebarExtensionItem } from '../types/extension';
+import React from 'react';
+import JSZip from 'jszip';
+import localforage from 'localforage';
 
 class ExtensionManager {
-  private extensions: Map<string, AppExtension> = new Map();
+  private extensions: Map<string, AppExtension & { _script?: string }> = new Map();
   private sidebarItems: SidebarExtensionItem[] = [];
   private themeVariables: Map<string, string> = new Map();
   private listeners: Set<() => void> = new Set();
   private injectedStyles: Map<string, HTMLStyleElement> = new Map();
+  private blockRegistry: Map<string, React.ComponentType<any>> = new Map();
+  private filters: Map<string, Set<(data: any) => any>> = new Map();
+
+  constructor() {
+    this.loadInstalledExtensions();
+  }
+
+  private async loadInstalledExtensions() {
+    try {
+      const installed = await localforage.getItem<any[]>('installed_extensions');
+      if (installed && Array.isArray(installed)) {
+        for (const extData of installed) {
+          try {
+            const blob = new Blob([extData.script], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            const module = await import(/* @vite-ignore */ url);
+            
+            const extension: AppExtension & { _script?: string } = {
+              ...extData.manifest,
+              _script: extData.script,
+              init: module.default?.activate || module.activate || (() => {}),
+              destroy: module.default?.deactivate || module.deactivate || (() => {})
+            };
+            
+            this.register(extension);
+          } catch (e) {
+            console.error(`Failed to reload extension ${extData.manifest?.id}:`, e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load extensions from storage:', e);
+    }
+  }
 
   // Create an API instance for a specific extension
   private createAPI(extensionId: string): AppAPI {
@@ -23,7 +60,7 @@ class ExtensionManager {
           console.log(`Tool Registered: ${config.id}`);
         },
         addMenuItem: (item: any) => {
-          this.api.ui.registerSidebarItem({
+          this.createAPI(extensionId).ui.registerSidebarItem({
             id: `${extensionId}_${item.id || Math.random().toString(36).substr(2, 9)}`,
             label: item.label,
             icon: item.icon,
@@ -50,6 +87,18 @@ class ExtensionManager {
         notify: (message, type = 'info') => {
           window.dispatchEvent(new CustomEvent('app-notification', { detail: { message, type } }));
         }
+      },
+
+      registerBlock: (type, component) => {
+        this.blockRegistry.set(type, component);
+        this.notify();
+      },
+
+      addFilter: (hook, callback) => {
+        if (!this.filters.has(hook)) {
+          this.filters.set(hook, new Set());
+        }
+        this.filters.get(hook)!.add(callback);
       },
 
       // Theme Module
@@ -147,7 +196,7 @@ class ExtensionManager {
     return true;
   }
 
-  register(extension: AppExtension) {
+  register(extension: AppExtension & { _script?: string }) {
     // Conflict resolution: latest wins
     if (this.extensions.has(extension.id)) {
       this.unregister(extension.id);
@@ -187,11 +236,100 @@ class ExtensionManager {
         this.removeStyle(id);
         // Cleanup sidebar items
         this.sidebarItems = this.sidebarItems.filter(item => !item.id.startsWith(id));
+        
+        // Cleanup filters
+        this.filters.forEach((set) => {
+          // Note: Since we don't track which callback belongs to which extension, 
+          // a better way would be required for full cleanup.
+          // For now, we rely on the extension's destroy method or manual cleanup if needed.
+        });
+
         this.notify();
+        this.persistExtensions();
       } catch (error) {
         console.error(`Unregister Error [${id}]:`, error);
       }
     }
+  }
+
+  async loadExtensionFromZip(file: File) {
+    try {
+      const zip = new JSZip();
+      const content = await zip.loadAsync(file);
+      
+      const manifestFile = content.file('manifest.json');
+      const indexFile = content.file('index.js');
+      
+      if (!manifestFile || !indexFile) {
+        throw new Error('ZIP must contain manifest.json and index.js');
+      }
+      
+      const manifest = JSON.parse(await manifestFile.async('text'));
+      const script = await indexFile.async('text');
+      
+      // Basic validation
+      if (!manifest.id || !manifest.name || !manifest.version) {
+        throw new Error('Invalid manifest.json: missing id, name or version');
+      }
+
+      // Load it
+      const blob = new Blob([script], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const module = await import(/* @vite-ignore */ url);
+      
+      const extension: AppExtension & { _script?: string } = {
+        ...manifest,
+        _script: script,
+        init: module.default?.activate || module.activate || (() => {}),
+        destroy: module.default?.deactivate || module.deactivate || (() => {})
+      };
+      
+      this.register(extension);
+      
+      // Persist for next session
+      await this.persistExtensions();
+      
+      return manifest;
+    } catch (err) {
+      console.error('Failed to load extension zip:', err);
+      throw err;
+    }
+  }
+
+  private async persistExtensions() {
+    const data = Array.from(this.extensions.entries()).map(([id, ext]) => ({
+      id,
+      manifest: {
+        id: ext.id,
+        name: ext.name,
+        version: ext.version,
+        type: ext.type,
+        description: ext.description,
+        author: ext.author
+      },
+      script: ext._script
+    })).filter(item => !!item.script);
+    
+    await localforage.setItem('installed_extensions', data);
+  }
+
+  applyFilters(hook: string, data: any): any {
+    const callbacks = this.filters.get(hook);
+    if (!callbacks) return data;
+    
+    let result = data;
+    callbacks.forEach(cb => {
+      try {
+        result = cb(result);
+      } catch (e) {
+        console.error(`Filter Error in hook ${hook}:`, e);
+      }
+    });
+    return result;
+  }
+
+  getBlockComponent(type: string): React.ComponentType<any> | null {
+    return this.blockRegistry.get(type) || null;
   }
 
   getSidebarItems() {

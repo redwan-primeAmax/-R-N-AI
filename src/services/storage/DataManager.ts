@@ -191,6 +191,12 @@ if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.p
 
 export const DataManager = {
   getClientId: () => clientId,
+  async encryptValue(text: string): Promise<string> {
+    return encrypt(text);
+  },
+  async decryptValue(encoded: string): Promise<string> {
+    return decrypt(encoded);
+  },
   async getUserName(): Promise<string | null> {
     const record = await db.key_value_pairs.get('user_name');
     const name = record ? record.value : null;

@@ -37,27 +37,6 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
     };
   }, []);
 
-  const startProgressTimer = (startFromSec = 0, currentRate = playbackRate) => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setCurrentTime(startFromSec);
-    
-    // We tick progress to match playback rate speed exactly
-    const tickInterval = 1000 / currentRate;
-    
-    timerRef.current = setInterval(() => {
-      setCurrentTime((prev) => {
-        if (prev >= baseDuration) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          setIsPlaying(false);
-          setIsPaused(false);
-          AudioProcessor.stop();
-          return 0;
-        }
-        return prev + 1;
-      });
-    }, tickInterval);
-  };
-
   const handleRun = async (startFromSec = 0, currentRate = playbackRate) => {
     if (!text.trim()) return;
     setIsGenerating(true);
@@ -70,12 +49,11 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
       textToSpeak,
       () => {
         setIsGenerating(false);
-        setIsPlaying(true);
+         setIsPlaying(true);
         setIsPaused(false);
-        startProgressTimer(startFromSec, currentRate);
+        setCurrentTime(startFromSec);
       },
       () => {
-        if (timerRef.current) clearInterval(timerRef.current);
         setIsPlaying(false);
         setIsPaused(false);
         setCurrentTime(0);
@@ -83,9 +61,18 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
       (err) => {
         console.error(err);
         setIsGenerating(false);
-        if (timerRef.current) clearInterval(timerRef.current);
       },
-      { rate: currentRate }
+      { 
+        rate: currentRate,
+        onBoundary: (charIndex, totalLength) => {
+          if (totalLength > 0) {
+            const absoluteCharIndex = (text.length - textToSpeak.length) + charIndex;
+            const progress = absoluteCharIndex / text.length;
+            const calculatedTime = Math.min(baseDuration, Math.round(progress * baseDuration * 10) / 10);
+            setCurrentTime(calculatedTime);
+          }
+        }
+      }
     );
   };
 
@@ -98,23 +85,9 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
     if (isPaused) {
       AudioProcessor.resume();
       setIsPaused(false);
-      // Resume timer progress matching the current speed rate
-      const tickInterval = 1000 / playbackRate;
-      timerRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= baseDuration) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            setIsPlaying(false);
-            setIsPaused(false);
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, tickInterval);
     } else {
       AudioProcessor.pause();
       setIsPaused(true);
-      if (timerRef.current) clearInterval(timerRef.current);
     }
   };
 
@@ -122,7 +95,6 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
     const val = Number(e.target.value);
     setCurrentTime(val);
     if (isPlaying) {
-      if (timerRef.current) clearInterval(timerRef.current);
       handleRun(val, playbackRate);
     }
   };
@@ -138,7 +110,6 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
 
     if (isPlaying && !isPaused) {
       AudioProcessor.stop();
-      if (timerRef.current) clearInterval(timerRef.current);
       
       // Real-time resume audio stream under speed rate
       setTimeout(() => {
@@ -153,10 +124,8 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
             setIsGenerating(false);
             setIsPlaying(true);
             setIsPaused(false);
-            startProgressTimer(currentTime, nextRate);
           },
           () => {
-            if (timerRef.current) clearInterval(timerRef.current);
             setIsPlaying(false);
             setIsPaused(false);
             setCurrentTime(0);
@@ -165,7 +134,17 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
             console.error(err);
             setIsGenerating(false);
           },
-          { rate: nextRate }
+          { 
+            rate: nextRate,
+            onBoundary: (charIndex, totalLength) => {
+              if (totalLength > 0) {
+                const absoluteCharIndex = (text.length - textToSpeak.length) + charIndex;
+                const progress = absoluteCharIndex / text.length;
+                const calculatedTime = Math.min(baseDuration, Math.round(progress * baseDuration * 10) / 10);
+                setCurrentTime(calculatedTime);
+              }
+            }
+          }
         );
       }, 80);
     }

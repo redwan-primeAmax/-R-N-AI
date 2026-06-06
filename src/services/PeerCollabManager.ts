@@ -67,6 +67,9 @@ export class PeerCollabManager {
   private stateListeners: Set<(data: any) => void> = new Set();
   private statusListeners: Set<(msg: string, type: 'info' | 'success' | 'error') => void> = new Set();
 
+  // Track debounced timeouts per session/noteId to prevent disk write loops
+  private persistTimeouts: Map<string, NodeJS.Timeout> = new Map();
+
   // A flag to prevent loop updates between React and Yjs
   public isApplyingRemoteUpdate: boolean = false;
 
@@ -111,7 +114,16 @@ export class PeerCollabManager {
         });
       }
 
-      this.persistToDisk(session);
+      // Debounce disk persist triggers during fast collaborative keystroke events
+      const noteId = session.noteId;
+      if (this.persistTimeouts.has(noteId)) {
+        clearTimeout(this.persistTimeouts.get(noteId));
+      }
+      const timeout = setTimeout(() => {
+        this.persistToDisk(session);
+        this.persistTimeouts.delete(noteId);
+      }, 1500); // 1.5 seconds write barrier avoids thread choke
+      this.persistTimeouts.set(noteId, timeout);
       
       if (this.activeNoteId === session.noteId) {
         this.triggerReactCallback();
@@ -596,6 +608,14 @@ export class PeerCollabManager {
     if (!id) return;
     const session = this.sessions.get(id);
     if (!session) return;
+
+    // Direct flush any unsaved debounce work before full session destruction
+    const timeout = this.persistTimeouts.get(id);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.persistTimeouts.delete(id);
+      this.persistToDisk(session);
+    }
 
     session.connections.forEach(conn => conn.close());
     session.connections.clear();

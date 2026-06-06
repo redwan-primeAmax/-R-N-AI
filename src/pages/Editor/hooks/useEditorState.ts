@@ -5,12 +5,13 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import localforage from 'localforage';
+import { db } from '../../../services/storage/DexieDB';
 
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { operationRunner } from '../../../services/storage/OperationRunner';
 import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 import { useEditorCommands } from './useEditorCommands';
+import { extensionManager } from '../../../services/ExtensionManager';
 
 export function useEditorState(id: string | undefined) {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export function useEditorState(id: string | undefined) {
   const [tags, setTags] = useState<string[]>([]);
   const [theme, setTheme] = useState<string>('default');
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [activeTasksCount, setActiveTasksCount] = useState(0);
   const [workspaceName, setWorkspaceName] = useState('Workspace');
   const [parentNote, setParentNote] = useState<Note | null>(null);
@@ -39,7 +41,9 @@ export function useEditorState(id: string | undefined) {
 
   const setBlocks = useCallback((newBlocksVal: any) => {
     setBlocksState((prev) => {
-      const next = typeof newBlocksVal === 'function' ? newBlocksVal(prev) : newBlocksVal;
+      let next = typeof newBlocksVal === 'function' ? newBlocksVal(prev) : newBlocksVal;
+      // Extension Filter: onBlocksUpdate
+      next = extensionManager.applyFilters('onBlocksUpdate', next);
       blocksRef.current = next;
       return next;
     });
@@ -178,17 +182,20 @@ export function useEditorState(id: string | undefined) {
     
     if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
     backupTimerRef.current = setTimeout(() => {
-      const content = blocksToHtml(blocks);
+      let filteredBlocks = blocks;
+      // Extension Filter: beforeSave
+      filteredBlocks = extensionManager.applyFilters('beforeSave', filteredBlocks);
+      const content = blocksToHtml(filteredBlocks);
       
       if (content === lastSavedContentRef.current) return;
       
-      if (id) localforage.setItem(BACKUP_KEY, content).catch(console.error);
+      if (id) db.key_value_pairs.put({ key: BACKUP_KEY, value: content }).catch(console.error);
       
       saveNote(content);
     }, 2000); // 2s debounce is highly efficient
   }, [blocks, id]);
 
-  // Synchronous hot-backup of current draft state to localStorage (immediate & immune to exit data loss)
+  // Asynchronous secure hot-backup of current draft state to localStorage (immediate & immune to exit data loss)
   useEffect(() => {
     if (!id || blocks.length === 0) return;
     
@@ -201,11 +208,14 @@ export function useEditorState(id: string | undefined) {
       theme: themeRef.current,
       timestamp: Date.now()
     };
-    try {
-      localStorage.setItem(`note_draft_${id}`, JSON.stringify(draftData));
-    } catch (e) {
-      console.warn('LocalStorage draft write error:', e);
-    }
+    
+    DataManager.encryptValue(JSON.stringify(draftData)).then((encrypted) => {
+      try {
+        localStorage.setItem(`note_draft_${id}`, encrypted);
+      } catch (e) {
+        console.warn('LocalStorage draft write error:', e);
+      }
+    }).catch(console.error);
   }, [blocks, title, emoji, description, tags, theme, id]);
 
   // Instant hot-save on tab close / tab hide / unload (Diamond Road security logic)
@@ -313,7 +323,19 @@ export function useEditorState(id: string | undefined) {
       let contentVal = fetchedNote.content;
 
       // Hot draft recovery check (Diamond Road Data Integrity validation)
-      const draftStr = localStorage.getItem(`note_draft_${noteId}`);
+      const rawDraftStr = localStorage.getItem(`note_draft_${noteId}`);
+      let draftStr = '';
+      if (rawDraftStr) {
+        if (rawDraftStr.startsWith('{')) {
+          draftStr = rawDraftStr;
+        } else {
+          try {
+            draftStr = await DataManager.decryptValue(rawDraftStr);
+          } catch (e) {
+            console.error('Failed to decrypt hot draft:', e);
+          }
+        }
+      }
       let draftRestored = false;
       if (draftStr) {
         try {
@@ -342,7 +364,8 @@ export function useEditorState(id: string | undefined) {
       
       let content = contentVal;
       if (!draftRestored) {
-        const backup = await localforage.getItem<string>(BACKUP_KEY);
+        const backupRecord = await db.key_value_pairs.get(BACKUP_KEY);
+        const backup = backupRecord ? backupRecord.value as string : null;
         if (backup && backup !== fetchedNote.content) content = backup;
       }
       
@@ -350,7 +373,10 @@ export function useEditorState(id: string | undefined) {
       lastSavedContentRef.current = resolvedContent;
       
       // Load blocks state
-      setBlocks(htmlToBlocks(resolvedContent));
+      let initialBlocks = htmlToBlocks(resolvedContent);
+      // Extension Filter: onLoad
+      initialBlocks = extensionManager.applyFilters('onLoad', initialBlocks);
+      setBlocks(initialBlocks);
 
       const workspaces = await DataManager.getWorkspaces();
       const ws = workspaces.find(w => w.id === (fetchedNote.workspaceId || 'default'));
@@ -402,7 +428,7 @@ export function useEditorState(id: string | undefined) {
 
   const saveNote = useCallback(async (content: string, force: boolean = false) => {
     if (noteRef.current) {
-      if (isSaving && !force) return;
+      if (isSavingRef.current && !force) return;
       
       // Dirty check
       if (!force && content === lastSavedContentRef.current && 
@@ -414,6 +440,7 @@ export function useEditorState(id: string | undefined) {
         return;
       }
 
+      isSavingRef.current = true;
       setIsSaving(true);
       try {
         const updatedTitle = titleRef.current || 'শিরোনামহীন';
@@ -430,16 +457,19 @@ export function useEditorState(id: string | undefined) {
         
         lastSavedContentRef.current = updatedNote.content;
         setNote(updatedNote);
-        await localforage.removeItem(BACKUP_KEY);
+        await db.key_value_pairs.delete(BACKUP_KEY);
         // Clear hot-draft as it matches database now
         if (id) localStorage.removeItem(`note_draft_${id}`);
       } catch (err) {
         console.error('Save failed:', err);
       } finally {
-        setTimeout(() => setIsSaving(false), 300);
+        setTimeout(() => {
+          isSavingRef.current = false;
+          setIsSaving(false);
+        }, 300);
       }
     }
-  }, [isSaving, BACKUP_KEY, id]);
+  }, [BACKUP_KEY, id]);
 
   useEffect(() => {
     const unsub = operationRunner.subscribe(() => {

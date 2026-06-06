@@ -3,7 +3,7 @@
  */
 
 import { Note, SearchResult } from './types';
-import { StorageBuffer, normalizeText } from './core/StorageBuffer';
+import { StorageBuffer, normalizeText, stripHtml } from './core/StorageBuffer';
 import { InvertedIndex } from './index/InvertedIndex';
 import { calculateBM25, getTermFrequency, calculateFuzzyScore } from './core/Scorer';
 import { getBloomBit } from './core/StorageBuffer';
@@ -19,6 +19,43 @@ const SYNONYM_MAP: Record<string, string[]> = {
 
 let globalStorage: StorageBuffer | null = null;
 let globalIndex: InvertedIndex | null = null;
+
+/**
+ * Custom context snippet generator with keyword alignment logic
+ */
+function generateSnippet(contentHtml: string, queryWords: string[], queryLower: string): string {
+  if (!contentHtml) return '';
+  const content = stripHtml(contentHtml).trim().replace(/\s+/g, ' ');
+  if (!content) return '';
+  const contentLower = content.toLowerCase();
+
+  // Try to find exact query match index first
+  let matchIdx = contentLower.indexOf(queryLower);
+
+  // If not found, try to find any first matching query word
+  if (matchIdx === -1 && queryWords.length > 0) {
+    for (const word of queryWords) {
+      if (word.length > 1) {
+        matchIdx = contentLower.indexOf(word);
+        if (matchIdx !== -1) break;
+      }
+    }
+  }
+
+  // Fallback to start
+  if (matchIdx === -1) {
+    return content.substring(0, 150) + (content.length > 150 ? '...' : '');
+  }
+
+  const start = Math.max(0, matchIdx - 60);
+  const end = Math.min(content.length, matchIdx + 90);
+  let snippet = content.substring(start, end);
+  
+  if (start > 0) snippet = '...' + snippet;
+  if (end < content.length) snippet = snippet + '...';
+  
+  return snippet;
+}
 
 /**
  * Expands a term using synonyms and phonetics for smarter coverage
@@ -145,10 +182,28 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
     const note = storage.getNote(docIdx);
     const titleLower = normalizeText(note.title);
 
+    // Extract first line of the body content for enhanced relevance scoring
+    const bodyText = stripHtml(note.content).trim();
+    const firstLine = bodyText.split('\n')[0] || '';
+    const firstLineLower = normalizeText(firstLine);
+
     let score = 0;
 
     if (docText.includes(queryLower)) score += 500;
-    if (titleLower.includes(queryLower)) score += 1000;
+    if (titleLower.includes(queryLower)) {
+      score += 1000;
+      if (titleLower.startsWith(queryLower)) {
+        score += 500; // Boost starting matches for perfect UX
+      }
+    }
+
+    // Boost if match lies in the first line of note body
+    if (firstLineLower.includes(queryLower)) {
+      score += 400;
+      if (firstLineLower.startsWith(queryLower)) {
+        score += 200;
+      }
+    }
 
     score += calculateProximityBonus(docText, queryWords);
 
@@ -164,6 +219,10 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
         bmScore *= 5.0;
         if (titleLower.startsWith(term)) bmScore *= 2.0;
       }
+
+      if (firstLineLower.includes(term)) {
+        bmScore *= 3.0; // Boost first-line word alignment
+      }
       score += bmScore;
     }
 
@@ -172,7 +231,11 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
 
   return rankedResults
     .sort((a, b) => b.score - a.score)
-    .map(r => r.note);
+    .map(r => {
+      const note = r.note;
+      (note as any).snippet = generateSnippet(note.content, queryWords, queryLower);
+      return note;
+    });
 }
 
 /**
@@ -257,10 +320,28 @@ async function searchChunkAsync(
     const note = chunkStorage.getNote(docIdx);
     const titleLower = normalizeText(note.title);
 
+    // Extract first line of the body content for enhanced relevance scoring
+    const bodyText = stripHtml(note.content).trim();
+    const firstLine = bodyText.split('\n')[0] || '';
+    const firstLineLower = normalizeText(firstLine);
+
     let score = 0;
 
     if (docText.includes(queryLower)) score += 500;
-    if (titleLower.includes(queryLower)) score += 1000;
+    if (titleLower.includes(queryLower)) {
+      score += 1000;
+      if (titleLower.startsWith(queryLower)) {
+        score += 500; // Boost starting matches for perfect UX
+      }
+    }
+
+    // Boost if match lies in the first line of note body
+    if (firstLineLower.includes(queryLower)) {
+      score += 400;
+      if (firstLineLower.startsWith(queryLower)) {
+        score += 200;
+      }
+    }
 
     score += calculateProximityBonus(docText, queryWords);
 
@@ -275,6 +356,10 @@ async function searchChunkAsync(
       if (titleLower.includes(term)) {
         bmScore *= 5.0;
         if (titleLower.startsWith(term)) bmScore *= 2.0;
+      }
+
+      if (firstLineLower.includes(term)) {
+        bmScore *= 3.0; // Boost first-line word alignment
       }
       score += bmScore;
     }

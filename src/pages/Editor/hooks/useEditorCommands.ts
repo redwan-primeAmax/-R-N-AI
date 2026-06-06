@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 import { focusEditor } from '../commands/editorChainFocus';
 import {
@@ -67,6 +67,9 @@ export function useEditorCommands({
   historyPointer,
   setHistoryPointer
 }: EditorCommandsProps) {
+  
+  // Custom in-memory event hub listeners registry to avoid window event pollution/clashes
+  const listenersRef = useRef<Record<string, Array<(detail?: any) => void>>>({});
   
   const editor = useMemo(() => ({
     blocks,
@@ -337,10 +340,27 @@ export function useEditorCommands({
 
     can: () => ({ undo: () => true, redo: () => true }),
 
-    on: (event: string, handler: any) => window.addEventListener(`editor-event-${event}`, handler),
-    off: (event: string, handler: any) => window.removeEventListener(`editor-event-${event}`, handler),
+    on: (event: string, handler: any) => {
+      if (!listenersRef.current[event]) {
+        listenersRef.current[event] = [];
+      }
+      listenersRef.current[event].push(handler);
+    },
+    off: (event: string, handler: any) => {
+      if (listenersRef.current[event]) {
+        listenersRef.current[event] = listenersRef.current[event].filter(h => h !== handler);
+      }
+    },
     triggerEvent: (event: string, detail?: any) => {
-      window.dispatchEvent(new CustomEvent(`editor-event-${event}`, { detail }));
+      if (listenersRef.current[event]) {
+        listenersRef.current[event].forEach(handler => {
+          try {
+            handler({ detail });
+          } catch (e) {
+            console.error(`Error executing event handler for ${event}`, e);
+          }
+        });
+      }
     }
   }), [blocks, activeBlockId, isReadOnly, searchResults, searchIndex, setBlocks, setSearchTerm, setSearchIndex, setForceRefreshState, historyRef, historyPointer, setHistoryPointer]);
 
