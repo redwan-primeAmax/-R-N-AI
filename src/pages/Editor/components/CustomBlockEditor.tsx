@@ -22,6 +22,10 @@ import { BookmarkBlock } from './blocks/BookmarkBlock';
 import { DatabaseBlock } from './blocks/DatabaseBlock';
 import { EmbedBlock } from './blocks/EmbedBlock';
 
+import { TocBlockRenderer } from '../renderers/TocBlockRenderer';
+import { ColumnBlockRenderer } from '../renderers/ColumnBlockRenderer';
+import { CalloutBlockRenderer } from '../renderers/CalloutBlockRenderer';
+
 export { htmlToBlocks, blocksToHtml };
 
 interface CustomBlockEditorProps {
@@ -181,36 +185,7 @@ const MemoizedBlockRow = React.memo(({
           <div className="w-full h-[1px] bg-gray-100 dark:bg-white/10" />
         </div>
       ) : block.type === 'column' ? (
-        <div className="flex-1 min-w-0 grid grid-cols-2 gap-4 py-3">
-          <div className="p-4 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl transition-all flex flex-col gap-2">
-            <span className="text-[9px] font-black uppercase tracking-wider text-blue-500/60 font-mono">Column A</span>
-            <div
-              contentEditable={!isReadOnly}
-              suppressContentEditableWarning
-              onBlur={(e) => {
-                const val = e.currentTarget.innerHTML;
-                const col2Val = block.col2Content || '';
-                setBlocks((prev: any) => prev.map((b: any) => b.id === block.id ? { ...b, col1Content: val, col2Content: col2Val } : b));
-              }}
-              dangerouslySetInnerHTML={{ __html: block.col1Content || '' }}
-              className="text-sm font-sans focus:outline-none min-h-[50px] leading-relaxed empty:before:content-['Type_left_column...'] empty:before:opacity-30 empty:before:italic"
-            />
-          </div>
-          <div className="p-4 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl transition-all flex flex-col gap-2">
-            <span className="text-[9px] font-black uppercase tracking-wider text-purple-500/60 font-mono">Column B</span>
-            <div
-              contentEditable={!isReadOnly}
-              suppressContentEditableWarning
-              onBlur={(e) => {
-                const val = e.currentTarget.innerHTML;
-                const col1Val = block.col1Content || '';
-                setBlocks((prev: any) => prev.map((b: any) => b.id === block.id ? { ...b, col1Content: col1Val, col2Content: val } : b));
-              }}
-              dangerouslySetInnerHTML={{ __html: block.col2Content || '' }}
-              className="text-sm font-sans focus:outline-none min-h-[50px] leading-relaxed empty:before:content-['Type_right_column...'] empty:before:opacity-30 empty:before:italic"
-            />
-          </div>
-        </div>
+        <ColumnBlockRenderer block={block} isReadOnly={isReadOnly} setBlocks={setBlocks} />
       ) : block.type === 'table_view' ? (
          <div className="flex-1 min-w-0 py-4">
             <div className="p-10 bg-white/5 border border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 text-center group/view cursor-pointer hover:bg-white/10 transition-all ring-1 ring-white/5">
@@ -283,37 +258,7 @@ const MemoizedBlockRow = React.memo(({
       ) : block.type === 'audio_generator' ? (
         <AudioGeneratorBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
       ) : block.type === 'toc' ? (
-        <div className="flex-1 min-w-0 bg-white/[0.01] border border-white/5 rounded-2xl p-4 my-2 text-left select-none">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-3 border-b border-white/5 pb-2">Table of Contents</div>
-          <div className="space-y-1">
-            {blocks.filter((b: any) => ['h1', 'h2', 'h3', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(b.type) && b.content?.trim()).map((hb: any) => {
-              const baseLevel = hb.type.replace('toggle_h', 'h').replace('h', '');
-              const level = parseInt(baseLevel, 10) || 1;
-              const cleanText = hb.content.replace(/<[^>]*>/g, '').trim();
-              return (
-                <button
-                  key={hb.id}
-                  onClick={() => {
-                    const el = document.getElementById(hb.id);
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }}
-                  className={cn(
-                    "block w-full text-left font-semibold hover:text-blue-400 py-1 transition-colors",
-                    level === 1 ? "text-sm text-white/80 font-black pl-0" : "",
-                    level === 2 ? "text-[13px] text-white/60 font-bold pl-4" : "",
-                    level === 3 ? "text-xs text-white/40 font-medium pl-8" : ""
-                  )}
-                >
-                  <span className="text-white/20 mr-1.5 font-mono">#</span>
-                  {cleanText || 'Untitled heading'}
-                </button>
-              );
-            })}
-            {blocks.filter((b: any) => ['h1', 'h2', 'h3', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(b.type) && b.content?.trim()).length === 0 && (
-              <p className="text-[10px] font-bold text-white/20 py-2 italic font-mono uppercase tracking-wider">Add headings to populate table of contents</p>
-            )}
-          </div>
-        </div>
+        <TocBlockRenderer blocks={blocks} />
       ) : block.type === 'synced' ? (
         <div className="flex-1 flex flex-col p-4 bg-orange-500/[0.01] hover:bg-orange-500/[0.02] border border-orange-550/20 hover:border-orange-550/40 rounded-2xl text-left relative group/sync">
           <div className="absolute right-3 top-3 bg-orange-600/10 text-orange-400 border border-orange-550/20 rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider opacity-30 group-hover/sync:opacity-100 transition-opacity select-none flex items-center gap-1">
@@ -375,43 +320,17 @@ const MemoizedBlockRow = React.memo(({
       ) : block.type === 'bookmark' ? (
         <BookmarkBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
       ) : block.type === 'callout' ? (
-        <div className="flex-1 flex items-start gap-3 p-4 rounded-2xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/5 shadow-sm text-left relative overflow-visible">
-          <div className="relative flex-shrink-0 mt-0.5">
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="w-8 h-8 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg flex items-center justify-center text-lg transition-all"
-            >
-              {block.emoji || '💡'}
-            </button>
-            {showEmojiPicker && (
-              <div className="absolute top-10 left-0 z-50 p-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/15 rounded-xl shadow-2xl flex gap-1 flex-wrap w-40 backdrop-blur-lg">
-                {['💡', '📝', '📌', '⚠️', '⭐', '🚀', '🎯', '📁', '🔍', 'ℹ️'].map((em) => (
-                  <button
-                    key={em}
-                    onClick={() => {
-                      setBlocks((prev: any) => prev.map((b: any) => b.id === block.id ? { ...b, emoji: em } : b));
-                      setShowEmojiPicker(false);
-                    }}
-                    className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg text-base transition-all active:scale-90"
-                  >
-                    {em}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <EditableBlock 
-            block={block}
-            idx={idx}
-            isReadOnly={isReadOnly}
-            blockRefs={blockRefs}
-            handleKeyDown={handleKeyDown}
-            setFocusedId={setFocusedId}
-            editor={editor}
-            handleBlockChange={handleBlockChange}
-          />
-        </div>
+        <CalloutBlockRenderer
+          block={block}
+          idx={idx}
+          isReadOnly={isReadOnly}
+          blockRefs={blockRefs}
+          handleKeyDown={handleKeyDown}
+          setFocusedId={setFocusedId}
+          editor={editor}
+          handleBlockChange={handleBlockChange}
+          setBlocks={setBlocks}
+        />
       ) : (
         <EditableBlock 
           block={block}

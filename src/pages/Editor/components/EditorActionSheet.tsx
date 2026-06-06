@@ -3,15 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Eye, EyeOff, Info, Lock, Copy, Download, Trash2, 
-  Plus, ChevronRight, FileText, Settings, Share2, Hash, Palette, Users
-} from 'lucide-react';
+import { FileText, ChevronRight, Plus } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { cn } from '../../../utils/cn';
 import { useNavigate } from 'react-router-dom';
+
+// Import our modular action definitions
+import { subPagesNavigation } from '../actions/SubPagesNavigation';
+import { shareCollabAction } from '../actions/ShareCollabAction';
+import { readOnlyToggleAction } from '../actions/ReadOnlyToggleAction';
+import { tagAction } from '../actions/TagAction';
+import { themeAction } from '../actions/ThemeAction';
+import { duplicateNoteAction } from '../actions/DuplicateNoteAction';
+import { lockPageAction } from '../actions/LockPageAction';
+import { exportNoteAction } from '../actions/ExportNoteAction';
+import { deleteNoteAction } from '../actions/DeleteNoteAction';
 
 interface EditorActionSheetProps {
   isOpen: boolean;
@@ -55,17 +63,17 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   onKickCollaborator
 }) => {
   const navigate = useNavigate();
-  const [showCollabSettings, setShowCollabSettings] = React.useState(false);
-  const [collabPassword, setCollabPassword] = React.useState('');
-  const [collabLimit, setCollabLimit] = React.useState(5);
-  const [viewMode, setViewMode] = React.useState<'main' | 'subpages'>('main');
+  const [showCollabSettings, setShowCollabSettings] = useState(false);
+  const [collabPassword, setCollabPassword] = useState('');
+  const [collabLimit, setCollabLimit] = useState(5);
+  const [viewMode, setViewMode] = useState<'main' | 'subpages'>('main');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setViewMode('main'); // Reset view state when closed
+      setViewMode('main');
     }
     return () => {
       document.body.style.overflow = '';
@@ -74,23 +82,29 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
 
   if (!note) return null;
 
-  const MenuAction = ({ icon, label, onClick, subtitle, danger = false }: any) => (
-    <button 
-      onClick={onClick}
-      className={cn(
-        "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all active:scale-[0.98] group",
-        danger ? "text-red-500 hover:bg-red-500/10" : "text-white/80 hover:bg-white/5"
-      )}
-    >
-      <div className={cn("w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center transition-colors", danger ? "bg-red-500/10 group-hover:bg-red-500/20" : "group-hover:bg-white/10")}>
-        {icon}
-      </div>
-      <div className="flex flex-col items-start text-left">
-        <span className="font-bold text-[14px]">{label}</span>
-        {subtitle && <span className="text-[10px] opacity-40 font-medium">{subtitle}</span>}
-      </div>
-    </button>
-  );
+  const MenuAction = ({ icon: Icon, label, onClick, subtitle, danger = false }: any) => {
+    // Resolve dynamically if functions are provided
+    const resolvedLabel = typeof label === 'function' ? label() : label;
+    const resolvedSubtitle = typeof subtitle === 'function' ? subtitle() : subtitle;
+
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all active:scale-[0.98] group",
+          danger ? "text-red-500 hover:bg-red-500/10" : "text-white/80 hover:bg-white/5"
+        )}
+      >
+        <div className={cn("w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center transition-colors", danger ? "bg-red-500/10 group-hover:bg-red-500/20" : "group-hover:bg-white/10")}>
+          {typeof Icon === 'function' ? <Icon size={20} /> : Icon}
+        </div>
+        <div className="flex flex-col items-start text-left">
+          <span className="font-bold text-[14px]">{resolvedLabel}</span>
+          {resolvedSubtitle && <span className="text-[10px] opacity-40 font-medium">{resolvedSubtitle}</span>}
+        </div>
+      </button>
+    );
+  };
 
   return (
     <AnimatePresence>
@@ -112,7 +126,6 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
             <div className="w-12 h-1 bg-white/10 rounded-full mx-auto my-4 shrink-0" />
             
             <div className="overflow-y-auto px-6 pb-12 flex-1 no-scrollbar animate-fade-in">
-              {/* Header Info */}
               <div className="flex items-center gap-4 mb-6 p-2">
                 <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center shadow-inner border border-white/5">
                   <FileText size={32} className="text-white/20" />
@@ -126,7 +139,6 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
               </div>
 
               {viewMode === 'subpages' ? (
-                /* Sub Pages Navigation Screen */
                 <div className="space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between px-2 mb-2">
                     <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">অনুষঙ্গিক পাতা সমূহ (Sub Pages)</h4>
@@ -167,31 +179,28 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                   </div>
                 </div>
               ) : (
-                /* Main Action Sheet Options (Subpages list is modularly tucked away) */
                 <div className="space-y-6">
-                  {/* Dynamic Sub-pages Folder Item showing badge count */}
                   <div>
                     <h4 className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 px-2">Page Navigation</h4>
                     <MenuAction 
-                      icon={<FileText size={20} className="text-blue-500" />} 
-                      label="অনুষঙ্গিক পাতা সমূহ (Sub Pages)" 
-                      subtitle={`${subPages.length}টি অনুষঙ্গিক পাতা সংযুক্ত আছে`}
-                      onClick={() => setViewMode('subpages')} 
+                      icon={subPagesNavigation.icon} 
+                      label={subPagesNavigation.label} 
+                      subtitle={() => typeof subPagesNavigation.subtitle === 'function' ? subPagesNavigation.subtitle(subPages.length) : subPagesNavigation.subtitle}
+                      onClick={() => subPagesNavigation.onClick(setViewMode)} 
                     />
                   </div>
 
-                  {/* Main Actions list */}
                   <div className="space-y-1">
                     <h4 className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 px-2">Page Actions</h4>
                     <MenuAction 
-                      icon={isCollabActive ? <Users size={20} className="text-green-400 animate-pulse" /> : <Users size={20} />} 
-                      label={isCollabActive ? "Live Collaboration (Active)" : "Share Note Live"} 
-                      subtitle={isCollabActive ? "P2P host is online and running" : "Sync live with friends/colleagues via safe P2P"}
+                      icon={shareCollabAction.icon} 
+                      label={() => shareCollabAction.label(isCollabActive)} 
+                      subtitle={() => shareCollabAction.subtitle(isCollabActive)}
                       onClick={() => {
                         if (isCollabActive) {
-                           setShowCollabSettings(!showCollabSettings);
+                          setShowCollabSettings(!showCollabSettings);
                         } else if (onStartCollab) {
-                           setShowCollabSettings(true);
+                          setShowCollabSettings(true);
                         }
                       }} 
                     />
@@ -228,7 +237,11 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                             </div>
 
                             <button
-                              onClick={() => onStartCollab && onStartCollab({ password: collabPassword, memberLimit: collabLimit })}
+                              onClick={() => {
+                                shareCollabAction.onClick(() => {
+                                  onStartCollab && onStartCollab({ password: collabPassword, memberLimit: collabLimit });
+                                });
+                              }}
                               className="w-full py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
                             >
                               Start Live Hosting
@@ -272,7 +285,6 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                           </div>
                         </div>
 
-                        {/* Collaborators List */}
                         <div className="px-2">
                           <h5 className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Active Collaborators ({collaborators.length})</h5>
                           <div className="space-y-2">
@@ -302,50 +314,53 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                     )}
 
                     <MenuAction 
-                      icon={isReadOnly ? <EyeOff size={20}/> : <Eye size={20}/>} 
-                      label={isReadOnly ? "Edit Mode" : "Read Only"} 
-                      subtitle={isReadOnly ? "Switch to editing" : "Prevent accidental changes"}
-                      onClick={onToggleReadOnly} 
+                      icon={() => readOnlyToggleAction.icon(isReadOnly)} 
+                      label={() => readOnlyToggleAction.label(isReadOnly)} 
+                      subtitle={() => readOnlyToggleAction.subtitle(isReadOnly)}
+                      onClick={() => readOnlyToggleAction.onClick(onToggleReadOnly)} 
                     />
                     <MenuAction 
-                      icon={<Hash size={20}/>} 
-                      label="ট্যাগ" 
-                      subtitle="নোটের ট্যাগ সমূহ পরিবর্তন করুন"
-                      onClick={onTag} 
+                      icon={tagAction.icon} 
+                      label={tagAction.label} 
+                      subtitle={tagAction.subtitle}
+                      onClick={() => tagAction.onClick(onTag)} 
                     />
                     <MenuAction 
-                      icon={<Palette size={20}/>} 
-                      label="Canvas Theme" 
-                      subtitle="Change paper style"
-                      onClick={onTheme} 
+                      icon={themeAction.icon} 
+                      label={themeAction.label} 
+                      subtitle={themeAction.subtitle}
+                      onClick={() => {
+                        if (onTheme) themeAction.onClick(onTheme);
+                      }} 
                     />
                     <MenuAction 
-                      icon={<Copy size={20}/>} 
-                      label="Duplicate Note" 
-                      subtitle="Create a standalone copy"
-                      onClick={onCopy} 
+                      icon={duplicateNoteAction.icon} 
+                      label={duplicateNoteAction.label} 
+                      subtitle={duplicateNoteAction.subtitle}
+                      onClick={() => duplicateNoteAction.onClick(onCopy)} 
                     />
                     <MenuAction 
-                      icon={<Lock size={20}/>} 
-                      label="Lock Page" 
-                      subtitle="Protect with a password"
-                      onClick={onLock} 
+                      icon={lockPageAction.icon} 
+                      label={lockPageAction.label} 
+                      subtitle={lockPageAction.subtitle}
+                      onClick={() => lockPageAction.onClick(onLock)} 
                     />
                     <MenuAction 
-                      icon={<Download size={20}/>} 
-                      label="Export Note" 
-                      subtitle="Save in different formats"
-                      onClick={onExport} 
+                      icon={exportNoteAction.icon} 
+                      label={exportNoteAction.label} 
+                      subtitle={exportNoteAction.subtitle}
+                      onClick={() => exportNoteAction.onClick(onExport)} 
                     />
                   </div>
 
                   <div className="space-y-1">
                     <h4 className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 px-2">Danger Zone</h4>
                     <MenuAction 
-                      icon={<Trash2 size={20}/>} 
-                      label="Move to Trash" 
-                      danger 
-                      onClick={onDelete} 
+                      icon={deleteNoteAction.icon} 
+                      label={deleteNoteAction.label} 
+                      subtitle={deleteNoteAction.subtitle}
+                      danger={deleteNoteAction.danger} 
+                      onClick={() => deleteNoteAction.onClick(onDelete)} 
                     />
                   </div>
                 </div>
@@ -366,4 +381,3 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
     </AnimatePresence>
   );
 };
-

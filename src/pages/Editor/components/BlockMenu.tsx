@@ -5,14 +5,33 @@
 
 import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, 
-  Code, Quote, ImageIcon, Minus, Table, 
-  Type, MessageSquare, Mic, Hash, Plus, FilePlus, Database, RefreshCw, ExternalLink, AlignLeft
-} from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { uploadAndInsertMedia } from '../services/mediaUploader';
-import { cn } from '../../../utils/cn';
+
+// Import our modular block configs
+import { textBlock } from '../blocks-config/TextBlock';
+import { headingOneBlock } from '../blocks-config/HeadingOneBlock';
+import { headingTwoBlock } from '../blocks-config/HeadingTwoBlock';
+import { headingThreeBlock } from '../blocks-config/HeadingThreeBlock';
+import { bulletListBlock } from '../blocks-config/BulletListBlock';
+import { numberedListBlock } from '../blocks-config/NumberedListBlock';
+import { todoListBlock } from '../blocks-config/TodoListBlock';
+import { codeBlockConfig } from '../blocks-config/CodeBlockConfig';
+import { quoteBlock } from '../blocks-config/QuoteBlock';
+import { calloutBlock } from '../blocks-config/CalloutBlock';
+import { sandboxBlockConfig } from '../blocks-config/SandboxBlockConfig';
+import { dividerBlock } from '../blocks-config/DividerBlock';
+import { tableBlockConfig } from '../blocks-config/TableBlockConfig';
+import { createSubPageBlock } from '../blocks-config/CreateSubPageBlock';
+import { attachPageBlock } from '../blocks-config/AttachPageBlock';
+import { tocBlock } from '../blocks-config/TocBlock';
+import { syncedBlock } from '../blocks-config/SyncedBlock';
+import { toggleHeadingOneBlock } from '../blocks-config/ToggleHeadingOneBlock';
+import { toggleHeadingTwoBlock } from '../blocks-config/ToggleHeadingTwoBlock';
+import { toggleHeadingThreeBlock } from '../blocks-config/ToggleHeadingThreeBlock';
+import { databaseBlockConfig } from '../blocks-config/DatabaseBlockConfig';
+import { embedBlockConfig } from '../blocks-config/EmbedBlockConfig';
 
 interface BlockMenuProps {
   isOpen: boolean;
@@ -57,139 +76,29 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
     });
   };
 
-  const blocks = [
-    { 
-      label: 'Text', 
-      icon: <Type size={20} />, 
-      action: () => editor.chain().focus().setParagraph().run(),
-      description: 'Just start writing with plain text.'
-    },
-    { 
-      label: 'Heading 1', 
-      icon: <Heading1 size={20} />, 
-      action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
-      description: 'Big section heading.'
-    },
-    { 
-      label: 'Heading 2', 
-      icon: <Heading2 size={20} />, 
-      action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-      description: 'Medium section heading.'
-    },
-    { 
-      label: 'Heading 3', 
-      icon: <Heading3 size={20} />, 
-      action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
-      description: 'Smaller section heading.'
-    },
-    { 
-      label: 'Bullet List', 
-      icon: <List size={20} />, 
-      action: () => editor.chain().focus().toggleBulletList().run(),
-      description: 'Simple bulleted list.'
-    },
-    { 
-      label: 'Numbered List', 
-      icon: <ListOrdered size={20} />, 
-      action: () => editor.chain().focus().toggleOrderedList().run(),
-      description: 'Sequential ordered list.'
-    },
-    { 
-      label: 'Todo List', 
-      icon: <ListTodo size={20} />, 
-      action: () => editor.chain().focus().toggleTaskList().run(),
-      description: 'Track tasks with checkboxes.'
-    },
-    { 
-      label: 'Code Block', 
-      icon: <Code size={20} />, 
-      action: () => editor.chain().focus().toggleCodeBlock().run(),
-      description: 'Syntax highlighted code.'
-    },
-    { 
-      label: 'Quote', 
-      icon: <Quote size={20} />, 
-      action: () => editor.chain().focus().toggleBlockquote().run(),
-      description: 'Capture a quotation.'
-    },
-    { 
-      label: 'Callout', 
-      icon: <MessageSquare size={20} />, 
-      action: () => (editor.chain().focus() as any).setCallout().run(),
-      description: 'Make text stand out.'
-    },
-    { 
-      label: 'Interactive Code Sandbox', 
-      icon: <Code size={20} className="text-[#00E5FF]" />, 
-      action: () => (editor.chain().focus() as any).setSandbox().run(),
-      description: 'Write raw HTML/JS/CSS and execute it inside an isolated iframe.'
-    },
-    { 
-      label: 'Divider', 
-      icon: <Minus size={20} />, 
-      action: () => editor.chain().focus().setHorizontalRule().run(),
-      description: 'Visually divide sections.'
-    },
-    { 
-      label: 'Table', 
-      icon: <Table size={20} />, 
-      action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-      description: 'Grid based information.'
-    },
-    { 
-      label: 'Create Sub Page', 
-      icon: <Plus size={20} />, 
-      action: () => (window as any).editorEvents?.emit('createSubPage'),
-      description: 'Create a new linked sub-page.'
-    },
-    { 
-      label: 'Attach Page', 
-      icon: <FilePlus size={20} />, 
-      action: () => (window as any).editorEvents?.emit('attachSubPage'),
-      description: 'Link an existing page as sub-page.'
-    },
-    { 
-      label: 'Table of Contents', 
-      icon: <AlignLeft size={20} />, 
-      action: () => (editor.chain().focus() as any).setToc().run(),
-      description: 'Dynamic heading-based summary list.'
-    },
-    { 
-      label: 'Synced Block', 
-      icon: <RefreshCw size={20} className="text-orange-400" />, 
-      action: () => (editor.chain().focus() as any).setSynced().run(),
-      description: 'Sync edits across document scopes in real-time.'
-    },
-    { 
-      label: 'Toggle Heading 1', 
-      icon: <Heading1 size={20} className="text-purple-400" />, 
-      action: () => (editor.chain().focus() as any).toggleToggleHeading({ level: 1 }).run(),
-      description: 'H1 section with collapsible child nodes.'
-    },
-    { 
-      label: 'Toggle Heading 2', 
-      icon: <Heading2 size={20} className="text-purple-400" />, 
-      action: () => (editor.chain().focus() as any).toggleToggleHeading({ level: 2 }).run(),
-      description: 'H2 section with collapsible child nodes.'
-    },
-    { 
-      label: 'Toggle Heading 3', 
-      icon: <Heading3 size={20} className="text-purple-400" />, 
-      action: () => (editor.chain().focus() as any).toggleToggleHeading({ level: 3 }).run(),
-      description: 'H3 section with collapsible child nodes.'
-    },
-    {
-      label: 'Interactive Database Views',
-      icon: <Database size={20} className="text-purple-500" />,
-      action: () => (editor.chain().focus() as any).insertDatabase().run(),
-      description: 'Fully responsive table, timeline, kanban, or calendar views.'
-    },
-    {
-      label: 'Embed Link integration',
-      icon: <ExternalLink size={20} className="text-blue-400" />,
-      action: () => (editor.chain().focus() as any).insertEmbed().run(),
-      description: 'Embed Figma, Google Drive documents, or raw web links.'
-    },
+  const blockConfigs = [
+    textBlock,
+    headingOneBlock,
+    headingTwoBlock,
+    headingThreeBlock,
+    bulletListBlock,
+    numberedListBlock,
+    todoListBlock,
+    codeBlockConfig,
+    quoteBlock,
+    calloutBlock,
+    sandboxBlockConfig,
+    dividerBlock,
+    tableBlockConfig,
+    createSubPageBlock,
+    attachPageBlock,
+    tocBlock,
+    syncedBlock,
+    toggleHeadingOneBlock,
+    toggleHeadingTwoBlock,
+    toggleHeadingThreeBlock,
+    databaseBlockConfig,
+    embedBlockConfig
   ];
 
   return (
@@ -214,29 +123,30 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
             <div className="mb-6">
               <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Basic Blocks</h3>
               <div className="grid grid-cols-1 gap-2">
-                {blocks.map((block, idx) => (
-                  <button
-                    key={idx}
-                    onMouseDown={(e) => {
-                      // Prevent focus loss/keyboard closing
-                      e.preventDefault();
-                    }}
-                    onPointerDown={(e) => {
-                      // Prevent focus loss/keyboard closing
-                      e.preventDefault();
-                    }}
-                    onClick={() => { block.action(); onClose(); }}
-                    className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
-                  >
-                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-white/40 group-hover:text-blue-400 group-hover:bg-blue-400/10 transition-colors">
-                      {block.icon}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-bold text-[15px] text-white/80">{block.label}</div>
-                      <div className="text-[11px] text-white/30 font-medium">{block.description}</div>
-                    </div>
-                  </button>
-                ))}
+                {blockConfigs.map((block, idx) => {
+                  const Icon = block.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={() => { block.action(editor); onClose(); }}
+                      className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
+                    >
+                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-white/40 group-hover:text-blue-400 group-hover:bg-blue-400/10 transition-colors">
+                        <Icon size={20} className={block.iconClass} />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-bold text-[15px] text-white/80">{block.label}</div>
+                        <div className="text-[11px] text-white/30 font-medium">{block.description}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -245,11 +155,9 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
                <div className="grid grid-cols-1 gap-2">
                  <button
                     onMouseDown={(e) => {
-                      // Prevent focus loss/keyboard closing
                       e.preventDefault();
                     }}
                     onPointerDown={(e) => {
-                      // Prevent focus loss/keyboard closing
                       e.preventDefault();
                     }}
                     onClick={() => fileInputRef.current?.click()}
@@ -276,11 +184,9 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
 
             <button 
               onMouseDown={(e) => {
-                // Prevent focus loss/keyboard closing
                 e.preventDefault();
               }}
               onPointerDown={(e) => {
-                // Prevent focus loss/keyboard closing
                 e.preventDefault();
               }}
               onClick={onClose}

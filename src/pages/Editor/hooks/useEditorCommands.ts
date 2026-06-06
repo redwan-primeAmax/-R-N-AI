@@ -5,6 +5,34 @@
 
 import { useMemo } from 'react';
 import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
+import { focusEditor } from '../commands/editorChainFocus';
+import {
+  setParagraph,
+  toggleHeading,
+  toggleBulletList,
+  toggleOrderedList,
+  toggleTaskList,
+  toggleBlockquote,
+  toggleCodeBlock
+} from '../commands/editorBlockOperations';
+import {
+  setHorizontalRule,
+  setCallout,
+  setSandbox,
+  insertTable,
+  setMedia,
+  runAudioGenerator,
+  runWebBookmark,
+  toggleToggleList,
+  insertColumns,
+  insertTableView,
+  setToc,
+  setSynced,
+  toggleToggleHeading,
+  insertDatabase,
+  insertEmbed
+} from '../commands/editorSpecialBlocks';
+import { runUndo, runRedo } from '../commands/editorHistory';
 
 interface EditorCommandsProps {
   blocks: EditorBlock[];
@@ -89,31 +117,7 @@ export function useEditorCommands({
     chain: () => {
       const focusChain = {
         focus: () => {
-          // Delay focus slightly so React rendering finishes
-          setTimeout(() => {
-            let idToFocus = activeBlockId;
-            if (!idToFocus) {
-              const activeEls = document.querySelectorAll('[contenteditable="true"]');
-              if (activeEls.length > 0) {
-                idToFocus = activeEls[activeEls.length - 1].getAttribute('id');
-              }
-            }
-            if (idToFocus) {
-              const el = document.getElementById(idToFocus);
-              if (el) {
-                el.focus();
-                // Move cursor to end
-                try {
-                  const range = document.createRange();
-                  range.selectNodeContents(el);
-                  range.collapse(false);
-                  const sel = window.getSelection();
-                  sel?.removeAllRanges();
-                  sel?.addRange(range);
-                } catch (err) {}
-              }
-            }
-          }, 50);
+          focusEditor(activeBlockId);
           return focusChain;
         },
         toggleBold: () => {
@@ -222,428 +226,109 @@ export function useEditorCommands({
           return focusChain;
         },
         toggleHeading: (attrs: { level: number }) => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            const targetType = `h${attrs.level}` as any;
-            if (isSpecialized) {
-              const newBlock = { id: crypto.randomUUID(), type: targetType, content: '' };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === targetType ? 'paragraph' : targetType } : b);
-          });
+          setBlocks(prev => toggleHeading(prev, attrs.level, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         setHeading: (attrs: { level: number }) => focusChain.toggleHeading(attrs),
         toggleBulletList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized) {
-              const newBlock = { id: crypto.randomUUID(), type: 'bullet' as any, content: '' };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'bullet' ? 'paragraph' : 'bullet' } : b);
-          });
+          setBlocks(prev => toggleBulletList(prev, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         toggleOrderedList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized) {
-              const newBlock = { id: crypto.randomUUID(), type: 'ordered' as any, content: '' };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'ordered' ? 'paragraph' : 'ordered' } : b);
-          });
+          setBlocks(prev => toggleOrderedList(prev, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         toggleTaskList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized) {
-              const newBlock = { id: crypto.randomUUID(), type: 'todo' as any, content: '', checked: false };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'todo' ? 'paragraph' : 'todo', checked: false } : b);
-          });
+          setBlocks(prev => toggleTaskList(prev, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         toggleBlockquote: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized) {
-              const newBlock = { id: crypto.randomUUID(), type: 'quote' as any, content: '' };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'quote' ? 'paragraph' : 'quote' } : b);
-          });
+          setBlocks(prev => toggleBlockquote(prev, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         toggleCodeBlock: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized) {
-              const newBlock = { id: crypto.randomUUID(), type: 'code' as any, content: '', language: 'javascript' };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'code' ? 'paragraph' : 'code', language: 'javascript' } : b);
-          });
+          setBlocks(prev => toggleCodeBlock(prev, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         setParagraph: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            return prev.map(b => b.id === activeId ? { ...b, type: 'paragraph' } : b);
-          });
+          setBlocks(prev => setParagraph(prev, activeBlockId));
           return focusChain;
         },
         setHorizontalRule: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            const newBlock: EditorBlock = { id: crypto.randomUUID(), type: 'hr' as const, content: '' };
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-             }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => setHorizontalRule(prev, activeBlockId));
           return focusChain;
         },
         setCallout: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            if (isSpecialized || !activeId || !activeBlock) {
-              const newBlock = { id: crypto.randomUUID(), type: 'callout' as any, content: '', emoji: '💡' };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { ...b, type: 'callout' } : b);
-          });
+          setBlocks(prev => setCallout(prev, activeBlockId));
           return focusChain;
         },
         setSandbox: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const activeBlock = prev.find(b => b.id === activeId);
-            const isSpecialized = activeBlock && !['paragraph', 'h1', 'h2', 'h3', 'quote', 'bullet', 'ordered', 'todo'].includes(activeBlock.type);
-            const templateHtml = '<h3>Title</h3>\n<p>Write your HTML/CSS/JS code block here...</p>';
-            if (isSpecialized || !activeId || !activeBlock) {
-              const newBlock = { id: crypto.randomUUID(), type: 'sandbox' as any, content: templateHtml };
-              const idx = prev.findIndex(b => b.id === activeId);
-              if (idx > -1) {
-                const res = [...prev];
-                res.splice(idx + 1, 0, newBlock);
-                return res;
-              }
-              return [...prev, newBlock];
-            }
-            return prev.map(b => b.id === activeId ? { 
-              ...b, 
-              type: 'sandbox', 
-              content: templateHtml 
-            } : b);
-          });
+          setBlocks(prev => setSandbox(prev, activeBlockId));
           return focusChain;
         },
         insertTable: (attrs: any) => {
-          setBlocks((prev) => {
-            const newTable: EditorBlock = {
-              id: crypto.randomUUID(),
-              type: 'table' as const,
-              content: '',
-              tableData: Array(attrs?.rows || 3).fill(null).map(() => Array(attrs?.cols || 3).fill(''))
-            };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newTable);
-              return res;
-            }
-            return [...prev, newTable];
-          });
+          setBlocks(prev => insertTable(prev, attrs, activeBlockId));
           return focusChain;
         },
         setMedia: (attrs: any) => {
-          setBlocks((prev) => {
-            const mediaBlock = {
-              id: crypto.randomUUID(),
-              type: 'media' as any,
-              content: '',
-              mediaData: {
-                id: attrs.id || crypto.randomUUID(),
-                type: attrs.type || 'image',
-                fileName: attrs.fileName || '',
-                fileSize: attrs.fileSize || '',
-                status: attrs.status || 'uploading',
-                url: attrs.url || ''
-              }
-            };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, mediaBlock);
-              return res;
-            }
-            return [...prev, mediaBlock];
-          });
+          setBlocks(prev => setMedia(prev, attrs, activeBlockId));
           return focusChain;
         },
         undo: () => {
-          if (historyRef && setHistoryPointer && historyPointer !== undefined && historyPointer > 0) {
-            const currentHistory = historyRef.current;
-            const previousBlocks = currentHistory[historyPointer - 1];
-            setBlocks(previousBlocks);
-            setHistoryPointer(historyPointer - 1);
-          } else {
-            document.execCommand('undo', false);
-          }
+          runUndo(historyRef, historyPointer, setHistoryPointer, setBlocks);
           return focusChain;
         },
         redo: () => {
-          if (historyRef && setHistoryPointer && historyPointer !== undefined && historyPointer < historyRef.current.length - 1) {
-            const currentHistory = historyRef.current;
-            const nextBlocks = currentHistory[historyPointer + 1];
-            setBlocks(nextBlocks);
-            setHistoryPointer(historyPointer + 1);
-          } else {
-            document.execCommand('redo', false);
-          }
+          runRedo(historyRef, historyPointer, setHistoryPointer, setBlocks);
           return focusChain;
         },
         run: () => {},
         runAudioGenerator: () => {
-          setBlocks((prev) => {
-            const newBlock = { 
-              id: crypto.randomUUID(), 
-              type: 'audio_generator' as any, 
-              content: '',
-              meta: { text: '', status: 'idle' }
-            };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => runAudioGenerator(prev, activeBlockId));
           return focusChain;
         },
         runWebBookmark: () => {
-          setBlocks((prev) => {
-            const newBlock = { 
-              id: crypto.randomUUID(), 
-              type: 'bookmark' as any, 
-              content: '',
-              meta: { url: '', status: 'empty' }
-            };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => runWebBookmark(prev, activeBlockId));
           return focusChain;
         },
         toggleToggleList: () => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === 'toggle' ? 'paragraph' : 'toggle', isExpanded: true } : b);
-          });
+          setBlocks(prev => toggleToggleList(prev, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         insertColumns: () => {
-          setBlocks((prev) => {
-            const newBlock = { id: crypto.randomUUID(), type: 'column' as any, content: '' };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => insertColumns(prev, activeBlockId));
           return focusChain;
         },
         insertTableView: () => {
-          setBlocks((prev) => {
-            const newBlock = { id: crypto.randomUUID(), type: 'table_view' as any, content: '' };
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => insertTableView(prev, activeBlockId));
           return focusChain;
         },
         setToc: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            const newBlock = { id: crypto.randomUUID(), type: 'toc' as any, content: '' };
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => setToc(prev, activeBlockId));
           return focusChain;
         },
         setSynced: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            const newBlock = { id: crypto.randomUUID(), type: 'synced' as any, content: '', syncedBlockId: crypto.randomUUID() };
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => setSynced(prev, activeBlockId));
           return focusChain;
         },
         toggleToggleHeading: (attrs: { level: number }) => {
-          setBlocks((prev) => {
-            if (prev.length === 0) return prev;
-            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
-            const targetType = `toggle_h${attrs.level}` as any;
-            return prev.map(b => b.id === activeId ? { ...b, type: b.type === targetType ? 'paragraph' : targetType, isExpanded: true } : b);
-          });
+          setBlocks(prev => toggleToggleHeading(prev, attrs.level, activeBlockId));
           setForceRefreshState({});
           return focusChain;
         },
         insertDatabase: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            const newBlock = { 
-              id: crypto.randomUUID(), 
-              type: 'database' as any, 
-              content: '',
-              databaseData: {
-                layout: 'table',
-                columns: [
-                  { id: 'title', name: 'Name', type: 'text' },
-                  { id: 'status', name: 'Status', type: 'select', options: ['To Do', 'In Progress', 'Done'] },
-                  { id: 'priority', name: 'Priority', type: 'select', options: ['Low', 'Medium', 'High'] },
-                  { id: 'date', name: 'Date', type: 'date' }
-                ],
-                rows: [
-                  { id: 'row-1', title: '🚀 Launch beta version', status: 'In Progress', priority: 'High', date: '2026-06-06' },
-                  { id: 'row-2', title: '🎨 Refactor block editor styles', status: 'To Do', priority: 'Medium', date: '2026-06-08' },
-                  { id: 'row-3', title: '📦 Package core database layouts', status: 'Done', priority: 'High', date: '2026-06-06' }
-                ]
-              }
-            };
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => insertDatabase(prev, activeBlockId));
           return focusChain;
         },
         insertEmbed: () => {
-          setBlocks((prev) => {
-            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
-            const idx = prev.findIndex(b => b.id === activeId);
-            const newBlock = { 
-              id: crypto.randomUUID(), 
-              type: 'embed' as any, 
-              content: '',
-              embedData: { provider: 'custom', url: '' }
-            };
-            if (idx > -1) {
-              const res = [...prev];
-              res.splice(idx + 1, 0, newBlock);
-              return res;
-            }
-            return [...prev, newBlock];
-          });
+          setBlocks(prev => insertEmbed(prev, activeBlockId));
           return focusChain;
         }
       };
@@ -657,7 +342,7 @@ export function useEditorCommands({
     triggerEvent: (event: string, detail?: any) => {
       window.dispatchEvent(new CustomEvent(`editor-event-${event}`, { detail }));
     }
-  }), [blocks, activeBlockId, isReadOnly, searchResults, searchIndex, setBlocks, setSearchTerm, setSearchIndex, setForceRefreshState]);
+  }), [blocks, activeBlockId, isReadOnly, searchResults, searchIndex, setBlocks, setSearchTerm, setSearchIndex, setForceRefreshState, historyRef, historyPointer, setHistoryPointer]);
 
   return editor;
 }
