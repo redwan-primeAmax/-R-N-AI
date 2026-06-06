@@ -42,7 +42,6 @@ export default function Sidebar({
   onJoinCollabClick
 }: SidebarProps) {
   const navigate = useNavigate();
-  const [showExtensionStore, setShowExtensionStore] = useState(false);
   const { id: activeNoteId } = useParams();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [sidebarView, setSidebarView] = useState<'main' | 'tags' | 'subpages'>('main');
@@ -287,13 +286,9 @@ export default function Sidebar({
                 ].map((item, idx) => (
                   <button 
                     key={idx}
-                    onClick={async () => { 
-                      if (item.action === 'join-collab') {
-                        onClose();
-                        onJoinCollabClick();
-                      } else if (item.action === 'add-extension') {
-                        onClose();
-                        setShowExtensionStore(true);
+                    onClick={() => { 
+                      if (item.action === 'add-extension') {
+                        handleNavigation('/extensions');
                       } else if (item.path) { 
                         handleNavigation(item.path); 
                       }
@@ -377,11 +372,6 @@ export default function Sidebar({
         searchQuery={moveSearch}
         onSearchChange={setMoveToSearch}
         currentNote={showMoveTo}
-      />
-
-      <ExtensionStoreModal 
-        isOpen={showExtensionStore}
-        onClose={() => setShowExtensionStore(false)}
       />
     </>
   );

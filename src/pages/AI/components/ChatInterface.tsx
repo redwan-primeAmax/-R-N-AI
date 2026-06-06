@@ -162,7 +162,7 @@ export const AIInterface: React.FC<InterfaceProps> = ({
   return (
     <>
       {/* Header */}
-      <header className="px-6 pt-safe-area-inset-top pb-4 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-30 border-b border-white/5">
+      <header className="px-6 pt-safe-area-inset-top pb-4 flex justify-between items-center bg-[#0d0d0d] sticky top-0 z-[100] border-b border-white/5">
         <div className="flex items-center gap-4">
           <button 
             type="button"

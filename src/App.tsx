@@ -64,6 +64,7 @@ const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArc
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
+const ExtensionsPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionsPage'));
 
 function LoadingFallback() {
   return (
@@ -97,7 +98,7 @@ function AppContent() {
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
-    const isExtensionsPage = false;
+    const isExtensionsPage = location.pathname === '/extensions';
     const isAIPage = location.pathname.startsWith('/ai') || 
                    location.pathname.startsWith('/manual-control') || 
                    location.pathname === '/ai-auto' ||
@@ -108,8 +109,9 @@ function AppContent() {
                        location.pathname === '/offline' || 
                        location.pathname === '/backup' ||
                        location.pathname === '/data-management' ||
-                       location.pathname === '/templates';
-    const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage;
+                       location.pathname === '/templates' ||
+                       location.pathname === '/extensions';
+    const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage || isExtensionsPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -207,9 +209,19 @@ function AppContent() {
       // Auto-hide after 5 seconds
       timer = setTimeout(() => setNotification(null), 5000);
     };
+    const handleAppNotification = (e: any) => {
+      setNotification({
+        message: e.detail.message,
+        severity: e.detail.type === 'success' ? 'warning' : 'warning' // Map types to existing UI
+      });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setNotification(null), 4000);
+    };
     window.addEventListener('storage-warning', handleStorageWarning);
+    window.addEventListener('app-notification', handleAppNotification);
     return () => {
       window.removeEventListener('storage-warning', handleStorageWarning);
+      window.removeEventListener('app-notification', handleAppNotification);
       if (timer) clearTimeout(timer);
     };
   }, []);
@@ -314,6 +326,7 @@ function AppContent() {
     { path: "/ai/external-import", element: <Navigate to="/external-ai-import" replace /> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
+    { path: "/extensions", element: <PageWrapper><ExtensionsPage /></PageWrapper> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 

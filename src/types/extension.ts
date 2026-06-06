@@ -56,6 +56,7 @@ export interface AppExtension {
   type: ExtensionType;
   description?: string;
   author?: string;
+  icon?: any;
   
   // Lifecycle
   init: (api: AppAPI) => void;

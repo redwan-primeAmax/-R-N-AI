@@ -103,20 +103,12 @@ const AIConfigurationPage: React.FC = () => {
       setShowExitWarning(true);
       return;
     }
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/main');
-    }
+    navigate('/main');
   };
 
   const handleConfirmExit = () => {
     setShowExitWarning(false);
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/main');
-    }
+    navigate('/main');
   };
 
   const handleCancelEdit = () => {

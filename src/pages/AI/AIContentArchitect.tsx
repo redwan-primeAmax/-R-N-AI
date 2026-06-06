@@ -293,13 +293,7 @@ TASK: Update the existing content or create new sub-pages based on the requireme
       <header className="sticky top-0 z-40 bg-[#0A0A0A]/80 backdrop-blur-2xl border-b border-white/5 px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate('/main');
-              }
-            }} 
+            onClick={() => navigate('/main')} 
             className="p-3 -m-1 text-white/40 hover:text-white transition-all rounded-full hover:bg-white/5"
           >
             <ChevronLeft size={28} />

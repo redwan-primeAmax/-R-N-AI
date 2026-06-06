@@ -42,6 +42,7 @@ class ExtensionManager {
           }
         }
       }
+      this.emitChange();
     } catch (e) {
       console.error('Failed to load extensions from storage:', e);
     }
@@ -84,7 +85,7 @@ class ExtensionManager {
               ...item,
               id: item.id.startsWith(extensionId) ? item.id : `${extensionId}_${item.id}`
             });
-            this.notify();
+            this.emitChange();
           }
         },
         notify: (message, type = 'info') => {
@@ -94,7 +95,7 @@ class ExtensionManager {
 
       registerBlock: (type, component) => {
         this.blockRegistry.set(type, component);
-        this.notify();
+        this.emitChange();
       },
 
       addFilter: (hook, callback) => {
@@ -178,7 +179,7 @@ class ExtensionManager {
     this.themeVariables.forEach((value, name) => {
       root.style.setProperty(name, value);
     });
-    this.notify();
+    this.emitChange();
   }
 
   private removeStyle(id: string) {
@@ -222,7 +223,7 @@ class ExtensionManager {
         try {
           extension.init(this.createAPI(extension.id));
           console.log(`Extension Loaded: ${extension.name} v${extension.version} (Persistent: ${!!extension._isPersistent})`);
-          this.notify();
+          this.emitChange();
         } catch (initError) {
           console.error(`Init Error [${extension.id}]:`, initError);
         }
@@ -258,21 +259,26 @@ class ExtensionManager {
         }
       });
       
-      // 3. Remove from persistent database (localforage)
+      // 3. Clear from memory before persisting to avoid saving it back
+      this.extensions.delete(id);
+      
+      // 4. Remove from persistent database (localforage)
       await this.persistExtensions();
 
-      // 4. Cleanup UI slots
-      this.sidebarItems = this.sidebarItems.filter(item => !item.id.startsWith(id));
+      // 5. Cleanup UI slots
+      this.sidebarItems = this.sidebarItems.filter(item => !item.id.toLowerCase().includes(id.toLowerCase()));
       
       // Cleanup toolbar buttons if present
       if ((window as any).__toolbarButtons) {
-        (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => b.extensionId !== id);
+        (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => 
+          b.extensionId !== id && !b.id?.toLowerCase().includes(id.toLowerCase())
+        );
       }
 
-      // 5. Notify all components to re-render
-      this.notify();
+      // 6. Notify all components to re-render
+      this.emitChange();
 
-      // 6. Dispatch system-wide reload event for non-react listeners
+      // 7. Dispatch system-wide reload event for non-react listeners
       window.dispatchEvent(new CustomEvent('extension-system-reload', { detail: { uninstalled: id } }));
       
       console.log(`Extension Purged Successfully: ${id}`);
@@ -352,7 +358,7 @@ class ExtensionManager {
   }
 
   reloadApp() {
-    this.notify();
+    this.emitChange();
   }
 
   getLibraryUI() { return this.libraryUI; }
@@ -418,7 +424,7 @@ class ExtensionManager {
         }
       }
 
-      this.notify();
+      this.emitChange();
       return { 
         hasUI: !!this.libraryUI, 
         extensionCount: this.libraryFiles.size 
@@ -461,7 +467,7 @@ class ExtensionManager {
     return () => this.listeners.delete(listener);
   }
 
-  private notify() {
+  private emitChange() {
     this.listeners.forEach(l => l());
   }
 }

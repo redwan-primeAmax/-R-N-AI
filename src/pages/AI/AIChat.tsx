@@ -343,11 +343,7 @@ const AIChat: React.FC = () => {
         exportChat={onExportChat}
         exportAuditLogs={onExportAuditLogs}
         navigateBack={() => {
-          if (window.history.length > 1) {
-            navigate(-1);
-          } else {
-            navigate('/');
-          }
+          navigate('/main');
         }}
         navigateToEditor={(id) => navigate(`/editor/${id}`)}
         navigateToSettings={() => navigate('/ai/settings')}
