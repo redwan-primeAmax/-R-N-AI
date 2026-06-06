@@ -80,6 +80,7 @@ export default function EditorPage() {
   const [showLinkPanel, setShowLinkPanel] = useState(false);
   const [isTitleFocused, setIsTitleFocused] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPageEmojiPicker, setShowPageEmojiPicker] = useState(false);
 
   useEffect(() => {
     const handleShowSubPageLinkList = () => setShowLinkPanel(true);
@@ -593,6 +594,18 @@ export default function EditorPage() {
     saveNote(editor.getHTML());
   };
 
+  const updateDescription = (newDesc: string) => {
+    setDescription(newDesc);
+    descriptionRef.current = newDesc;
+    saveNote(editor.getHTML());
+  };
+
+  const updateEmoji = (newEmoji: string) => {
+    setEmoji(newEmoji);
+    emojiRef.current = newEmoji;
+    saveNote(editor.getHTML());
+  };
+
   const handleDelete = async () => {
     isDeletingRef.current = true;
     const currentNote = noteRef.current || note!;
@@ -717,7 +730,34 @@ export default function EditorPage() {
           }}
         >
           {/* Requirement 3: Title at the absolute top */}
-          <div className="flex flex-col mb-10 items-start">
+          <div className="flex flex-col mb-10 items-start w-full gap-4">
+            {/* Page Emoji Picker */}
+            <div className="relative group/emoji">
+              <button
+                onClick={() => setShowPageEmojiPicker(!showPageEmojiPicker)}
+                className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none"
+                title="Change Emoji"
+              >
+                {emoji || '📄'}
+              </button>
+              {showPageEmojiPicker && (
+                <div className="absolute top-16 left-0 z-50 p-3 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl flex gap-1.5 flex-wrap w-64 backdrop-blur-lg">
+                  {['📄', '📝', '📓', '💡', '📌', '🚀', '🎯', '⭐', '🎨', '🔥', '⚙️', '📂', '📅', '🧠', '💼'].map((em) => (
+                    <button
+                      key={em}
+                      onClick={() => {
+                        updateEmoji(em);
+                        setShowPageEmojiPicker(false);
+                      }}
+                      className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl text-xl transition-all active:scale-90"
+                    >
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <textarea
               autoFocus
               value={title}
@@ -729,6 +769,18 @@ export default function EditorPage() {
               className={cn(
                 "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors",
                 isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
+              )}
+            />
+
+            {/* Page Description */}
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => updateDescription(e.target.value)}
+              placeholder="পৃষ্ঠার বিবরণী লিখুন (Write page description...)"
+              className={cn(
+                "w-full bg-transparent text-sm font-medium focus:outline-none border-none outline-none ring-0 focus:ring-0 shadow-none -mt-2 placeholder:opacity-30",
+                isLight ? "text-gray-500 placeholder:text-gray-400" : "text-white/60 placeholder:text-white/40"
               )}
             />
           </div>

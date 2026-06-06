@@ -96,7 +96,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
         )}
       >
         <div className={cn("w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center transition-colors", danger ? "bg-red-500/10 group-hover:bg-red-500/20" : "group-hover:bg-white/10")}>
-          {typeof Icon === 'function' ? <Icon size={20} /> : Icon}
+          {Icon && <Icon size={20} />}
         </div>
         <div className="flex flex-col items-start text-left">
           <span className="font-bold text-[14px]">{resolvedLabel}</span>
@@ -314,7 +314,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                     )}
 
                     <MenuAction 
-                      icon={() => readOnlyToggleAction.icon(isReadOnly)} 
+                      icon={readOnlyToggleAction.icon(isReadOnly)} 
                       label={() => readOnlyToggleAction.label(isReadOnly)} 
                       subtitle={() => readOnlyToggleAction.subtitle(isReadOnly)}
                       onClick={() => readOnlyToggleAction.onClick(onToggleReadOnly)} 
