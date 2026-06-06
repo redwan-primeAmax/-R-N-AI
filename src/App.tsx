@@ -63,7 +63,6 @@ const NetworkShield = lazyWithRetry(() => import('./pages/Settings/NetworkShield
 const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArchive'));
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
-const ExtensionsPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionsPage'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 
 function LoadingFallback() {
@@ -98,7 +97,7 @@ function AppContent() {
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
-    const isExtensionsPage = location.pathname.startsWith('/extensions');
+    const isExtensionsPage = false;
     const isAIPage = location.pathname.startsWith('/ai') || 
                    location.pathname.startsWith('/manual-control') || 
                    location.pathname === '/ai-auto' ||
@@ -110,7 +109,7 @@ function AppContent() {
                        location.pathname === '/backup' ||
                        location.pathname === '/data-management' ||
                        location.pathname === '/templates';
-    const isFullPage = isEditorPage || isSearchPage || isExtensionsPage || isAIPage || isWorkspacePage || isSpecialPage;
+    const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -315,7 +314,6 @@ function AppContent() {
     { path: "/ai/external-import", element: <Navigate to="/external-ai-import" replace /> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
-    { path: "/extensions", element: <PageWrapper><ExtensionsPage /></PageWrapper> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 

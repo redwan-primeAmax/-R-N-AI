@@ -19,6 +19,8 @@ import { TableBlock } from './blocks/TableBlock';
 import { EditableBlock } from './blocks/EditableBlock';
 import { AudioGeneratorBlock } from './blocks/AudioGeneratorBlock';
 import { BookmarkBlock } from './blocks/BookmarkBlock';
+import { DatabaseBlock } from './blocks/DatabaseBlock';
+import { EmbedBlock } from './blocks/EmbedBlock';
 
 export { htmlToBlocks, blocksToHtml };
 
@@ -280,6 +282,96 @@ const MemoizedBlockRow = React.memo(({
         <SandboxBlock block={block} handleBlockChange={handleBlockChange} isReadOnly={isReadOnly} />
       ) : block.type === 'audio_generator' ? (
         <AudioGeneratorBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
+      ) : block.type === 'toc' ? (
+        <div className="flex-1 min-w-0 bg-white/[0.01] border border-white/5 rounded-2xl p-4 my-2 text-left select-none">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-3 border-b border-white/5 pb-2">Table of Contents</div>
+          <div className="space-y-1">
+            {blocks.filter((b: any) => ['h1', 'h2', 'h3', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(b.type) && b.content?.trim()).map((hb: any) => {
+              const baseLevel = hb.type.replace('toggle_h', 'h').replace('h', '');
+              const level = parseInt(baseLevel, 10) || 1;
+              const cleanText = hb.content.replace(/<[^>]*>/g, '').trim();
+              return (
+                <button
+                  key={hb.id}
+                  onClick={() => {
+                    const el = document.getElementById(hb.id);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  className={cn(
+                    "block w-full text-left font-semibold hover:text-blue-400 py-1 transition-colors",
+                    level === 1 ? "text-sm text-white/80 font-black pl-0" : "",
+                    level === 2 ? "text-[13px] text-white/60 font-bold pl-4" : "",
+                    level === 3 ? "text-xs text-white/40 font-medium pl-8" : ""
+                  )}
+                >
+                  <span className="text-white/20 mr-1.5 font-mono">#</span>
+                  {cleanText || 'Untitled heading'}
+                </button>
+              );
+            })}
+            {blocks.filter((b: any) => ['h1', 'h2', 'h3', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(b.type) && b.content?.trim()).length === 0 && (
+              <p className="text-[10px] font-bold text-white/20 py-2 italic font-mono uppercase tracking-wider">Add headings to populate table of contents</p>
+            )}
+          </div>
+        </div>
+      ) : block.type === 'synced' ? (
+        <div className="flex-1 flex flex-col p-4 bg-orange-500/[0.01] hover:bg-orange-500/[0.02] border border-orange-550/20 hover:border-orange-550/40 rounded-2xl text-left relative group/sync">
+          <div className="absolute right-3 top-3 bg-orange-600/10 text-orange-400 border border-orange-550/20 rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider opacity-30 group-hover/sync:opacity-100 transition-opacity select-none flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
+            Synced Block
+          </div>
+          <EditableBlock
+            block={block}
+            idx={idx}
+            isReadOnly={isReadOnly}
+            blockRefs={blockRefs}
+            handleKeyDown={handleKeyDown}
+            setFocusedId={setFocusedId}
+            editor={editor}
+            handleBlockChange={handleBlockChange}
+          />
+        </div>
+      ) : ['toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) ? (
+        <div className="flex-1 flex flex-col bg-transparent text-left">
+          <div className="flex items-center gap-2 group/toggle">
+            <button
+              onClick={() => {
+                setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: !b.isExpanded } : b));
+              }}
+              className={cn(
+                "mt-0.5 flex-shrink-0 text-gray-400 hover:text-white transition-all transform",
+                block.isExpanded ? "rotate-90" : "rotate-0"
+              )}
+            >
+              <ChevronRight size={18} />
+            </button>
+            <div className={cn(
+              "flex-1",
+              block.type === 'toggle_h1' ? "text-xl font-black text-white" : "",
+              block.type === 'toggle_h2' ? "text-lg font-bold text-white/90" : "",
+              block.type === 'toggle_h3' ? "text-base font-bold text-white/80" : ""
+            )}>
+              <EditableBlock
+                block={block}
+                idx={idx}
+                isReadOnly={isReadOnly}
+                blockRefs={blockRefs}
+                handleKeyDown={handleKeyDown}
+                setFocusedId={setFocusedId}
+                editor={editor}
+                handleBlockChange={handleBlockChange}
+              />
+            </div>
+          </div>
+        </div>
+      ) : block.type === 'database' ? (
+        <div className="flex-1 min-w-0">
+          <DatabaseBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
+        </div>
+      ) : block.type === 'embed' ? (
+        <div className="flex-1 min-w-0">
+          <EmbedBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
+        </div>
       ) : block.type === 'bookmark' ? (
         <BookmarkBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
       ) : block.type === 'callout' ? (
@@ -358,6 +450,10 @@ export default function CustomBlockEditor({ editor, className }: CustomBlockEdit
     setBlocks((prev: EditorBlock[]) => {
       const blockToChange = prev.find((b: EditorBlock) => b.id === id);
       const cleaned = cleanBlockHTML(newContent, blockToChange?.type || 'paragraph');
+      if (blockToChange && blockToChange.type === 'synced' && blockToChange.syncedBlockId) {
+        const sid = blockToChange.syncedBlockId;
+        return prev.map((b: EditorBlock) => (b.id === id || (b.type === 'synced' && b.syncedBlockId === sid)) ? { ...b, content: cleaned } : b);
+      }
       return prev.map((b: EditorBlock) => b.id === id ? { ...b, content: cleaned } : b);
     });
   };
@@ -533,8 +629,8 @@ export default function CustomBlockEditor({ editor, className }: CustomBlockEdit
           }
         }
 
-        // Check if this block is a collapsed toggle
-        if (block.type === 'toggle' && !block.isExpanded) {
+        // Check if this block is a collapsed toggle or toggle heading
+        if (['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) && !block.isExpanded) {
           currentHiddenIndent = block.indent || 0;
         }
 

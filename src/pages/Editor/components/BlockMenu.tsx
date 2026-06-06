@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, 
   Code, Quote, ImageIcon, Minus, Table, 
-  Type, MessageSquare, Mic, Hash, Plus, FilePlus
+  Type, MessageSquare, Mic, Hash, Plus, FilePlus, Database, RefreshCw, ExternalLink, AlignLeft
 } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { uploadAndInsertMedia } from '../services/mediaUploader';
@@ -147,6 +147,48 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
       icon: <FilePlus size={20} />, 
       action: () => (window as any).editorEvents?.emit('attachSubPage'),
       description: 'Link an existing page as sub-page.'
+    },
+    { 
+      label: 'Table of Contents', 
+      icon: <AlignLeft size={20} />, 
+      action: () => (editor.chain().focus() as any).setToc().run(),
+      description: 'Dynamic heading-based summary list.'
+    },
+    { 
+      label: 'Synced Block', 
+      icon: <RefreshCw size={20} className="text-orange-400" />, 
+      action: () => (editor.chain().focus() as any).setSynced().run(),
+      description: 'Sync edits across document scopes in real-time.'
+    },
+    { 
+      label: 'Toggle Heading 1', 
+      icon: <Heading1 size={20} className="text-purple-400" />, 
+      action: () => (editor.chain().focus() as any).toggleToggleHeading({ level: 1 }).run(),
+      description: 'H1 section with collapsible child nodes.'
+    },
+    { 
+      label: 'Toggle Heading 2', 
+      icon: <Heading2 size={20} className="text-purple-400" />, 
+      action: () => (editor.chain().focus() as any).toggleToggleHeading({ level: 2 }).run(),
+      description: 'H2 section with collapsible child nodes.'
+    },
+    { 
+      label: 'Toggle Heading 3', 
+      icon: <Heading3 size={20} className="text-purple-400" />, 
+      action: () => (editor.chain().focus() as any).toggleToggleHeading({ level: 3 }).run(),
+      description: 'H3 section with collapsible child nodes.'
+    },
+    {
+      label: 'Interactive Database Views',
+      icon: <Database size={20} className="text-purple-500" />,
+      action: () => (editor.chain().focus() as any).insertDatabase().run(),
+      description: 'Fully responsive table, timeline, kanban, or calendar views.'
+    },
+    {
+      label: 'Embed Link integration',
+      icon: <ExternalLink size={20} className="text-blue-400" />,
+      action: () => (editor.chain().focus() as any).insertEmbed().run(),
+      description: 'Embed Figma, Google Drive documents, or raw web links.'
     },
   ];
 

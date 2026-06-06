@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   List, ListOrdered, ListTodo, 
   Code, Quote, Table, 
-  Plus, FilePlus, Mic, Bookmark, Layout, Info
+  Plus, FilePlus, Mic, Bookmark, Layout, Info, AlignLeft, RefreshCw, Heading1, Heading2, Heading3, Database, ExternalLink
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { ListIcon, TodoIcon, PageIcon, TableIcon, MicIcon, BookmarkIcon, ToggleIcon } from '../svg/EditorIcons';
@@ -173,6 +173,47 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
           icon: <FilePlus size={20} />, 
           action: () => (window as any).editorEvents?.emit('attachSubPage')
         },
+      ]
+    },
+    {
+      title: 'Advanced Layouts (অ্যাডভান্সড)',
+      items: [
+        {
+          label: 'Table of Contents',
+          detail: 'Dynamic index of all headers',
+          icon: <AlignLeft size={20} />,
+          action: () => (editor.chain().focus() as any).setToc?.()
+        },
+        {
+          label: 'Synced Block',
+          detail: 'Sync edits across multiple nodes',
+          icon: <RefreshCw size={20} className="text-orange-400" />,
+          action: () => (editor.chain().focus() as any).setSynced?.()
+        },
+        {
+          label: 'Database Views',
+          detail: 'Table, Kanban, Timeline, Calendar',
+          icon: <Database size={20} className="text-purple-400" />,
+          action: () => (editor.chain().focus() as any).insertDatabase?.()
+        },
+        {
+          label: 'IFrame Embed',
+          detail: 'Embed Figma, Slides, or raw Web links',
+          icon: <ExternalLink size={20} className="text-blue-400" />,
+          action: () => (editor.chain().focus() as any).insertEmbed?.()
+        },
+        {
+          label: 'Toggle H1',
+          detail: 'Header 1 with collapsible details',
+          icon: <Heading1 size={20} className="text-purple-450" />,
+          action: () => (editor.chain().focus() as any).toggleToggleHeading?.({ level: 1 })
+        },
+        {
+          label: 'Toggle H2',
+          detail: 'Header 2 with collapsible details',
+          icon: <Heading2 size={20} className="text-purple-450" />,
+          action: () => (editor.chain().focus() as any).toggleToggleHeading?.({ level: 2 })
+        }
       ]
     }
   ];

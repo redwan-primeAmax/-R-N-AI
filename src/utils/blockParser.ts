@@ -5,7 +5,7 @@
 
 export interface EditorBlock {
   id: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark' | 'toggle' | 'column' | 'page_link' | 'table_view';
+  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark' | 'toggle' | 'column' | 'page_link' | 'table_view' | 'toc' | 'synced' | 'toggle_h1' | 'toggle_h2' | 'toggle_h3' | 'database' | 'embed';
   content: string;
   indent?: number;
   checked?: boolean;
@@ -34,6 +34,16 @@ export interface EditorBlock {
   col1Content?: string;
   col2Content?: string;
   subPageId?: string;
+  syncedBlockId?: string;
+  embedData?: {
+    provider: 'google_drive' | 'figma' | 'github' | 'pdf' | 'custom';
+    url: string;
+  };
+  databaseData?: {
+    layout: 'table' | 'board' | 'gallery' | 'list' | 'calendar' | 'timeline';
+    columns: { id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; options?: string[]; }[];
+    rows: Record<string, any>[];
+  };
 }
 
 // Helper to clean up HTML from unnecessary tags, forcing tag mappings and nesting rules
@@ -177,6 +187,32 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     } else if (child.classList.contains('page-link-block') || dataType === 'page_link') {
       const subPageId = child.getAttribute('data-subpageid') || '';
       addBlock('page_link', child.innerHTML, { subPageId });
+    } else if (child.classList.contains('toc-block') || dataType === 'toc') {
+      addBlock('toc', '');
+    } else if (child.classList.contains('synced-block') || dataType === 'synced') {
+      const syncedBlockId = child.getAttribute('data-synced-id') || '';
+      addBlock('synced', child.innerHTML, { syncedBlockId });
+    } else if (child.classList.contains('toggle-h1-block') || dataType === 'toggle_h1') {
+      const isExpanded = child.getAttribute('data-expanded') === 'true';
+      addBlock('toggle_h1', child.innerHTML, { isExpanded });
+    } else if (child.classList.contains('toggle-h2-block') || dataType === 'toggle_h2') {
+      const isExpanded = child.getAttribute('data-expanded') === 'true';
+      addBlock('toggle_h2', child.innerHTML, { isExpanded });
+    } else if (child.classList.contains('toggle-h3-block') || dataType === 'toggle_h3') {
+      const isExpanded = child.getAttribute('data-expanded') === 'true';
+      addBlock('toggle_h3', child.innerHTML, { isExpanded });
+    } else if (child.classList.contains('database-block') || dataType === 'database') {
+      let databaseData: any;
+      try {
+        databaseData = JSON.parse(decodeURIComponent(child.getAttribute('data-database') || '{}'));
+      } catch (e) {
+        databaseData = undefined;
+      }
+      addBlock('database', '', { databaseData });
+    } else if (child.classList.contains('embed-block') || dataType === 'embed') {
+      const provider = (child.getAttribute('data-provider') as any) || 'custom';
+      const url = child.getAttribute('data-url') || '';
+      addBlock('embed', '', { embedData: { provider, url } });
     } else if (child.classList.contains('table-view-block') || dataType === 'table_view') {
       addBlock('table_view', '');
     } else if (tagName === 'h1' || child.classList.contains('h1')) {
@@ -266,6 +302,29 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
 
   blocks.forEach((block) => {
     switch (block.type) {
+      case 'toc':
+        html += `<div class="toc-block" data-type="toc" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
+      case 'synced':
+        html += `<div class="synced-block" data-type="synced" data-synced-id="${block.syncedBlockId || ''}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        break;
+      case 'toggle_h1':
+        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        break;
+      case 'toggle_h2':
+        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        break;
+      case 'toggle_h3':
+        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        break;
+      case 'database': {
+        const dbJson = encodeURIComponent(JSON.stringify(block.databaseData || {}));
+        html += `<div class="database-block" data-type="database" data-database="${dbJson}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
+      }
+      case 'embed':
+        html += `<div class="embed-block" data-type="embed" data-provider="${block.embedData?.provider || 'custom'}" data-url="${block.embedData?.url || ''}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        break;
       case 'table_view':
         html += `<div class="table-view-block" data-type="table_view" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
         break;

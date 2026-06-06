@@ -556,6 +556,95 @@ export function useEditorCommands({
             return [...prev, newBlock];
           });
           return focusChain;
+        },
+        setToc: () => {
+          setBlocks((prev) => {
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            const newBlock = { id: crypto.randomUUID(), type: 'toc' as any, content: '' };
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        setSynced: () => {
+          setBlocks((prev) => {
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            const newBlock = { id: crypto.randomUUID(), type: 'synced' as any, content: '', syncedBlockId: crypto.randomUUID() };
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        toggleToggleHeading: (attrs: { level: number }) => {
+          setBlocks((prev) => {
+            if (prev.length === 0) return prev;
+            const activeId = activeBlockId || document.activeElement?.getAttribute('id') || prev[prev.length - 1].id;
+            const targetType = `toggle_h${attrs.level}` as any;
+            return prev.map(b => b.id === activeId ? { ...b, type: b.type === targetType ? 'paragraph' : targetType, isExpanded: true } : b);
+          });
+          setForceRefreshState({});
+          return focusChain;
+        },
+        insertDatabase: () => {
+          setBlocks((prev) => {
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            const newBlock = { 
+              id: crypto.randomUUID(), 
+              type: 'database' as any, 
+              content: '',
+              databaseData: {
+                layout: 'table',
+                columns: [
+                  { id: 'title', name: 'Name', type: 'text' },
+                  { id: 'status', name: 'Status', type: 'select', options: ['To Do', 'In Progress', 'Done'] },
+                  { id: 'priority', name: 'Priority', type: 'select', options: ['Low', 'Medium', 'High'] },
+                  { id: 'date', name: 'Date', type: 'date' }
+                ],
+                rows: [
+                  { id: 'row-1', title: '🚀 Launch beta version', status: 'In Progress', priority: 'High', date: '2026-06-06' },
+                  { id: 'row-2', title: '🎨 Refactor block editor styles', status: 'To Do', priority: 'Medium', date: '2026-06-08' },
+                  { id: 'row-3', title: '📦 Package core database layouts', status: 'Done', priority: 'High', date: '2026-06-06' }
+                ]
+              }
+            };
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
+        },
+        insertEmbed: () => {
+          setBlocks((prev) => {
+            const activeId = activeBlockId || document.activeElement?.getAttribute('data-block-id') || document.activeElement?.getAttribute('id') || (prev.length > 0 ? prev[prev.length - 1].id : null);
+            const idx = prev.findIndex(b => b.id === activeId);
+            const newBlock = { 
+              id: crypto.randomUUID(), 
+              type: 'embed' as any, 
+              content: '',
+              embedData: { provider: 'custom', url: '' }
+            };
+            if (idx > -1) {
+              const res = [...prev];
+              res.splice(idx + 1, 0, newBlock);
+              return res;
+            }
+            return [...prev, newBlock];
+          });
+          return focusChain;
         }
       };
       return { focus: () => focusChain };
