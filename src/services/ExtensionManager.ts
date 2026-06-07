@@ -12,6 +12,8 @@ class ExtensionManager {
   private listeners: Set<() => void> = new Set();
   private injectedStyles: Map<string, HTMLStyleElement> = new Map();
   private blockRegistry: Map<string, React.ComponentType<any>> = new Map();
+  private registeredTools: any[] = [];
+  private editorThemes: Map<string, any> = new Map();
   private filters: Map<string, Set<(data: any) => any>> = new Map();
 
   constructor() {
@@ -58,10 +60,18 @@ class ExtensionManager {
       // UI Module
       ui: {
         registerTool: (config: any) => {
+          this.blockRegistry.set(config.id, config.Component);
+          this.registeredTools.push({ ...config, extensionId });
+          
           // Compatibility with px_to: store tool components in a global registry
           (window as any).__tools = (window as any).__tools || {};
           (window as any).__tools[config.id] = config.Component;
           console.log(`Tool Registered: ${config.id}`);
+          this.emitChange();
+        },
+        registerTheme: (config: any) => {
+          this.editorThemes.set(config.id, { ...config, extensionId });
+          this.emitChange();
         },
         addMenuItem: (item: any) => {
           this.createAPI(extensionId).ui.registerSidebarItem({
@@ -95,6 +105,19 @@ class ExtensionManager {
 
       registerBlock: (type, component) => {
         this.blockRegistry.set(type, component);
+        
+        // Auto-register as a tool if not already present in registeredTools
+        if (!this.registeredTools.find(t => t.id === type)) {
+          this.registeredTools.push({
+            id: type,
+            label: type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+            icon: '📦',
+            description: 'Custom extension block',
+            extensionId,
+            Component: component
+          });
+        }
+        
         this.emitChange();
       },
 
@@ -264,10 +287,20 @@ class ExtensionManager {
         );
       }
 
+      // Cleanup tool metadata
+      this.registeredTools = this.registeredTools.filter(t => t.extensionId !== id);
+
       // Cleanup block registry
       for (const [key] of this.blockRegistry.entries()) {
         if (key.toLowerCase().includes(id.toLowerCase())) {
           this.blockRegistry.delete(key);
+        }
+      }
+
+      // Cleanup themes
+      for (const [key, value] of this.editorThemes.entries()) {
+        if (value.extensionId === id || key.toLowerCase().includes(id.toLowerCase())) {
+          this.editorThemes.delete(key);
         }
       }
 
@@ -475,6 +508,18 @@ class ExtensionManager {
 
   getBlockComponent(type: string): React.ComponentType<any> | null {
     return this.blockRegistry.get(type) || null;
+  }
+
+  getRegisteredTools() {
+    return this.registeredTools;
+  }
+
+  getRegisteredThemes() {
+    return Array.from(this.editorThemes.values());
+  }
+
+  getThemeConfig(id: string) {
+    return this.editorThemes.get(id);
   }
 
   getSidebarItems() {

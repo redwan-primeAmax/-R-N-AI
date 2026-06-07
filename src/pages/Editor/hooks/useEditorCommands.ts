@@ -30,7 +30,8 @@ import {
   setSynced,
   toggleToggleHeading,
   insertDatabase,
-  insertEmbed
+  insertEmbed,
+  insertBlock
 } from '../commands/editorSpecialBlocks';
 import { runUndo, runRedo } from '../commands/editorHistory';
 
@@ -332,6 +333,10 @@ export function useEditorCommands({
         },
         insertEmbed: () => {
           setBlocks(prev => insertEmbed(prev, activeBlockId));
+          return focusChain;
+        },
+        insertBlock: (type: string) => {
+          setBlocks(prev => insertBlock(prev, type, activeBlockId));
           return focusChain;
         }
       };

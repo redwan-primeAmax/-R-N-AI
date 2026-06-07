@@ -11,8 +11,10 @@ import {
   Plus, FilePlus, Mic, Bookmark, Layout, Info, AlignLeft, RefreshCw, Heading1, Heading2, Heading3, Database, ExternalLink
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
+import { extensionManager } from '../../../services/ExtensionManager';
 import { ListIcon, TodoIcon, PageIcon, TableIcon, MicIcon, BookmarkIcon, ToggleIcon } from '../svg/EditorIcons';
 import { uploadAndInsertMedia } from '../services/mediaUploader';
+import { Box } from 'lucide-react';
 
 interface PlusPanelProps {
   isOpen: boolean;
@@ -33,15 +35,20 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
   onUploadStart,
   onUploadComplete
 }) => {
+  const [extTools, setExtTools] = React.useState(extensionManager.getRegisteredTools());
+
   React.useEffect(() => {
     if (isOpen) {
+      setExtTools(extensionManager.getRegisteredTools());
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      const unsub = extensionManager.onChange(() => {
+        setExtTools(extensionManager.getRegisteredTools());
+      });
+      return () => {
+        unsub();
+        document.body.style.overflow = '';
+      };
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen]);
 
   if (!editor) return null;
@@ -281,6 +288,40 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
                   </div>
                 </div>
               ))}
+
+              {extTools.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-orange-500/70 dark:text-orange-400/70 px-1 select-none">
+                    Extensions & Custom Tools
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {extTools.map((tool, idx) => (
+                      <button
+                        key={`ext-${idx}`}
+                        onClick={() => { 
+                          editor.chain().focus().insertBlock(tool.id).run();
+                          onClose(); 
+                        }}
+                        className={cn(
+                          "flex items-center p-3 rounded-2xl transition-all active:scale-95 text-left gap-3 border",
+                          isLight ? "bg-gray-50 border-gray-100 hover:bg-gray-100" : "bg-white/5 border-white/5 hover:bg-white/10"
+                        )}
+                      >
+                         <div className={cn(
+                           "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                           isLight ? "text-gray-900 bg-white shadow-sm" : "text-white bg-white/5"
+                         )}>
+                           {typeof tool.icon === 'string' ? <span className="text-xl">{tool.icon}</span> : <Box size={20} />}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                           <div className={cn("text-[13px] font-bold truncate", isLight ? "text-gray-900" : "text-white")}>{tool.label || tool.name || tool.id}</div>
+                           <div className="text-[9px] text-gray-400 dark:text-white/30 font-medium truncate">{tool.description || 'Extension tool'}</div>
+                         </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         </>

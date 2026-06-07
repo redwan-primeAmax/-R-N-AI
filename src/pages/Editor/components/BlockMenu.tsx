@@ -33,6 +33,9 @@ import { toggleHeadingThreeBlock } from '../blocks-config/ToggleHeadingThreeBloc
 import { databaseBlockConfig } from '../blocks-config/DatabaseBlockConfig';
 import { embedBlockConfig } from '../blocks-config/EmbedBlockConfig';
 
+import { extensionManager } from '../../../services/ExtensionManager';
+import { Palette, Box } from 'lucide-react';
+
 interface BlockMenuProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,6 +54,19 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
   onUploadComplete
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [extTools, setExtTools] = React.useState(extensionManager.getRegisteredTools());
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setExtTools(extensionManager.getRegisteredTools());
+      const unsub = extensionManager.onChange(() => {
+        setExtTools(extensionManager.getRegisteredTools());
+      });
+      return () => {
+        unsub();
+      };
+    }
+  }, [isOpen]);
   
   if (!editor) return null;
 
@@ -127,7 +143,7 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
                   const Icon = block.icon;
                   return (
                     <button
-                      key={idx}
+                      key={`basic-${idx}`}
                       onMouseDown={(e) => {
                         e.preventDefault();
                       }}
@@ -149,6 +165,33 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
                 })}
               </div>
             </div>
+
+            {extTools.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Extensions & Tools</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {extTools.map((tool, idx) => (
+                    <button
+                      key={`ext-${idx}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { 
+                        editor.chain().focus().insertBlock(tool.id).run();
+                        onClose(); 
+                      }}
+                      className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
+                    >
+                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-white/40 group-hover:text-orange-400 group-hover:bg-orange-400/10 transition-colors font-bold text-lg">
+                        {typeof tool.icon === 'string' ? tool.icon : <Box size={20} />}
+                      </div>
+                      <div className="text-left">
+                        <div className="font-bold text-[15px] text-white/80">{tool.label || tool.name || tool.id}</div>
+                        <div className="text-[11px] text-white/30 font-medium">{tool.description || 'Extension component'}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mb-8">
                <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Advance</h3>

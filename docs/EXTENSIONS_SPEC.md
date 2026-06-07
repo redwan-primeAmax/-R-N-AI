@@ -22,22 +22,87 @@ interface AppExtension {
   id: string;             // ইউনিক আইডি (e.g., 'nebula-dark-theme')
   name: string;           // নাম
   version: string;        // ভার্সন
-  type: 'theme' | 'tool' | 'widget'; // এক্সটেনশনের ধরন
+  author: string;         // ডেভেলপারের নাম
+  description: string;    // বর্ণনা
+  type: 'theme' | 'tool' | 'widget'; 
   
   // Lifecycle Methods
   init: (api: AppAPI) => void;    // যখন এক্সটেনশন লোড হবে
-  destroy: () => void;            // যখন এক্সটেনশন রিমুভ করা হবে
+  destroy: (api: AppAPI) => void; // যখন এক্সটেনশন রিমুভ করা হবে
 }
 ```
 
-#### API Freedom (কি কি এক্সেস পাবে):
-- **Theme API**: কালার প্যালেট, ফন্ট, এবং কর্নার রেডিয়াস পরিবর্তন করার স্বাধীনতা।
-- **UI Store**: নতুন মেনু আইটেম বা বাটন যোগ করার অনুমতি।
-- **Storage API**: এক্সটেনশনের নিজস্ব ডাটা সেভ করার জন্য `DataManager` ব্যবহারের স্বাধীনতা।
+#### API Reference (AppAPI):
+
+এক্সটেনশনগুলো `init` মেথডের মাধ্যমে নিচের সার্ভিসগুলোতে এক্সেস পাবে:
+
+**১. ui Namespace:**
+- `registerTheme(config: ThemeConfig)`: এডিটরের জন্য নতুন ক্যানভাস থিম রেজিস্টার করে।
+- `registerTool(config: ToolConfig)`: নতুন এডিটর টুল বা মডিউল যোগ করে। এটি রেজিস্টার করলে এডিটরের (+) বা ইনসার্ট মেনুতে টুলটি দেখা যাবে।
+- `registerSidebarItem(item: SidebarItem)`: বাম পাশের সাইডবারে আইটেম যোগ করে।
+- `addButton(btn: ToolbarButton)`: এডিটর টুলবারে বাটন যোগ করে।
+- `notify(message: string, type: string)`: ইউজারকে নোটিফিকেশন দেখায়।
+
+**২. Editor Namespace:**
+- `registerBlock(type: string, Component: React.ComponentType<any>)`: এডিটরের জন্য নতুন কাস্টম ব্লক টাইপ রেন্ডারার রেজিস্টার করে।
+- `addFilter(hook: string, callback: (data: any) => any)`: ডাটা প্রসেসিংয়ের সময় হুক যোগ করে (e.g., 'onLoad', 'beforeSave').
+
+**৩. storage Namespace:**
+- `get(key)` / `set(key, value)`: এক্সটেনশনের জন্য পারসিস্টেন্ট ডাটা সেভ এবং লোড করে।
 
 ---
 
-### ৩. সীমাবদ্ধতা ও নিরাপত্তা (Security & Limits)
+### ৩. থিম রেজিস্ট্রেশন লজিক (Theme API)
+
+একটি থিম এক্সটেনশন তৈরি করতে `ui.registerTheme` ব্যবহার করতে হয়:
+
+```javascript
+api.ui.registerTheme({
+  id: 'my-custom-theme',
+  name: 'Ocean Blue',
+  description: 'A deep sea writing experience',
+  previewClassName: 'bg-blue-900', // থিম সিলেক্টরে প্রিভিউ কালার
+  config: {
+    // CSS মেইন ভেরিয়েবল যা ক্যানভাসে অ্যাপ্লাই হবে
+    styles: {
+      '--editor-bg': '#001529',
+      '--editor-text': '#e6f7ff',
+      '--editor-line': '#002140'
+    }
+  }
+});
+```
+
+---
+
+### ৪. কাস্টম ব্লক রেজিস্ট্রেশন (Custom Block API)
+
+এডিটরের ভেতরে নতুন কোনো এলিমেন্ট (যেমন: ক্লক, ক্যালেন্ডার, চার্ট) যোগ করতে নিচে দেয়া পদ্ধতি অনুসরণ করুন:
+
+```javascript
+// ১. রেন্ডারার কম্পোনেন্ট তৈরি করুন
+const MyBlock = ({ block, setBlocks, isReadOnly }) => {
+  return React.createElement('div', { 
+    className: 'p-4 bg-blue-500 rounded-xl text-white' 
+  }, 'This is a custom extension block!');
+};
+
+// ২. এডিটরের রেন্ডারিং ইঞ্জিনে এটি রেজিস্টার করুন
+api.registerBlock('my-custom-block', MyBlock);
+
+// ৩. ইনসার্ট মেনুতে (Block Menu) এটি দেখানোর জন্য রেজিস্টার করুন
+api.ui.registerTool({
+  id: 'my-custom-block',
+  label: 'My Extension Block',
+  icon: '🚀',
+  description: 'Inserts a custom futuristic block.',
+  Component: MyBlock // ঐচ্ছিক, যদি এটি গ্লোবাল রেজিস্ট্রিতে রাখতে চান
+});
+```
+
+---
+
+### ৫. সীমাবদ্ধতা ও নিরাপত্তা (Security & Limits)
 
 সিস্টেমটি বাগ-ফ্রি রাখার জন্য নিচের সীমাবদ্ধতাগুলো অবশ্যই মানতে হবে:
 

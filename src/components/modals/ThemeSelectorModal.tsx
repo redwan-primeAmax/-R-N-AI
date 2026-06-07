@@ -4,11 +4,10 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check } from 'lucide-react';
+import { X, Check, Palette } from 'lucide-react';
 import { cn } from '../../utils/cn';
-
-import { ThemeMetadata } from '../../pages/Editor/themes/types';
-import { THEME_METADATA } from '../../pages/Editor/themes/ThemeRegistry';
+import { extensionManager } from '../../services/ExtensionManager';
+import { useEffect, useState } from 'react';
 
 interface ThemeSelectorModalProps {
   isOpen: boolean;
@@ -18,6 +17,18 @@ interface ThemeSelectorModalProps {
 }
 
 export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: ThemeSelectorModalProps) {
+  const [themes, setThemes] = useState(extensionManager.getRegisteredThemes());
+
+  useEffect(() => {
+    if (isOpen) {
+      setThemes(extensionManager.getRegisteredThemes());
+      const unsubscribe = extensionManager.onChange(() => {
+        setThemes(extensionManager.getRegisteredThemes());
+      });
+      return () => { unsubscribe(); };
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -37,8 +48,8 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
           >
             <div className="flex justify-between items-center mb-6 sm:mb-8 shrink-0">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">নোট থিম নির্বাচন করুন</h2>
-                <p className="text-white/40 font-bold uppercase text-[10px] tracking-widest mt-1">Select your preferred writing canvas</p>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">নোট থিম নির্বাচন করুন</h2>
+                <p className="text-white/40 font-black uppercase text-[9px] tracking-[0.2em] mt-1">Select from your installed extension themes</p>
               </div>
               <button 
                 onClick={onClose}
@@ -49,7 +60,7 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
             </div>
 
             <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 overflow-y-auto pr-2 custom-scrollbar">
-              {THEME_METADATA.map((theme) => (
+              {themes.length > 0 ? themes.map((theme) => (
                 <button
                   key={theme.id}
                   onClick={() => {
@@ -64,28 +75,36 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
                   )}
                 >
                   <div className={cn(
-                    "w-full h-20 sm:h-24 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 relative overflow-hidden flex items-center justify-center border",
+                    "w-full h-20 sm:h-24 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 relative overflow-hidden flex items-center justify-center border border-white/5 bg-[#1a1a1a]",
                     theme.previewClassName
                   )}>
                      {theme.id === 'yellow-ruled' && (
                        <div className="absolute left-6 h-full w-[2px] bg-red-200/50" />
                      )}
-                     <span className="text-[10px] uppercase font-black tracking-widest opacity-20 transform -rotate-12">Preview</span>
+                     <div className="bg-white/5 p-3 rounded-2xl">
+                        <Palette size={24} className="text-white/20" />
+                     </div>
                   </div>
                   
                   <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-white text-sm">{theme.name}</h3>
-                      <p className="text-white/40 text-[10px] mt-0.5">{theme.description}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-white text-sm truncate">{theme.name}</h3>
+                      <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mt-0.5 truncate">{theme.description || 'Extension Theme'}</p>
                     </div>
                     {currentTheme === theme.id && (
-                      <div className="bg-blue-600 p-1.5 rounded-xl text-white">
-                        <Check size={12} strokeWidth={4} />
+                      <div className="ml-2 bg-blue-600 p-1 rounded-lg text-white">
+                        <Check size={10} strokeWidth={4} />
                       </div>
                     )}
                   </div>
                 </button>
-              ))}
+              )) : (
+                <div className="col-span-full py-16 flex flex-col items-center justify-center opacity-30 border-2 border-dashed border-white/5 rounded-[2rem]">
+                  <Palette size={48} className="mb-4" />
+                  <p className="text-xs font-black uppercase tracking-widest">কোন থিম এক্সটেনশন পাওয়া যায়নি</p>
+                  <p className="text-[10px] mt-2 font-medium opacity-60">এক্সটেনশন স্টোর থেকে থিম ইনস্টল করুন</p>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>

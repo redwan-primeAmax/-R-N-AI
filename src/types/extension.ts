@@ -7,6 +7,7 @@ export interface AppAPI {
   // UI Methods
   ui: {
     registerTool: (config: any) => void;
+    registerTheme: (config: any) => void;
     addMenuItem: (item: any) => void;
     addButton: (btn: any) => void;
     registerSidebarItem: (item: SidebarExtensionItem) => void;
