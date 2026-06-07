@@ -5,10 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, ChevronRight, Plus } from 'lucide-react';
+import { FileText, ChevronRight, Plus, Box } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { cn } from '../../../utils/cn';
 import { useNavigate } from 'react-router-dom';
+import { extensionManager } from '../../../services/ExtensionManager';
 
 // Import our modular action definitions
 import { subPagesNavigation } from '../actions/SubPagesNavigation';
@@ -67,17 +68,23 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   const [collabPassword, setCollabPassword] = useState('');
   const [collabLimit, setCollabLimit] = useState(5);
   const [viewMode, setViewMode] = useState<'main' | 'subpages'>('main');
+  const [sidebarExtensions, setSidebarExtensions] = useState(extensionManager.getSidebarItems());
 
   useEffect(() => {
     if (isOpen) {
+      setSidebarExtensions(extensionManager.getSidebarItems());
+      const unsub = extensionManager.onChange(() => {
+        setSidebarExtensions(extensionManager.getSidebarItems());
+      });
       document.body.style.overflow = 'hidden';
+      return () => {
+        unsub();
+        document.body.style.overflow = '';
+      };
     } else {
       document.body.style.overflow = '';
       setViewMode('main');
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen]);
 
   if (!note) return null;
@@ -310,6 +317,23 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                             )}
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {sidebarExtensions.length > 0 && (
+                      <div className="space-y-1">
+                        <h4 className="text-[10px] font-black text-orange-500/50 uppercase tracking-[0.2em] mb-3 px-2">Extension Actions</h4>
+                        {sidebarExtensions.map((item) => (
+                          <MenuAction 
+                            key={item.id}
+                            icon={() => typeof item.icon === 'string' ? <span className="text-xl">{item.icon}</span> : <Box size={20} />}
+                            label={item.label}
+                            onClick={() => {
+                              if (item.onClick) item.onClick();
+                              onClose();
+                            }}
+                          />
+                        ))}
                       </div>
                     )}
 

@@ -31,13 +31,16 @@ function EditorPage({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Share refs globally to prevent DOM-parsing vulnerabilities
+  const blocksRefs = useRef<Record<string, HTMLElement>>({});
+
   const {
     editor, note, setNote, title, setTitle, emoji, setEmoji, description, setDescription, 
     tags, setTags, theme, setTheme,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef
-  } = useEditorState(id);
+  } = useEditorState(id, blocksRefs as any);
 
   // Collaboration P2P Setup
   const {
@@ -74,9 +77,6 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleStartCollab
   });
 
-  // Share refs globally to prevent DOM-parsing vulnerabilities
-  const blocksRefs = useRef<Record<string, HTMLElement>>({});
-
   // Additional event sync & listening setup with throttling guard to prevent DOM flooding
   useEffect(() => {
     let lastNotifTime = 0;
@@ -107,6 +107,21 @@ function EditorPage({ id }: { id: string | undefined }) {
       window.removeEventListener('collab-notif', handleCollabNotif);
     };
   }, [setNotification]);
+
+  // Handle Editor Commands from Extensions
+  useEffect(() => {
+    const handleEditorCommand = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent && customEvent.detail) {
+        const { command, args } = customEvent.detail;
+        if (command === 'insertBlock' && args && args[0]) {
+          editor.chain().focus().insertBlock(args[0]).run();
+        }
+      }
+    };
+    window.addEventListener('editor-command', handleEditorCommand);
+    return () => window.removeEventListener('editor-command', handleEditorCommand);
+  }, [editor]);
 
   useEffect(() => {
     if (id) window.scrollTo(0, 0); // Scroll to top when opening a new page

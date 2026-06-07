@@ -233,9 +233,10 @@ export function insertEmbed(blocks: EditorBlock[], activeBlockId: string | null)
   return [...blocks, newBlock];
 }
 
-export function insertBlock(blocks: EditorBlock[], type: string, activeBlockId: string | null): EditorBlock[] {
+export function insertBlock(blocks: EditorBlock[], type: string, activeBlockId: string | null): { blocks: EditorBlock[], newId: string } {
+  const newId = crypto.randomUUID();
   const newBlock: EditorBlock = { 
-    id: crypto.randomUUID(), 
+    id: newId, 
     type: type as any, 
     content: ''
   };
@@ -243,7 +244,7 @@ export function insertBlock(blocks: EditorBlock[], type: string, activeBlockId: 
   if (idx > -1) {
     const res = [...blocks];
     res.splice(idx + 1, 0, newBlock);
-    return res;
+    return { blocks: res, newId };
   }
-  return [...blocks, newBlock];
+  return { blocks: [...blocks, newBlock], newId };
 }

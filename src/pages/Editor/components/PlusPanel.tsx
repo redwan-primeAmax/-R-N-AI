@@ -295,11 +295,15 @@ export const PlusPanel: React.FC<PlusPanelProps> = ({
                     Extensions & Custom Tools
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {extTools.map((tool, idx) => (
+                    {extTools.map((tool) => (
                       <button
-                        key={`ext-${idx}`}
+                        key={`plus-ext-${tool.id}-${tool.extensionId}`}
                         onClick={() => { 
-                          editor.chain().focus().insertBlock(tool.id).run();
+                          if (tool.onClick) {
+                            tool.onClick(editor);
+                          } else {
+                            editor.chain().focus().insertBlock(tool.id).run();
+                          }
                           onClose(); 
                         }}
                         className={cn(

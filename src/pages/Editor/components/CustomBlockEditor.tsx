@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { DataManager } from '../../../services/storage/DataManager';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 
 import { EditorBlock, cleanBlockHTML, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 import { MediaBlock } from './blocks/MediaBlock';
@@ -98,6 +99,7 @@ const MemoizedBlockRow = React.memo(({
   const navigate = useNavigate();
 
   const [sidebarExtensions, setSidebarExtensions] = useState(extensionManager.getSidebarItems());
+  const CustomComponent = extensionManager.getBlockComponent(block.type);
 
   useEffect(() => {
     const unsub = extensionManager.onChange(() => {
@@ -176,25 +178,7 @@ const MemoizedBlockRow = React.memo(({
         );
       })()}
 
-      {/* Extension/Custom Block Renderer */}
-      {(() => {
-        const CustomComponent = extensionManager.getBlockComponent(block.type);
-        if (CustomComponent) {
-          return (
-            <div className="flex-1 min-w-0" data-extension-id={block.type}>
-              <CustomComponent 
-                block={block} 
-                setBlocks={setBlocks} 
-                isReadOnly={isReadOnly}
-                idx={idx}
-                blocks={blocks}
-                editor={editor}
-              />
-            </div>
-          );
-        }
-        return null;
-      })()}
+      {/* Side-specific block indicators and toggles will be here, content follows */}
 
       {/* Toggle Type Icon */}
       {block.type === 'toggle' && (
@@ -212,7 +196,20 @@ const MemoizedBlockRow = React.memo(({
       )}
 
       {/* Render Horizontal Rule (Divider) */}
-      {block.type === 'hr' ? (
+      {CustomComponent ? (
+        <div className="flex-1 min-w-0" data-extension-id={block.type}>
+          <ErrorBoundary inline>
+            <CustomComponent 
+              block={block} 
+              setBlocks={setBlocks} 
+              isReadOnly={isReadOnly}
+              idx={idx}
+              blocks={blocks}
+              editor={editor}
+            />
+          </ErrorBoundary>
+        </div>
+      ) : block.type === 'hr' ? (
         <div className="w-full py-6 flex items-center justify-center self-center flex-1">
           <div className="w-full h-[1px] bg-gray-100 dark:bg-white/10" />
         </div>

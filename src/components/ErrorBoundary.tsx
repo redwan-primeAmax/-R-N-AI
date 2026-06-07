@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 
 interface Props {
   children: ReactNode;
+  inline?: boolean;
 }
 
 interface State {
@@ -45,6 +46,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.inline) {
+        return (
+          <div className="flex flex-col items-center justify-center p-4 bg-red-500/5 border border-red-500/10 rounded-2xl text-center">
+            <AlertCircle size={24} className="text-red-500 mb-2" />
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Component Error</h4>
+            <p className="text-[10px] text-white/40 mb-3 truncate max-w-xs">{this.state.error?.message}</p>
+            <button 
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="px-3 py-1 bg-red-500/10 hover:bg-neutral-800 text-red-500 text-[9px] font-black uppercase tracking-widest rounded-lg border border-red-500/20"
+            >
+              Retry
+            </button>
+          </div>
+        );
+      }
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A0A0A] text-white p-6 text-center select-none">
           <div className="w-24 h-24 bg-red-500/10 rounded-[40px] flex items-center justify-center text-red-500 mb-8 border border-red-500/20">

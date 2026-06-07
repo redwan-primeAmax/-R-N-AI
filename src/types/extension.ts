@@ -8,10 +8,21 @@ export interface AppAPI {
   ui: {
     registerTool: (config: any) => void;
     registerTheme: (config: any) => void;
+    registerBlock: (type: string, component: React.ComponentType<any>) => void;
     addMenuItem: (item: any) => void;
     addButton: (btn: any) => void;
     registerSidebarItem: (item: SidebarExtensionItem) => void;
     notify: (message: string, type?: 'info' | 'error' | 'success') => void;
+    editor: {
+      registerBlock: (type: string, component: React.ComponentType<any>) => void;
+      insertBlock: (type: string) => void;
+    };
+  };
+
+  // Editor Methods (Compatibility)
+  editor: {
+    registerBlock: (type: string, component: React.ComponentType<any>) => void;
+    insertBlock: (type: string) => void;
   };
 
   // Extension System Enhancements

@@ -5,7 +5,7 @@
 
 export interface EditorBlock {
   id: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'todo' | 'code' | 'quote' | 'callout' | 'hr' | 'table' | 'media' | 'sandbox' | 'audio_generator' | 'bookmark' | 'toggle' | 'column' | 'page_link' | 'table_view' | 'toc' | 'synced' | 'toggle_h1' | 'toggle_h2' | 'toggle_h3' | 'database' | 'embed';
+  type: string;
   content: string;
   indent?: number;
   checked?: boolean;
@@ -215,6 +215,18 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       addBlock('embed', '', { embedData: { provider, url } });
     } else if (child.classList.contains('table-view-block') || dataType === 'table_view') {
       addBlock('table_view', '');
+    } else if (child.classList.contains('extension-block') || (dataType && !['bookmark', 'audio_generator', 'column', 'page_link', 'toc', 'synced', 'toggle_h1', 'toggle_h2', 'toggle_h3', 'database', 'embed', 'table_view', 'callout', 'sandbox', 'media', 'taskList', 'paragraph', 'h1', 'h2', 'h3', 'bullet', 'ordered', 'todo', 'code', 'quote', 'hr', 'table'].includes(dataType))) {
+      const extType = dataType || (child.classList.contains('extension-block') ? child.getAttribute('data-type') : null);
+      if (extType) {
+        const metaAttr = child.getAttribute('data-meta');
+        let meta = undefined;
+        if (metaAttr) {
+          try {
+            meta = JSON.parse(decodeURIComponent(metaAttr));
+          } catch (e) {}
+        }
+        addBlock(extType, child.innerHTML, { meta });
+      }
     } else if (tagName === 'h1' || child.classList.contains('h1')) {
       addBlock('h1', child.innerHTML);
     } else if (tagName === 'h2' || child.classList.contains('h2')) {
@@ -402,6 +414,13 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
           html += `</tbody></table>`;
         }
         break;
+      default:
+        {
+          // Extension block serialization
+          const metaStr = block.meta ? encodeURIComponent(JSON.stringify(block.meta)) : '';
+          html += `<div class="extension-block" data-type="${block.type}" data-meta="${metaStr}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content || ''}</div>`;
+          break;
+        }
     }
   });
 

@@ -44,6 +44,15 @@ export default function ExtensionsPage() {
     };
   }, []);
 
+  const handleDownloadSpec = () => {
+    const link = document.createElement('a');
+    link.href = '/api/docs/spec';
+    link.setAttribute('download', 'EXTENSIONS_SPEC.md');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleUploadZip = async () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -166,6 +175,13 @@ export default function ExtensionsPage() {
                   <p className="text-white/30 max-w-xs mb-8 leading-relaxed text-xs font-medium">
                     লাইব্রেরি ফাইল লোড করতে ডান দিকের <b>Upload ZIP</b> বাটনটি ব্যবহার করুন।
                   </p>
+                  <button 
+                    onClick={handleDownloadSpec}
+                    className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all border border-white/10 flex items-center gap-3 active:scale-95"
+                  >
+                    <Download size={14} className="text-orange-500" />
+                    Download Ext API Spec
+                  </button>
                 </div>
               )}
             </motion.div>

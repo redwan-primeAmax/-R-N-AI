@@ -13,7 +13,7 @@ import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockPar
 import { useEditorCommands } from './useEditorCommands';
 import { extensionManager } from '../../../services/ExtensionManager';
 
-export function useEditorState(id: string | undefined) {
+export function useEditorState(id: string | undefined, blocksRefs?: React.MutableRefObject<Record<string, HTMLElement>>) {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -168,7 +168,8 @@ export function useEditorState(id: string | undefined) {
     setForceRefreshState,
     historyRef,
     historyPointer,
-    setHistoryPointer
+    setHistoryPointer,
+    blocksRefs
   });
 
   // Trigger search transaction events

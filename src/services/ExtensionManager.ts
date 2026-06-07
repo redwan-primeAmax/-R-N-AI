@@ -17,6 +17,7 @@ class ExtensionManager {
   private filters: Map<string, Set<(data: any) => any>> = new Map();
 
   constructor() {
+    (window as any).React = React;
     this.loadInstalledExtensions();
   }
 
@@ -60,14 +61,27 @@ class ExtensionManager {
       // UI Module
       ui: {
         registerTool: (config: any) => {
-          this.blockRegistry.set(config.id, config.Component);
-          this.registeredTools.push({ ...config, extensionId });
+          if (config.Component) {
+            this.blockRegistry.set(config.id, config.Component);
+          }
           
-          // Compatibility with px_to: store tool components in a global registry
-          (window as any).__tools = (window as any).__tools || {};
-          (window as any).__tools[config.id] = config.Component;
-          console.log(`Tool Registered: ${config.id}`);
+          // Deduplicate tools by ID
+          const existingIdx = this.registeredTools.findIndex(t => t.id === config.id);
+          if (existingIdx > -1) {
+            this.registeredTools[existingIdx] = { ...this.registeredTools[existingIdx], ...config, extensionId };
+          } else {
+            this.registeredTools.push({ ...config, extensionId });
+          }
+          
+          // Compatibility with older systems
+          if (config.Component) {
+            (window as any).__tools = (window as any).__tools || {};
+            (window as any).__tools[config.id] = config.Component;
+          }
           this.emitChange();
+        },
+        registerBlock: (type: string, component: React.ComponentType<any>) => {
+          this.createAPI(extensionId).registerBlock(type, component);
         },
         registerTheme: (config: any) => {
           this.editorThemes.set(config.id, { ...config, extensionId });
@@ -78,9 +92,8 @@ class ExtensionManager {
             id: `${extensionId}_${item.id || Math.random().toString(36).substr(2, 9)}`,
             label: item.label,
             icon: item.icon,
-            path: item.path || '#',
             onClick: item.onClick
-          });
+          } as any);
         },
         addButton: (btn: any) => {
           // Compatibility: many extensions expect a toolbar button
@@ -90,16 +103,43 @@ class ExtensionManager {
           (window as any).__toolbarButtons.push({ ...btn, extensionId });
         },
         registerSidebarItem: (item: SidebarExtensionItem) => {
-          if (!this.sidebarItems.find(i => i.id === item.id)) {
-            this.sidebarItems.push({
-              ...item,
-              id: item.id.startsWith(extensionId) ? item.id : `${extensionId}_${item.id}`
-            });
-            this.emitChange();
+          const existingIdx = this.sidebarItems.findIndex(i => i.id === item.id || i.id === `${extensionId}_${item.id}`);
+          const newItem = {
+            ...item,
+            id: item.id.startsWith(extensionId) ? item.id : `${extensionId}_${item.id}`
+          };
+          
+          if (existingIdx > -1) {
+            this.sidebarItems[existingIdx] = newItem;
+          } else {
+            this.sidebarItems.push(newItem);
           }
+          this.emitChange();
         },
         notify: (message, type = 'info') => {
           window.dispatchEvent(new CustomEvent('app-notification', { detail: { message, type } }));
+        },
+        editor: {
+          registerBlock: (type: string, component: React.ComponentType<any>) => {
+            this.createAPI(extensionId).registerBlock(type, component);
+          },
+          insertBlock: (type: string) => {
+            window.dispatchEvent(new CustomEvent('editor-command', { 
+              detail: { command: 'insertBlock', args: [type] } 
+            }));
+          }
+        }
+      },
+
+      // Editor Module (Compatibility)
+      editor: {
+        registerBlock: (type: string, component: React.ComponentType<any>) => {
+          this.createAPI(extensionId).registerBlock(type, component);
+        },
+        insertBlock: (type: string) => {
+          window.dispatchEvent(new CustomEvent('editor-command', { 
+            detail: { command: 'insertBlock', args: [type] } 
+          }));
         }
       },
 
@@ -107,7 +147,8 @@ class ExtensionManager {
         this.blockRegistry.set(type, component);
         
         // Auto-register as a tool if not already present in registeredTools
-        if (!this.registeredTools.find(t => t.id === type)) {
+        const existingTool = this.registeredTools.find(t => t.id === type);
+        if (!existingTool) {
           this.registeredTools.push({
             id: type,
             label: type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
@@ -116,6 +157,8 @@ class ExtensionManager {
             extensionId,
             Component: component
           });
+        } else if (!existingTool.Component) {
+          existingTool.Component = component;
         }
         
         this.emitChange();

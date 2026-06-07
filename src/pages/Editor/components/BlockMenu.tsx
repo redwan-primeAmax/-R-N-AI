@@ -170,12 +170,16 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
               <div className="mb-6">
                 <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Extensions & Tools</h3>
                 <div className="grid grid-cols-1 gap-2">
-                  {extTools.map((tool, idx) => (
+                  {extTools.map((tool) => (
                     <button
-                      key={`ext-${idx}`}
+                      key={`menu-ext-${tool.id}-${tool.extensionId}`}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => { 
-                        editor.chain().focus().insertBlock(tool.id).run();
+                        if (tool.onClick) {
+                          tool.onClick(editor);
+                        } else {
+                          editor.chain().focus().insertBlock(tool.id).run();
+                        }
                         onClose(); 
                       }}
                       className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"

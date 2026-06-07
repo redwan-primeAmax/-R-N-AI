@@ -129,6 +129,18 @@ async function startServer() {
     }
   });
 
+  // Route to download extensions spec
+  app.get("/api/docs/spec", (req, res) => {
+    const filePath = path.join(process.cwd(), "docs", "EXTENSIONS_SPEC.md");
+    if (fs.existsSync(filePath)) {
+      res.setHeader('Content-Disposition', 'attachment; filename="EXTENSIONS_SPEC.md"');
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ error: "Specification file not found" });
+    }
+  });
+
   // Catch-all for /api routes to return JSON 404 instead of HTML
   app.all("/api/*", (req, res) => {
     res.status(404).json({ success: false, error: `API route not found: ${req.method} ${req.url}` });
