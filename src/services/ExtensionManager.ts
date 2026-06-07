@@ -235,56 +235,75 @@ class ExtensionManager {
   }
 
   async unregister(id: string) {
+    console.log(`Attempting to unregister/purge extension: ${id}`);
+    
+    // 1. Memory cleanup (even if get() fails, we try to delete)
     const extension = this.extensions.get(id);
-    if (!extension) return false;
-
+    this.extensions.delete(id);
+    
     try {
-      if (extension.destroy) {
+      // 2. Perform destroy if extension exists
+      if (extension && extension.destroy) {
         try {
           extension.destroy(this.createAPI(id));
         } catch (e) {
-          console.error(`Deactivate Error [${id}]:`, e);
+          console.error(`Deactivate error for ${id}:`, e);
         }
       }
-      
-      // 1. Remove from active memory
-      this.extensions.delete(id);
-      this.removeStyle(id);
-      
-      // 2. Remove all local storage data for this extension
-      const storagePrefix = `ext_${id}_`;
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith(storagePrefix)) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      // 3. Clear from memory before persisting to avoid saving it back
-      this.extensions.delete(id);
-      
-      // 4. Remove from persistent database (localforage)
-      await this.persistExtensions();
 
-      // 5. Cleanup UI slots
-      this.sidebarItems = this.sidebarItems.filter(item => !item.id.toLowerCase().includes(id.toLowerCase()));
+      // 3. Cleanup UI registries
+      this.sidebarItems = this.sidebarItems.filter(item => 
+        !item.id.toLowerCase().includes(id.toLowerCase())
+      );
       
-      // Cleanup toolbar buttons if present
+      this.removeStyle(id);
+
       if ((window as any).__toolbarButtons) {
         (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => 
           b.extensionId !== id && !b.id?.toLowerCase().includes(id.toLowerCase())
         );
       }
 
-      // 6. Notify all components to re-render
-      this.emitChange();
+      // Cleanup block registry
+      for (const [key] of this.blockRegistry.entries()) {
+        if (key.toLowerCase().includes(id.toLowerCase())) {
+          this.blockRegistry.delete(key);
+        }
+      }
 
-      // 7. Dispatch system-wide reload event for non-react listeners
+      // 4. Persistence Purge
+      // First, update persistExtensions (this will omit the deleted one from the next save)
+      await this.persistExtensions();
+
+      // Explicitly check and remove from localforage if for some reason persistExtensions fails to clean it up
+      // (e.g. if we want to be paranoid)
+      const installed = await localforage.getItem<any[]>('installed_extensions');
+      if (installed && Array.isArray(installed)) {
+        const filtered = installed.filter(item => 
+          item.id !== id && 
+          item.manifest?.id !== id &&
+          item.id?.toLowerCase() !== id.toLowerCase()
+        );
+        if (filtered.length !== installed.length) {
+          await localforage.setItem('installed_extensions', filtered);
+          console.log(`Explicitly purged ${id} from persistent storage.`);
+        }
+      }
+
+      // 5. App-level cleanup
+      const storagePrefix = `ext_${id}_`;
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(storagePrefix)) localStorage.removeItem(key);
+      });
+
+      // 6. State update and reload
+      this.emitChange();
       window.dispatchEvent(new CustomEvent('extension-system-reload', { detail: { uninstalled: id } }));
       
-      console.log(`Extension Purged Successfully: ${id}`);
+      console.log(`Extension ${id} successfully uninstalled.`);
       return true;
     } catch (error) {
-      console.error(`Purge Error [${id}]:`, error);
+      console.error(`Unregister Error [${id}]:`, error);
       return false;
     }
   }

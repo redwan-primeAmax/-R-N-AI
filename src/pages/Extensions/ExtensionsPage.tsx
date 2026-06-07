@@ -72,12 +72,22 @@ export default function ExtensionsPage() {
 
   const handleRemove = async (id: string, name: string) => {
     if (window.confirm(`আপনি কি নিশ্চিতভাবে "${name}" মুছে ফেলতে চান?`)) {
-      const success = await extensionManager.unregister(id);
-      if (success) {
-        window.dispatchEvent(new CustomEvent('app-notification', { 
-          detail: { message: 'এক্সটেনশনটি ডিলিট করা হয়েছে।', type: 'info' } 
-        }));
-        extensionManager.reloadApp();
+      setIsUploading(true); // Re-use as general processing state
+      try {
+        const success = await extensionManager.unregister(id);
+        if (success) {
+          window.dispatchEvent(new CustomEvent('app-notification', { 
+            detail: { message: 'এক্সটেনশনটি ডিলিট করা হয়েছে।', type: 'info' } 
+          }));
+          // Force a state refresh just in case the observer missed it
+          setInstalledExtensions(extensionManager.getInstalledExtensions());
+        } else {
+          alert('এই এক্সটেনশনটি মুছে ফেলা সম্ভব হয়নি। আইডি মিলছে না।');
+        }
+      } catch (err: any) {
+        alert(`Error: ${err.message}`);
+      } finally {
+        setIsUploading(false);
       }
     }
   };
