@@ -133,14 +133,6 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
-    // Force focus with a small timeout for reliability across page transitions
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     const loadTags = async () => {
       const allNotes = await DataManager.getAllNotes();
       const tags = new Set<string>();
@@ -406,7 +398,6 @@ export default function SearchPage() {
               </div>
               <input
                 ref={inputRef}
-                autoFocus
                 type="text"
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}

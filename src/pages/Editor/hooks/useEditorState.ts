@@ -96,6 +96,49 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
   useEffect(() => { noteRef.current = note; }, [note]);
 
+  // Keep window current note state updated for extensions
+  useEffect(() => {
+    if (note) {
+      (window as any)._currentNoteState = {
+        id: note.id,
+        title,
+        description,
+        tags,
+        theme,
+        content: blocksToHtml(blocks)
+      };
+    } else {
+      (window as any)._currentNoteState = null;
+    }
+    return () => {
+      (window as any)._currentNoteState = null;
+    };
+  }, [note, title, description, tags, theme, blocks]);
+
+  // Listen for extension-apply-changes custom event
+  useEffect(() => {
+    const handleExtensionApplyChanges = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { content } = customEvent.detail;
+      if (!content) return;
+      
+      if (typeof content === 'string') {
+        const parsedBlocks = htmlToBlocks(content);
+        setBlocks(parsedBlocks);
+      } else if (Array.isArray(content)) {
+        setBlocks(content);
+      }
+      
+      setNotification({ message: 'এক্সটেনশন পরিবর্তনগুলো সফলভাবে প্রয়োগ করা হয়েছে!', type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+    };
+    
+    window.addEventListener('extension-apply-changes', handleExtensionApplyChanges);
+    return () => {
+      window.removeEventListener('extension-apply-changes', handleExtensionApplyChanges);
+    };
+  }, [setBlocks]);
+
   const BACKUP_KEY = `note_backup_${id}`;
 
   const savePreviousNoteIfNeeded = useCallback(async (prevId: string) => {

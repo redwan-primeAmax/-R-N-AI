@@ -7,6 +7,8 @@ import { useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import CustomBlockEditor from './components/CustomBlockEditor';
+import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
+import { X } from 'lucide-react';
 
 import { useEditorState } from './hooks/useEditorState';
 import { useCollaboration } from './hooks/useCollaboration';
@@ -244,16 +246,24 @@ function EditorPage({ id }: { id: string | undefined }) {
                   {emoji || '📄'}
                 </button>
                 {showPageEmojiPicker && (
-                  <div className="absolute top-16 left-0 z-50 p-3 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl flex gap-1.5 flex-wrap w-64 backdrop-blur-lg">
-                    {['📄', '📝', '📓', '💡', '📌', '🚀', '🎯', '⭐', '🎨', '🔥', '⚙️', '📂', '📅', '🧠', '💼'].map((em) => (
-                      <button
-                        key={em}
-                        onClick={() => { updateEmoji(em); setShowPageEmojiPicker(false); }}
-                        className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl text-xl transition-all active:scale-90"
+                  <div className="absolute top-16 left-0 z-50 shadow-2xl rounded-2xl overflow-hidden border border-white/10">
+                    <div className="bg-[#1f1f1f] p-2 flex justify-end border-b border-white/5">
+                      <button 
+                        onClick={() => setShowPageEmojiPicker(false)}
+                        className="p-1 hover:bg-white/10 rounded-lg text-white/50"
                       >
-                        {em}
+                        <X size={16} />
                       </button>
-                    ))}
+                    </div>
+                    <EmojiPicker 
+                      onEmojiClick={(emojiData) => {
+                        updateEmoji(emojiData.emoji);
+                        setShowPageEmojiPicker(false);
+                      }}
+                      theme={EmojiTheme.DARK}
+                      width={320}
+                      height={400}
+                    />
                   </div>
                 )}
               </div>

@@ -1,100 +1,68 @@
 # Diamond Road: Extension System Specification (V1.0)
 ## The Ultimate Guide for Extension Developers
 
-এই গাইডটি আপনাকে Diamond Road-এর জন্য কাস্টম এক্সটেনশন এবং থিম তৈরি করতে সাহায্য করবে। এখানে প্রতিটি API, স্লট এবং ইঞ্জিনের কাজ করার পদ্ধতি বিস্তারিতভাবে ব্যাখ্যা করা হয়েছে।
+এই গাইডটি আপনাকে Diamond Road-এর জন্য কাস্টম এক্সটেনশন এবং হাব অ্যাপ তৈরি করতে সাহায্য করবে। এখানে প্রতিটি API এবং ইঞ্জিন কিভাবে কাজ করে তা বিস্তারিত ব্যাখ্যা করা হয়েছে।
 
 ---
 
-### ১. এক্সটেনশন স্ট্রাকচার (Manifest & Code)
+### ১. এক্সটেনশন স্ট্রাকচার (Manifest & Index)
 
-একটি স্ট্যান্ডার্ড এক্সটেনশন প্যাকেজে সাধারণত দুটি ফাইল থাকে:
-1. **manifest.json**: এক্সটেনশনের মেটাডাটা।
-2. **index.js**: মূল লজিক (যা অ্যাপ কল করবে)।
+একটি প্যাকেজে সাধারণত দুটি মেইন ফাইল থাকে:
+1. **manifest.json**: এক্সটেনশনের টাইটেল, ভার্সন এবং মেটাডাটা।
+2. **index.js**: মূল লজিক (JavaScript Code)।
 
 #### manifest.json Example:
 ```json
 {
-  "id": "com.example.calendar-plus",
-  "name": "Calendar Plus",
-  "version": "1.1.0",
-  "description": "Adds a powerful calendar module to your editor.",
-  "author": "DevTeam",
+  "id": "com.user.custom-extension",
+  "name": "My Extension",
+  "version": "1.0.0",
+  "description": "Short description of your tool",
+  "author": "Your Name",
   "type": "extension",
-  "icon": "📅"
+  "icon": "🚀"
 }
 ```
 
 ---
 
-### ২. কোর আর্কিটেকচার (The AppAPI & Available Slots)
+### ২. কোর আর্কিটেকচার ও স্লট (Available Slots)
 
-Diamond Road এ বর্তমানে ৫টি প্রধান "Slot" বা হুক এভেইলেবল আছে যেখানে আপনি আপনার কাস্টম লজিক বা ইউআই ইনজেক্ট করতে পারেন:
+Diamond Road-এ বর্তমানে প্রধান স্লটগুলো হলো:
 
-#### ২.১ সাইডবার স্লট (Sidebar Slot)
-সাইডবার হলো অ্যাপের নেভিগেশন হাব। আপনি এখানে আপনার নিজস্ব আইটেম যোগ করতে পারেন।
-- **Hook**: `api.ui.registerSidebarItem(item)`
-- **Capabilities**: আইকন এবং লেবেল সেট করা, ক্লিক হ্যান্ডল করা।
-- **Use Case**: ইউসেজ স্ট্যাটস, ক্যালেন্ডার শর্টকাট, বা অন্য কোনো গ্লোবাল টুল।
+#### ২.১ হাব অ্যাপ স্লট (Extension Hub App) - [NEW]
+এক্সটেনশন হাব-এ আপনার এক্সটেনশনের জন্য একটি বড় ইন্টারফেস বা মিনি-অ্যাপ রেজিস্টার করতে পারেন।
+- **Hook**: `api.ui.registerApp(config)`
+- **Capabilities**: ফুল স্ক্রিন ড্যাশবোর্ড, কাস্টম SVG আইকন সাপোর্ট।
 
 ```javascript
-api.ui.registerSidebarItem({
-  id: 'my-stats',
-  label: 'ইউসেজ স্ট্যাটস',
-  icon: '📊',
-  onClick: () => api.ui.notify('বিকাশমান...', 'info')
+api.ui.registerApp({
+  id: 'vision-studio',
+  title: 'Vision Studio',
+  icon: '<svg>...</svg>', // SVG কোড সরাসরি স্ট্রিং হিসেবে
+  Component: MyStudioApp // React Component
 });
 ```
 
-#### ২.২ ইনসার্ট / স্লাশ মেনু (Insert Menu / Slash Command Slot)
+#### ২.২ সাইডবার স্লট (Sidebar Slot)
+সাইডবার বা প্রধান মেনুতে আপনার নিজস্ব আইটেম যোগ করুন।
+- **Hook**: `api.ui.registerSidebarItem(item)`
+- **Capabilities**: কাস্টম আইকন এবং ক্লিক অ্যাকশন।
+
+#### ২.৩ ইনসার্ট টুল স্লট (Insert / Slash Menu)
 এডিটরের "+" বাটন বা "/" মেনুতে আপনার টুলটি দেখাবে।
 - **Hook**: `api.ui.registerTool(config)`
-- **Capabilities**: কাস্টম ক্লিক হ্যান্ডলার অথবা সরাসরি ব্লক ইনসার্ট করা।
-- **Use Case**: নতুন ইমেজ জেনারেটর, ক্লক ব্লক, বা কাস্টম কোনো উইজেট যোগ করা।
+- **Capabilities**: সরাসরি এডিটরে নতুন কন্টেন্ট বা ব্লক যুক্ত করা।
 
-```javascript
-api.ui.registerTool({
-  id: 'clock-block',
-  label: 'লাইভ ঘড়ি (Clock)',
-  icon: '⏰',
-  description: 'এডিটরে একটি লাইভ ঘড়ি যুক্ত করুন',
-  onClick: (editor) => editor.chain().focus().insertBlock('clock-block').run()
-});
-```
-
-#### ২.৩ ব্লক রেন্ডারার স্লট (Editor Block Renderer)
-এটি সবচেয়ে পাওয়ারফুল স্লট। আপনি এডিটরের ভেতরে নতুন ধরণের এলিমেন্ট রেন্ডার করতে পারেন।
-- **Hook**: `api.registerBlock(type, ReactComponent)`
-- **Capabilities**: পূর্ণ রিয়্যাক্ট কম্পোনেন্ট হিসেবে কাজ করা, এডিটর ডাটা ম্যানিপুলেট করা।
-- **Use Case**: গেজ চার্ট, অডিও প্লেয়ার, বা ইন্টারেক্টিভ ক্যানভাস।
-
-```javascript
-api.registerBlock('clock-block', ({ block }) => {
-  const [time, setTime] = React.useState(new Date().toLocaleTimeString());
-  React.useEffect(() => {
-    const t = setInterval(() => setTime(new Date().toLocaleTimeString()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return React.createElement('div', { className: 'p-4 bg-black/5 rounded-xl font-mono text-center' }, time);
-});
-```
-
-#### ২.৪ থিম ইঞ্জিন স্লট (Theme Slot)
-এডিটরের লুক এবং ফিল পরিবর্তন করতে পারবেন।
-- **Hook**: `api.ui.registerTheme(config)`
-- **Capabilities**: সিএসএস ভেরিয়েবল সেট করা এবং কাস্টম স্টাইল ইনজেক্ট করা।
-
-#### ২.৫ ডাটা ট্রান্সফরমেশন স্লট (Data Filters)
-ডাটা লোড হওয়া বা সেভ হওয়ার সময় আপনার কাস্টম লজিক রান করবে।
-- **Hook**: `api.addFilter(hook, callback)`
-- **Hooks**: `beforeSave` (সেভ করার আগে), `onLoad` (লোড হওয়ার সময়), `onBlocksUpdate` (এডিট হওয়ার সময়)।
-
----
+#### ২.৪ ব্লক রেন্ডারার স্লট (Editor Block)
+এডিটরের ভেতরে নতুন ধরণের ইন্টারেক্টিভ এলিমেন্ট রেন্ডার করতে পারেন।
+- **Hook**: `api.editor.registerBlock(type, ReactComponent)`
 
 ---
 
 ### ৩. থিম স্লট (The Canvas API)
 
-থিম এক্সটেনশনগুলো এডিটরের "Canvas State" পরিবর্তন করতে পারে। আপনি `api.ui.registerTheme` এর মাধ্যমে এটি করবেন।
+थিম এক্সটেনশনগুলো এডিটরের "Canvas State" পরিবর্তন করতে পারে। আপনি `api.ui.registerTheme` এর মাধ্যমে এটি করবেন।
 
 ```javascript
 api.ui.registerTheme({
@@ -104,7 +72,7 @@ api.ui.registerTheme({
   config: {
     styles: {
       '--editor-bg': '#050505',
-      '--editor-text': '#00ff41', // Matrix green!
+      '--editor-text': '#00ff41',
       '--editor-line': '#1a1a1a',
       '--accent-color': '#ff00ff'
     }
@@ -116,14 +84,14 @@ api.ui.registerTheme({
 
 ### ৪. ডাটা স্টোরেজ (Persistent API)
 
-এক্সটেনশনকে যাতে রিলোড করলে ডাটা হারাতে না হয়, তার জন্য আমরা `api.storage` দিয়েছি। এটি ব্রাউজারের লোকাল স্টোরেজের একটি এনক্রিপ্টেড লেয়ার।
+এক্সটেনশনকে যাতে রিলোড করলে ডাটা হারাতে না হয়, তার জন্য `api.storage` ব্যবহার করুন।
 
 ```javascript
-// Save preferences
-api.storage.set('user_theme_pref', 'dark');
+// Data Save
+api.storage.set('user_pref', 'value');
 
-// Load preferences
-const pref = api.storage.get('user_theme_pref');
+// Data Load
+const value = api.storage.get('user_pref');
 ```
 
 ---
@@ -133,7 +101,6 @@ const pref = api.storage.get('user_theme_pref');
 আপনি যদি চান অ্যাপের ডাটা সেভ হওয়ার আগে বা লোড হওয়ার পরে কোনো পরিবর্তন করতে, তবে ফিল্টার ব্যবহার করুন।
 
 ```javascript
-// ডাটা সেভ করার আগে টাইটেল বড় হাতের করা
 api.addFilter('beforeSave', (content) => {
   return content.toUpperCase();
 });
@@ -141,13 +108,14 @@ api.addFilter('beforeSave', (content) => {
 
 ---
 
-### ৬. গাইডলাইন এবং রুলস (Developer Best Practices)
+### ৬. পারফরম্যান্স ও স্কেলেবিলিটি গাইডলাইন (Performance & Scalability)
 
-আপনার এক্সটেনশনটি মজবুত এবং বাগ-ফ্রি করতে নিচের ৩টি রুল মেনে চলুন:
+যখন অ্যাপে ১০০ এর বেশি এক্সটেনশন থাকবে, তখন পারফরম্যান্স ঠিক রাখতে এই নিয়মগুলো মানা বাধ্যতামূলক:
 
-1. **Namespace Your Styles**: আপনার সিএসএস যেন অন্য কারো সিএসএসকে নষ্ট না করে। সবসময় প্রিফিক্স ব্যবহার করুন (যেমন: `.ext-calendar-header`).
-2. **Handle Errors Gracefully**: কোডের ভেতরে `try-catch` ব্লক ব্যবহার করুন। আপনার এক্সটেনশন ক্রাশ করলে যেন পুরো অ্যাপ বন্ধ না হয়ে যায়।
-3. **Optimized Rendering**: অপ্রয়োজনীয় বার রেন্ডারিং রিঅ্যাক্ট কম্পোনেন্টকে স্লো করে দিতে পারে। `React.memo` ব্যবহার করার চেষ্টা করুন।
+1. **Lazy Loading**: হাব অ্যাপের মেনু বা বড় কম্পোনেন্টগুলো `React.lazy()` ব্যবহার করে লোড করুন। এতে র্যাম খরচ কমবে।
+2. **SVG Optimization**: আইকনের জন্য এসভিজি কোড যতটা সম্ভব ক্লিন এবং ছোট রাখুন। বড় ইমেজ সরাসরি কোডে ব্যবহার করা নিষেধ।
+3. **Memory Management**: প্রতিটি এক্সটেনশনে `destroy()` ফাংশন ব্যবহার করে গ্লোবাল লিসেনার বা টেম্পোরারি অবজেক্টগুলো ক্লিনিং নিশ্চিত করুন।
+4. **Batching Update**: অ্যাপের কোর ইঞ্জিন এখন আপডেটগুলো ব্যাচিং করে প্রসেস করে। তাই বারবার `emitChange` বা গ্লোবাল রেন্ডার ট্রিগার করবেন না।
 
 ---
 
@@ -182,5 +150,36 @@ export const activate = (api) => {
 
 ---
 
-### ৮. উপসংহার
+### ৮. ডেটা পারসিস্টেন্স ও সিকিউরিটি (Data Persistence & Security) [CRITICAL]
+
+Diamond Road-এ ইউজারের ডাটা সুরক্ষা সবচেয়ে বড় অগ্রাধিকার। এক্সটেনশন ডেভেলপারদের অবশ্যই নিচের নিয়মগুলো মেনে চলতে হবে:
+
+#### ৮.১ স্টিকি ব্লক (Sticky Blocks)
+যদি আপনার এক্সটেনশন নতুন কোনো **ব্লক টাইপ** রেজিস্টার করে, তবে মনে রাখবেন:
+- ইউজার এক্সটেনশন ডিলিট করলেও পুরনো নোটের ডাটা হারাবে না।
+- সিস্টেম ওই ব্লকের ডাটা একটি "Legacy Fallback" মোডে রেন্ডার করবে।
+- এর ফলে এক্সটেনশন টেম্পোরারি ডাউনলোড এবং ডিলিট করা নিরাপদ।
+
+#### ৮.২ ফিল্টার সিকিউরিটি (Filter Security Protocol)
+`api.addFilter` ব্যবহার করার সময় খেয়াল রাখুন:
+- সরাসরি ইউজারের র ডাটা (Raw Data) ডিলেট করা যাবে না।
+- ফিল্টার যদি `null` বা `undefined` রিটার্ন করে, সিস্টেম অটোমেটিক ওই পরিবর্তন বাতিল করে দেবে।
+- বড় অবজেক্ট ফিল্টার করার সময় সিস্টেম ইন্টারনাল "Deep Copy" ব্যবহার করে, যাতে কোর ভেরিয়েবলগুলো করাপ্ট না হয়।
+
+#### ৮.৩ স্টোরেজ লিমিট
+`api.storage` শুধুমাত্র কনফিগারেশন এবং ছোট ইউজার প্রেফারেন্সের জন্য। বড় কোনো ফাইল বা মিডিয়া সরাসরি স্টোরেজে সেভ করবেন না, এটি অ্যাপের লোডিং স্লো করে দিতে পারে।
+
+#### ৮.৪ এআই ইন্টিগ্রেশন (AI Proxy API) [NEW]
+এক্সটেনশন ডেভেলপাররা ইউজারের কনফিগার করা এআই ইঞ্জিন ব্যবহার করতে পারেন।
+- **Hook**: `api.ai.generate({ prompt, systemInstruction })`
+- **Safety**: এক্সটেনশন সরাসরি এপিআই কী দেখতে পারে না। যদি এআই কনফিগার না থাকে তবে এরর রিটার্ন করবে।
+
+#### ৮.৫ সিকিউর ডাটা ওভাররাইট (Secure Overwrite Protocol) [NEW]
+ইউজারের পারমিশন ছাড়া কোনো নোটের ডাটা পরিবর্তন করা সম্ভব নয়।
+- **Process**: `api.editor.applyChanges(newContent, reason)` কল করলে ইউজারের কাছে একটি কনফার্মেশন প্রম্পট যাবে। ইউজার "Apply" করলে তবেই ডাটা আপডেট হবে।
+- **Best Practice**: সবসময় পরিবর্তনের কারণ (reason) উল্লেখ করুন যেন ইউজার বুঝতে পারে আপনার এক্সটেনশন কি করতে চাচ্ছে।
+
+---
+
+### ৯. উপসংহার
 এই গাইডলাইন অনুসরণ করে তৈরি করা এক্সটেনশনগুলো Diamond Road-এর ফিউচার আপডেটের সাথে সামঞ্জস্যপূর্ণ থাকবে। আপনার নতুন আইডিয়া নিয়ে কাজ শুরু করুন!

@@ -26,7 +26,6 @@ export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>('');
-  const [activeMenuNote, setActiveMenuNote] = useState<Note | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -175,7 +174,6 @@ export default function HomePage() {
     };
     await DataManager.saveNote(newNote);
     loadData();
-    setActiveMenuNote(null);
   };
 
   const recentNotesList = [...notes]
@@ -186,6 +184,15 @@ export default function HomePage() {
   if (recentNotesList.length === 0) {
     recentNotesList.push(...[...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 4));
   }
+
+  const handleEmojiSelect = async (id: string, emoji: string) => {
+    const note = await DataManager.getNoteById(id);
+    if (note) {
+      const updatedNote = { ...note, emoji, updatedAt: Date.now() };
+      await DataManager.saveNote(updatedNote);
+      loadData();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white pb-48 overflow-x-hidden select-none">
@@ -249,19 +256,6 @@ export default function HomePage() {
           )}
         </div>
       </div>
-
-      <ActionMenu 
-        note={activeMenuNote}
-        onClose={() => setActiveMenuNote(null)}
-        onEdit={(id) => { navigate(`/editor/${id}`, { state: { fromOutside: true } }); setActiveMenuNote(null); }}
-        onCopy={handleCopyNote}
-        onDelete={(id) => { handleSoftDelete(id); setActiveMenuNote(null); }}
-        onToggleSelection={(id) => {
-          setIsSelectionMode(true);
-          setSelectedIds([id]);
-          setActiveMenuNote(null);
-        }}
-      />
 
       <SelectionBar 
         isVisible={isSelectionMode}

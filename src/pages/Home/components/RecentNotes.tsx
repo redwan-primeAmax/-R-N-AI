@@ -25,15 +25,33 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({ notes, onNoteClick }) 
         {notes.map(note => (
           <motion.button 
             key={note.id}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.05, translateY: -4 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => onNoteClick(note.id)}
-            className="flex-shrink-0 w-36 bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 border-b-[4px] border-r-[1.5px] rounded-[32px] p-5 flex flex-col items-center text-center gap-3 transition-all duration-150 hover:bg-white/[0.06] hover:border-white/15 hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-[1px] active:border-r-[0.5px] shadow-[0_6px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.45)] cursor-pointer"
+            className="flex-shrink-0 w-36 relative overflow-hidden rounded-[32px] p-[1.5px] transition-all duration-300 bg-gradient-to-b from-[#4d5b6b] to-[#1a1f26] shadow-[0_6px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.45)] cursor-pointer"
           >
-            <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center shadow-inner border border-white/10 border-b-[2px] border-r-[1px]">
-              <FileText size={24} className="text-white/20" />
-            </div>
-            <div className="font-bold text-xs truncate w-full px-1 text-white/80">
-              {note.title || 'শিরোনামহীন'}
+            <div className="relative w-full h-full bg-[#1a2332] rounded-[30.5px] p-5 flex flex-col items-center text-center gap-3 overflow-hidden">
+              {/* Subtle Inner Glow Layer */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#24334d] via-[#0f172a] to-[#050810] opacity-90" />
+              
+              {/* Texture Overlay */}
+              <div 
+                className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
+                style={{ backgroundImage: "url('/assets/web_note_card_bg/web_note_card_bg.png')" }}
+              />
+
+              <div className="relative z-10 flex flex-col items-center gap-3 w-full">
+                <div className="w-12 h-12 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 group-hover:scale-105 transition-transform">
+                  {note.emoji ? (
+                    <span className="text-2xl drop-shadow-md">{note.emoji}</span>
+                  ) : (
+                    <FileText size={20} className="text-white/30" />
+                  )}
+                </div>
+                <div className="font-bold text-[11px] truncate w-full px-1 text-white/90">
+                  {note.title || 'শিরোনামহীন'}
+                </div>
+              </div>
             </div>
           </motion.button>
         ))}

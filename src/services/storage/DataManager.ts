@@ -653,7 +653,7 @@ export const DataManager = {
       HistoryManager.addNoteToHistory({
         id: note.id,
         title: note.title || 'Untitled',
-        emoji: ''
+        emoji: note.emoji || ''
       });
     }
     return note || null;

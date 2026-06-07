@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Search, Plus, Sparkles } from 'lucide-react';
+import { Search, Plus, Sparkles, Boxes } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -70,7 +70,13 @@ export default function Navigation() {
 
   return (
     <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
-      <nav className="bg-[#1a1a1a]/90 backdrop-blur-3xl border border-white/10 border-b-[4px] border-r-[1.5px] p-2 rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
+      <nav className="relative overflow-hidden bg-[#1a1a1a]/85 backdrop-blur-3xl border border-white/10 border-b-[4px] border-r-[1.5px] p-2 rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
+        {/* Texture Overlay */}
+        <div 
+          className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
+          style={{ backgroundImage: "url('/assets/nev/navbar_icon.png')" }}
+        />
+        
         {/* Search */}
         <NavLink
           to="/search"
@@ -83,7 +89,7 @@ export default function Navigation() {
             )
           }
         >
-          <Search size={20} />
+          <Search size={20} className="opacity-10" />
         </NavLink>
 
         {/* Quick Note */}
@@ -91,7 +97,7 @@ export default function Navigation() {
           onClick={createQuickNote}
           className="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white hover:border-white/5 transition-all duration-300 active:scale-95 active:translate-y-0.5"
         >
-          <Plus size={22} />
+          <Plus size={22} className="opacity-10" />
         </button>
 
         {/* Ask AI */}
@@ -106,7 +112,7 @@ export default function Navigation() {
             )
           }
         >
-          <Sparkles size={20} />
+          <Sparkles size={20} className="opacity-10" />
         </NavLink>
       </nav>
     </div>

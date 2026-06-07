@@ -2,6 +2,7 @@ import { AppExtension, AppAPI, SidebarExtensionItem } from '../types/extension';
 import React from 'react';
 import JSZip from 'jszip';
 import localforage from 'localforage';
+import * as LucideIcons from 'lucide-react';
 
 class ExtensionManager {
   private extensions: Map<string, AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null }> = new Map();
@@ -12,42 +13,187 @@ class ExtensionManager {
   private listeners: Set<() => void> = new Set();
   private injectedStyles: Map<string, HTMLStyleElement> = new Map();
   private blockRegistry: Map<string, React.ComponentType<any>> = new Map();
+  private persistentBlocks: Set<string> = new Set(); // Track blocks that should persist data
   private registeredTools: any[] = [];
+  private pendingChangeRequests: Map<string, { id: string; extensionId: string; content: any; reason: string; timestamp: number }> = new Map();
+  private hubApps: Map<string, { id: string; title: string; icon: string; Component: React.ComponentType<any>; extensionId: string }> = new Map();
   private editorThemes: Map<string, any> = new Map();
   private filters: Map<string, Set<(data: any) => any>> = new Map();
+  private changeTimeout: any = null;
+  private isBatching: boolean = false;
 
   constructor() {
     (window as any).React = React;
+    (window as any).Lucide = LucideIcons;
     this.loadInstalledExtensions();
+    this.loadPersistentBlocksState();
+  }
+
+  private async loadPersistentBlocksState() {
+    const saved = await localforage.getItem<string[]>('persistent_block_types');
+    if (saved && Array.isArray(saved)) {
+      saved.forEach(type => this.persistentBlocks.add(type));
+    }
+  }
+
+  private async savePersistentBlocksState() {
+    await localforage.setItem('persistent_block_types', Array.from(this.persistentBlocks));
+  }
+
+  private transformImports(script: string): string {
+    let processed = script;
+    
+    // Process imports matching:
+    // import { ... } from '...'
+    // import defaultName, { ... } from '...'
+    // import * as name from '...'
+    // import name from '...'
+    processed = processed.replace(
+      /import\s+([\s\S]*?)\s+from\s*['"]([^'"]+)['"]\s*;?/g,
+      (match, importClause, source) => {
+        const sourceLower = source.trim().toLowerCase();
+        const cleanClause = importClause.trim().replace(/\s+/g, ' ');
+        
+        // Match import * as name from '...'
+        if (cleanClause.startsWith('* as ')) {
+          const name = cleanClause.slice(5).trim();
+          if (sourceLower === 'react') {
+            return `const ${name} = React;`;
+          } else if (sourceLower === 'lucide-react') {
+            return `const ${name} = Lucide;`;
+          } else {
+            return `const ${name} = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});`;
+          }
+        }
+        
+        // Match destructuring e.g. { a, b } or name, { a, b }
+        const braceMatch = cleanClause.match(/\{([\s\S]*?)\}/);
+        if (braceMatch) {
+          const destructures = braceMatch[1].trim();
+          let result = '';
+          
+          const defaultPart = cleanClause.split('{')[0].trim().replace(/,/g, '').trim();
+          if (defaultPart && defaultPart !== '*') {
+            if (sourceLower === 'react') {
+              result += `const ${defaultPart} = React;\n`;
+            } else if (sourceLower === 'lucide-react') {
+              result += `const ${defaultPart} = Lucide;\n`;
+            } else {
+              result += `const ${defaultPart} = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});\n`;
+            }
+          }
+          
+          if (sourceLower === 'react') {
+            result += `const { ${destructures} } = React;`;
+          } else if (sourceLower === 'lucide-react') {
+            result += `const { ${destructures} } = Lucide;`;
+          } else {
+            result += `const { ${destructures} } = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});`;
+          }
+          return result;
+        }
+        
+        // Match simple default import e.g. import name from '...'
+        const name = cleanClause;
+        if (sourceLower === 'react') {
+          return `const ${name} = React;`;
+        } else if (sourceLower === 'lucide-react') {
+          return `const ${name} = Lucide;`;
+        } else {
+          return `const ${name} = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});`;
+        }
+      }
+    );
+
+    // Strip side-effect imports like import "style.css";
+    processed = processed.replace(/import\s*['"]([^'"]+)['"]\s*;?/g, '// import "$1";');
+
+    return processed;
+  }
+
+  private async evaluateExtension(manifest: any, script: string, api: any) {
+    // 1. Try ESM dynamic import first
+    try {
+      const blob = new Blob([script], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const module = await import(/* @vite-ignore */ url);
+      URL.revokeObjectURL(url);
+      
+      const activate = module.default?.activate || module.activate;
+      const deactivate = module.default?.deactivate || module.deactivate;
+      
+      if (typeof activate === 'function') {
+        return {
+          activate,
+          deactivate: typeof deactivate === 'function' ? deactivate : (() => {})
+        };
+      }
+    } catch (e) {
+      console.warn(`Dynamic ESM import failed for extension ${manifest.id || manifest.name}, trying CommonJS fallback:`, e);
+    }
+
+    // 2. Fallback: CommonJS/Direct Emulation using Function constructor
+    try {
+      let processed = script;
+      
+      // Preprocess and transform ESM imports first
+      processed = this.transformImports(processed);
+      
+      // Transform ESM exports into standard assignments to a local "exports" object
+      processed = processed.replace(/\bexport\s+const\s+(\w+)\s*=/g, 'exports.$1 =');
+      processed = processed.replace(/\bexport\s+let\s+(\w+)\s*=/g, 'exports.$1 =');
+      processed = processed.replace(/\bexport\s+function\s+(\w+)/g, 'exports.$1 = function $1');
+      processed = processed.replace(/\bexport\s+default\s+/g, 'exports.default = ');
+      
+      const exports: any = {};
+      const moduleObj = { exports };
+      
+      const runner = new Function('React', 'api', 'exports', 'module', 'Lucide', 'lucide', processed);
+      runner(React, api, exports, moduleObj, LucideIcons, LucideIcons);
+      
+      const activate = exports.activate || exports.default?.activate || exports.default;
+      const deactivate = exports.deactivate || exports.default?.deactivate;
+      
+      return {
+        activate: typeof activate === 'function' ? activate : (() => {}),
+        deactivate: typeof deactivate === 'function' ? deactivate : (() => {})
+      };
+    } catch (err) {
+      console.error(`Evaluation failure for extension ${manifest.id || manifest.name}:`, err);
+      throw err;
+    }
   }
 
   private async loadInstalledExtensions() {
+    this.isBatching = true;
     try {
       const installed = await localforage.getItem<any[]>('installed_extensions');
       if (installed && Array.isArray(installed)) {
         for (const extData of installed) {
           try {
-            const blob = new Blob([extData.script], { type: 'application/javascript' });
-            const url = URL.createObjectURL(blob);
-            const module = await import(/* @vite-ignore */ url);
+            const manifest = extData.manifest || extData;
+            const api = this.createAPI(manifest.id);
+            const { activate, deactivate } = await this.evaluateExtension(manifest, extData.script, api);
             
             const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
-              ...extData.manifest,
+              ...manifest,
               _script: extData.script,
               _isPersistent: true,
-              init: module.default?.activate || module.activate || (() => {}),
-              destroy: module.default?.deactivate || module.deactivate || (() => {})
+              init: activate,
+              destroy: deactivate
             };
             
             this.register(extension);
           } catch (e) {
-            console.error(`Failed to reload extension ${extData.manifest?.id}:`, e);
+            console.error(`Failed to reload extension ${extData.manifest?.id || extData.id}:`, e);
           }
         }
       }
-      this.emitChange();
     } catch (e) {
       console.error('Failed to load extensions from storage:', e);
+    } finally {
+      this.isBatching = false;
+      this.emitChange();
     }
   }
 
@@ -58,11 +204,61 @@ class ExtensionManager {
     return {
       id: extensionId,
       
+      // AI Proxy API [NEW]
+      ai: {
+        generate: async (options: { prompt: string; systemInstruction?: string }) => {
+          const config = await localforage.getItem('ai_config');
+          if (!config) {
+            return { error: 'AI_NOT_CONFIGURED', message: 'User has not configured AI settings.' };
+          }
+          
+          try {
+            const response = await fetch('/api/ai/proxy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...options, extensionId })
+            });
+            return await response.json();
+          } catch (e) {
+            return { error: 'AI_SERVICE_UNAVAILABLE' };
+          }
+        }
+      },
+
+      // Editor & Compatibility Module [NEW]
+      editor: {
+        registerBlock: (type: string, component: React.ComponentType<any>) => {
+          this.createAPI(extensionId).registerBlock(type, component);
+        },
+        insertBlock: (type: string) => {
+          window.dispatchEvent(new CustomEvent('editor-command', { 
+            detail: { command: 'insertBlock', args: [type] } 
+          }));
+        },
+        getContent: () => {
+          return (window as any)._currentNoteState || null;
+        },
+        applyChanges: (newContent: any, reason: string = 'Update note content') => {
+          const requestId = Math.random().toString(36).substring(7);
+          self['pendingChangeRequests'].set(requestId, {
+            id: requestId,
+            extensionId,
+            content: newContent,
+            reason,
+            timestamp: Date.now()
+          });
+          self['emitChange']();
+          return requestId;
+        }
+      },
+
       // UI Module
       ui: {
         registerTool: (config: any) => {
           if (config.Component) {
             this.blockRegistry.set(config.id, config.Component);
+            this.persistentBlocks.add(config.id);
+            this.savePersistentBlocksState();
           }
           
           // Deduplicate tools by ID
@@ -116,6 +312,10 @@ class ExtensionManager {
           }
           this.emitChange();
         },
+        registerApp: (config: { id: string; title: string; icon: string; Component: React.ComponentType<any> }) => {
+          this.hubApps.set(`${extensionId}_${config.id}`, { ...config, extensionId });
+          this.emitChange();
+        },
         notify: (message, type = 'info') => {
           window.dispatchEvent(new CustomEvent('app-notification', { detail: { message, type } }));
         },
@@ -131,20 +331,12 @@ class ExtensionManager {
         }
       },
 
-      // Editor Module (Compatibility)
-      editor: {
-        registerBlock: (type: string, component: React.ComponentType<any>) => {
-          this.createAPI(extensionId).registerBlock(type, component);
-        },
-        insertBlock: (type: string) => {
-          window.dispatchEvent(new CustomEvent('editor-command', { 
-            detail: { command: 'insertBlock', args: [type] } 
-          }));
-        }
-      },
+
 
       registerBlock: (type, component) => {
         this.blockRegistry.set(type, component);
+        this.persistentBlocks.add(type);
+        this.savePersistentBlocksState();
         
         // Auto-register as a tool if not already present in registeredTools
         const existingTool = this.registeredTools.find(t => t.id === type);
@@ -323,6 +515,13 @@ class ExtensionManager {
       );
       
       this.removeStyle(id);
+      
+      // Cleanup hub apps
+      for (const [key, value] of this.hubApps.entries()) {
+        if (value.extensionId === id) {
+          this.hubApps.delete(key);
+        }
+      }
 
       if ((window as any).__toolbarButtons) {
         (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => 
@@ -333,9 +532,11 @@ class ExtensionManager {
       // Cleanup tool metadata
       this.registeredTools = this.registeredTools.filter(t => t.extensionId !== id);
 
-      // Cleanup block registry
+      // IMPORTANT: STICKY BLOCKS
+      // We do NOT remove entries from persistentBlocks here.
+      // We only remove from the ACTIVE registry.
       for (const [key] of this.blockRegistry.entries()) {
-        if (key.toLowerCase().includes(id.toLowerCase())) {
+        if (key.toLowerCase().includes(id.toLowerCase()) || key === id) {
           this.blockRegistry.delete(key);
         }
       }
@@ -348,11 +549,8 @@ class ExtensionManager {
       }
 
       // 4. Persistence Purge
-      // First, update persistExtensions (this will omit the deleted one from the next save)
       await this.persistExtensions();
 
-      // Explicitly check and remove from localforage if for some reason persistExtensions fails to clean it up
-      // (e.g. if we want to be paranoid)
       const installed = await localforage.getItem<any[]>('installed_extensions');
       if (installed && Array.isArray(installed)) {
         const filtered = installed.filter(item => 
@@ -406,18 +604,16 @@ class ExtensionManager {
         throw new Error('Invalid manifest.json: missing id, name or version');
       }
 
-      // Load it
-      const blob = new Blob([script], { type: 'application/javascript' });
-      const url = URL.createObjectURL(blob);
-      const module = await import(/* @vite-ignore */ url);
+      const api = this.createAPI(manifest.id);
+      const { activate, deactivate } = await this.evaluateExtension(manifest, script, api);
       
       const extension: AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null } = {
         ...manifest,
         _script: script,
         _html: html,
         _isPersistent: persist,
-        init: module.default?.activate || module.activate || (() => {}),
-        destroy: module.default?.deactivate || module.deactivate || (() => {})
+        init: activate,
+        destroy: deactivate
       };
       
       this.register(extension);
@@ -463,16 +659,15 @@ class ExtensionManager {
     if (!fileData) throw new Error(`Extension "${folderName}" not found in current library.`);
 
     const { manifest, script } = fileData;
-    const blob = new Blob([script], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    const module = await import(/* @vite-ignore */ url);
+    const api = this.createAPI(manifest.id);
+    const { activate, deactivate } = await this.evaluateExtension(manifest, script, api);
 
     const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
       ...manifest,
       _script: script,
       _isPersistent: true, // Installed ones are persistent
-      init: module.default?.activate || module.activate || (() => {}),
-      destroy: module.default?.deactivate || module.deactivate || (() => {})
+      init: activate,
+      destroy: deactivate
     };
 
     this.register(extension);
@@ -538,14 +733,28 @@ class ExtensionManager {
     const callbacks = this.filters.get(hook);
     if (!callbacks) return data;
     
-    let result = data;
+    // Safety Layer: Deep clone if it is a complex object to prevent state-corruption in the main engine
+    let result = (data && typeof data === 'object') ? JSON.parse(JSON.stringify(data)) : data;
+    const initialState = JSON.stringify(result);
+    
     callbacks.forEach(cb => {
       try {
-        result = cb(result);
+        const filtered = cb(result);
+        // Validation: If filter returns null or undefined, ignore it to prevent crash
+        if (filtered !== null && filtered !== undefined) {
+          result = filtered;
+        }
       } catch (e) {
         console.error(`Filter Error in hook ${hook}:`, e);
       }
     });
+
+    // Verification: If the resulting object is broken or wiped maliciously, rollback to initial state
+    if (typeof data === 'object' && result === undefined) {
+      console.warn(`Filter [${hook}] returned undefined. Rolling back to safe state.`);
+      return JSON.parse(initialState);
+    }
+
     return result;
   }
 
@@ -553,8 +762,27 @@ class ExtensionManager {
     return this.blockRegistry.get(type) || null;
   }
 
+  // Check if a block type was known to the system even if not currently active
+  isPersistentBlock(type: string): boolean {
+    return this.persistentBlocks.has(type);
+  }
+
   getRegisteredTools() {
     return this.registeredTools;
+  }
+
+  getPendingChangeRequests() {
+    return Array.from(this.pendingChangeRequests.values());
+  }
+
+  resolveChangeRequest(requestId: string, approved: boolean) {
+    const request = this.pendingChangeRequests.get(requestId);
+    if (request && approved) {
+      const event = new CustomEvent('extension-apply-changes', { detail: request });
+      window.dispatchEvent(event);
+    }
+    this.pendingChangeRequests.delete(requestId);
+    this.emitChange();
   }
 
   getRegisteredThemes() {
@@ -569,13 +797,26 @@ class ExtensionManager {
     return this.sidebarItems;
   }
 
+  getHubApps() {
+    return Array.from(this.hubApps.values());
+  }
+
   onChange(listener: () => void) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => { this.listeners.delete(listener); };
   }
 
   private emitChange() {
-    this.listeners.forEach(l => l());
+    if (this.isBatching) return;
+    
+    if (this.changeTimeout) {
+      clearTimeout(this.changeTimeout);
+    }
+    
+    this.changeTimeout = setTimeout(() => {
+      this.listeners.forEach(l => l());
+      this.changeTimeout = null;
+    }, 16); // Buffer for 1 frame approx
   }
 }
 

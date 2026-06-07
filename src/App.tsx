@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { ExtensionPermissionGuard } from './components/ExtensionPermissionGuard';
 import { HashRouter as Router, useLocation, useRoutes, Navigate, useNavigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import { DataManager } from './services/storage/DataManager';
@@ -65,6 +66,7 @@ const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOpt
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 const ExtensionsPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionsPage'));
+const ExtensionHubPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionHubPage'));
 
 function LoadingFallback() {
   return (
@@ -105,12 +107,14 @@ function AppContent() {
                    location.pathname === '/settings' ||
                    location.pathname === '/external-ai-import';
     const isWorkspacePage = location.pathname === '/workspaces';
+    const isExtensionHubPage = location.pathname === '/extension-hub';
     const isSpecialPage = location.pathname === '/recycle-bin' || 
                        location.pathname === '/offline' || 
                        location.pathname === '/backup' ||
                        location.pathname === '/data-management' ||
                        location.pathname === '/templates' ||
-                       location.pathname === '/extensions';
+                       location.pathname === '/extensions' ||
+                       isExtensionHubPage;
     const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage || isExtensionsPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
@@ -327,6 +331,7 @@ function AppContent() {
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
     { path: "/extensions", element: <PageWrapper><ExtensionsPage /></PageWrapper> },
+    { path: "/extension-hub", element: <PageWrapper><ExtensionHubPage /></PageWrapper> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 
@@ -447,6 +452,7 @@ function AppContent() {
 
       {!isFullPage && <Navigation />}
       <VersionControl />
+      <ExtensionPermissionGuard />
     </div>
     </MotionConfig>
   );

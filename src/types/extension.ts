@@ -12,6 +12,12 @@ export interface AppAPI {
     addMenuItem: (item: any) => void;
     addButton: (btn: any) => void;
     registerSidebarItem: (item: SidebarExtensionItem) => void;
+    registerApp: (config: {
+      id: string;
+      title: string;
+      icon: string; // SVG content
+      Component: React.ComponentType<any>;
+    }) => void;
     notify: (message: string, type?: 'info' | 'error' | 'success') => void;
     editor: {
       registerBlock: (type: string, component: React.ComponentType<any>) => void;
@@ -23,6 +29,13 @@ export interface AppAPI {
   editor: {
     registerBlock: (type: string, component: React.ComponentType<any>) => void;
     insertBlock: (type: string) => void;
+    getContent?: () => any;
+    applyChanges?: (newContent: any, reason?: string) => string;
+  };
+
+  // AI Methods
+  ai?: {
+    generate: (options: any) => Promise<any>;
   };
 
   // Extension System Enhancements
@@ -69,6 +82,12 @@ export interface AppExtension {
   description?: string;
   author?: string;
   icon?: any;
+  hubApp?: {
+    id: string;
+    title: string;
+    icon: string;
+    Component: React.ComponentType<any>;
+  };
   
   // Lifecycle
   init: (api: AppAPI) => void;

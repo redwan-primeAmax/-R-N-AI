@@ -29,6 +29,30 @@ import { CalloutBlockRenderer } from '../renderers/CalloutBlockRenderer';
 
 import { extensionManager } from '../../../services/ExtensionManager';
 
+const LegacyBlockFallback: React.FC<{ block: EditorBlock }> = ({ block }) => {
+  return (
+    <div className="my-2 p-4 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col gap-2 group/legacy transition-all hover:bg-white/[0.04]">
+      <div className="flex items-center justify-between opacity-40 group-hover/legacy:opacity-100 transition-opacity">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-lg bg-orange-500/20 flex items-center justify-center">
+            <Layout size={12} className="text-orange-400" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Legacy Block ({block.type})</span>
+        </div>
+        <span className="text-[9px] font-bold text-white/20 italic">Extension Inactive</span>
+      </div>
+      <div className="text-sm text-white/40 italic">
+        This block was created by an extension that is currently inactive or uninstalled. Its data is preserved but only minimal rendering is available.
+      </div>
+      {block.content && (
+        <div className="p-3 bg-black/20 rounded-xl text-xs font-mono text-white/30 truncate">
+          {typeof block.content === 'object' ? JSON.stringify(block.content) : block.content}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export { htmlToBlocks, blocksToHtml };
 
 interface CustomBlockEditorProps {
@@ -208,6 +232,10 @@ const MemoizedBlockRow = React.memo(({
               editor={editor}
             />
           </ErrorBoundary>
+        </div>
+      ) : extensionManager.isPersistentBlock(block.type) ? (
+        <div className="flex-1 min-w-0">
+          <LegacyBlockFallback block={block} />
         </div>
       ) : block.type === 'hr' ? (
         <div className="w-full py-6 flex items-center justify-center self-center flex-1">
