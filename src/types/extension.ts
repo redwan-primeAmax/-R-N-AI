@@ -108,4 +108,7 @@ export interface AppExtension {
   // Lifecycle
   init: (api: AppAPI) => void;
   destroy: (api: AppAPI) => void;
+  status?: 'loading' | 'loaded' | 'error' | 'unloading';
+  error?: string;
+  activatedAt?: number;
 }

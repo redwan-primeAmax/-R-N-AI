@@ -27,6 +27,71 @@ class ExtensionManager {
   private changeTimeout: any = null;
   private isBatching: boolean = false;
 
+  private showNotification(message: string, type: 'info' | 'error' | 'success' | 'warning' = 'info') {
+    // Notify through dispatch events for Toast components on both current and extension listeners
+    window.dispatchEvent(new CustomEvent('app-notification', {
+      detail: { message, type, timestamp: Date.now() }
+    }));
+    window.dispatchEvent(new CustomEvent('extension-notification', {
+      detail: { message, type, timestamp: Date.now() }
+    }));
+    
+    const prefix = `[${type.toUpperCase()}]`;
+    if (type === 'error') {
+      console.error(prefix, message);
+    } else {
+      console.log(prefix, message);
+    }
+  }
+
+  private notifyUser(message: string, type: 'info' | 'error' | 'success' | 'warning' = 'info') {
+    this.showNotification(message, type);
+  }
+
+  private executeWithErrorBoundary(
+    fn: () => any, 
+    extensionId: string, 
+    operationName: string
+  ): any {
+    try {
+      const result = fn();
+      if (result instanceof Promise) {
+        return result.catch((err) => {
+          const message = err?.message || 'Unknown error';
+          this.showNotification(`[${extensionId}] ${operationName} failed: ${message}`, 'error');
+          console.error(`Extension Error [${extensionId}] ${operationName}:`, err);
+          return null;
+        });
+      }
+      return result;
+    } catch (err: any) {
+      const message = err?.message || 'Unknown error';
+      this.showNotification(`[${extensionId}] ${operationName} failed: ${message}`, 'error');
+      console.error(`Extension Error [${extensionId}] ${operationName}:`, err);
+      return null;
+    }
+  }
+
+  private validatePermission(extensionId: string, permission: string): boolean {
+    if (extensionId === 'system') return true;
+    const ext = this.extensions.get(extensionId);
+    if (!ext) {
+      this.showNotification(`Extension "${extensionId}" not found`, 'error');
+      return false;
+    }
+    
+    if (!ext.permissions?.includes(permission as any)) {
+      this.showNotification(
+        `Extension "${ext.name}" does not have '${permission}' permission`, 
+        'error'
+      );
+      console.warn(`Permission denied for ${extensionId}: ${permission}`);
+      return false;
+    }
+    
+    return true;
+  }
+
   constructor() {
     (window as any).React = React;
     (window as any).Lucide = LucideIcons;
@@ -209,9 +274,8 @@ class ExtensionManager {
       
       if (installed && Array.isArray(installed)) {
         for (const extData of installed) {
+          const manifest = extData.manifest || extData;
           try {
-            const manifest = extData.manifest || extData;
-            
             // Workspace isolation check: Skip if extension belongs to another workspace
             if (extData.workspaceId && extData.workspaceId !== activeWorkspaceId) {
               continue;
@@ -223,7 +287,8 @@ class ExtensionManager {
               _isPersistent: true,
               workspaceId: extData.workspaceId,
               init: () => {},
-              destroy: () => {}
+              destroy: () => {},
+              status: 'loading'
             };
             
             // Set in map before evaluation so createAPI can see permissions
@@ -236,13 +301,22 @@ class ExtensionManager {
             extension.destroy = deactivate;
             
             this.register(extension);
-          } catch (e) {
-            console.error(`Failed to reload extension ${extData.manifest?.id || extData.id}:`, e);
+          } catch (e: any) {
+            console.error(`Failed to reload extension ${manifest?.id || extData.id}:`, e);
+            const errMsg = e?.message || 'Evaluation failed';
+            this.showNotification(`Extension "${manifest?.name || manifest?.id || extData.id}" failed to load: ${errMsg}`, 'error');
+            
+            const extRef = this.extensions.get(manifest?.id || extData.id);
+            if (extRef) {
+              extRef.status = 'error';
+              extRef.error = errMsg;
+            }
           }
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load extensions from storage:', e);
+      this.showNotification(`Failed to load extensions from storage: ${e.message}`, 'error');
     } finally {
       this.isBatching = false;
       this.emitChange();
@@ -315,199 +389,216 @@ class ExtensionManager {
     const permissions = extension?.permissions || [];
     const isSystem = extensionId === 'system';
 
-    const hasPermission = (perm: string) => {
-      const allowed = isSystem || permissions.includes(perm as any);
-      if (!allowed) {
-        console.warn(`[Extension Permission] Extension "${extensionId}" tried to access "${perm}" API without required permission.`);
+    const runSafe = (operationName: string, requiredPerm: string | null, fn: () => any) => {
+      if (requiredPerm && !this.validatePermission(extensionId, requiredPerm)) {
+        return null;
       }
-      return allowed;
+      return this.executeWithErrorBoundary(fn, extensionId, operationName);
     };
-    
+
     return {
       id: extensionId,
       
       // AI Proxy API [NEW]
       ai: {
         generate: async (options: { prompt: string; systemInstruction?: string }) => {
-          if (!hasPermission('ai')) {
-            return { error: 'PERMISSION_DENIED', message: 'Extension lacks "ai" permission.' };
-          }
-          const config = await localforage.getItem('ai_config');
-          if (!config) {
-            return { error: 'AI_NOT_CONFIGURED', message: 'User has not configured AI settings.' };
-          }
-          
-          try {
-            const response = await fetch('/api/ai/proxy', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ...options, extensionId })
-            });
-            return await response.json();
-          } catch (e) {
-            return { error: 'AI_SERVICE_UNAVAILABLE' };
-          }
+          return runSafe('ai.generate', 'ai', async () => {
+            const config = await localforage.getItem('ai_config');
+            if (!config) {
+              return { error: 'AI_NOT_CONFIGURED', message: 'User has not configured AI settings.' };
+            }
+            try {
+              const response = await fetch('/api/ai/proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...options, extensionId })
+              });
+              return await response.json();
+            } catch (e: any) {
+              this.showNotification(`AI proxy failed to complete: ${e.message}`, 'error');
+              return { error: 'AI_SERVICE_UNAVAILABLE' };
+            }
+          });
         },
         chat: async (messages: any[]) => {
-          if (!hasPermission('ai')) {
-            throw new Error('Extension lacks "ai" permission.');
-          }
-          
-          try {
-            const response = await fetch('/api/ai/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messages, extensionId })
-            });
-            const data = await response.json();
-            return data.content || data.text || '';
-          } catch (e) {
-            console.error('AI Chat Error:', e);
-            throw e;
-          }
+          return runSafe('ai.chat', 'ai', async () => {
+            try {
+              const response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages, extensionId })
+              });
+              const data = await response.json();
+              return data.content || data.text || '';
+            } catch (e: any) {
+              this.showNotification(`AI Chat failed to reach model: ${e.message}`, 'error');
+              throw e;
+            }
+          });
         }
       },
 
       // Editor & Compatibility Module [NEW]
       editor: {
         registerBlock: (type: string, component: React.ComponentType<any>) => {
-          if (!hasPermission('editor')) return;
-          this.registerBlock(type, component);
+          runSafe('editor.registerBlock', 'editor', () => {
+            this.registerBlock(type, component);
+          });
         },
         insertBlock: (type: string) => {
-          if (!hasPermission('editor')) return;
-          window.dispatchEvent(new CustomEvent('editor-command', { 
-            detail: { command: 'insertBlock', args: [type] } 
-          }));
+          runSafe('editor.insertBlock', 'editor', () => {
+            window.dispatchEvent(new CustomEvent('editor-command', { 
+              detail: { command: 'insertBlock', args: [type] } 
+            }));
+          });
         },
         getContent: () => {
-          if (!hasPermission('editor')) return null;
-          return (window as any)._currentNoteState || null;
+          return runSafe('editor.getContent', 'editor', () => {
+            return (window as any)._currentNoteState || null;
+          });
         },
         getCurrentNote: async () => {
-          if (!hasPermission('editor')) return null;
-          return (window as any)._currentNoteState || null;
+          return runSafe('editor.getCurrentNote', 'editor', async () => {
+            return (window as any)._currentNoteState || null;
+          });
         },
         applyChanges: (newContent: any, reason: string = 'Update note content') => {
-          if (!hasPermission('editor')) return 'PERMISSION_DENIED';
-          const requestId = this.applyChanges(newContent, reason);
-          // Patch extensionId
-          const req = this.pendingChangeRequests.get(requestId);
-          if (req) req.extensionId = extensionId;
-          return requestId;
+          return runSafe('editor.applyChanges', 'editor', () => {
+            const requestId = this.applyChanges(newContent, reason);
+            const req = this.pendingChangeRequests.get(requestId);
+            if (req) req.extensionId = extensionId;
+            return requestId;
+          });
         }
       },
 
       // UI Module
       ui: {
         showModal: (config: { title: string; content: string }) => {
-          window.dispatchEvent(new CustomEvent('app-notification', { 
-            detail: { 
-              message: config.content, 
-              type: 'info',
-              title: config.title,
-              isModal: true
-            } 
-          }));
+          runSafe('ui.showModal', 'ui', () => {
+            window.dispatchEvent(new CustomEvent('app-notification', { 
+              detail: { 
+                message: config.content, 
+                type: 'info',
+                title: config.title,
+                isModal: true
+              } 
+            }));
+          });
         },
         registerTool: (config: any) => {
-          if (!hasPermission('ui')) return;
-          if (config.Component) {
-            this.blockRegistry.set(config.id, config.Component);
-            this.persistentBlocks.add(config.id);
-            this.savePersistentBlocksState();
-          }
-          
-          // Deduplicate tools by ID
-          const existingIdx = this.registeredTools.findIndex(t => t.id === config.id);
-          if (existingIdx > -1) {
-            this.registeredTools[existingIdx] = { ...this.registeredTools[existingIdx], ...config, extensionId };
-          } else {
-            this.registeredTools.push({ ...config, extensionId });
-          }
-          
-          // Compatibility with older systems
-          if (config.Component) {
-            (window as any).__tools = (window as any).__tools || {};
-            (window as any).__tools[config.id] = config.Component;
-          }
-          this.emitChange();
+          runSafe('ui.registerTool', 'ui', () => {
+            if (config.Component) {
+              this.blockRegistry.set(config.id, config.Component);
+              this.persistentBlocks.add(config.id);
+              this.savePersistentBlocksState();
+            }
+            
+            const existingIdx = this.registeredTools.findIndex(t => t.id === config.id);
+            if (existingIdx > -1) {
+              this.registeredTools[existingIdx] = { ...this.registeredTools[existingIdx], ...config, extensionId };
+            } else {
+              this.registeredTools.push({ ...config, extensionId });
+            }
+            
+            if (config.Component) {
+              (window as any).__tools = (window as any).__tools || {};
+              (window as any).__tools[config.id] = config.Component;
+            }
+            this.emitChange();
+          });
         },
         registerBlock: (type: string, component: React.ComponentType<any>) => {
-          if (!hasPermission('editor')) return;
-          this.createAPI(extensionId).registerBlock(type, component);
+          runSafe('ui.registerBlock', 'editor', () => {
+            this.registerBlock(type, component);
+          });
         },
         registerTheme: (config: any) => {
-          if (!hasPermission('theme')) return;
-          this.editorThemes.set(config.id, { ...config, extensionId });
-          this.emitChange();
+          runSafe('ui.registerTheme', 'theme', () => {
+            this.editorThemes.set(config.id, { ...config, extensionId });
+            this.emitChange();
+          });
         },
         addMenuItem: (item: any) => {
-          if (!hasPermission('sidebar')) return;
-          this.createAPI(extensionId).ui.registerSidebarItem({
-            id: `${extensionId}_${item.id || Math.random().toString(36).substr(2, 9)}`,
-            label: item.label,
-            icon: item.icon,
-            onClick: item.onClick
-          } as any);
+          runSafe('ui.addMenuItem', 'sidebar', () => {
+            const sidebarItem = {
+              id: `${extensionId}_${item.id || Math.random().toString(36).substr(2, 9)}`,
+              label: item.label,
+              icon: item.icon,
+              onClick: item.onClick
+            };
+            const existingIdx = this.sidebarItems.findIndex(i => i.id === sidebarItem.id);
+            if (existingIdx > -1) {
+              this.sidebarItems[existingIdx] = sidebarItem as any;
+            } else {
+              this.sidebarItems.push(sidebarItem as any);
+            }
+            this.emitChange();
+          });
         },
         addButton: (btn: any) => {
-          if (!hasPermission('ui')) return;
-          // Compatibility: many extensions expect a toolbar button
-          console.log(`Extension ${extensionId} requested toolbar button:`, btn.label);
-          // Store for UI to render if needed
-          (window as any).__toolbarButtons = (window as any).__toolbarButtons || [];
-          (window as any).__toolbarButtons.push({ ...btn, extensionId });
+          runSafe('ui.addButton', 'ui', () => {
+            (window as any).__toolbarButtons = (window as any).__toolbarButtons || [];
+            (window as any).__toolbarButtons.push({ ...btn, extensionId });
+          });
         },
         registerSidebarItem: (item: SidebarExtensionItem) => {
-          if (!hasPermission('sidebar')) return;
-          const existingIdx = this.sidebarItems.findIndex(i => i.id === item.id || i.id === `${extensionId}_${item.id}`);
-          const newItem = {
-            ...item,
-            id: item.id.startsWith(extensionId) ? item.id : `${extensionId}_${item.id}`
-          };
-          
-          if (existingIdx > -1) {
-            this.sidebarItems[existingIdx] = newItem;
-          } else {
-            this.sidebarItems.push(newItem);
-          }
-          this.emitChange();
+          runSafe('ui.registerSidebarItem', 'sidebar', () => {
+            const existingIdx = this.sidebarItems.findIndex(i => i.id === item.id || i.id === `${extensionId}_${item.id}`);
+            const newItem = {
+              ...item,
+              id: item.id.startsWith(extensionId) ? item.id : `${extensionId}_${item.id}`
+            };
+            
+            if (existingIdx > -1) {
+              this.sidebarItems[existingIdx] = newItem;
+            } else {
+              this.sidebarItems.push(newItem);
+            }
+            this.emitChange();
+          });
         },
         registerApp: (config: { id: string; title: string; icon: string; Component: React.ComponentType<any> }) => {
-          if (!hasPermission('ui')) return;
-          this.hubApps.set(`${extensionId}_${config.id}`, { ...config, extensionId });
-          this.emitChange();
+          runSafe('ui.registerApp', 'ui', () => {
+            this.hubApps.set(`${extensionId}_${config.id}`, { ...config, extensionId });
+            this.emitChange();
+          });
         },
         notify: (message, type = 'info') => {
-          window.dispatchEvent(new CustomEvent('app-notification', { detail: { message, type } }));
+          runSafe('ui.notify', null, () => {
+            this.showNotification(message, type as any);
+          });
         },
         editor: {
           registerBlock: (type: string, component: React.ComponentType<any>) => {
-            if (!hasPermission('editor')) return;
-            this.registerBlock(type, component);
+            runSafe('ui.editor.registerBlock', 'editor', () => {
+              this.registerBlock(type, component);
+            });
           },
           insertBlock: (type: string) => {
-            if (!hasPermission('editor')) return;
-            window.dispatchEvent(new CustomEvent('editor-command', { 
-              detail: { command: 'insertBlock', args: [type] } 
-            }));
+            runSafe('ui.editor.insertBlock', 'editor', () => {
+              window.dispatchEvent(new CustomEvent('editor-command', { 
+                detail: { command: 'insertBlock', args: [type] } 
+              }));
+            });
           },
           getContent: () => {
-            if (!hasPermission('editor')) return null;
-            return (window as any)._currentNoteState || null;
+            return runSafe('ui.editor.getContent', 'editor', () => {
+              return (window as any)._currentNoteState || null;
+            });
           },
           getCurrentNote: async () => {
-            if (!hasPermission('editor')) return null;
-            return (window as any)._currentNoteState || null;
+            return runSafe('ui.editor.getCurrentNote', 'editor', async () => {
+              return (window as any)._currentNoteState || null;
+            });
           },
           applyChanges: (newContent: any, reason: string = 'Update note content') => {
-            if (!hasPermission('editor')) return 'PERMISSION_DENIED';
-            const requestId = this.applyChanges(newContent, reason);
-            // Patch extensionId
-            const req = this.pendingChangeRequests.get(requestId);
-            if (req) req.extensionId = extensionId;
-            return requestId;
+            return runSafe('ui.editor.applyChanges', 'editor', () => {
+              const requestId = this.applyChanges(newContent, reason);
+              const req = this.pendingChangeRequests.get(requestId);
+              if (req) req.extensionId = extensionId;
+              return requestId;
+            });
           }
         }
       },
@@ -515,135 +606,156 @@ class ExtensionManager {
       // System & Metadata Module [NEW]
       system: {
         getInstalledStatus: (id: string) => {
-          const ext = (this as any).extensions.get(id);
-          return {
-            installed: !!ext,
-            version: ext?.version,
-            type: ext?.type
-          };
+          return runSafe('system.getInstalledStatus', null, () => {
+            const ext = (this as any).extensions.get(id);
+            return {
+              installed: !!ext,
+              version: ext?.version,
+              type: ext?.type
+            };
+          }) || { installed: false };
         },
         getExtensionMetadata: (id: string) => {
-          const ext = (this as any).extensions.get(id);
-          if (!ext) return null;
-          return {
-            id: ext.id,
-            name: ext.name,
-            version: ext.version,
-            type: ext.type,
-            description: ext.description,
-            author: ext.author,
-            permissions: ext.permissions,
-            workspaceId: (ext as any).workspaceId,
-            script: (ext as any)._script,
-            html: (ext as any)._html
-          };
+          return runSafe('system.getExtensionMetadata', null, () => {
+            const ext = (this as any).extensions.get(id);
+            if (!ext) return null;
+            return {
+              id: ext.id,
+              name: ext.name,
+              version: ext.version,
+              type: ext.type,
+              description: ext.description,
+              author: ext.author,
+              permissions: ext.permissions,
+              workspaceId: (ext as any).workspaceId,
+              script: (ext as any)._script,
+              html: (ext as any)._html
+            };
+          });
         }
       },
 
       // Editor Methods (Compatibility)
-
       registerBlock: (type, component) => {
-        if (!hasPermission('editor')) return;
-        this.blockRegistry.set(type, component);
-        this.persistentBlocks.add(type);
-        this.savePersistentBlocksState();
-        
-        // Auto-register as a tool if not already present in registeredTools
-        const existingTool = this.registeredTools.find(t => t.id === type);
-        if (!existingTool) {
-          this.registeredTools.push({
-            id: type,
-            label: type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-            icon: '📦',
-            description: 'Custom extension block',
-            extensionId,
-            Component: component
-          });
-        } else if (!existingTool.Component) {
-          existingTool.Component = component;
-        }
-        
-        this.emitChange();
+        runSafe('registerBlock', 'editor', () => {
+          this.blockRegistry.set(type, component);
+          this.persistentBlocks.add(type);
+          this.savePersistentBlocksState();
+          
+          const existingTool = this.registeredTools.find(t => t.id === type);
+          if (!existingTool) {
+            this.registeredTools.push({
+              id: type,
+              label: type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+              icon: '📦',
+              description: 'Custom extension block',
+              extensionId,
+              Component: component
+            });
+          } else if (!existingTool.Component) {
+            existingTool.Component = component;
+          }
+          this.emitChange();
+        });
       },
 
       addFilter: (hook, callback) => {
-        if (!this.filters.has(hook)) {
-          this.filters.set(hook, new Set());
-        }
-        this.filters.get(hook)!.add(callback);
+        runSafe('addFilter', null, () => {
+          if (!this.filters.has(hook)) {
+            this.filters.set(hook, new Set());
+          }
+          this.filters.get(hook)!.add(callback);
+        });
       },
 
       // Theme Module
       theme: {
         setVariable: (name, value) => {
-          if (!hasPermission('theme')) return;
-          this.themeVariables.set(name, value);
-          this.applyTheme();
+          runSafe('theme.setVariable', 'theme', () => {
+            this.themeVariables.set(name, value);
+            this.applyTheme();
+          });
         },
         setVariables: (vars) => {
-          if (!hasPermission('theme')) return;
-          Object.entries(vars).forEach(([name, value]) => this.themeVariables.set(name, value));
-          this.applyTheme();
+          runSafe('theme.setVariables', 'theme', () => {
+            Object.entries(vars).forEach(([name, value]) => this.themeVariables.set(name, value));
+            this.applyTheme();
+          });
         },
         injectCSS: (cssText) => {
-          if (!hasPermission('theme')) return;
-          // Cleanup existing if replacement
-          this.removeStyle(extensionId);
-          
-          const style = document.createElement('style');
-          style.id = `ext-style-${extensionId}`;
-          style.setAttribute('data-extension-id', extensionId);
-          
-          // Scoping logic: Prefix classes with [data-extension-id="id"]
-          // This ensures extension CSS doesn't leak to the main app
-          const scopedCSS = cssText.replace(
-            /(\.\w[\w-]*)/g, 
-            `[data-extension-id="${extensionId}"] $1`
-          );
-          
-          style.textContent = scopedCSS;
-          document.head.appendChild(style);
-          this.injectedStyles.set(extensionId, style);
+          runSafe('theme.injectCSS', 'theme', () => {
+            this.removeStyle(extensionId);
+            const style = document.createElement('style');
+            style.id = `ext-style-${extensionId}`;
+            style.setAttribute('data-extension-id', extensionId);
+            const scopedCSS = cssText.replace(
+              /(\.\w[\w-]*)/g, 
+              `[data-extension-id="${extensionId}"] $1`
+            );
+            style.textContent = scopedCSS;
+            document.head.appendChild(style);
+            this.injectedStyles.set(extensionId, style);
+          });
         },
         reset: () => {
-          if (!hasPermission('theme')) return;
-          this.themeVariables.clear();
-          this.removeStyle(extensionId);
-          this.applyTheme();
+          runSafe('theme.reset', 'theme', () => {
+            this.themeVariables.clear();
+            this.removeStyle(extensionId);
+            this.applyTheme();
+          });
         }
       },
 
       // Storage Module
       storage: {
         get: (key) => {
-          if (!hasPermission('storage')) return null;
-          const val = localStorage.getItem(`ext_${extensionId}_${key}`);
-          try { return val ? JSON.parse(val) : null; } catch { return val; }
+          return runSafe('storage.get', 'storage', () => {
+            const val = localStorage.getItem(`ext_${extensionId}_${key}`);
+            try { return val ? JSON.parse(val) : null; } catch { return val; }
+          });
         },
         set: (key, value) => {
-          if (!hasPermission('storage')) return;
-          localStorage.setItem(`ext_${extensionId}_${key}`, JSON.stringify(value));
+          runSafe('storage.set', 'storage', () => {
+            localStorage.setItem(`ext_${extensionId}_${key}`, JSON.stringify(value));
+          });
         },
         remove: (key) => {
-          if (!hasPermission('storage')) return;
-          localStorage.removeItem(`ext_${extensionId}_${key}`);
+          runSafe('storage.remove', 'storage', () => {
+            localStorage.removeItem(`ext_${extensionId}_${key}`);
+          });
         },
         clear: () => {
-          if (!hasPermission('storage')) return;
-          const prefix = `ext_${extensionId}_`;
-          Object.keys(localStorage)
-            .filter(k => k.startsWith(prefix))
-            .forEach(k => localStorage.removeItem(k));
+          runSafe('storage.clear', 'storage', () => {
+            const prefix = `ext_${extensionId}_`;
+            Object.keys(localStorage)
+              .filter(k => k.startsWith(prefix))
+              .forEach(k => localStorage.removeItem(k));
+          });
         }
       },
 
       // Legacy Compatibility
       notify: (message: string, type: 'info' | 'error' | 'success' = 'info') => {
-        window.dispatchEvent(new CustomEvent('app-notification', { detail: { message, type } }));
+        runSafe('notify', null, () => {
+          this.showNotification(message, type);
+        });
       },
-      setThemeVariable: (name, value) => this.themeVariables.set(name, value),
-      getStorage: () => (window as any).DataManager,
-      registerSidebarItem: (item) => this.api.ui.registerSidebarItem(item)
+      setThemeVariable: (name, value) => {
+        runSafe('setThemeVariable', 'theme', () => {
+          this.themeVariables.set(name, value);
+          this.applyTheme();
+        });
+      },
+      getStorage: () => {
+        return runSafe('getStorage', null, () => {
+          return (window as any).DataManager;
+        });
+      },
+      registerSidebarItem: (item) => {
+        runSafe('registerSidebarItem', 'sidebar', () => {
+          this.createAPI(extensionId).ui.registerSidebarItem(item);
+        });
+      }
     };
   }
 
@@ -687,7 +799,11 @@ class ExtensionManager {
 
     // Version check
     if (!this._checkVersion(extension.version)) {
-      console.warn(`Extension ${extension.id} v${extension.version} is incompatible with this version of the app.`);
+      const versionErr = `Extension ${extension.id} v${extension.version} is incompatible with this version of the app.`;
+      console.warn(versionErr);
+      this.showNotification(`Registration failed: ${versionErr}`, 'error');
+      extension.status = 'error';
+      extension.error = versionErr;
       return;
     }
 
@@ -695,7 +811,9 @@ class ExtensionManager {
     if (existing && !alreadyStaged) {
       try {
         existing.destroy?.(this.createAPI(extension.id));
-      } catch (e) {}
+      } catch (e: any) {
+        console.error(`Deactivate failed for conflict resolution:`, e);
+      }
       this.cleanupRuntimeRegistries(extension.id);
       this.extensions.delete(extension.id);
     } else if (alreadyStaged) {
@@ -704,21 +822,34 @@ class ExtensionManager {
     }
     
     try {
+      extension.status = 'loading';
       this.extensions.set(extension.id, extension);
       
       // Async initialization for performance and to ensure DOM readiness
       setTimeout(() => {
         try {
           extension.init(this.createAPI(extension.id));
+          extension.status = 'loaded';
+          extension.activatedAt = Date.now();
           console.log(`Extension Loaded: ${extension.name} v${extension.version} (Persistent: ${!!extension._isPersistent})`);
+          this.showNotification(`Extension "${extension.name}" loaded successfully`, 'success');
           this.emitChange();
-        } catch (initError) {
+        } catch (initError: any) {
           console.error(`Init Error [${extension.id}]:`, initError);
+          const initErrMsg = initError?.message || 'Initialization failed';
+          this.showNotification(`Extension "${extension.name}" initialization failed: ${initErrMsg}`, 'error');
+          extension.status = 'error';
+          extension.error = initErrMsg;
+          this.emitChange();
         }
       }, 0);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Registration Error [${extension.id}]:`, error);
+      const regErrMsg = error?.message || 'Registration failed';
+      this.showNotification(`Registration Error [${extension.id}]: ${regErrMsg}`, 'error');
+      extension.status = 'error';
+      extension.error = regErrMsg;
     }
   }
 
@@ -727,14 +858,19 @@ class ExtensionManager {
     
     // 1. Memory lookup
     const extension = this.extensions.get(id);
+    if (extension) {
+      extension.status = 'unloading';
+    }
     
     try {
       // 2. Perform destroy if extension exists
       if (extension && extension.destroy) {
         try {
           extension.destroy(this.createAPI(id));
-        } catch (e) {
+        } catch (e: any) {
           console.error(`Deactivate error for ${id}:`, e);
+          const errMsg = e?.message || 'Deactivation failed';
+          this.showNotification(`Extension "${extension.name}" deactivation error: ${errMsg}`, 'error');
         }
       }
 
@@ -769,9 +905,13 @@ class ExtensionManager {
       window.dispatchEvent(new CustomEvent('extension-system-reload', { detail: { uninstalled: id } }));
       
       console.log(`Extension ${id} successfully uninstalled.`);
+      if (extension) {
+        this.showNotification(`Extension "${extension.name}" successfully deactivated`, 'info');
+      }
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Unregister Error [${id}]:`, error);
+      this.showNotification(`Failed to uninstall extension "${id}": ${error.message}`, 'error');
       return false;
     }
   }
