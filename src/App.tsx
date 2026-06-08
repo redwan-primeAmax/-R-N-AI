@@ -67,6 +67,7 @@ const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 const ExtensionsPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionsPage'));
 const ExtensionHubPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionHubPage'));
+const ExtensionEditor = lazyWithRetry(() => import('./pages/Extensions/ExtensionEditor').then(m => ({ default: m.ExtensionEditor })));
 
 function LoadingFallback() {
   return (
@@ -319,6 +320,7 @@ function AppContent() {
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
     { path: "/extensions", element: <PageWrapper><ExtensionsPage /></PageWrapper> },
+    { path: "/extensions/editor", element: <PageWrapper><ExtensionEditor /></PageWrapper> },
     { path: "/extension-hub", element: <PageWrapper><ExtensionHubPage /></PageWrapper> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);

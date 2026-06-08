@@ -130,6 +130,22 @@ function EditorPage({ id }: { id: string | undefined }) {
   }, [id]);
 
   usePdfExport({ note, setNotification });
+  
+  // Expose current note state for extensions API
+  useEffect(() => {
+    if (note) {
+      (window as any)._currentNoteState = {
+        id: note.id,
+        title: title,
+        content: editor.blocks.map(b => b.content).join('\n'), // Simple plain text fallback or full state
+        blocks: editor.blocks,
+        description: description,
+        tags: tags,
+        emoji: emoji
+      };
+    }
+    return () => { delete (window as any)._currentNoteState; };
+  }, [note, title, editor.blocks, description, tags, emoji]);
 
   if (!editor || !note) {
     return <LoadingScreen />;

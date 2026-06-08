@@ -1,3 +1,8 @@
+// 🔴 Critical Recommendation:
+// current implementation uses new Function() to evaluate third-party scripts which run with window object access.
+// For production-grade public marketplace, it is highly recommended to migrate to an iframe sandbox 
+// or Web Worker-based execution architecture to ensure security and isolation.
+
 import { AppExtension, AppAPI, SidebarExtensionItem } from '../types/extension';
 import React from 'react';
 import JSZip from 'jszip';
@@ -5,7 +10,7 @@ import localforage from 'localforage';
 import * as LucideIcons from 'lucide-react';
 
 class ExtensionManager {
-  private extensions: Map<string, AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null }> = new Map();
+  private extensions: Map<string, AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null; workspaceId?: string }> = new Map();
   private libraryUI: string | null = null;
   private libraryFiles: Map<string, { manifest: any; script: string }> = new Map();
   private sidebarItems: SidebarExtensionItem[] = [];
@@ -27,6 +32,13 @@ class ExtensionManager {
     (window as any).Lucide = LucideIcons;
     this.loadInstalledExtensions();
     this.loadPersistentBlocksState();
+
+    // Listen for workspace changes to reload extensions
+    window.addEventListener('workspace-notes-changed', () => {
+      this.loadInstalledExtensions().catch(err => {
+        console.error('Failed to reload extensions on workspace change:', err);
+      });
+    });
   }
 
   private async loadPersistentBlocksState() {
@@ -140,16 +152,34 @@ class ExtensionManager {
       processed = this.transformImports(processed);
       
       // Transform ESM exports into standard assignments to a local "exports" object
+      processed = processed.replace(/\bexport\s+async\s+function\s+(\w+)/g, 'exports.$1 = async function $1');
+      processed = processed.replace(/\bexport\s+function\s+(\w+)/g, 'exports.$1 = function $1');
       processed = processed.replace(/\bexport\s+const\s+(\w+)\s*=/g, 'exports.$1 =');
       processed = processed.replace(/\bexport\s+let\s+(\w+)\s*=/g, 'exports.$1 =');
-      processed = processed.replace(/\bexport\s+function\s+(\w+)/g, 'exports.$1 = function $1');
+      processed = processed.replace(/\bexport\s+var\s+(\w+)\s*=/g, 'exports.$1 =');
       processed = processed.replace(/\bexport\s+default\s+/g, 'exports.default = ');
+      
+      // Broader export scrubber for other forms like export { a, b }
+      processed = processed.replace(/\bexport\s+\{([\s\S]*?)\};?/g, (match, content) => {
+        const exports = content.split(',').map(s => s.trim());
+        return exports.map(name => `exports.${name} = ${name};`).join('\n');
+      });
+
+      // Cleanup remaining export keywords that might cause syntax errors in new Function
+      processed = processed.replace(/^\s*export\s+/gm, ''); 
+      
+      // Handle the case where they are not exported but we want them (optional/hacky)
+      // If no exports found, try to find activate/deactivate in the scope
+      processed += `\nif (typeof activate !== 'undefined' && !exports.activate) exports.activate = activate;`;
+      processed += `\nif (typeof deactivate !== 'undefined' && !exports.deactivate) exports.deactivate = deactivate;`;
       
       const exports: any = {};
       const moduleObj = { exports };
       
       const runner = new Function('React', 'api', 'exports', 'module', 'Lucide', 'lucide', processed);
+      console.log(`Evaluating extension script for ${manifest.id}...`);
       runner(React, api, exports, moduleObj, LucideIcons, LucideIcons);
+      console.log(`Evaluation complete for ${manifest.id}. Exports found:`, Object.keys(exports));
       
       const activate = exports.activate || exports.default?.activate || exports.default;
       const deactivate = exports.deactivate || exports.default?.deactivate;
@@ -166,17 +196,32 @@ class ExtensionManager {
 
   private async loadInstalledExtensions() {
     this.isBatching = true;
+    
+    // Clear all currently registered extensions before loading new ones
+    for (const extId of Array.from(this.extensions.keys())) {
+      this.unregister(extId);
+    }
+    this.extensions.clear();
+
     try {
+      const activeWorkspaceId = await localforage.getItem<string>('active_workspace_id') || 'default';
       const installed = await localforage.getItem<any[]>('installed_extensions');
+      
       if (installed && Array.isArray(installed)) {
         for (const extData of installed) {
           try {
             const manifest = extData.manifest || extData;
             
-            const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
+            // Workspace isolation check: Skip if extension belongs to another workspace
+            if (extData.workspaceId && extData.workspaceId !== activeWorkspaceId) {
+              continue;
+            }
+            
+            const extension: AppExtension & { _script?: string; _isPersistent?: boolean; workspaceId?: string } = {
               ...manifest,
               _script: extData.script,
               _isPersistent: true,
+              workspaceId: extData.workspaceId,
               init: () => {},
               destroy: () => {}
             };
@@ -237,6 +282,24 @@ class ExtensionManager {
           } catch (e) {
             return { error: 'AI_SERVICE_UNAVAILABLE' };
           }
+        },
+        chat: async (messages: any[]) => {
+          if (!hasPermission('ai')) {
+            throw new Error('Extension lacks "ai" permission.');
+          }
+          
+          try {
+            const response = await fetch('/api/ai/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages, extensionId })
+            });
+            const data = await response.json();
+            return data.content || data.text || '';
+          } catch (e) {
+            console.error('AI Chat Error:', e);
+            throw e;
+          }
         }
       },
 
@@ -256,6 +319,11 @@ class ExtensionManager {
           if (!hasPermission('editor')) return null;
           return (window as any)._currentNoteState || null;
         },
+        getCurrentNote: async () => {
+          if (!hasPermission('editor')) return null;
+          // Dynamically get current note state
+          return (window as any)._currentNoteState || null;
+        },
         applyChanges: (newContent: any, reason: string = 'Update note content') => {
           if (!hasPermission('editor')) return 'PERMISSION_DENIED';
           const requestId = Math.random().toString(36).substring(7);
@@ -273,6 +341,16 @@ class ExtensionManager {
 
       // UI Module
       ui: {
+        showModal: (config: { title: string; content: string }) => {
+          window.dispatchEvent(new CustomEvent('app-notification', { 
+            detail: { 
+              message: config.content, 
+              type: 'info',
+              title: config.title,
+              isModal: true
+            } 
+          }));
+        },
         registerTool: (config: any) => {
           if (!hasPermission('ui')) return;
           if (config.Component) {
@@ -348,13 +426,25 @@ class ExtensionManager {
         editor: {
           registerBlock: (type: string, component: React.ComponentType<any>) => {
             if (!hasPermission('editor')) return;
-            this.createAPI(extensionId).registerBlock(type, component);
+            this.registerBlock(type, component);
           },
           insertBlock: (type: string) => {
             if (!hasPermission('editor')) return;
             window.dispatchEvent(new CustomEvent('editor-command', { 
               detail: { command: 'insertBlock', args: [type] } 
             }));
+          },
+          getContent: () => {
+            if (!hasPermission('editor')) return null;
+            return (window as any)._currentNoteState || null;
+          },
+          getCurrentNote: async () => {
+            if (!hasPermission('editor')) return null;
+            return (window as any)._currentNoteState || null;
+          },
+          applyChanges: (newContent: any, reason: string = 'Update note content') => {
+            if (!hasPermission('editor')) return 'PERMISSION_DENIED';
+            return this.applyChanges(newContent, reason);
           }
         }
       },
@@ -619,10 +709,18 @@ class ExtensionManager {
     }
   }
 
-  async loadExtensionFromZip(file: File, persist: boolean = false) {
+  async loadExtensionFromZip(file: File | Blob, persist: boolean = false) {
+    console.log('Loading extension from zip...', { size: file.size, type: file.type, persist });
     try {
       const zip = new JSZip();
+      
+      // Explicitly check if file is empty
+      if (file.size === 0) {
+        throw new Error('ZIP file is empty (0 bytes)');
+      }
+
       const content = await zip.loadAsync(file);
+      console.log('Zip loaded successfully, files:', Object.keys(content.files));
       
       const manifestFile = content.file('manifest.json');
       const indexFile = content.file('index.js');
@@ -632,19 +730,23 @@ class ExtensionManager {
         throw new Error('ZIP must contain manifest.json and index.js');
       }
       
-      const manifest = JSON.parse(await manifestFile.async('text'));
+      const manifestText = await manifestFile.async('text');
+      const manifest = JSON.parse(manifestText);
       const script = await indexFile.async('text');
       const html = htmlFile ? await htmlFile.async('text') : null;
+      
+      console.log('Extracted manifest:', manifest.id, manifest.name);
       
       // Basic validation
       if (!manifest.id || !manifest.name || !manifest.version) {
         throw new Error('Invalid manifest.json: missing id, name or version');
       }
 
-      const extension: AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null } = {
+      const extension: AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null; workspaceId?: string } = {
         ...manifest,
         permissions: manifest.permissions || [],
         sandbox: !!manifest.sandbox,
+        workspaceId: (window as any)._activeWorkspaceId || 'default',
         _script: script,
         _html: html,
         _isPersistent: persist,
@@ -667,9 +769,9 @@ class ExtensionManager {
       }
       
       return manifest;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load extension zip:', err);
-      throw err;
+      throw new Error(`Failed to load extension zip: ${err.message}`);
     }
   }
 
@@ -678,6 +780,7 @@ class ExtensionManager {
       .filter(([_, ext]) => (ext as any)._isPersistent)
       .map(([id, ext]) => ({
       id,
+      workspaceId: (ext as any).workspaceId,
       manifest: {
         id: ext.id,
         name: ext.name,
@@ -707,10 +810,11 @@ class ExtensionManager {
     const { manifest, script } = fileData;
     
     // Create temporary extension entry to allow createAPI to see permissions
-    const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
+    const extension: AppExtension & { _script?: string; _isPersistent?: boolean; workspaceId?: string } = {
       ...manifest,
       permissions: manifest.permissions || [],
       sandbox: !!manifest.sandbox,
+      workspaceId: (window as any)._activeWorkspaceId || 'default',
       _script: script,
       _isPersistent: true,
       init: () => {},
@@ -849,7 +953,7 @@ class ExtensionManager {
   }
 
   getSidebarItems() {
-    return this.sidebarItems;
+    return [...this.sidebarItems];
   }
 
   getHubApps() {

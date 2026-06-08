@@ -155,6 +155,70 @@ async function startServer() {
     }
   });
 
+  // Simple AI Chat Endpoint (non-streaming, used by extensions)
+  app.post("/api/ai/chat", aiLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const { messages } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "API Key missing" });
+
+      // Transform messages into Gemini format
+      const contents = messages.map((m: any) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents })
+      });
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      res.json({ content: text });
+    } catch (err: any) {
+      console.error("AI Chat Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // General AI Proxy (used by extensions for more control)
+  app.post("/api/ai/proxy", aiLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const { prompt, systemInstruction } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "API Key missing" });
+
+      const contents = [];
+      if (systemInstruction) {
+        // Gemini handles system instruction separately in generationConfig or as a specific role in newer versions, 
+        // but here we just prepend for simplicity or use the v1beta system_instruction field
+      }
+      
+      const body: any = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      };
+      
+      if (systemInstruction) {
+        body.system_instruction = { parts: [{ text: systemInstruction }] };
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      res.json({ text });
+    } catch (err: any) {
+      console.error("AI Proxy Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Route to download extensions spec
   app.get("/api/docs/spec", (req, res) => {
     const filePath = path.join(process.cwd(), "docs", "EXTENSIONS_SPEC.md");

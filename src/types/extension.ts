@@ -19,6 +19,7 @@ export interface AppAPI {
       Component: React.ComponentType<any>;
     }) => void;
     notify: (message: string, type?: 'info' | 'error' | 'success') => void;
+    showModal: (config: { title: string; content: string }) => void;
     editor: {
       registerBlock: (type: string, component: React.ComponentType<any>) => void;
       insertBlock: (type: string) => void;
@@ -30,12 +31,14 @@ export interface AppAPI {
     registerBlock: (type: string, component: React.ComponentType<any>) => void;
     insertBlock: (type: string) => void;
     getContent?: () => any;
+    getCurrentNote: () => Promise<any>;
     applyChanges?: (newContent: any, reason?: string) => string;
   };
 
   // AI Methods
   ai?: {
     generate: (options: any) => Promise<any>;
+    chat: (messages: any[]) => Promise<string>;
   };
 
   // Extension System Enhancements
@@ -69,7 +72,7 @@ export interface SidebarExtensionItem {
   id: string;
   label: string;
   icon: any; 
-  path: string;
+  path?: string;
   color?: string;
   onClick?: () => void;
 }
