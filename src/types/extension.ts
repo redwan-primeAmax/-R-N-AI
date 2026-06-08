@@ -74,6 +74,8 @@ export interface SidebarExtensionItem {
   onClick?: () => void;
 }
 
+export type ExtensionPermission = 'ui' | 'editor' | 'ai' | 'storage' | 'theme' | 'sidebar';
+
 export interface AppExtension {
   id: string;
   name: string;
@@ -82,6 +84,8 @@ export interface AppExtension {
   description?: string;
   author?: string;
   icon?: any;
+  permissions?: ExtensionPermission[];
+  sandbox?: boolean;
   hubApp?: {
     id: string;
     title: string;

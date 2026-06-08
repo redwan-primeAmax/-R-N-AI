@@ -8,6 +8,16 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import rateLimit from 'express-rate-limit';
+
+// Rate limiter for AI routes
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: { message: "Too many requests from this IP, please try again after 15 minutes." } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Helper to find index.html recursively
 function findIndexHtml(dir: string, base: string = ''): string | null {
@@ -84,12 +94,22 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   // Gemini Proxy Route
-  app.post("/api/ai/gemini", async (req: express.Request, res: express.Response) => {
+  app.post("/api/ai/gemini", aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
       const { model, contents, generationConfig } = req.body;
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        return res.status(500).json({ error: { message: "Server Gemini API Key is missing. Please define GEMINI_API_KEY." } });
+        return res.status(500).json({ 
+          success: false, 
+          error: { message: "Server Gemini API Key is missing.", code: "SERVER_CONFIG_ERROR" } 
+        });
+      }
+
+      if (!contents || !Array.isArray(contents)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: { message: "Invalid request: missing or malformed 'contents'.", code: "INVALID_REQUEST" } 
+        });
       }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-flash'}:streamGenerateContent?alt=sse&key=${apiKey}`, {
@@ -107,9 +127,9 @@ async function startServer() {
         try {
           errorData = JSON.parse(errorText);
         } catch {
-          errorData = { error: { message: errorText || `Gemini proxy error status: ${response.status}` } };
+          errorData = { error: { message: errorText || `Gemini proxy error status: ${response.status}`, code: "UPSTREAM_ERROR" } };
         }
-        return res.status(response.status).json(errorData);
+        return res.status(response.status).json({ success: false, ...errorData });
       }
 
       res.setHeader('Content-Type', 'text/event-stream');
@@ -125,7 +145,10 @@ async function startServer() {
       res.end();
     } catch (err: any) {
       console.error("Gemini Proxy Route Error:", err);
-      res.status(500).json({ error: { message: err.message || "Internal server error" } });
+      res.status(500).json({ 
+        success: false, 
+        error: { message: err.message || "Internal server error", code: "INTERNAL_SERVER_ERROR" } 
+      });
     }
   });
 

@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import { 
   ChevronLeft, 
   Copy, 
@@ -469,7 +470,7 @@ TASK: Update the existing content or create new sub-pages based on the requireme
                                <p className="text-sm text-white/40 font-black italic">{data.description || 'No description provided.'}</p>
                             </div>
                           </div>
-                          <div className="prose prose-invert prose-sm max-w-none text-white/70 preview-content" dangerouslySetInnerHTML={{ __html: data.content }} />
+                          <div className="prose prose-invert prose-sm max-w-none text-white/70 preview-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.content) }} />
                         </div>
                       ))}
                     </div>

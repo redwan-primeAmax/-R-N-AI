@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import { 
   X, Trash2, Search,
   Settings2, Settings, Sun, Moon, Layers, Plus, Sparkles,
@@ -250,7 +251,7 @@ export default function Sidebar({
                   {activeWorkspace?.logoSvg ? (
                     <div 
                       className="w-7 h-7 flex items-center justify-center overflow-hidden"
-                      dangerouslySetInnerHTML={{ __html: activeWorkspace.logoSvg }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeWorkspace.logoSvg) }}
                     />
                   ) : (
                     activeWorkspace?.name?.charAt(0) || 'N'

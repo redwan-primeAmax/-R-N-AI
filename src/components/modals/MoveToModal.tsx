@@ -6,6 +6,7 @@
 import React from 'react';
 import { Modal } from './Modal';
 import { Box } from 'lucide-react';
+import { sanitizeSearchQuery } from '../../utils/sanitizer';
 import { Note } from '../../services/storage/DataManager';
 
 interface MoveToModalProps {
@@ -35,7 +36,7 @@ export function MoveToModal({
         <div className="relative mb-6">
           <input 
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={(e) => onSearchChange(sanitizeSearchQuery(e.target.value))}
             placeholder="Search for a page..."
             className="w-full bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:border-blue-500/30 transition-all placeholder:text-white/20"
           />

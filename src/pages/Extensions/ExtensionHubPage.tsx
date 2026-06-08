@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, LayoutGrid, Search, X, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
+import { sanitizeSearchQuery } from '../../utils/sanitizer';
 import { extensionManager } from '../../services/ExtensionManager';
 
 export default function ExtensionHubPage() {
@@ -57,7 +59,7 @@ export default function ExtensionHubPage() {
             type="text" 
             placeholder="Search hub apps..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(sanitizeSearchQuery(e.target.value))}
             className="w-full bg-white/[0.02] border border-white/10 rounded-3xl py-5 pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-orange-500/50 transition-all placeholder:text-white/10"
           />
         </div>
@@ -85,7 +87,7 @@ export default function ExtensionHubPage() {
                   {/* SVG Icon as requested */}
                   <div 
                     className="w-20 h-20 bg-white/[0.03] rounded-3xl flex items-center justify-center p-4 border border-white/10 group-hover:scale-110 transition-transform shadow-inner text-orange-500"
-                    dangerouslySetInnerHTML={{ __html: app.icon }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(app.icon) }}
                   />
                   <div className="flex flex-col items-end">
                     <span className="px-3 py-1 bg-white/5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white/30 border border-white/5">Plugin App</span>
@@ -132,7 +134,7 @@ export default function ExtensionHubPage() {
                 <div className="flex items-center gap-4">
                    <div 
                     className="w-10 h-10 bg-white/[0.03] rounded-xl flex items-center justify-center p-2 border border-white/10 text-orange-500"
-                    dangerouslySetInnerHTML={{ __html: activeApp.icon }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeApp.icon) }}
                   />
                   <div>
                     <h2 className="text-lg font-black uppercase tracking-tight">{activeApp.title}</h2>

@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import DOMPurify from 'dompurify';
 
 interface ColumnBlockRendererProps {
   block: any;
@@ -32,7 +33,7 @@ export const ColumnBlockRenderer: React.FC<ColumnBlockRendererProps> = ({
               )
             );
           }}
-          dangerouslySetInnerHTML={{ __html: block.col1Content || '' }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.col1Content || '') }}
           className="text-sm font-sans focus:outline-none min-h-[50px] leading-relaxed empty:before:content-['Type_left_column...'] empty:before:opacity-30 empty:before:italic"
         />
       </div>
@@ -42,7 +43,7 @@ export const ColumnBlockRenderer: React.FC<ColumnBlockRendererProps> = ({
           contentEditable={!isReadOnly}
           suppressContentEditableWarning
           onBlur={(e) => {
-            const val = e.currentTarget.innerHTML;
+            const val = DOMPurify.sanitize(e.currentTarget.innerHTML);
             const col1Val = block.col1Content || '';
             setBlocks((prev: any) =>
               prev.map((b: any) =>
@@ -50,7 +51,7 @@ export const ColumnBlockRenderer: React.FC<ColumnBlockRendererProps> = ({
               )
             );
           }}
-          dangerouslySetInnerHTML={{ __html: block.col2Content || '' }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.col2Content || '') }}
           className="text-sm font-sans focus:outline-none min-h-[50px] leading-relaxed empty:before:content-['Type_right_column...'] empty:before:opacity-30 empty:before:italic"
         />
       </div>

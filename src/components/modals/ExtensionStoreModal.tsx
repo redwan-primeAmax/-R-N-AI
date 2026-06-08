@@ -27,6 +27,13 @@ export const ExtensionStoreModal: React.FC<ExtensionStoreModalProps> = ({ isOpen
       });
 
       const handleMessage = async (event: MessageEvent) => {
+        // Validate origin
+        const allowedOrigins = [window.location.origin];
+        if (!allowedOrigins.includes(event.origin) && event.origin !== 'null') {
+          console.warn('Blocked message from unauthorized origin:', event.origin);
+          return;
+        }
+
         if (event.data?.type === 'install-extension' && event.data?.folder) {
           try {
             const manifest = await extensionManager.installFromLibrary(event.data.folder);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import { 
   ArrowLeft, Plus, Edit2, Trash2, Check, X, 
   Layout, Loader2, MoreHorizontal, Home, Users 
@@ -268,7 +269,7 @@ export default function WorkspacePage() {
                       {ws.logoSvg ? (
                          <div 
                            className="w-6 h-6 flex items-center justify-center overflow-hidden pointer-events-none"
-                           dangerouslySetInnerHTML={{ __html: ws.logoSvg }}
+                           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ws.logoSvg) }}
                          />
                       ) : (
                         <Layout size={20} />

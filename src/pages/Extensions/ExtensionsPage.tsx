@@ -23,6 +23,17 @@ export default function ExtensionsPage() {
     });
 
     const handleMessage = async (event: MessageEvent) => {
+      // Validate origin if needed. In development/production, we should restrict this.
+      // For now, we at least check that the sender is our own window/iframe structure if possible,
+      // or validate against a known set of allowed origins.
+      const allowedOrigins = [window.location.origin];
+      if (!allowedOrigins.includes(event.origin) && event.origin !== 'null') {
+        // 'null' is often the origin for local file iframes or certain sandbox configs
+        // In a real production app, you would define explicit domains here.
+        console.warn('Blocked message from unauthorized origin:', event.origin);
+        return;
+      }
+
       if (event.data?.type === 'install-extension' && event.data?.folder) {
         try {
           const manifest = await extensionManager.installFromLibrary(event.data.folder);

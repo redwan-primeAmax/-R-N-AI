@@ -172,16 +172,23 @@ class ExtensionManager {
         for (const extData of installed) {
           try {
             const manifest = extData.manifest || extData;
-            const api = this.createAPI(manifest.id);
-            const { activate, deactivate } = await this.evaluateExtension(manifest, extData.script, api);
             
             const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
               ...manifest,
               _script: extData.script,
               _isPersistent: true,
-              init: activate,
-              destroy: deactivate
+              init: () => {},
+              destroy: () => {}
             };
+            
+            // Set in map before evaluation so createAPI can see permissions
+            this.extensions.set(extension.id, extension);
+            
+            const api = this.createAPI(manifest.id);
+            const { activate, deactivate } = await this.evaluateExtension(manifest, extData.script, api);
+            
+            extension.init = activate;
+            extension.destroy = deactivate;
             
             this.register(extension);
           } catch (e) {
@@ -200,6 +207,11 @@ class ExtensionManager {
   // Create an API instance for a specific extension
   private createAPI(extensionId: string): AppAPI {
     const self = this;
+    const extension = this.extensions.get(extensionId);
+    const permissions = extension?.permissions || [];
+    const isSystem = extensionId === 'system';
+
+    const hasPermission = (perm: string) => isSystem || permissions.includes(perm as any);
     
     return {
       id: extensionId,
@@ -207,6 +219,9 @@ class ExtensionManager {
       // AI Proxy API [NEW]
       ai: {
         generate: async (options: { prompt: string; systemInstruction?: string }) => {
+          if (!hasPermission('ai')) {
+            return { error: 'PERMISSION_DENIED', message: 'Extension lacks "ai" permission.' };
+          }
           const config = await localforage.getItem('ai_config');
           if (!config) {
             return { error: 'AI_NOT_CONFIGURED', message: 'User has not configured AI settings.' };
@@ -228,17 +243,21 @@ class ExtensionManager {
       // Editor & Compatibility Module [NEW]
       editor: {
         registerBlock: (type: string, component: React.ComponentType<any>) => {
+          if (!hasPermission('editor')) return;
           this.createAPI(extensionId).registerBlock(type, component);
         },
         insertBlock: (type: string) => {
+          if (!hasPermission('editor')) return;
           window.dispatchEvent(new CustomEvent('editor-command', { 
             detail: { command: 'insertBlock', args: [type] } 
           }));
         },
         getContent: () => {
+          if (!hasPermission('editor')) return null;
           return (window as any)._currentNoteState || null;
         },
         applyChanges: (newContent: any, reason: string = 'Update note content') => {
+          if (!hasPermission('editor')) return 'PERMISSION_DENIED';
           const requestId = Math.random().toString(36).substring(7);
           self['pendingChangeRequests'].set(requestId, {
             id: requestId,
@@ -255,6 +274,7 @@ class ExtensionManager {
       // UI Module
       ui: {
         registerTool: (config: any) => {
+          if (!hasPermission('ui')) return;
           if (config.Component) {
             this.blockRegistry.set(config.id, config.Component);
             this.persistentBlocks.add(config.id);
@@ -277,13 +297,16 @@ class ExtensionManager {
           this.emitChange();
         },
         registerBlock: (type: string, component: React.ComponentType<any>) => {
+          if (!hasPermission('editor')) return;
           this.createAPI(extensionId).registerBlock(type, component);
         },
         registerTheme: (config: any) => {
+          if (!hasPermission('theme')) return;
           this.editorThemes.set(config.id, { ...config, extensionId });
           this.emitChange();
         },
         addMenuItem: (item: any) => {
+          if (!hasPermission('sidebar')) return;
           this.createAPI(extensionId).ui.registerSidebarItem({
             id: `${extensionId}_${item.id || Math.random().toString(36).substr(2, 9)}`,
             label: item.label,
@@ -292,6 +315,7 @@ class ExtensionManager {
           } as any);
         },
         addButton: (btn: any) => {
+          if (!hasPermission('ui')) return;
           // Compatibility: many extensions expect a toolbar button
           console.log(`Extension ${extensionId} requested toolbar button:`, btn.label);
           // Store for UI to render if needed
@@ -299,6 +323,7 @@ class ExtensionManager {
           (window as any).__toolbarButtons.push({ ...btn, extensionId });
         },
         registerSidebarItem: (item: SidebarExtensionItem) => {
+          if (!hasPermission('sidebar')) return;
           const existingIdx = this.sidebarItems.findIndex(i => i.id === item.id || i.id === `${extensionId}_${item.id}`);
           const newItem = {
             ...item,
@@ -313,6 +338,7 @@ class ExtensionManager {
           this.emitChange();
         },
         registerApp: (config: { id: string; title: string; icon: string; Component: React.ComponentType<any> }) => {
+          if (!hasPermission('ui')) return;
           this.hubApps.set(`${extensionId}_${config.id}`, { ...config, extensionId });
           this.emitChange();
         },
@@ -321,9 +347,11 @@ class ExtensionManager {
         },
         editor: {
           registerBlock: (type: string, component: React.ComponentType<any>) => {
+            if (!hasPermission('editor')) return;
             this.createAPI(extensionId).registerBlock(type, component);
           },
           insertBlock: (type: string) => {
+            if (!hasPermission('editor')) return;
             window.dispatchEvent(new CustomEvent('editor-command', { 
               detail: { command: 'insertBlock', args: [type] } 
             }));
@@ -331,9 +359,8 @@ class ExtensionManager {
         }
       },
 
-
-
       registerBlock: (type, component) => {
+        if (!hasPermission('editor')) return;
         this.blockRegistry.set(type, component);
         this.persistentBlocks.add(type);
         this.savePersistentBlocksState();
@@ -366,14 +393,17 @@ class ExtensionManager {
       // Theme Module
       theme: {
         setVariable: (name, value) => {
+          if (!hasPermission('theme')) return;
           this.themeVariables.set(name, value);
           this.applyTheme();
         },
         setVariables: (vars) => {
+          if (!hasPermission('theme')) return;
           Object.entries(vars).forEach(([name, value]) => this.themeVariables.set(name, value));
           this.applyTheme();
         },
         injectCSS: (cssText) => {
+          if (!hasPermission('theme')) return;
           // Cleanup existing if replacement
           this.removeStyle(extensionId);
           
@@ -393,6 +423,7 @@ class ExtensionManager {
           this.injectedStyles.set(extensionId, style);
         },
         reset: () => {
+          if (!hasPermission('theme')) return;
           this.themeVariables.clear();
           this.removeStyle(extensionId);
           this.applyTheme();
@@ -402,14 +433,20 @@ class ExtensionManager {
       // Storage Module
       storage: {
         get: (key) => {
+          if (!hasPermission('storage')) return null;
           const val = localStorage.getItem(`ext_${extensionId}_${key}`);
           try { return val ? JSON.parse(val) : null; } catch { return val; }
         },
         set: (key, value) => {
+          if (!hasPermission('storage')) return;
           localStorage.setItem(`ext_${extensionId}_${key}`, JSON.stringify(value));
         },
-        remove: (key) => localStorage.removeItem(`ext_${extensionId}_${key}`),
+        remove: (key) => {
+          if (!hasPermission('storage')) return;
+          localStorage.removeItem(`ext_${extensionId}_${key}`);
+        },
         clear: () => {
+          if (!hasPermission('storage')) return;
           const prefix = `ext_${extensionId}_`;
           Object.keys(localStorage)
             .filter(k => k.startsWith(prefix))
@@ -604,17 +641,24 @@ class ExtensionManager {
         throw new Error('Invalid manifest.json: missing id, name or version');
       }
 
-      const api = this.createAPI(manifest.id);
-      const { activate, deactivate } = await this.evaluateExtension(manifest, script, api);
-      
       const extension: AppExtension & { _script?: string; _isPersistent?: boolean; _html?: string | null } = {
         ...manifest,
+        permissions: manifest.permissions || [],
+        sandbox: !!manifest.sandbox,
         _script: script,
         _html: html,
         _isPersistent: persist,
-        init: activate,
-        destroy: deactivate
+        init: () => {},
+        destroy: () => {}
       };
+      
+      this.extensions.set(manifest.id, extension);
+
+      const api = this.createAPI(manifest.id);
+      const { activate, deactivate } = await this.evaluateExtension(manifest, script, api);
+      
+      extension.init = activate;
+      extension.destroy = deactivate;
       
       this.register(extension);
       
@@ -640,7 +684,9 @@ class ExtensionManager {
         version: ext.version,
         type: ext.type,
         description: ext.description,
-        author: ext.author
+        author: ext.author,
+        permissions: ext.permissions,
+        sandbox: ext.sandbox
       },
       script: (ext as any)._script
     })).filter(item => !!item.script);
@@ -659,16 +705,25 @@ class ExtensionManager {
     if (!fileData) throw new Error(`Extension "${folderName}" not found in current library.`);
 
     const { manifest, script } = fileData;
+    
+    // Create temporary extension entry to allow createAPI to see permissions
+    const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
+      ...manifest,
+      permissions: manifest.permissions || [],
+      sandbox: !!manifest.sandbox,
+      _script: script,
+      _isPersistent: true,
+      init: () => {},
+      destroy: () => {}
+    };
+    
+    this.extensions.set(manifest.id, extension);
+    
     const api = this.createAPI(manifest.id);
     const { activate, deactivate } = await this.evaluateExtension(manifest, script, api);
 
-    const extension: AppExtension & { _script?: string; _isPersistent?: boolean } = {
-      ...manifest,
-      _script: script,
-      _isPersistent: true, // Installed ones are persistent
-      init: activate,
-      destroy: deactivate
-    };
+    extension.init = activate;
+    extension.destroy = deactivate;
 
     this.register(extension);
     await this.persistExtensions();

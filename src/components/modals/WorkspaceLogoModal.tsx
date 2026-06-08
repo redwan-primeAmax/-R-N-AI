@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import { X, Check, Code, ImageIcon } from 'lucide-react';
 import { Modal } from './Modal';
 
@@ -46,7 +47,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
           {svgInput.trim() ? (
             <div 
               className="w-16 h-16 flex items-center justify-center overflow-hidden"
-              dangerouslySetInnerHTML={{ __html: svgInput }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgInput) }}
             />
           ) : (
             <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-white/10">
