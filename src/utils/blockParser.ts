@@ -145,7 +145,10 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     const tagName = child.tagName.toLowerCase();
     const dataType = child.getAttribute('data-type');
 
-    if (child.classList.contains('bookmark-block') || dataType === 'bookmark') {
+    if (child.classList.contains('toggle-list') || dataType === 'toggle') {
+      const isExpanded = child.getAttribute('data-expanded') === 'true';
+      addBlock('toggle', child.innerHTML, { isExpanded });
+    } else if (child.classList.contains('bookmark-block') || dataType === 'bookmark') {
       const url = child.getAttribute('data-url') || '';
       const status = child.getAttribute('data-status') || 'empty';
       let title = '';

@@ -9,6 +9,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Rate limiter for AI routes
 const aiLimiter = rateLimit({
@@ -164,6 +167,11 @@ async function startServer() {
     }
   });
 
+  // End point for dev logs
+  app.get("/api/dev/logs", (req, res) => {
+    res.json(devLogs);
+  });
+
   // Catch-all for /api routes to return JSON 404 instead of HTML
   app.all("/api/*", (req, res) => {
     res.status(404).json({ success: false, error: `API route not found: ${req.method} ${req.url}` });
@@ -180,7 +188,14 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const htmlPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(htmlPath)) {
+        let html = fs.readFileSync(htmlPath, 'utf8');
+        html = injectBaseTag(html, '/');
+        res.send(html);
+      } else {
+        res.status(404).send('Not Found');
+      }
     });
   }
 

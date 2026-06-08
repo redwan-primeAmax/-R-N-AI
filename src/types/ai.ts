@@ -31,7 +31,7 @@ export interface ContextSummary {
 
 export interface AISettings {
   controlMode: 'auto' | 'manual';
-  selectedProvider: 'picoapps' | 'gemini' | 'openrouter' | 'fireworks' | 'local';
+  selectedProvider: 'gemini' | 'openrouter' | 'fireworks' | 'local';
   selectedModels: {
     gemini: string;
     openrouter: string;

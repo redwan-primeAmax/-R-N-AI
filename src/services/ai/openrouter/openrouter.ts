@@ -20,6 +20,25 @@ export class OpenRouterService extends AIService {
 
     if (!apiKey) throw new Error("OpenRouter API Key is missing.");
 
+    const messagesPayload: any[] = [{ role: 'system', content: finalSystemPrompt }];
+
+    if (options.history) {
+      options.history.forEach(msg => {
+        messagesPayload.push({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        });
+      });
+    }
+
+    let finalPrompt = prompt;
+    if (options.attachedNotes && options.attachedNotes.length > 0) {
+      const notesContext = options.attachedNotes.map(n => `Note: "${n.title}"\n${n.content}`).join('\n\n');
+      finalPrompt = `Attached Context:\n${notesContext}\n\nUser Request: ${prompt}`;
+    }
+
+    messagesPayload.push({ role: 'user', content: finalPrompt });
+
     let response;
     try {
       response = await fetch(`https://openrouter.ai/api/v1/chat/completions`, {
@@ -32,10 +51,7 @@ export class OpenRouterService extends AIService {
         },
         body: JSON.stringify({
           model,
-          messages: [
-            { role: 'system', content: finalSystemPrompt },
-            { role: 'user', content: prompt }
-          ],
+          messages: messagesPayload,
           stream: true
         })
       });

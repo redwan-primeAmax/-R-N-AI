@@ -129,7 +129,7 @@ export default function AppCloudArchive() {
                 <div>
                   <h2 className="text-xl font-bold mb-2">আপনার ডেটা সুরক্ষিত রাখুন</h2>
                   <p className="text-sm text-white/40 leading-relaxed max-w-sm mx-auto">
-                    আপনার সব নোট, ওয়ার্কস্পেস এবং সেটিংস একটি জিপ (ZIP) ফাইলে ডাউনলোড করুন।
+                    আপনার সব নোট, ওয়ার্কস্পেস এবং সেটিংস একটি রেডওয়ান (.redwan) ফাইলে ডাউনলোড করুন।
                   </p>
                 </div>
                 <button 
@@ -155,13 +155,13 @@ export default function AppCloudArchive() {
                 <div>
                   <h2 className="text-xl font-bold mb-2">ব্যাকআপ রিস্টোর করুন</h2>
                   <p className="text-sm text-white/40 leading-relaxed max-w-sm mx-auto">
-                    আপনার আগের ডাউনলোড করা ব্যাকআপ জিপ ফাইলটি এখানে আপলোড করুন।
+                    আপনার আগের ডাউনলোড করা ব্যাকআপ (.redwan) ফাইলটি এখানে আপলোড করুন।
                   </p>
                 </div>
                 <div className="relative group">
                   <input 
                     type="file" 
-                    accept=".zip"
+                    accept=".redwan"
                     onChange={handleImport}
                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
                     disabled={status === 'preparing'}

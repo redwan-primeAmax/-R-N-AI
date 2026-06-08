@@ -385,7 +385,7 @@ export const DataManager = {
       systemPrompt: settings.systemPrompt || defaultSettings.systemPrompt
     };
 
-    if (mergedSettings.selectedProvider === 'picoapps' || mergedSettings.selectedProvider === 'local') {
+    if (mergedSettings.selectedProvider as any === 'picoapps' || mergedSettings.selectedProvider === 'local') {
       mergedSettings.selectedProvider = 'gemini';
     }
 

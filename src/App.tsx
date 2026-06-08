@@ -126,18 +126,6 @@ function AppContent() {
   const [hasDismissedLimitWarning, setHasDismissedLimitWarning] = useState(false);
 
   useEffect(() => {
-    // Refresh Logic: If user refreshes on any page other than /main, take them to /main
-    // We check if this is a fresh mount and the current performance entry is a reload
-    const entries = performance.getEntriesByType('navigation');
-    const isReload = entries.length > 0 && (entries[0] as PerformanceNavigationTiming).type === 'reload';
-    
-    if (isReload && location.pathname !== '/main' && location.pathname !== '/') {
-      console.log('App: Refresh detected, redirecting to home.');
-      navigate('/main', { replace: true });
-    }
-  }, []);
-
-  useEffect(() => {
     const checkLimit = async () => {
       try {
         const activeId = await DataManager.getActiveWorkspaceId();

@@ -12,7 +12,6 @@ import { AIInterface } from './components/ChatInterface';
 import { ChatInput } from './components/ChatInput';
 import { handleGeminiSendMessage } from '../../services/ai/gemini/gemini';
 import { handleOpenRouterSendMessage } from '../../services/ai/openrouter/openrouter';
-import { handlePicoSendMessage } from '../../services/ai/pico/pico';
 import { motion, AnimatePresence } from 'framer-motion';
 import { handleFireworksSendMessage } from '../../services/ai/fireworks/fireworks';
 import { handleLocalSendMessage } from '../../services/ai/local/localHandler';
@@ -50,7 +49,7 @@ const AIChat: React.FC = () => {
   const [tasks, setTasks] = useState<AITask[]>([]);
   const [contextSummary, setContextSummary] = useState<ContextSummary | null>(null);
   const [systemPrompt, setSystemPrompt] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState('picoapps');
+  const [selectedProvider, setSelectedProvider] = useState('gemini');
   const [selectedModel, setSelectedModel] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   
@@ -58,12 +57,12 @@ const AIChat: React.FC = () => {
   useEffect(() => {
     if (!selectedProvider) return;
     
-    // Simplify URL - only show the provider if it's not picoapps
-    let base = selectedProvider === 'picoapps' ? '/ai-auto' : '/manual-control';
+    // Simplify URL - only show the provider
+    let base = '/manual-control';
     
     // Only add model if it's actually relevant
     let modelPart = '';
-    if (selectedProvider !== 'picoapps' && selectedModel) {
+    if (selectedModel) {
       modelPart = `/${selectedModel}`;
     }
     
@@ -117,12 +116,10 @@ const AIChat: React.FC = () => {
 
   const loadAISettings = useCallback(async () => {
     const settings = await DataManager.getAISettings();
-    const provider = settings.selectedProvider || 'picoapps';
+    const provider = settings.selectedProvider || 'gemini';
     setSelectedProvider(provider);
     
-    if (provider === 'picoapps') {
-      setSelectedModel('Free');
-    } else if (settings.selectedModels && settings.selectedModels[provider as keyof typeof settings.selectedModels]) {
+    if (settings.selectedModels && settings.selectedModels[provider as keyof typeof settings.selectedModels]) {
       setSelectedModel(settings.selectedModels[provider as keyof typeof settings.selectedModels]);
     } else {
       setSelectedModel('AI');
@@ -269,8 +266,6 @@ const AIChat: React.FC = () => {
       await handleFireworksSendMessage(input, messages, contextSummary, setters, currentAttachments);
     } else if (selectedProvider === 'local') {
       await handleLocalSendMessage(input, messages, contextSummary, setters, currentAttachments);
-    } else {
-      await handlePicoSendMessage(input, messages, contextSummary, setters, currentAttachments);
     }
   };
 

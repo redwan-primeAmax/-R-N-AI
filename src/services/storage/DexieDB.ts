@@ -73,29 +73,25 @@ export async function runMigrationFromLocalForage(): Promise<void> {
     console.log('Dexie Migration: Starting migration from LocalForage to Dexie...');
 
     // 1. Migrate system configurations & single keys
-    const userName = await localforage.getItem<string>('user_name');
-    if (userName) {
-      await db.key_value_pairs.put({ key: 'user_name', value: userName });
-    }
+    const singleKeys = [
+      'user_name', 
+      'user_preferences', 
+      'system_config', 
+      'ai_settings', 
+      'context_summary', 
+      'recent_notes_history', 
+      'system_tags',
+      'auto_download_enabled',
+      'offline_download_completed',
+      'installed_extensions',
+      'search_history'
+    ];
 
-    const userPrefs = await localforage.getItem<UserPreferences>('user_preferences');
-    if (userPrefs) {
-      await db.key_value_pairs.put({ key: 'user_preferences', value: userPrefs });
-    }
-
-    const systemConfig = await localforage.getItem('system_config');
-    if (systemConfig) {
-      await db.key_value_pairs.put({ key: 'system_config', value: systemConfig });
-    }
-
-    const aiSettings = await localforage.getItem<AISettings>('ai_settings');
-    if (aiSettings) {
-      await db.key_value_pairs.put({ key: 'ai_settings', value: aiSettings });
-    }
-
-    const contextSummary = await localforage.getItem<ContextSummary>('context_summary');
-    if (contextSummary) {
-      await db.key_value_pairs.put({ key: 'context_summary', value: contextSummary });
+    for (const key of singleKeys) {
+      const val = await localforage.getItem(key);
+      if (val !== null && val !== undefined) {
+        await db.key_value_pairs.put({ key, value: val });
+      }
     }
 
     // 2. Migrate Workspaces

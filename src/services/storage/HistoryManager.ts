@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import localforage from 'localforage';
+import { db } from './DexieDB';
 
 const RECENT_NOTES_KEY = 'recent_notes_history';
 const MAX_RECENT_NOTES = 10;
@@ -25,11 +25,12 @@ export class HistoryManager {
     };
     
     const updated = [newEntry, ...filtered].slice(0, MAX_RECENT_NOTES);
-    await localforage.setItem(RECENT_NOTES_KEY, updated);
+    await db.key_value_pairs.put({ key: RECENT_NOTES_KEY, value: updated });
     window.dispatchEvent(new CustomEvent('history-updated'));
   }
 
   static async getRecentNotes(): Promise<RecentNote[]> {
-    return (await localforage.getItem<RecentNote[]>(RECENT_NOTES_KEY)) || [];
+    const record = await db.key_value_pairs.get(RECENT_NOTES_KEY);
+    return (record ? record.value : null) || [];
   }
 }

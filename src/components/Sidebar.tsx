@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
+import { db } from '../services/storage/DexieDB';
 import { globalCollabManager } from '../services/PeerCollabManager';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
 import { HistoryManager, RecentNote } from '../services/storage/HistoryManager';
@@ -91,15 +92,15 @@ export default function Sidebar({
   const [moveSearch, setMoveToSearch] = useState('');
 
   const loadData = useCallback(async () => {
-    const [usage, storedTags, history, ws, activeId] = await Promise.all([
+    const [usage, tagsRec, history, ws, activeId] = await Promise.all([
       DataManager.getStorageUsage(),
-      localforage.getItem<string[]>('system_tags'),
+      db.key_value_pairs.get('system_tags'),
       HistoryManager.getRecentNotes(),
       DataManager.getWorkspaces(),
       DataManager.getActiveWorkspaceId()
     ]);
     setStorageInfo(usage);
-    setSystemTags(storedTags || []);
+    setSystemTags(tagsRec ? tagsRec.value : []);
     setRecentNotes(history);
     setActiveWorkspace(ws.find(w => w.id === activeId) || null);
   }, []);
@@ -117,7 +118,7 @@ export default function Sidebar({
 
   const saveTags = async (tags: string[]) => {
     setSystemTags(tags);
-    await localforage.setItem('system_tags', tags);
+    await db.key_value_pairs.put({ key: 'system_tags', value: tags });
   };
 
   const handleMoveTo = async (noteId: string, newParentId?: string) => {
