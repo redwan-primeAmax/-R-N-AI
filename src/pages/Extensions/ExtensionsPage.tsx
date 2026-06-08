@@ -56,12 +56,7 @@ export default function ExtensionsPage() {
   }, []);
 
   const handleDownloadSpec = () => {
-    const link = document.createElement('a');
-    link.href = '/api/docs/spec';
-    link.setAttribute('download', 'EXTENSIONS_SPEC.md');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    window.location.href = '/api/docs/spec';
   };
 
   const handleUploadZip = async () => {
@@ -175,7 +170,7 @@ export default function ExtensionsPage() {
                   srcDoc={extensionManager.getLibraryUI()!}
                   className="w-full h-full border-none"
                   title="Library Marketplace"
-                  sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                  sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">

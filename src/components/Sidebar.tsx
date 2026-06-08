@@ -13,7 +13,7 @@ import { db } from '../services/storage/DexieDB';
 import { globalCollabManager } from '../services/PeerCollabManager';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
 import { HistoryManager, RecentNote } from '../services/storage/HistoryManager';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from './modals/Modal';
 import { MoveToModal } from './modals/MoveToModal';
@@ -346,7 +346,13 @@ export default function Sidebar({
                           "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-inner bg-white/5 text-white/40 group-hover:text-white",
                           item.color || "border-white/5"
                         )}>
-                          {typeof Icon === 'string' ? <span>{Icon}</span> : <Icon size={14} />}
+                          {typeof item.icon === 'string'
+                            ? <span>{item.icon}</span>
+                            : typeof item.icon === 'function'
+                              ? <item.icon size={14} />
+                              : React.isValidElement(item.icon)
+                                ? item.icon
+                                : <Box size={14} />}
                         </div>
                         <span className="font-black text-[10px] uppercase tracking-[0.15em] text-white/40 group-hover:text-white transition-colors">{item.label}</span>
                       </div>

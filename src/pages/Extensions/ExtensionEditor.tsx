@@ -413,6 +413,37 @@ export function ExtensionEditor() {
 
           <div className="flex items-center gap-2 md:gap-3">
             <button 
+              onClick={async () => {
+                if (!project) return;
+                const zip = new JSZip();
+                const addToZip = (files: ExtensionFile[], path = '') => {
+                  files.forEach(f => {
+                    const fullPath = path ? `${path}/${f.name}` : f.name;
+                    if (f.type === 'file') {
+                      zip.file(fullPath, f.content);
+                    } else if (f.children) {
+                      addToZip(f.children, fullPath);
+                    }
+                  });
+                };
+                addToZip(project.files);
+                const blob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${project.id.replace(/[^a-z0-9]/gi, '_') || 'extension'}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-white/5 hover:bg-white/10 text-white/80 rounded-xl text-sm font-bold transition-all border border-white/10"
+              title="ZIP ডাউনলোড করুন"
+            >
+              <Download size={16} className="text-blue-400" />
+              <span className="hidden lg:inline">বিকাশ ফাইল (ZIP)</span>
+            </button>
+            <button 
               onClick={handleValidate}
               className="flex items-center gap-2 px-3 md:px-5 py-2 md:py-2.5 bg-white/5 hover:bg-white/10 text-white/80 rounded-xl text-sm font-bold transition-all border border-white/10"
               title="ভ্যালিডেট করুন"

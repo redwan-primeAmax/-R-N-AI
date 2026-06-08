@@ -70,9 +70,9 @@ class ExtensionManager {
         if (cleanClause.startsWith('* as ')) {
           const name = cleanClause.slice(5).trim();
           if (sourceLower === 'react') {
-            return `const ${name} = React;`;
+            return name === 'React' ? `// React already injected` : `const ${name} = React;`;
           } else if (sourceLower === 'lucide-react') {
-            return `const ${name} = Lucide;`;
+            return name === 'Lucide' || name === 'lucide' ? `// Lucide already injected` : `const ${name} = Lucide;`;
           } else {
             return `const ${name} = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});`;
           }
@@ -87,9 +87,9 @@ class ExtensionManager {
           const defaultPart = cleanClause.split('{')[0].trim().replace(/,/g, '').trim();
           if (defaultPart && defaultPart !== '*') {
             if (sourceLower === 'react') {
-              result += `const ${defaultPart} = React;\n`;
+              if (defaultPart !== 'React') result += `const ${defaultPart} = React;\n`;
             } else if (sourceLower === 'lucide-react') {
-              result += `const ${defaultPart} = Lucide;\n`;
+              if (defaultPart !== 'Lucide' && defaultPart !== 'lucide') result += `const ${defaultPart} = Lucide;\n`;
             } else {
               result += `const ${defaultPart} = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});\n`;
             }
@@ -108,9 +108,9 @@ class ExtensionManager {
         // Match simple default import e.g. import name from '...'
         const name = cleanClause;
         if (sourceLower === 'react') {
-          return `const ${name} = React;`;
+          return name === 'React' ? `// React already injected` : `const ${name} = React;`;
         } else if (sourceLower === 'lucide-react') {
-          return `const ${name} = Lucide;`;
+          return name === 'Lucide' || name === 'lucide' ? `// Lucide already injected` : `const ${name} = Lucide;`;
         } else {
           return `const ${name} = (window.${source.replace(/[^a-zA-Z0-9]/g, '_')} || {});`;
         }
@@ -249,6 +249,65 @@ class ExtensionManager {
     }
   }
 
+  private cleanupRuntimeRegistries(id: string) {
+    // Cleanup UI registries for this extension
+    this.sidebarItems = this.sidebarItems.filter(item => 
+      !item.id.toLowerCase().startsWith(id.toLowerCase())
+    );
+    
+    this.removeStyle(id);
+    
+    // Cleanup hub apps
+    for (const [key, value] of this.hubApps.entries()) {
+      if (value.extensionId === id) {
+        this.hubApps.delete(key);
+      }
+    }
+
+    if ((window as any).__toolbarButtons) {
+      (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => 
+        b.extensionId !== id
+      );
+    }
+
+    // Cleanup tool metadata
+    this.registeredTools = this.registeredTools.filter(t => t.extensionId !== id);
+
+    // Cleanup block registry entries
+    for (const [key] of this.blockRegistry.entries()) {
+      if (key.toLowerCase().includes(id.toLowerCase()) || key === id) {
+        this.blockRegistry.delete(key);
+      }
+    }
+
+    // Cleanup themes
+    for (const [key, value] of this.editorThemes.entries()) {
+      if (value.extensionId === id || key.toLowerCase().includes(id.toLowerCase())) {
+        this.editorThemes.delete(key);
+      }
+    }
+  }
+
+  private registerBlock(type: string, component: React.ComponentType<any>) {
+    this.blockRegistry.set(type, component);
+    this.persistentBlocks.add(type);
+    this.savePersistentBlocksState();
+    this.emitChange();
+  }
+
+  private applyChanges(newContent: any, reason: string): string {
+    const requestId = Math.random().toString(36).substring(7);
+    this.pendingChangeRequests.set(requestId, {
+      id: requestId,
+      extensionId: 'unknown', // This will be overridden or we should pass it
+      content: newContent,
+      reason,
+      timestamp: Date.now()
+    });
+    this.emitChange();
+    return requestId;
+  }
+
   // Create an API instance for a specific extension
   private createAPI(extensionId: string): AppAPI {
     const self = this;
@@ -256,7 +315,13 @@ class ExtensionManager {
     const permissions = extension?.permissions || [];
     const isSystem = extensionId === 'system';
 
-    const hasPermission = (perm: string) => isSystem || permissions.includes(perm as any);
+    const hasPermission = (perm: string) => {
+      const allowed = isSystem || permissions.includes(perm as any);
+      if (!allowed) {
+        console.warn(`[Extension Permission] Extension "${extensionId}" tried to access "${perm}" API without required permission.`);
+      }
+      return allowed;
+    };
     
     return {
       id: extensionId,
@@ -307,7 +372,7 @@ class ExtensionManager {
       editor: {
         registerBlock: (type: string, component: React.ComponentType<any>) => {
           if (!hasPermission('editor')) return;
-          this.createAPI(extensionId).registerBlock(type, component);
+          this.registerBlock(type, component);
         },
         insertBlock: (type: string) => {
           if (!hasPermission('editor')) return;
@@ -321,20 +386,14 @@ class ExtensionManager {
         },
         getCurrentNote: async () => {
           if (!hasPermission('editor')) return null;
-          // Dynamically get current note state
           return (window as any)._currentNoteState || null;
         },
         applyChanges: (newContent: any, reason: string = 'Update note content') => {
           if (!hasPermission('editor')) return 'PERMISSION_DENIED';
-          const requestId = Math.random().toString(36).substring(7);
-          self['pendingChangeRequests'].set(requestId, {
-            id: requestId,
-            extensionId,
-            content: newContent,
-            reason,
-            timestamp: Date.now()
-          });
-          self['emitChange']();
+          const requestId = this.applyChanges(newContent, reason);
+          // Patch extensionId
+          const req = this.pendingChangeRequests.get(requestId);
+          if (req) req.extensionId = extensionId;
           return requestId;
         }
       },
@@ -444,10 +503,44 @@ class ExtensionManager {
           },
           applyChanges: (newContent: any, reason: string = 'Update note content') => {
             if (!hasPermission('editor')) return 'PERMISSION_DENIED';
-            return this.applyChanges(newContent, reason);
+            const requestId = this.applyChanges(newContent, reason);
+            // Patch extensionId
+            const req = this.pendingChangeRequests.get(requestId);
+            if (req) req.extensionId = extensionId;
+            return requestId;
           }
         }
       },
+
+      // System & Metadata Module [NEW]
+      system: {
+        getInstalledStatus: (id: string) => {
+          const ext = (this as any).extensions.get(id);
+          return {
+            installed: !!ext,
+            version: ext?.version,
+            type: ext?.type
+          };
+        },
+        getExtensionMetadata: (id: string) => {
+          const ext = (this as any).extensions.get(id);
+          if (!ext) return null;
+          return {
+            id: ext.id,
+            name: ext.name,
+            version: ext.version,
+            type: ext.type,
+            description: ext.description,
+            author: ext.author,
+            permissions: ext.permissions,
+            workspaceId: (ext as any).workspaceId,
+            script: (ext as any)._script,
+            html: (ext as any)._html
+          };
+        }
+      },
+
+      // Editor Methods (Compatibility)
 
       registerBlock: (type, component) => {
         if (!hasPermission('editor')) return;
@@ -589,15 +682,25 @@ class ExtensionManager {
   }
 
   register(extension: AppExtension & { _script?: string; _isPersistent?: boolean }) {
-    // Conflict resolution: latest wins
-    if (this.extensions.has(extension.id)) {
-      this.unregister(extension.id);
-    }
+    const existing = this.extensions.get(extension.id);
+    const alreadyStaged = existing === extension;
 
     // Version check
     if (!this._checkVersion(extension.version)) {
       console.warn(`Extension ${extension.id} v${extension.version} is incompatible with this version of the app.`);
       return;
+    }
+
+    // Conflict resolution: latest wins
+    if (existing && !alreadyStaged) {
+      try {
+        existing.destroy?.(this.createAPI(extension.id));
+      } catch (e) {}
+      this.cleanupRuntimeRegistries(extension.id);
+      this.extensions.delete(extension.id);
+    } else if (alreadyStaged) {
+      // If we are just re-registering (e.g. reload or editor run), just clean registries
+      this.cleanupRuntimeRegistries(extension.id);
     }
     
     try {
@@ -622,9 +725,8 @@ class ExtensionManager {
   async unregister(id: string) {
     console.log(`Attempting to unregister/purge extension: ${id}`);
     
-    // 1. Memory cleanup (even if get() fails, we try to delete)
+    // 1. Memory lookup
     const extension = this.extensions.get(id);
-    this.extensions.delete(id);
     
     try {
       // 2. Perform destroy if extension exists
@@ -636,44 +738,9 @@ class ExtensionManager {
         }
       }
 
-      // 3. Cleanup UI registries
-      this.sidebarItems = this.sidebarItems.filter(item => 
-        !item.id.toLowerCase().includes(id.toLowerCase())
-      );
-      
-      this.removeStyle(id);
-      
-      // Cleanup hub apps
-      for (const [key, value] of this.hubApps.entries()) {
-        if (value.extensionId === id) {
-          this.hubApps.delete(key);
-        }
-      }
-
-      if ((window as any).__toolbarButtons) {
-        (window as any).__toolbarButtons = (window as any).__toolbarButtons.filter((b: any) => 
-          b.extensionId !== id && !b.id?.toLowerCase().includes(id.toLowerCase())
-        );
-      }
-
-      // Cleanup tool metadata
-      this.registeredTools = this.registeredTools.filter(t => t.extensionId !== id);
-
-      // IMPORTANT: STICKY BLOCKS
-      // We do NOT remove entries from persistentBlocks here.
-      // We only remove from the ACTIVE registry.
-      for (const [key] of this.blockRegistry.entries()) {
-        if (key.toLowerCase().includes(id.toLowerCase()) || key === id) {
-          this.blockRegistry.delete(key);
-        }
-      }
-
-      // Cleanup themes
-      for (const [key, value] of this.editorThemes.entries()) {
-        if (value.extensionId === id || key.toLowerCase().includes(id.toLowerCase())) {
-          this.editorThemes.delete(key);
-        }
-      }
+      // 3. Cleanup UI and runtime registries
+      this.cleanupRuntimeRegistries(id);
+      this.extensions.delete(id);
 
       // 4. Persistence Purge
       await this.persistExtensions();
@@ -691,7 +758,7 @@ class ExtensionManager {
         }
       }
 
-      // 5. App-level cleanup
+      // 5. App-level cleanup (localStorage)
       const storagePrefix = `ext_${id}_`;
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith(storagePrefix)) localStorage.removeItem(key);

@@ -23,6 +23,9 @@ export interface AppAPI {
     editor: {
       registerBlock: (type: string, component: React.ComponentType<any>) => void;
       insertBlock: (type: string) => void;
+      getContent?: () => any;
+      getCurrentNote: () => Promise<any>;
+      applyChanges?: (newContent: any, reason?: string) => string;
     };
   };
 
@@ -59,6 +62,12 @@ export interface AppAPI {
     set: (key: string, value: any) => void;
     remove: (key: string) => void;
     clear: () => void;
+  };
+
+  // System & Metadata Methods [NEW]
+  system?: {
+    getInstalledStatus: (id: string) => { installed: boolean; version?: string; type?: string };
+    getExtensionMetadata: (id: string) => any;
   };
 
   // Legacy/Compatibility
