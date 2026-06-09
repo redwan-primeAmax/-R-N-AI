@@ -63,6 +63,7 @@ const NetworkShield = lazyWithRetry(() => import('./pages/Settings/NetworkShield
 const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArchive'));
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
+const SettingsPage = lazyWithRetry(() => import('./pages/Settings/SettingsPage'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 const ToolsPage = lazyWithRetry(() => import('./pages/Tools/ToolsPage'));
 
@@ -307,10 +308,9 @@ function AppContent() {
     { path: "/manual-control", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/manual-control/*", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/ai", element: <Navigate to="/ai-auto" replace /> },
-    { path: "/settings", element: <PageWrapper><AIConfiguration /></PageWrapper> },
+    { path: "/settings", element: <PageWrapper><SettingsPage /></PageWrapper> },
+    { path: "/ai/settings", element: <PageWrapper><AIConfiguration /></PageWrapper> },
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },
-    { path: "/ai/settings", element: <Navigate to="/settings" replace /> },
-    { path: "/ai/external-import", element: <Navigate to="/external-ai-import" replace /> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
     { path: "/tools", element: <PageWrapper><ToolsPage /></PageWrapper> },

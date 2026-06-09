@@ -33,7 +33,8 @@ import {
   Moon,
   Brain,
   Globe,
-  Flame
+  Flame,
+  Zap
 } from 'lucide-react';
 import { VaultModal } from '../../components/modals/VaultModal';
 import { DataManager, AISettings, UserPreferences } from '../../services/storage/DataManager';
@@ -273,192 +274,248 @@ const AIConfigurationPage: React.FC = () => {
   if (!draftSettings) return null;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col font-sans">
-      <header className="p-6 border-b border-white/5 flex items-center justify-between sticky top-0 bg-[#050505]/80 backdrop-blur-2xl z-[100]">
+    <div className="min-h-screen bg-[#050505] text-white flex flex-col font-sans selection:bg-blue-500/30">
+      {/* Background Ambient Glow */}
+      <div className="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none" />
+      
+      <header className="px-6 py-8 border-b border-white/5 flex items-center justify-between sticky top-0 bg-[#050505]/60 backdrop-blur-3xl z-[100]">
         <div className="flex items-center gap-6">
-          <button onClick={handleBack} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-white active:scale-90 border border-white/5">
-            <ChevronLeft size={24} />
+          <button 
+            onClick={() => navigate('/settings')} 
+            className="group p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-white active:scale-90 border border-white/5 flex items-center justify-center"
+          >
+            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
           </button>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">সিস্টেম কন্ট্রোল</h1>
-            <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em] mt-0.5">Application Core & AI Engine</p>
+          <div className="space-y-0.5">
+            <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">
+              AI <span className="text-blue-500">ইঞ্জিন</span> সেটিংস
+            </h1>
+            <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em]">Neural Processing Hub</p>
           </div>
         </div>
-        {isDirty && (
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={handleCancelEdit}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-            >
-              বাতিল করুন
-            </button>
+        
+        {isDirty ? (
+          <div className="flex items-center gap-3">
+             <button 
+               onClick={handleCancelEdit}
+               className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
+             >
+               বাতিল
+             </button>
+             <button 
+               onClick={handleManualSave}
+               disabled={isSaving}
+               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95 flex items-center gap-2"
+             >
+               {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+               সেভ করুন
+             </button>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
+            <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/40 leading-none">Synched</span>
           </div>
         )}
       </header>
 
-      <main className="flex-1 p-6 max-w-2xl mx-auto w-full space-y-8">
+      <main className="flex-1 p-6 md:p-12 max-w-3xl mx-auto w-full space-y-12 pb-48">
         {/* Provider Selection */}
-        <section className="space-y-4">
-          <h2 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] px-2">সার্ভার প্রোভাইডার নির্বাচন করুন</h2>
-          <div className="grid grid-cols-3 gap-3">
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Select Intelligence Core</h2>
+            <div className="h-px flex-1 bg-white/5 mx-4" />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
             {['gemini', 'openrouter', 'fireworks'].map(p => (
               <button
                 key={p}
                 onClick={() => handleSelectProvider(p)}
-                className={`flex flex-col items-center justify-center py-4 px-2 rounded-2xl border transition-all gap-1.5 ${
-                  draftSettings.selectedProvider === p ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/5 grayscale opacity-60'
+                className={`group relative flex flex-col items-center justify-center p-6 rounded-[2rem] border transition-all gap-4 overflow-hidden ${
+                  draftSettings.selectedProvider === p 
+                    ? 'bg-blue-600/10 border-blue-500/50 shadow-[0_0_40px_rgba(59,130,246,0.1)] ring-1 ring-blue-500/20' 
+                    : 'bg-white/[0.02] border-white/5 grayscale opacity-60 hover:opacity-100 hover:grayscale-0 hover:bg-white/[0.05]'
                 }`}
               >
-                <div className={`p-2 rounded-xl ${draftSettings.selectedProvider === p ? 'bg-white/20' : 'bg-blue-400/10'}`}>
+                {draftSettings.selectedProvider === p && (
+                  <motion.div 
+                    layoutId="active-provider-glow"
+                    className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none"
+                  />
+                )}
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-inner ${
+                  draftSettings.selectedProvider === p ? 'bg-blue-500/20 text-white' : 'bg-white/5 text-white/20'
+                }`}>
                    {p === 'gemini' ? (
-                     <Brain size={18} className={draftSettings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
+                     <img src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.png" className="w-6 h-6 object-contain" alt="gemini" />
                    ) : p === 'openrouter' ? (
-                     <Globe size={18} className={draftSettings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
+                     <Globe size={24} />
                    ) : (
-                     <Flame size={18} className={draftSettings.selectedProvider === p ? 'text-white' : 'text-blue-400'} />
+                     <Flame size={24} />
                    )}
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-tight">
-                  {p === 'gemini' ? 'Gemini AI' : p === 'openrouter' ? 'OpenRouter' : 'Fireworks'}
-                </span>
+                <div className="text-center">
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-widest block transition-colors",
+                    draftSettings.selectedProvider === p ? "text-blue-400" : "text-white/20"
+                  )}>
+                    {p === 'gemini' ? 'Google Gemini' : p === 'openrouter' ? 'OpenRouter' : 'Fireworks AI'}
+                  </span>
+                </div>
               </button>
             ))}
           </div>
         </section>
 
-        {/* Paid Mode: API Boxes */}
+        {/* intelligence Configuration Box */}
         <AnimatePresence mode="wait">
           <motion.section
-            key="api-section"
-            initial={{ opacity: 0, y: 10 }}
+            key={draftSettings.selectedProvider}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
+            exit={{ opacity: 0, y: -20 }}
+            className="group"
           >
-              <div className="p-6 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-purple-500/20 rounded-2xl"><Key className="text-purple-400" size={24} /></div>
+            <div className="p-8 md:p-12 bg-white/[0.03] border border-white/5 rounded-[3rem] space-y-10 relative overflow-hidden">
+               {/* Decorative Gradient */}
+               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 bg-blue-500/10 rounded-[1.25rem] flex items-center justify-center border border-blue-500/20 text-blue-400">
+                    <Key size={28} />
+                  </div>
                   <div>
-                    <h2 className="text-lg font-bold capitalize">{draftSettings.selectedProvider} এপিআই (API)</h2>
-                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">আপনার ব্যক্তিগত কী কনফিগার করুন</p>
+                    <h2 className="text-xl font-black tracking-tight capitalize">{draftSettings.selectedProvider} Configuration</h2>
+                    <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">Credential & Model Core</p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {/* API Key Input with Reveal Animation */}
-                  <div className="relative group overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <Key size={16} className="text-white/20" />
-                      <input 
-                        type="text"
-                        value={draftSettings.apiKeys[draftSettings.selectedProvider] || ''}
-                        onChange={(e) => handleUpdateAPIKey(draftSettings.selectedProvider, e.target.value)}
-                        placeholder="API Key লিখুন..."
-                        className="flex-1 bg-transparent text-sm font-mono outline-none"
-                      />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* API Key Input */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Access Secret Key</label>
+                    <div className="relative group/input overflow-hidden rounded-[1.5rem] border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50 focus-within:bg-blue-500/5 pr-12">
+                      <div className="flex items-center gap-3 px-5 py-4">
+                        <Key size={16} className="text-white/20 group-focus-within/input:text-blue-400 transition-colors" />
+                        <input 
+                          type={isRevealed[draftSettings.selectedProvider] ? 'text' : 'password'}
+                          value={draftSettings.apiKeys[draftSettings.selectedProvider] || ''}
+                          onChange={(e) => handleUpdateAPIKey(draftSettings.selectedProvider, e.target.value)}
+                          placeholder="আপনার এপিআই কী দিন..."
+                          className="flex-1 bg-transparent text-sm font-mono outline-none placeholder:text-white/10"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: !isRevealed[draftSettings.selectedProvider]})}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 hover:bg-white/10 rounded-xl transition-all text-white/20 hover:text-white"
+                      >
+                        {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
-                    <AnimatePresence>
-                      {!isRevealed[draftSettings.selectedProvider] && (
-                        <motion.div 
-                          initial={false}
-                          animate={{ x: 0 }}
-                          exit={{ x: "100%" }}
-                          transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                          onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: true})}
-                          className="absolute inset-0 bg-blue-600 flex items-center justify-center gap-2 cursor-pointer z-10"
-                        >
-                          <Lock size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">কী দেখতে ক্লিক করুন</span>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    <button 
-                      onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: !isRevealed[draftSettings.selectedProvider]})}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-full transition-all text-white/40"
-                    >
-                      {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
                   </div>
 
-                  {/* Manual Model Input */}
-                  <div className="relative flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl">
-                    <Settings size={16} className="text-white/20" />
-                    <input 
-                      type="text"
-                      value={draftSettings.models[draftSettings.selectedProvider] || ''}
-                      onChange={(e) => handleUpdateModel(draftSettings.selectedProvider, e.target.value)}
-                      placeholder="মডেল নাম (যেমন: gemini-1.5-pro)"
-                      className="flex-1 bg-transparent text-sm font-bold outline-none"
-                    />
+                  {/* Model Selector */}
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Deployment Model</label>
+                     <div className="relative group/input overflow-hidden rounded-[1.5rem] border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50 focus-within:bg-blue-500/5">
+                        <div className="flex items-center gap-3 px-5 py-4">
+                          <Settings size={16} className="text-white/20 group-focus-within/input:text-blue-400 transition-colors" />
+                          <input 
+                            type="text"
+                            value={draftSettings.models[draftSettings.selectedProvider] || ''}
+                            onChange={(e) => handleUpdateModel(draftSettings.selectedProvider, e.target.value)}
+                            placeholder="যেমন: gemini-1.5-flash"
+                            className="flex-1 bg-transparent text-sm font-bold outline-none placeholder:text-white/10"
+                          />
+                        </div>
+                     </div>
                   </div>
                 </div>
 
                 {/* System Prompt Field */}
-                <div className="space-y-2 mt-4 p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MessageSquare size={16} className="text-blue-400" />
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">এআই সিস্টেম প্রম্পট (System Prompt)</label>
+                <div className="space-y-3 p-6 bg-white/[0.02] rounded-[2rem] border border-white/5 group-hover:border-blue-500/20 transition-all">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><MessageSquare size={16} /></div>
+                      <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Global Instruction Set (System Prompt)</label>
+                    </div>
+                    <Info size={14} className="text-white/10 hover:text-white transition-colors cursor-help" />
                   </div>
                   <textarea 
                     value={draftSettings.systemPrompt || ''}
                     onChange={(e) => updateDraft({ systemPrompt: e.target.value })}
-                    placeholder="এআই-এর চরিত্র নির্ধারণ করুন (যেমন: আপনি একজন দক্ষ সহকারী...)"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm leading-relaxed focus:border-blue-500 outline-none min-h-[100px] resize-none"
+                    placeholder="নোট অ্যাসিস্ট্যান্ট এর বিহেভিয়ার সেট করুন..."
+                    className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm leading-relaxed focus:border-blue-500/50 focus:bg-blue-500/5 outline-none min-h-[120px] resize-none transition-all placeholder:text-white/5"
                   />
-                  <p className="text-[9px] text-white/20 italic">এটি এআই-এর আচরণের ধরন পরিবর্তন করবে।</p>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-1 h-1 bg-blue-500 rounded-full" />
+                    <p className="text-[10px] text-white/20 font-medium italic">এটি প্রতিটি এআই জেনারেশনের জন্য গাইডহোল্ড হিসেবে কাজ করবে।</p>
+                  </div>
                 </div>
-              </div>
-            </motion.section>
-        </AnimatePresence>
-
-        {/* AI Auto / Automation Toggle Section */}
-        <section className="p-6 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/20 rounded-2xl"><Sparkles className="text-blue-400" size={24} /></div>
-            <div>
-              <h2 className="text-lg font-bold">AI Auto (অটোমেশন)</h2>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">ব্যাকগ্রাউন্ড এআই অটোমেশন এবং প্রসেসিং</p>
             </div>
+          </motion.section>
+        </AnimatePresence>
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Automation & Processing</h2>
+            <div className="h-px flex-1 bg-white/5 mx-4" />
           </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
-              <div>
-                <h2 className="text-sm font-bold">AI Auto অটোমেশন চালু করুন</h2>
-                <p className="text-[10px] text-white/40">স্বয়ংক্রিয়ভাবে ব্যাকগ্রাউন্ড কাজ সম্পন্ন করতে এটি অন করুন</p>
+          <div className="p-8 bg-white/[0.03] border border-white/5 rounded-[3rem] space-y-8 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-green-500/5 blur-3xl rounded-full -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className={cn(
+                  "w-14 h-14 rounded-2xl flex items-center justify-center border transition-all duration-500",
+                  draftSettings.dataCheckingEnabled ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-white/5 border-white/5 text-white/20"
+                )}>
+                  <Sparkles size={28} className={draftSettings.dataCheckingEnabled ? "animate-pulse" : ""} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black tracking-tight">AI Auto (অটোমেশন)</h2>
+                  <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">Background Intelligence</p>
+                </div>
               </div>
               <button 
                 id="ai-auto-toggle"
-                onClick={() => {
-                  updateDraft({ dataCheckingEnabled: !draftSettings.dataCheckingEnabled });
-                }}
-                className={`w-12 h-6 rounded-full transition-all flex items-center px-1 self-end sm:self-auto ${draftSettings.dataCheckingEnabled ? "bg-green-500" : "bg-white/10"}`}
+                onClick={() => updateDraft({ dataCheckingEnabled: !draftSettings.dataCheckingEnabled })}
+                className={cn(
+                  "w-16 h-8 rounded-full transition-all flex items-center px-1.5 shadow-inner",
+                  draftSettings.dataCheckingEnabled ? "bg-green-500" : "bg-white/10"
+                )}
               >
                 <motion.div 
-                  className="w-4 h-4 bg-white rounded-full shadow-sm"
-                  animate={{ x: draftSettings.dataCheckingEnabled ? 24 : 0 }}
+                  className="w-5 h-5 bg-white rounded-full shadow-lg"
+                  animate={{ x: draftSettings.dataCheckingEnabled ? 32 : 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               </button>
             </div>
 
             {draftSettings.dataCheckingEnabled && (
-              <div className="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">AI Auto মডেল নির্বাচন করুন (Model-Selection)</label>
-                  <div className="grid grid-cols-3 gap-2">
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-6 pt-6 border-t border-white/5"
+              >
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Processing Strategy</label>
+                  <div className="grid grid-cols-3 gap-3">
                     {(['free', 'selected', 'custom'] as const).map(m => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => updateDraft({ dataCheckingModel: m })}
-                        className={`py-3 px-2 rounded-xl border text-center transition-all ${
+                        className={cn(
+                          "py-4 rounded-2xl border text-center transition-all",
                           draftSettings.dataCheckingModel === m 
-                            ? 'bg-blue-600 border-blue-400 shadow-md shadow-blue-500/10' 
-                            : 'bg-white/5 border-white/10 hover:bg-white/10'
-                        }`}
+                            ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-lg shadow-blue-500/10' 
+                            : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/40'
+                        )}
                       >
-                        <span className="text-[10px] font-bold block capitalize">
-                          {m === 'free' ? 'Free Model' : m === 'selected' ? 'Selected' : 'Custom'}
+                        <span className="text-[10px] font-black uppercase tracking-tight">
+                          {m === 'free' ? 'Optimized' : m === 'selected' ? 'Selected' : 'Neural Custom'}
                         </span>
                       </button>
                     ))}
@@ -466,94 +523,56 @@ const AIConfigurationPage: React.FC = () => {
                 </div>
 
                 {draftSettings.dataCheckingModel === 'custom' && (
-                  <div className="space-y-2 pt-2 border-t border-white/5">
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">কাস্টম প্রোভাইডার সিলেক্ট করুন</label>
-                    <div className="grid grid-cols-3 gap-2">
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="space-y-3 p-6 bg-white/5 rounded-[2rem] border border-white/5"
+                  >
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Custom Provider Node</label>
+                    <div className="grid grid-cols-3 gap-3">
                       {(['gemini', 'openrouter', 'fireworks'] as const).map(p => (
                         <button
                           key={p}
                           type="button"
                           onClick={() => updateDraft({ dataCheckingCustomProvider: p })}
-                          className={`py-2 px-1 rounded-lg border text-center transition-all ${
+                          className={cn(
+                            "py-3 rounded-xl border text-center transition-all flex items-center justify-center gap-2",
                             draftSettings.dataCheckingCustomProvider === p 
-                              ? 'bg-purple-600 border-purple-400' 
-                              : 'bg-white/5 border-white/5 hover:bg-white/10'
-                          }`}
+                              ? 'bg-purple-600/20 border-purple-500/50 text-purple-400' 
+                              : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/20'
+                          )}
                         >
-                          <span className="text-[9px] font-bold block capitalize">{p}</span>
+                          <span className="text-[10px] font-black uppercase tracking-tight">{p}</span>
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
-              </div>
+              </motion.div>
             )}
           </div>
         </section>
 
-        <section className="p-6 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-orange-500/20 rounded-2xl"><Layers className="text-orange-400" size={24} /></div>
-            <div>
-              <h2 className="text-lg font-bold">স্টোরেজ এবং মিডিয়া</h2>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">মিডিয়া ফাইল এবং ডেটা ম্যানেজমেন্ট</p>
-            </div>
+        {/* User Interface preferences */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Personalization & Security</h2>
+            <div className="h-px flex-1 bg-white/5 mx-4" />
           </div>
-          <div className="space-y-4">
-             <button 
-                onClick={() => navigate('/storage-optimizer')}
-                className="w-full flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4"
-             >
-                <div className="flex items-center gap-3">
-                   <div className="text-white/60 group-hover:text-white transition-colors">
-                      <RefreshCcw size={20} />
-                   </div>
-                   <div className="text-left">
-                      <h2 className="text-sm font-bold">স্টোরেজ অপ্টিমাইজার</h2>
-                      <p className="text-[10px] text-white/40">ডেটা ব্যাকআপ এবং মিডিয়া ক্লিনিং</p>
-                   </div>
-                </div>
-                <ChevronRight size={20} className="text-white/20 group-hover:text-white transition-all" />
-             </button>
-             
-             <button 
-                onClick={() => navigate('/recycle-bin')}
-                className="w-full flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4"
-             >
-                <div className="flex items-center gap-3">
-                   <div className="text-white/60 group-hover:text-white transition-colors">
-                      <Trash2 size={20} />
-                   </div>
-                   <div className="text-left">
-                      <h2 className="text-sm font-bold">রিসাইকেল বিন</h2>
-                      <p className="text-[10px] text-white/40">মুছে ফেলা নোটগুলো পুনরুদ্ধার করুন</p>
-                   </div>
-                </div>
-                <ChevronRight size={20} className="text-white/20 group-hover:text-white transition-all" />
-             </button>
-          </div>
-        </section>
-
-        <section className="p-6 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-green-500/20 rounded-2xl"><Sparkles className="text-green-400" size={24} /></div>
-            <div>
-              <h2 className="text-lg font-bold">ইউজার ইন্টারফেস পছন্দ</h2>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">আপনার অভিজ্ঞতা কাস্টমাইজ করুন</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
-              <div className="flex items-center gap-3">
-                <div className="text-white/60 group-hover:text-white transition-colors">
-                  <motion.div animate={(draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? {} : { rotate: 360 }} transition={{ repeat: Infinity, duration: 4, ease: "linear" }}>
-                    <Settings size={20} />
-                  </motion.div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Animation Rush */}
+            <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2.5rem] flex items-center justify-between group">
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all",
+                  (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "bg-white/5 border-white/5 text-white/20"
+                )}>
+                  <Zap size={20} className={(draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "" : "opacity-40"} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold">Animation Rush</h2>
-                  <p className="text-[10px] text-white/40">এনিমেশন ফাস্ট করতে এটি অন করুন</p>
+                  <h2 className="text-sm font-black tracking-tight">Performance Boost</h2>
+                  <p className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-0.5">Animation Rush</p>
                 </div>
               </div>
               <button 
@@ -561,7 +580,10 @@ const AIConfigurationPage: React.FC = () => {
                   if (!draftPreferences) return;
                   setDraftPreferences({ ...draftPreferences, reducedMotion: !draftPreferences.reducedMotion });
                 }}
-                className={`w-12 h-6 rounded-full transition-all flex items-center px-1 self-end sm:self-auto ${(draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "bg-green-500" : "bg-white/10"}`}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-all flex items-center px-1",
+                  (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]" : "bg-white/10"
+                )}
               >
                 <motion.div 
                   animate={{ x: (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? 24 : 0 }}
@@ -570,85 +592,88 @@ const AIConfigurationPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
-              <div className="flex items-center gap-3">
-                <div className="text-white/60 group-hover:text-white transition-colors">
-                   <Lock size={20} />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-sm font-bold">নোটস পাসওয়ার্ড (Notes Password)</h2>
-                  <p className="text-[10px] text-white/40">আপনার নোট লক করার ডিফল্ট পাসওয়ার্ড</p>
-                  
-                  {draftPreferences?.defaultPassword !== undefined ? (
-                    <div className="mt-4 flex flex-col sm:flex-row gap-3 w-full">
-                      <input 
-                        type="text" 
-                        value={draftPreferences.defaultPassword} 
-                        onChange={(e) => setDraftPreferences({...draftPreferences, defaultPassword: e.target.value})}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm font-mono focus:border-blue-500 outline-none max-w-sm"
-                        placeholder="পাসওয়ার্ড লিখুন..."
-                      />
-                      <button 
-                        onClick={handleOpenVaultClick}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold transition-all sm:w-auto w-max"
-                      >
-                        ভল্ট দেখুন (View)
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => {
-                        if (draftPreferences) setDraftPreferences({...draftPreferences, defaultPassword: ''});
-                      }}
-                      className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all"
-                    >
-                      কনফিগার করুন (Configure)
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
-              <div className="flex items-center gap-3">
-                <div className="text-white/60 group-hover:text-white transition-colors">
-                   <Sparkles size={20} />
+            {/* Note Password */}
+            <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2.5rem] flex flex-col gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/5 bg-white/5 text-white/20">
+                  <Lock size={20} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold">ডেমো ডেটা (Demo Data)</h2>
-                  <p className="text-[10px] text-white/40">পরীক্ষার জন্য কিছু নোট যোগ করুন</p>
+                  <h2 className="text-sm font-black tracking-tight">Vault Credentials</h2>
+                  <p className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-0.5">Notes System Password</p>
                 </div>
               </div>
-              <button 
+              
+              <div className="flex items-center gap-2">
+                {draftPreferences?.defaultPassword !== undefined ? (
+                  <div className="flex w-full gap-2">
+                    <div className="relative flex-1 group/input overflow-hidden rounded-xl border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50">
+                      <input 
+                        type="password" 
+                        value={draftPreferences.defaultPassword} 
+                        onChange={(e) => setDraftPreferences({...draftPreferences, defaultPassword: e.target.value})}
+                        className="w-full bg-transparent px-4 py-3 text-sm font-mono focus:outline-none placeholder:text-white/10"
+                        placeholder="ভল্ট পাসওয়ার্ড..."
+                      />
+                    </div>
+                    <button 
+                      onClick={handleOpenVaultClick}
+                      className="p-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 rounded-xl transition-all border border-blue-500/20 active:scale-95"
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      if (draftPreferences) setDraftPreferences({...draftPreferences, defaultPassword: ''});
+                    }}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Set Password
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* System & Maintenance */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">System & Advanced</h2>
+            <div className="h-px flex-1 bg-white/5 mx-4" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+             <button 
                 onClick={async () => {
                   await DataManager.createDemoData();
                   setStatus({ type: 'success', message: 'ডেমো ডেটা যোগ করা হয়েছে। রিফ্রেশ করুন।' });
                 }}
-                className="px-6 py-2.5 bg-blue-600/20 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-blue-400 hover:text-white self-end sm:self-auto"
-              >
-                যোগ করুন
-              </button>
-            </div>
-
-
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group gap-4">
-              <div className="flex items-center gap-3">
-                <div className="text-white/60 group-hover:text-white transition-colors">
-                   <RefreshCw size={20} />
+                className="p-6 bg-blue-600/5 hover:bg-blue-600/10 border border-blue-500/10 rounded-[2rem] flex flex-col items-center gap-3 transition-all group active:scale-95"
+             >
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                  <Plus size={20} />
                 </div>
-                <div>
-                  <h2 className="text-sm font-bold">প্রাথমিক সেটআপ</h2>
-                  <p className="text-[10px] text-white/40">শুরু থেকে সবকিছু সেটআপ করুন</p>
+                <div className="text-center">
+                  <h2 className="text-[11px] font-black tracking-tight text-white/80">Demo Data</h2>
+                  <p className="text-[9px] text-white/20 uppercase font-black tracking-[0.1em]">Test Environment</p>
                 </div>
-              </div>
-              <button 
+             </button>
+
+             <button 
                 onClick={() => setShowRestartConfirm(true)}
-                className="px-6 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-auto"
-              >
-                রিস্টার্ট
-              </button>
-            </div>
+                className="p-6 bg-red-600/5 hover:bg-red-600/10 border border-red-500/10 rounded-[2rem] flex flex-col items-center gap-3 transition-all group active:scale-95"
+             >
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform">
+                  <RefreshCw size={20} />
+                </div>
+                <div className="text-center">
+                  <h2 className="text-[11px] font-black tracking-tight text-white/80">Soft Reset</h2>
+                  <p className="text-[9px] text-white/20 uppercase font-black tracking-[0.1em]">Re-initialize</p>
+                </div>
+             </button>
           </div>
         </section>
 

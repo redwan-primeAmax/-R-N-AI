@@ -4,41 +4,29 @@
 
 ## ১. ফাইল স্ট্রাকচার
 
-জিপ ফাইলের রুটে অবশ্যই একটি `index.html` থাকতে হবে।
+জিপ ফাইলের রুটে (root) অবশ্যই একটি `index.html` থাকতে হবে। জিপ ফাইলের ভিতর আপনি যেকোনো ফোল্ডার স্ট্রাকচার ব্যবহার করতে পারেন।
 
 ```text
 my-tool.zip
 ├── index.html (অবশ্যই থাকতে হবে)
 ├── style.css
 ├── script.js
+├── components/
+│   └── search-bar.js
 └── assets/
-    └── icon.png
+    ├── icon.png
+    └── data.json
 ```
 
-## ২. `index.html` উদাহরণ
+## ২. রিলেটিভ পাথ (Relative Paths)
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Custom Tool</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div id="app">
-        <h1>হ্যালো! এটি আমার কাস্টম টুল।</h1>
-        <button id="alertBtn">ক্লিক করুন</button>
-    </div>
+সব সিএসএস, জেএস এবং ইমেজ ফাইলের পাথ অবশ্যই **রিলেটিভ** হতে হবে।
+- ✅ সঠিক: `src="script.js"`, `src="./assets/logo.png"`, `href="css/main.css"`
+- ❌ ভুল: `src="/script.js"`, `src="C:\tool\script.js"`, `src="https://example.com/js.js"`
 
-    <script src="script.js"></script>
-</body>
-</html>
-```
+## ৩. গুরুত্বপূর্ণ টেকনিক্যাল তথ্য
 
-## ৩. গুরুত্বপূর্ণ নিয়মাবলী
-
-১. **Relative Paths:** সব সিএসএস, জেএস এবং ইমেজ ফাইলের পাথ অবশ্যই রিলেটিভ হতে হবে (যেমন `src="script.js"`, `src="./assets/logo.png"`)। কোনো এবসোলুট পাথ (যেমন `/script.js` বা `C:\tool\script.js`) কাজ করবে না।
-২. **Sandboxing:** টুলগুলো একটি আইসোলেটেড ইফ্রেমে চলে। নিরাপত্তার স্বার্থে কিছু ব্রাউজার এপিআই এখানে রেস্ট্রিক্টেড থাকতে পারে।
-৩. **LocalStorage:** টুলগুলো ব্রাউজারের শেয়ারড লোকালস্টোরেজ এক্সেস করতে পারে না। ডাটা সেভ করার জন্য তারা নিজস্ব সেশন ব্যবহার করতে পারে।
+১. **Sandboxing:** টুলগুলো একটি আইসোলেটেড ইফ্রেমে (`sandbox="allow-scripts allow-forms allow-popups allow-modals"`) চলে।
+২. **Assets:** অ্যাপটি অটোমেটিক্যালি আপনার জিপের ফাইলগুলোকে লোকাল ব্লব (Blob) ইউআরএলে কনভার্ট করে ইনজেক্ট করে। এটি মেমোরিতে থাকে, তাই অনেক বড় ফাইল (যেমন ৫-১০ মেগাবাইটের বেশি ইমেজ/ভিডিও) ব্যবহার না করাই ভালো।
+৩. **CORS:** আপনার টুল যদি এক্সটার্নাল এপিআই (যেমন `fetch('https://api.example.com')`) কল করতে চায়, তবে সেই এপিআই সার্ভারে অবশ্যই CORS এনাবল থাকতে হবে।
+৪. **Persistence:** টুলগুলো ব্রাউজারের `localStorage` ব্যবহার করতে পারবে, তবে সেটি আপনার মেইন অ্যাপের স্টোরেজ থেকে আলাদা হবে। ডাটা পার্মানেন্টলি সেভ করার জন্য ব্রাউজারের স্ট্যান্ডার্ড এপিআই ব্যবহার করুন।

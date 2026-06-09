@@ -89,7 +89,7 @@ export default function Navigation() {
             )
           }
         >
-          <Search size={20} className="opacity-10" />
+          <Search size={20} className={cn("transition-opacity", "opacity-40")} />
         </NavLink>
 
         {/* Quick Note */}
@@ -97,7 +97,7 @@ export default function Navigation() {
           onClick={createQuickNote}
           className="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white hover:border-white/5 transition-all duration-300 active:scale-95 active:translate-y-0.5"
         >
-          <Plus size={22} className="opacity-10" />
+          <Plus size={22} className="opacity-40" />
         </button>
 
         {/* Ask AI */}
@@ -112,7 +112,7 @@ export default function Navigation() {
             )
           }
         >
-          <Sparkles size={20} className="opacity-10" />
+          <Sparkles size={20} className={cn("transition-opacity", "opacity-40")} />
         </NavLink>
       </nav>
     </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { X, Maximize2 } from 'lucide-react';
-import { Tool } from '../../services/ToolManager';
+import { Tool } from './services/ToolManager';
 import { motion } from 'framer-motion';
 
 interface ToolRunnerProps {
@@ -12,46 +12,67 @@ export default function ToolRunner({ tool, onClose }: ToolRunnerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    if (!iframeRef.current) return;
-
-    const iframe = iframeRef.current;
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-
-    if (!doc) return;
-
-    // Inject the HTML content
-    // We need to handle relative assets. This is a simple implementation.
-    // For more complex tools, we might need a virtual file system or service worker.
-    
-    let htmlContent = tool.files['index.html'];
-    
-    // Inject scripts and styles that are in the ZIP
-    // We use Blobs for CSS and JS files to make them accessible via URL
+    let isMounted = true;
     const blobUrls: string[] = [];
 
-    Object.entries(tool.files).forEach(([path, content]) => {
-      if (path === 'index.html') return;
-      
-      const type = path.endsWith('.css') ? 'text/css' : 
-                   path.endsWith('.js') ? 'application/javascript' : 
-                   'text/plain';
-      
-      const blob = new Blob([content], { type });
-      const url = URL.createObjectURL(blob);
-      blobUrls.push(url);
+    const loadTool = async () => {
+      if (!iframeRef.current) return;
 
-      // Simple replacement of relative paths in HTML
-      // Note: This is very basic and might not work for nested paths
-      const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(src|href)=["']${escapedPath}["']`, 'g');
-      htmlContent = htmlContent.replace(regex, `$1="${url}"`);
-    });
+      const iframe = iframeRef.current;
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) return;
 
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
+      // 1. Get index.html content
+      const indexHtmlBlob = tool.files['index.html'];
+      if (!indexHtmlBlob) return;
+      let htmlContent = await indexHtmlBlob.text();
+
+      // 2. Create URLs for all files
+      const fileToUrl: Record<string, string> = {};
+      Object.entries(tool.files).forEach(([path, blob]) => {
+        const url = URL.createObjectURL(blob);
+        blobUrls.push(url);
+        fileToUrl[path] = url;
+      });
+
+      // 3. Systematically replace relative paths
+      // Sort paths by length descending to avoid partial replacements (e.g., 'a/b.js' before 'b.js')
+      const sortedPaths = Object.keys(tool.files).sort((a, b) => b.length - a.length);
+
+      sortedPaths.forEach(path => {
+        if (path === 'index.html') return;
+        const url = fileToUrl[path];
+
+        // Replace src="path", src='path', href="path", href='path'
+        // Also handle background: url('path') and CSS imports
+        const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        const regexPatterns = [
+          // Attributes: src="./path.js", src="path.js"
+          new RegExp(`(src|href)=["'](\\.\\/|\\.\\.\\/)*${escapedPath}["']`, 'g'),
+          // CSS url(): url("./img.png"), url(img.png)
+          new RegExp(`url\\(["']?(\\.\\/|\\.\\.\\/)*${escapedPath}["']?\\)`, 'g')
+        ];
+
+        regexPatterns.forEach(regex => {
+          htmlContent = htmlContent.replace(regex, (match, prefix, dots) => {
+             if (match.startsWith('url')) return `url("${url}")`;
+             return `${prefix}="${url}"`;
+          });
+        });
+      });
+
+      if (!isMounted) return;
+
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+    };
+
+    loadTool();
 
     return () => {
+      isMounted = false;
       blobUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [tool]);
