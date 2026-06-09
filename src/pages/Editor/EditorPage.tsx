@@ -22,6 +22,7 @@ import { EditorModals } from './components/EditorModals';
 import LoadingScreen from '../../components/LoadingScreen';
 import { EditorModalProvider } from './context/EditorModalContext';
 
+import { DataManager } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
 
 export default function EditorPageWrapper() {
@@ -104,9 +105,12 @@ function EditorPage({ id }: { id: string | undefined }) {
       }
     };
     window.addEventListener('collab-notif', handleCollabNotif);
+    
     return () => {
       isUnmounted = true;
       window.removeEventListener('collab-notif', handleCollabNotif);
+      // Bug 10 Cleanup: Revoke all object URLs when leaving the editor
+      DataManager.revokeMediaUrls();
     };
   }, [setNotification]);
 

@@ -33,8 +33,16 @@ localforage.config({
 const syncChannel = new BroadcastChannel('notion_sync');
 const clientId = crypto.randomUUID();
 
+// Add beforeunload listener to close the channel (Bug 5)
+window.addEventListener('beforeunload', () => {
+    syncChannel.close();
+});
+
 // Local event emitter for same-tab sync
 const localSyncEmitter = new EventTarget();
+
+// Tracking active object URLs to prevent memory leaks (Bug 10)
+const activeObjectUrls = new Set<string>();
 
 syncChannel.onmessage = (event) => {
   if (event.data.type?.includes('NOTE')) {
@@ -727,10 +735,11 @@ export const DataManager = {
       let counter = 1;
       
       const checkTitleExists = async (title: string) => {
+        // Optimization (Bug 12): Query by workspaceId first then check title to avoid loading all notes
         const found = await db.notes
           .where('workspaceId')
           .equals(note.workspaceId || currentWorkspaceId)
-          .filter(n => n.title.toLowerCase() === title.toLowerCase())
+          .and(n => n.title.toLowerCase() === title.toLowerCase())
           .first();
         return !!found;
       };
@@ -774,12 +783,19 @@ export const DataManager = {
     return updatedNote;
   },
 
-  async checkDuplicateTitle(title: string): Promise<string> {
+  async checkDuplicateTitle(title: string, workspaceId?: string): Promise<string> {
     let finalTitle = title;
     let counter = 1;
     
+    const wsId = workspaceId || await this.getActiveWorkspaceId();
+
     const checkExists = async (t: string) => {
-      const match = await db.notes.where('title').equalsIgnoreCase(t).first();
+      // Optimization (Bug 12): Constrain to workspace
+      const match = await db.notes
+        .where('workspaceId')
+        .equals(wsId)
+        .and(n => n.title.toLowerCase() === t.toLowerCase())
+        .first();
       return !!match;
     };
 
@@ -1065,11 +1081,27 @@ export const DataManager = {
       const blob = await this.getMedia(mediaId);
       if (blob) {
         const url = URL.createObjectURL(blob);
+        activeObjectUrls.add(url);
         resolved = resolved.replace(match[0], url);
       }
     }
     
     return resolved;
+  },
+
+  /**
+   * Revokes all active object URLs to free memory (Bug 10)
+   * Call this when navigating away from a note or on editor unmount.
+   */
+  revokeMediaUrls() {
+    activeObjectUrls.forEach(url => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error('Failed to revoke URL:', e);
+      }
+    });
+    activeObjectUrls.clear();
   },
 
   async extractMediaFromContent(content: string): Promise<string> {

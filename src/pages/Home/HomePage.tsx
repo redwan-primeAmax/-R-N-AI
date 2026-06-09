@@ -33,6 +33,7 @@ export default function HomePage() {
   const [activeTasksCount, setActiveTasksCount] = useState(0);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedNoteForMenu, setSelectedNoteForMenu] = useState<Note | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   
   // Custom states for 100-star Progressive Chunk Loading to handle scale perfectly
@@ -237,6 +238,7 @@ export default function HomePage() {
                   isSelectionMode={isSelectionMode}
                   isSelected={selectedIds.includes(note.id)}
                   onClick={handleNoteClick}
+                  onMoreClick={(n) => setSelectedNoteForMenu(n)}
                 />
               ))}
               
@@ -256,6 +258,19 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      <ActionMenu 
+        note={selectedNoteForMenu}
+        onClose={() => setSelectedNoteForMenu(null)}
+        onEdit={(id) => navigate(`/editor/${id}`)}
+        onCopy={handleCopyNote}
+        onDelete={handleSoftDelete}
+        onToggleSelection={(id) => {
+          setIsSelectionMode(true);
+          setSelectedIds([id]);
+        }}
+        onEmojiSelect={handleEmojiSelect}
+      />
 
       <SelectionBar 
         isVisible={isSelectionMode}

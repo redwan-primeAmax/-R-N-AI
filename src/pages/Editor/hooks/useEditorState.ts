@@ -75,9 +75,10 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   
   useEffect(() => {
     // Push history item if blocks change and we're not currently undoing/redoing
-    // We debounce this to capture data every 2 seconds as requested
+    // We debounce this to capture data every 3 seconds to reduce main thread load
     const lastHistory = historyRef.current[historyPointer];
-    if (JSON.stringify(blocks) !== JSON.stringify(lastHistory)) {
+    // Deep equality check is expensive, using a lighter check for rapid skipping
+    if (blocks.length !== lastHistory?.length || JSON.stringify(blocks) !== JSON.stringify(lastHistory)) {
       const timer = setTimeout(() => {
         // truncate future history
         const newHistory = historyRef.current.slice(0, historyPointer + 1);
@@ -86,7 +87,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         if (newHistory.length > 50) newHistory.shift();
         historyRef.current = newHistory;
         setHistoryPointer(newHistory.length - 1);
-      }, 2000); // 2000ms debounce
+      }, 3000); // Increased debounce to 3000ms (Bug 9)
       return () => clearTimeout(timer);
     }
   }, [blocks, historyPointer]);
@@ -302,6 +303,9 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     setNote(null);
     setBlocksState([]);
     setTitle('');
+    
+    // Bug 10 Cleanup: Revoke any existing object URLs before loading a new note
+    DataManager.revokeMediaUrls();
     
     if (noteRef.current && noteRef.current.id !== noteId) {
       await savePreviousNoteIfNeeded(noteRef.current.id);

@@ -70,8 +70,31 @@ export function cleanBlockHTML(html: string, blockType: string): string {
 
   // Sanity check: Ensure list elements or details can't contain block tags that crash rendering
   // Ensure that no rogue script tags can run
-  const scripts = body.querySelectorAll('script, iframe:not(.sandbox-iframe), object, embed');
+  const scripts = body.querySelectorAll('script, iframe:not(.sandbox-iframe), object, embed, applet');
   scripts.forEach(s => s.remove());
+
+  // Bug 7: Advanced XSS protection - Remove all event handlers and dangerous attributes
+  const allElements = body.querySelectorAll('*');
+  allElements.forEach(el => {
+    // Remove all on* event handlers
+    const attrs = Array.from(el.attributes);
+    attrs.forEach(attr => {
+      if (attr.name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+      // Remove javascript: pseudo-protocol in href/src
+      if (['href', 'src', 'formaction'].includes(attr.name.toLowerCase())) {
+        if (attr.value.toLowerCase().trim().startsWith('javascript:')) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    });
+
+    // Strip dangerous tags if somehow missed
+    if (['base', 'link', 'meta', 'style'].includes(el.tagName.toLowerCase())) {
+      el.remove();
+    }
+  });
 
   // Flatten spans that have inline styles except simple formatting
   const spans = Array.from(body.querySelectorAll('span'));

@@ -22,7 +22,7 @@ interface NoteCardProps {
   onMoreClick?: (note: Note, e: React.MouseEvent) => void;
 }
 
-export const NoteCard: React.FC<NoteCardProps> = ({ 
+export const NoteCard = React.memo<NoteCardProps>(({ 
   note, 
   isSelectionMode, 
   isSelected, 
@@ -83,11 +83,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {/* Subtle Inner Glow Layer */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#24334d] via-[#0f172a] to-[#050810] opacity-90" />
         
-        {/* Texture Overlay - Use relative path or empty fallback if not found */}
+        {/* Texture Overlay - Use absolute path for reliability (Bug 2) */}
         <div 
           className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center mix-blend-overlay"
           style={{ 
-            backgroundImage: "url('./assets/web_note_card_bg/web_note_card_bg.png')",
+            backgroundImage: "url('/assets/web_note_card_bg/web_note_card_bg.png')",
             backgroundColor: "rgba(255,255,255,0.02)" /* Fallback texture feel */
           }}
         />
@@ -113,6 +113,19 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 </div>
               )}
             </div>
+
+            {/* More Vertical Button (Bug 1 Fix) */}
+            {!isSelectionMode && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoreClick?.(note, e);
+                }}
+                className="p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all active:scale-95"
+              >
+                <MoreVertical size={20} />
+              </button>
+            )}
           </div>
           
           <div className="mt-1 min-w-0 flex-1 flex flex-col gap-2 overflow-hidden">
@@ -156,4 +169,4 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       </div>
     </motion.div>
   );
-};
+});

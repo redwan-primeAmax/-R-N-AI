@@ -325,6 +325,14 @@ export class PeerCollabManager {
     }, 'local');
   }
 
+  private async hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
   public async hostSession(noteId: string, options: { customRoomId?: string, password?: string, memberLimit?: number } = {}): Promise<string> {
     const session = this.getSession(noteId);
     if (session.peer && (!options.customRoomId || session.roomId === options.customRoomId)) {
@@ -333,7 +341,7 @@ export class PeerCollabManager {
 
     if (session.peer) this.disconnect(noteId);
     session.isHosting = true;
-    session.password = options.password || null;
+    session.password = options.password ? await this.hashPassword(options.password) : null;
     session.memberLimit = options.memberLimit || 10;
 
     session.peer = new Peer(options.customRoomId || undefined, {
@@ -441,9 +449,10 @@ export class PeerCollabManager {
         const conn = session.peer!.connect(roomId, { reliable: true });
         session.connections.set(roomId, conn);
         
-        conn.on('open', () => {
+        conn.on('open', async () => {
           if (options.password) {
-            conn.send({ type: 'auth-response', password: options.password });
+            const hashed = await this.hashPassword(options.password);
+            conn.send({ type: 'auth-response', password: hashed });
           } else {
             // No password required; send client's sync vector directly to establish 2-way sync
             const localVector = Y.encodeStateVector(session.yDoc);
@@ -507,17 +516,19 @@ export class PeerCollabManager {
 
     if (session.isHosting) {
       if (msg.type === 'auth-response') {
-        if (session.password && msg.password !== session.password) {
-          const conn = session.connections.get(senderId);
-          if (conn) { conn.send({ type: 'auth-failed', reason: 'Incorrect password!' }); setTimeout(() => conn.close(), 500); }
-        } else {
-          session.authenticatedPeers.add(senderId);
-          const conn = session.connections.get(senderId);
-          if (conn) {
-            this.sendInitialSync(session, conn);
-            conn.send({ type: 'auth-success' });
+        this.hashPassword(msg.password || '').then(hashed => {
+          if (session.password && hashed !== session.password) {
+            const conn = session.connections.get(senderId);
+            if (conn) { conn.send({ type: 'auth-failed', reason: 'Incorrect password!' }); setTimeout(() => conn.close(), 500); }
+          } else {
+            session.authenticatedPeers.add(senderId);
+            const conn = session.connections.get(senderId);
+            if (conn) {
+              this.sendInitialSync(session, conn);
+              conn.send({ type: 'auth-success' });
+            }
           }
-        }
+        });
         return;
       }
       if (!session.authenticatedPeers.has(senderId)) return;
@@ -620,6 +631,7 @@ export class PeerCollabManager {
     session.connections.forEach(conn => conn.close());
     session.connections.clear();
     if (session.peer) { session.peer.destroy(); session.peer = null; }
+    session.yDoc.destroy();
     session.isHosting = false;
     session.roomId = null;
     this.sessions.delete(id);

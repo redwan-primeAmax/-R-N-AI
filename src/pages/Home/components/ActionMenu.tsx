@@ -160,7 +160,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                     <button
                       key={index}
                       onClick={item.onClick}
-                      className="w-full flex items-center gap-4 py-4 px-2 hover:bg-white/[0.03] transition-all group active:bg-white/[0.06] border-b border-white/[0.04] last:border-0"
+                      className="w-full flex items-center gap-4 py-2.5 px-2 hover:bg-white/[0.03] transition-all group active:bg-white/[0.06] border-b border-white/[0.04] last:border-0"
                     >
                       <div className="w-6 flex justify-center group-hover:scale-110 transition-transform">
                         {item.icon}
