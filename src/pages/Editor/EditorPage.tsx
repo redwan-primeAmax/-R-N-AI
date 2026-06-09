@@ -228,7 +228,7 @@ function EditorPage({ id }: { id: string | undefined }) {
   return (
     <EditorModalProvider value={modalContextValue}>
       <div className={cn(
-        "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
+        "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300 overflow-x-hidden",
         isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
       )}>
         <EditorHeader 

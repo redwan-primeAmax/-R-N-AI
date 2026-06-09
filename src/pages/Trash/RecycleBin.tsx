@@ -58,11 +58,16 @@ export default function RecycleBin() {
   };
 
   const handleEmptyTrash = async () => {
-    for (const note of trashedNotes) {
-      await DataManager.deleteNotePermanent(note.id);
+    setIsLoading(true);
+    try {
+      const ids = trashedNotes.map(n => n.id);
+      await DataManager.bulkDeleteNotesPermanent(ids);
+    } catch (err) {
+      console.error('Failed to empty trash:', err);
+    } finally {
+      setShowEmptyConfirm(false);
+      loadTrashed();
     }
-    setShowEmptyConfirm(false);
-    loadTrashed();
   };
 
   const handleBack = () => {

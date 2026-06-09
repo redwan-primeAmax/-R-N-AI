@@ -702,8 +702,11 @@ export const DataManager = {
     const isNew = !existing;
 
     // Hacker-proof verification & database truncation sweep
-    let notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
-    if (notesInWorkspace.length > 10000) {
+    const notesCountInWorkspace = await db.notes.where('workspaceId').equals(wsId).count();
+    
+    if (notesCountInWorkspace > 10000) {
+      // If limit exceeded, we only refetch to delete the excess (rare case)
+      let notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
       // Sort oldest first and delete any excess notes exceeding 10,000
       notesInWorkspace.sort((a, b) => a.createdAt - b.createdAt);
       const deleteList = notesInWorkspace.slice(10000);
@@ -713,11 +716,9 @@ export const DataManager = {
       if (idsToDelete.includes(note.id)) {
         throw new Error('Workspace Note Limit Reached (Max 10,000)! Note is discarded to maintain device stability.');
       }
-      // Refetch note collection to avoid stale length blocking new creations (Bug 6)
-      notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
     }
 
-    if (isNew && notesInWorkspace.length >= 10000) {
+    if (isNew && notesCountInWorkspace >= 10000) {
       throw new Error('Workspace Note Limit Reached (Max 10,000)! Note creation blocked.');
     }
 
@@ -822,10 +823,16 @@ export const DataManager = {
     await db.notes.delete(id);
     cachedNotes = null;
     
-    // Garbage Collection: Remove local note backups
-    Object.keys(localStorage)
-       .filter(k => k.startsWith(`note_backup_${id}`))
-       .forEach(k => localStorage.removeItem(k));
+    // Garbage Collection: Remove local note backups efficiently
+    const prefix = `note_backup_${id}`;
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
     
     notifySync({ type: 'DELETE_NOTE', id });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
@@ -836,9 +843,15 @@ export const DataManager = {
     cachedNotes = null;
     
     // Garbage Collection
-    Object.keys(localStorage)
-      .filter(k => k.startsWith(`note_backup_${id}`))
-      .forEach(k => localStorage.removeItem(k));
+    const prefix = `note_backup_${id}`;
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
     
     notifySync({ type: 'PERMANENT_DELETE_NOTE', id });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
@@ -848,13 +861,40 @@ export const DataManager = {
     await db.notes.bulkDelete(ids);
     cachedNotes = null;
     
+    const allKeys = Object.keys(localStorage);
     for (const id of ids) {
-      Object.keys(localStorage)
-        .filter(k => k.startsWith(`note_backup_${id}`))
+      const prefix = `note_backup_${id}`;
+      allKeys
+        .filter(k => k.startsWith(prefix))
         .forEach(k => localStorage.removeItem(k));
     }
     
     notifySync({ type: 'DELETE_NOTES', ids });
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+  },
+
+  async bulkTrashNotes(ids: string[]): Promise<void> {
+    const now = Date.now();
+    await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
+    cachedNotes = null;
+    notifySync({ type: 'UPDATE_NOTES', ids });
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+  },
+
+  async bulkDeleteNotesPermanent(ids: string[]): Promise<void> {
+    await db.notes.bulkDelete(ids);
+    cachedNotes = null;
+
+    // Collect all keys once for efficiency
+    const allKeys = Object.keys(localStorage);
+    for (const id of ids) {
+      const prefix = `note_backup_${id}`;
+      allKeys
+        .filter(k => k.startsWith(prefix))
+        .forEach(k => localStorage.removeItem(k));
+    }
+
+    notifySync({ type: 'PERMANENT_DELETE_NOTES', ids });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 

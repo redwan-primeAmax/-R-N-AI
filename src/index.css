@@ -11,26 +11,36 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     color-scheme: dark;
     min-height: 100%;
-    min-height: -webkit-fill-available;
+    min-height: 100dvh;
     width: 100%;
+    overflow-x: hidden; /* Prevent horizontal scroll on body */
     user-select: none;
     margin: 0;
     padding: 0;
     overscroll-behavior-y: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
     background-color: #0A0A0A;
   }
 
   #root {
     min-height: 100%;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
     background-color: inherit;
+    overflow-x: hidden;
   }
 
   .ProseMirror, input, textarea, [contenteditable="true"], .selectable {
     user-select: text !important; /* Allow selection in editor and inputs */
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   /* Improved contrast for Light mode */

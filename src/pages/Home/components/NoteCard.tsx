@@ -71,9 +71,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       }}
       onClick={() => onClick(note.id)}
       className={cn(
-        "relative group rounded-[32px] p-0.5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[220px] [perspective:1000px]",
+        "relative group rounded-[32px] p-0.5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[220px] [perspective:1000px] touch-manipulation",
         "bg-gradient-to-b from-[#4d5b6b] to-[#1a1f26] shadow-[0_10px_40px_rgba(0,0,0,0.7)]",
-        isSelected && "ring-2 ring-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+        isSelected && "ring-2 ring-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]"
       )}
     >
       <div 
@@ -83,28 +83,31 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {/* Subtle Inner Glow Layer */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#24334d] via-[#0f172a] to-[#050810] opacity-90" />
         
-        {/* Texture Overlay */}
+        {/* Texture Overlay - Use relative path or empty fallback if not found */}
         <div 
-          className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
-          style={{ backgroundImage: "url('/assets/web_note_card_bg/web_note_card_bg.png')" }}
+          className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center mix-blend-overlay"
+          style={{ 
+            backgroundImage: "url('./assets/web_note_card_bg/web_note_card_bg.png')",
+            backgroundColor: "rgba(255,255,255,0.02)" /* Fallback texture feel */
+          }}
         />
         
         {/* Subtle Highlight line at the top inner */}
         <div className="absolute top-[1px] left-[10%] right-[10%] h-[1px] bg-white/5 blur-[0.5px]" />
 
-        <div className="relative z-10 flex flex-col h-full gap-4">
+        <div className="relative z-10 flex flex-col h-full gap-4 max-w-full">
           <div className="flex items-start justify-between min-h-[44px]">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap max-w-full overflow-hidden">
               {note.isCollaborated && (
-                <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center gap-1.5">
+                <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center gap-1.5 shrink-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                   <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">Live</span>
                 </div>
               )}
               {isSelectionMode && (
                 <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                  isSelected ? "bg-blue-600 border-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.4)]" : "border-white/10 bg-white/[0.02]"
+                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                  isSelected ? "bg-blue-600 border-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.6)]" : "border-white/10 bg-white/[0.02]"
                 )}>
                   {isSelected && <Check size={14} className="text-white" />}
                 </div>
@@ -112,40 +115,40 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             </div>
           </div>
           
-          <div className="mt-1 min-w-0 flex-1 flex flex-col gap-2">
+          <div className="mt-1 min-w-0 flex-1 flex flex-col gap-2 overflow-hidden">
             <div className="flex flex-col gap-3">
               <div 
-                className="w-14 h-14 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 transition-all duration-500 group-hover:scale-110 group-hover:bg-white/[0.05] group-hover:border-white/10"
+                className="w-14 h-14 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 transition-all duration-500 group-hover:scale-110 group-hover:bg-white/[0.05] group-hover:border-white/10 shrink-0"
               >
                 {note.emoji ? (
-                  <span className="text-4xl drop-shadow-lg">{note.emoji}</span>
+                  <span className="text-4xl drop-shadow-lg leading-none">{note.emoji}</span>
                 ) : (
                   <FileText size={28} className="text-white/30" />
                 )}
               </div>
-              <h3 className="font-bold text-[19px] leading-tight tracking-tight text-white/95 group-hover:text-white transition-colors">
+              <h3 className="font-bold text-[19px] leading-tight tracking-tight text-white/95 group-hover:text-white transition-colors truncate block">
                 {note.title || 'শিরোনামহীন চিন্তা'}
               </h3>
             </div>
-            <p className="text-[13px] text-white/35 font-medium leading-relaxed line-clamp-2 mt-1 group-hover:text-white/60 transition-colors">
+            <p className="text-[13px] text-white/35 font-medium leading-relaxed line-clamp-2 mt-1 group-hover:text-white/60 transition-colors break-words">
               {truncatedDesc}
             </p>
           </div>
 
-          <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/[0.05]">
-            <div className="flex gap-1.5 flex-wrap">
+          <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/[0.05] overflow-hidden">
+            <div className="flex gap-1.5 flex-wrap max-w-full overflow-hidden">
               {note.tags && note.tags.length > 0 ? (
                 note.tags.slice(0, 2).map(tag => (
-                  <span key={tag} className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.05] text-white/40 rounded-lg text-[9px] font-bold uppercase tracking-wider">
+                  <span key={tag} className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.05] text-white/40 rounded-lg text-[9px] font-bold uppercase tracking-wider truncate">
                     {tag}
                   </span>
                 ))
               ) : (
-                <span className="text-[9px] font-mono text-white/10 uppercase tracking-widest">Thought</span>
+                <span className="text-[9px] font-mono text-white/10 uppercase tracking-widest truncate">Thought</span>
               )}
             </div>
             
-            <span className="text-[9px] font-mono text-white/30 group-hover:text-white/50 transition-colors">
+            <span className="text-[9px] font-mono text-white/30 group-hover:text-white/50 transition-colors shrink-0 whitespace-nowrap ml-2">
               {new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </span>
           </div>

@@ -72,13 +72,13 @@ export const EditableBlock = ({
         handleBlockChange(block.id, e.currentTarget.innerHTML);
       }}
       className={cn(
-        "flex-1 text-left min-h-[30px] font-sans focus:outline-none placeholder:opacity-20",
+        "flex-1 text-left min-h-[30px] font-sans focus:outline-none placeholder:opacity-20 max-w-full overflow-hidden break-words",
         block.type === 'paragraph' && "text-[15px] sm:text-base leading-relaxed editor-p",
-        block.type === 'h1' && "text-3xl sm:text-4xl font-black tracking-tight pt-2 editor-h",
-        block.type === 'h2' && "text-2xl sm:text-3xl font-black tracking-tight pt-2 editor-h",
-        block.type === 'h3' && "text-xl sm:text-2xl font-black tracking-tight pt-1 editor-h",
-        block.type === 'quote' && "border-l-[4px] border-neutral-400 dark:border-neutral-500 bg-neutral-100 dark:bg-neutral-800/80 pl-4 py-2.5 font-medium italic text-[15px] sm:text-base rounded-r-xl pr-4 text-neutral-800 dark:text-neutral-200 editor-quote leading-relaxed shadow-sm",
-        block.type === 'callout' && "p-4 rounded-2xl border border-blue-500/10 leading-relaxed text-[15px] sm:text-base editor-callout",
+        block.type === 'h1' && "text-3xl sm:text-4xl font-black tracking-tight pt-2 editor-h break-words",
+        block.type === 'h2' && "text-2xl sm:text-3xl font-black tracking-tight pt-2 editor-h break-words",
+        block.type === 'h3' && "text-xl sm:text-2xl font-black tracking-tight pt-1 editor-h break-words",
+        block.type === 'quote' && "border-l-[4px] border-neutral-400 dark:border-neutral-500 bg-neutral-100 dark:bg-neutral-800/80 pl-4 py-2.5 font-medium italic text-[15px] sm:text-base rounded-r-xl pr-4 text-neutral-800 dark:text-neutral-200 editor-quote leading-relaxed shadow-sm overflow-hidden break-words",
+        block.type === 'callout' && "p-4 rounded-2xl border border-blue-500/10 leading-relaxed text-[15px] sm:text-base editor-callout overflow-hidden break-words",
         block.type === 'todo' && block.checked && "line-through editor-todo-checked"
       )}
       data-placeholder=""

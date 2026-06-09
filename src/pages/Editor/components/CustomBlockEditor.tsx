@@ -126,7 +126,7 @@ const MemoizedBlockRow = React.memo(({
   
   return (
     <div 
-      className="flex flex-col group relative"
+      className="flex flex-col group relative max-w-full overflow-hidden"
       style={indentStyle}
     >
       {/* Visual connecting line for nested items */}
@@ -215,8 +215,8 @@ const MemoizedBlockRow = React.memo(({
       ) : block.type === 'column' ? (
         <ColumnBlockRenderer block={block} isReadOnly={isReadOnly} setBlocks={setBlocks} />
       ) : block.type === 'table_view' ? (
-         <div className="flex-1 min-w-0 py-4">
-            <div className="p-10 bg-white/5 border border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 text-center group/view cursor-pointer hover:bg-white/10 transition-all ring-1 ring-white/5">
+         <div className="flex-1 min-w-0 py-4 max-w-full overflow-hidden">
+            <div className="p-10 bg-white/5 border border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 text-center group/view cursor-pointer hover:bg-white/10 transition-all ring-1 ring-white/5 max-w-full overflow-hidden">
                <div className="w-16 h-16 bg-blue-500 rounded-[24px] flex items-center justify-center shadow-2xl shadow-blue-500/20 group-hover/view:scale-110 transition-transform">
                   <TableIcon className="text-white" />
                </div>

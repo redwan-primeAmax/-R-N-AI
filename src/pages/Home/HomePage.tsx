@@ -153,7 +153,7 @@ export default function HomePage() {
     const note = await DataManager.getNoteById(id);
     if (note) {
       await DataManager.saveNote({ ...note, isTrashed: true, updatedAt: Date.now() });
-      loadData();
+      // Removed redundant loadData() as saveNote triggers workspace-notes-changed event
     }
   };
 
@@ -268,10 +268,17 @@ export default function HomePage() {
         isOpen={showBulkDeleteConfirm}
         onClose={() => setShowBulkDeleteConfirm(false)}
         onConfirm={async () => {
-          for (const id of selectedIds) await handleSoftDelete(id);
-          setSelectedIds([]);
-          setIsSelectionMode(false);
-          loadData();
+          setIsLoading(true);
+          try {
+            await DataManager.bulkTrashNotes(selectedIds);
+            setSelectedIds([]);
+            setIsSelectionMode(false);
+          } catch (err) {
+            console.error('Bulk trash failed:', err);
+          } finally {
+            setShowBulkDeleteConfirm(false);
+            loadData();
+          }
         }}
         title="নির্বাচিত অংশ মুছুন"
         message={`আপনি কি নির্বাচিত ${selectedIds.length}টি নোট রিসাইকেল বিনে পাঠাতে চান?`}

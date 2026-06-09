@@ -68,7 +68,7 @@ export const CodeBlock = ({
   };
 
   return (
-    <div className="flex-1 border border-white/10 rounded-2xl overflow-visible bg-[#111111] shadow-2xl text-left antialiased ring-1 ring-white/5 relative">
+    <div className="flex-1 border border-white/10 rounded-2xl overflow-hidden bg-[#111111] shadow-2xl text-left antialiased ring-1 ring-white/5 relative">
       <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.03] border-b border-white/10">
         <button
           onMouseDown={(e) => e.preventDefault()}
