@@ -6,7 +6,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Palette } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { extensionManager } from '../../services/ExtensionManager';
 import { useEffect, useState } from 'react';
 
 interface ThemeSelectorModalProps {
@@ -17,15 +16,11 @@ interface ThemeSelectorModalProps {
 }
 
 export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: ThemeSelectorModalProps) {
-  const [themes, setThemes] = useState(extensionManager.getRegisteredThemes());
+  const [themes, setThemes] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
-      setThemes(extensionManager.getRegisteredThemes());
-      const unsubscribe = extensionManager.onChange(() => {
-        setThemes(extensionManager.getRegisteredThemes());
-      });
-      return () => { unsubscribe(); };
+      return () => { };
     }
   }, [isOpen]);
 

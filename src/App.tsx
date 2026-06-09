@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { ExtensionPermissionGuard } from './components/ExtensionPermissionGuard';
 import { HashRouter as Router, useLocation, useRoutes, Navigate, useNavigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import { DataManager } from './services/storage/DataManager';
@@ -65,9 +64,7 @@ const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArc
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
-const ExtensionsPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionsPage'));
-const ExtensionHubPage = lazyWithRetry(() => import('./pages/Extensions/ExtensionHubPage'));
-const ExtensionEditor = lazyWithRetry(() => import('./pages/Extensions/ExtensionEditor').then(m => ({ default: m.ExtensionEditor })));
+const ToolsPage = lazyWithRetry(() => import('./pages/Tools/ToolsPage'));
 
 function LoadingFallback() {
   return (
@@ -101,22 +98,19 @@ function AppContent() {
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isSearchPage = location.pathname === '/search';
-    const isExtensionsPage = location.pathname === '/extensions';
     const isAIPage = location.pathname.startsWith('/ai') || 
                    location.pathname.startsWith('/manual-control') || 
                    location.pathname === '/ai-auto' ||
                    location.pathname === '/settings' ||
                    location.pathname === '/external-ai-import';
     const isWorkspacePage = location.pathname === '/workspaces';
-    const isExtensionHubPage = location.pathname === '/extension-hub';
     const isSpecialPage = location.pathname === '/recycle-bin' || 
                        location.pathname === '/offline' || 
                        location.pathname === '/backup' ||
                        location.pathname === '/data-management' ||
                        location.pathname === '/templates' ||
-                       location.pathname === '/extensions' ||
-                       isExtensionHubPage;
-    const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage || isExtensionsPage;
+                       location.pathname === '/tools';
+    const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -319,9 +313,7 @@ function AppContent() {
     { path: "/ai/external-import", element: <Navigate to="/external-ai-import" replace /> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
-    { path: "/extensions", element: <PageWrapper><ExtensionsPage /></PageWrapper> },
-    { path: "/extensions/editor", element: <PageWrapper><ExtensionEditor /></PageWrapper> },
-    { path: "/extension-hub", element: <PageWrapper><ExtensionHubPage /></PageWrapper> },
+    { path: "/tools", element: <PageWrapper><ToolsPage /></PageWrapper> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 
@@ -442,7 +434,6 @@ function AppContent() {
 
       {!isFullPage && <Navigation />}
       <VersionControl />
-      <ExtensionPermissionGuard />
     </div>
     </MotionConfig>
   );

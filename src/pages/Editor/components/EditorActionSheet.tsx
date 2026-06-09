@@ -9,7 +9,6 @@ import { FileText, ChevronRight, Plus, Box } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { cn } from '../../../utils/cn';
 import { useNavigate } from 'react-router-dom';
-import { extensionManager } from '../../../services/ExtensionManager';
 
 // Import our modular action definitions
 import { subPagesNavigation } from '../actions/SubPagesNavigation';
@@ -68,17 +67,11 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   const [collabPassword, setCollabPassword] = useState('');
   const [collabLimit, setCollabLimit] = useState(5);
   const [viewMode, setViewMode] = useState<'main' | 'subpages'>('main');
-  const [sidebarExtensions, setSidebarExtensions] = useState(extensionManager.getSidebarItems());
 
   useEffect(() => {
     if (isOpen) {
-      setSidebarExtensions(extensionManager.getSidebarItems());
-      const unsub = extensionManager.onChange(() => {
-        setSidebarExtensions(extensionManager.getSidebarItems());
-      });
       document.body.style.overflow = 'hidden';
       return () => {
-        unsub();
         document.body.style.overflow = '';
       };
     } else {
@@ -297,22 +290,6 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                           <p className="text-[10px] text-white/20 italic text-center">No active members</p>
                         )}
                       </div>
-                    </div>
-                  )}
-
-                  {sidebarExtensions.length > 0 && (
-                    <div className="flex flex-col">
-                      {sidebarExtensions.map((item) => (
-                        <MenuAction 
-                          key={item.id}
-                          icon={() => typeof item.icon === 'string' ? <span className="text-xl">{item.icon}</span> : <Box size={20} />}
-                          label={item.label}
-                          onClick={() => {
-                            if (item.onClick) item.onClick();
-                            onClose();
-                          }}
-                        />
-                      ))}
                     </div>
                   )}
 

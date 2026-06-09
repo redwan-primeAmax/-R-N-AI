@@ -27,8 +27,6 @@ import { TocBlockRenderer } from '../renderers/TocBlockRenderer';
 import { ColumnBlockRenderer } from '../renderers/ColumnBlockRenderer';
 import { CalloutBlockRenderer } from '../renderers/CalloutBlockRenderer';
 
-import { extensionManager } from '../../../services/ExtensionManager';
-
 const LegacyBlockFallback: React.FC<{ block: EditorBlock }> = ({ block }) => {
   return (
     <div className="my-2 p-4 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col gap-2 group/legacy transition-all hover:bg-white/[0.04]">
@@ -122,16 +120,6 @@ const MemoizedBlockRow = React.memo(({
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
 
-  const [sidebarExtensions, setSidebarExtensions] = useState(extensionManager.getSidebarItems());
-  const CustomComponent = extensionManager.getBlockComponent(block.type);
-
-  useEffect(() => {
-    const unsub = extensionManager.onChange(() => {
-      setSidebarExtensions(extensionManager.getSidebarItems());
-    });
-    return () => { unsub(); };
-  }, []);
-
   if (currentHiddenIndent !== null && (block.indent || 0) > currentHiddenIndent) {
     return null;
   }
@@ -220,24 +208,7 @@ const MemoizedBlockRow = React.memo(({
       )}
 
       {/* Render Horizontal Rule (Divider) */}
-      {CustomComponent ? (
-        <div className="flex-1 min-w-0" data-extension-id={block.type}>
-          <ErrorBoundary inline>
-            <CustomComponent 
-              block={block} 
-              setBlocks={setBlocks} 
-              isReadOnly={isReadOnly}
-              idx={idx}
-              blocks={blocks}
-              editor={editor}
-            />
-          </ErrorBoundary>
-        </div>
-      ) : extensionManager.isPersistentBlock(block.type) ? (
-        <div className="flex-1 min-w-0">
-          <LegacyBlockFallback block={block} />
-        </div>
-      ) : block.type === 'hr' ? (
+      {block.type === 'hr' ? (
         <div className="w-full py-6 flex items-center justify-center self-center flex-1">
           <div className="w-full h-[1px] bg-gray-100 dark:bg-white/10" />
         </div>

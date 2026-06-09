@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -92,19 +93,32 @@ function addDevLog(type: "info" | "warn" | "error", msg: string) {
 
 async function startServer() {
   const app = express();
+  app.set("trust proxy", true); 
+  app.use(cors());
   const PORT = 3000;
 
-  app.use(express.json({ limit: '50mb' }));
+  app.use(express.json({ limit: '100mb' }));
+
+  // Request logging for AI routes
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api/ai')) {
+      console.log(`[AI API] ${req.method} ${req.url}`);
+    }
+    next();
+  });
 
   // Gemini Proxy Route
   app.post("/api/ai/gemini", aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
-      const { model, contents, generationConfig } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+      const { model: clientModel, contents, generationConfig, apiKey: clientApiKey } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
+      let model = clientModel || 'gemini-1.5-flash';
+      if (!model.startsWith('models/')) model = `models/${model}`;
+
       if (!apiKey) {
         return res.status(500).json({ 
           success: false, 
-          error: { message: "Server Gemini API Key is missing.", code: "SERVER_CONFIG_ERROR" } 
+          error: { message: "Server Gemini API Key is missing. Please confirm configuring your API settings in the app.", code: "SERVER_CONFIG_ERROR" } 
         });
       }
 
@@ -115,7 +129,7 @@ async function startServer() {
         });
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-flash'}:streamGenerateContent?alt=sse&key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model}:streamGenerateContent?alt=sse&key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -158,21 +172,46 @@ async function startServer() {
   // Simple AI Chat Endpoint (non-streaming, used by extensions)
   app.post("/api/ai/chat", aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
-      const { messages } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: "API Key missing" });
+      const { messages, apiKey: clientApiKey, model: clientModel } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
+      let model = clientModel || 'gemini-1.5-flash';
+      if (!apiKey) return res.status(500).json({ error: "AI Key missing. Please check your AI Settings." });
+
+      // Normalize model name
+      if (!model.startsWith('models/')) model = `models/${model}`;
+
+      // Separate system messages and conversation contents
+      const systemMessages = messages.filter((m: any) => m.role === 'system');
+      const chatMessages = messages.filter((m: any) => m.role !== 'system');
+      
+      const systemInstruction = systemMessages.length > 0 
+        ? { parts: [{ text: systemMessages.map((m: any) => m.content || m.text).join('\n') }] }
+        : undefined;
 
       // Transform messages into Gemini format
-      const contents = messages.map((m: any) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
+      const contents = chatMessages.map((m: any) => ({
+        role: (m.role === 'assistant' || m.role === 'model') ? 'model' : 'user',
+        parts: [{ text: m.content || m.text || '' }]
       }));
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents })
+        body: JSON.stringify({ 
+          contents,
+          system_instruction: systemInstruction
+        })
       });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        console.error(`Gemini Chat API Error (${response.status}):`, errorText);
+        try {
+          return res.status(response.status).json(JSON.parse(errorText));
+        } catch {
+          return res.status(response.status).json({ error: { message: errorText } });
+        }
+      }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -186,16 +225,14 @@ async function startServer() {
   // General AI Proxy (used by extensions for more control)
   app.post("/api/ai/proxy", aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
-      const { prompt, systemInstruction } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: "API Key missing" });
+      const { prompt, systemInstruction, apiKey: clientApiKey, model: clientModel } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
+      let model = clientModel || 'gemini-1.5-flash';
+      if (!apiKey) return res.status(500).json({ error: "AI Key missing. Please check your AI Settings." });
 
-      const contents = [];
-      if (systemInstruction) {
-        // Gemini handles system instruction separately in generationConfig or as a specific role in newer versions, 
-        // but here we just prepend for simplicity or use the v1beta system_instruction field
-      }
-      
+      // Normalize model name
+      if (!model.startsWith('models/')) model = `models/${model}`;
+
       const body: any = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       };
@@ -204,11 +241,21 @@ async function startServer() {
         body.system_instruction = { parts: [{ text: systemInstruction }] };
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        console.error(`Gemini Proxy API Error (${response.status}):`, errorText);
+        try {
+          return res.status(response.status).json(JSON.parse(errorText));
+        } catch {
+          return res.status(response.status).json({ error: { message: errorText } });
+        }
+      }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';

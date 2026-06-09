@@ -1,6 +1,6 @@
 {
-  "name": "Redwan AI Note",
-  "description": "An advanced, mobile-first Notion-like note-taking application with AI integration, local backup, and IndexedDB storage.",
+  "name": "Note App with Tools",
+  "description": "একটি আধুনিক নোট অ্যাপ যেখানে আপনি আপনার কাস্টম টুলগুলো (ZIP) আপলোড করে ব্যবহার করতে পারেন।",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

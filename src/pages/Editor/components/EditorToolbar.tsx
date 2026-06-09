@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
-import { extensionManager } from '../../../services/ExtensionManager';
 
 interface EditorToolbarProps {
   editor: any;
@@ -32,14 +31,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   const [currentMenu, setCurrentMenu] = useState<'main' | 'formatting' | 'colors'>('main');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [, forceUpdate] = useState({});
-  const [extensionButtons, setExtensionButtons] = useState<any[]>([]);
-
-  React.useEffect(() => {
-    const updateButtons = () => setExtensionButtons((window as any).__toolbarButtons || []);
-    const unsub = extensionManager.onChange(updateButtons);
-    updateButtons();
-    return () => { unsub(); };
-  }, []);
 
   React.useEffect(() => {
     const handleSelectionChange = () => {
@@ -229,20 +220,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                   <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
                     <Redo2 size={18} />
                   </ToolbarButton>
-
-                  {/* Extension Buttons Slot */}
-                  {extensionButtons.map((btn: any, idx: number) => {
-                    const Icon = btn.icon;
-                    return (
-                      <ToolbarButton 
-                        key={`${btn.extensionId}_${idx}`}
-                        onClick={() => btn.onClick && btn.onClick({ editor, extensionManager })}
-                        className={cn("bg-green-500/10 text-green-500")}
-                      >
-                        {typeof Icon === 'string' ? <span>{Icon}</span> : <Icon size={18} />}
-                      </ToolbarButton>
-                    );
-                  })}
 
                   <div className="flex-1" />
 

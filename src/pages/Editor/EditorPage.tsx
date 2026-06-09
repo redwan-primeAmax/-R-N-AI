@@ -144,8 +144,13 @@ function EditorPage({ id }: { id: string | undefined }) {
         emoji: emoji
       };
     }
-    return () => { delete (window as any)._currentNoteState; };
   }, [note, title, editor.blocks, description, tags, emoji]);
+
+  useEffect(() => {
+    return () => {
+      delete (window as any)._currentNoteState;
+    };
+  }, []);
 
   if (!editor || !note) {
     return <LoadingScreen />;

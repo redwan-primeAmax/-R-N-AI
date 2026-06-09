@@ -11,7 +11,6 @@ import { DataManager, Note } from '../../../services/storage/DataManager';
 import { operationRunner } from '../../../services/storage/OperationRunner';
 import { EditorBlock, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 import { useEditorCommands } from './useEditorCommands';
-import { extensionManager } from '../../../services/ExtensionManager';
 
 export function useEditorState(id: string | undefined, blocksRefs?: React.MutableRefObject<Record<string, HTMLElement>>) {
   const navigate = useNavigate();
@@ -41,9 +40,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
   const setBlocks = useCallback((newBlocksVal: any) => {
     setBlocksState((prev) => {
-      let next = typeof newBlocksVal === 'function' ? newBlocksVal(prev) : newBlocksVal;
-      // Extension Filter: onBlocksUpdate
-      next = extensionManager.applyFilters('onBlocksUpdate', next);
+      const next = typeof newBlocksVal === 'function' ? newBlocksVal(prev) : newBlocksVal;
       blocksRef.current = next;
       return next;
     });
@@ -95,49 +92,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   }, [blocks, historyPointer]);
 
   useEffect(() => { noteRef.current = note; }, [note]);
-
-  // Keep window current note state updated for extensions
-  useEffect(() => {
-    if (note) {
-      (window as any)._currentNoteState = {
-        id: note.id,
-        title,
-        description,
-        tags,
-        theme,
-        content: blocksToHtml(blocks)
-      };
-    } else {
-      (window as any)._currentNoteState = null;
-    }
-    return () => {
-      (window as any)._currentNoteState = null;
-    };
-  }, [note, title, description, tags, theme, blocks]);
-
-  // Listen for extension-apply-changes custom event
-  useEffect(() => {
-    const handleExtensionApplyChanges = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const { content } = customEvent.detail;
-      if (!content) return;
-      
-      if (typeof content === 'string') {
-        const parsedBlocks = htmlToBlocks(content);
-        setBlocks(parsedBlocks);
-      } else if (Array.isArray(content)) {
-        setBlocks(content);
-      }
-      
-      setNotification({ message: 'এক্সটেনশন পরিবর্তনগুলো সফলভাবে প্রয়োগ করা হয়েছে!', type: 'success' });
-      setTimeout(() => setNotification(null), 3000);
-    };
-    
-    window.addEventListener('extension-apply-changes', handleExtensionApplyChanges);
-    return () => {
-      window.removeEventListener('extension-apply-changes', handleExtensionApplyChanges);
-    };
-  }, [setBlocks]);
 
   const BACKUP_KEY = `note_backup_${id}`;
 
@@ -226,10 +180,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     
     if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
     backupTimerRef.current = setTimeout(() => {
-      let filteredBlocks = blocks;
-      // Extension Filter: beforeSave
-      filteredBlocks = extensionManager.applyFilters('beforeSave', filteredBlocks);
-      const content = blocksToHtml(filteredBlocks);
+      const content = blocksToHtml(blocks);
       
       if (content === lastSavedContentRef.current) return;
       
@@ -428,9 +379,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       lastSavedContentRef.current = resolvedContent;
       
       // Load blocks state
-      let initialBlocks = htmlToBlocks(resolvedContent);
-      // Extension Filter: onLoad
-      initialBlocks = extensionManager.applyFilters('onLoad', initialBlocks);
+      const initialBlocks = htmlToBlocks(resolvedContent);
       setBlocks(initialBlocks);
 
       const workspaces = await DataManager.getWorkspaces();

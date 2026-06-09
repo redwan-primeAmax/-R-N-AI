@@ -21,9 +21,6 @@ import LoadingScreen from './LoadingScreen';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import { extensionManager } from '../services/ExtensionManager';
-import { ExtensionStoreModal } from './modals/ExtensionStoreModal';
-
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -56,14 +53,6 @@ export default function Sidebar({
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [iconsLoaded, setIconsLoaded] = useState(false);
-  const [extensionItems, setExtensionItems] = useState(extensionManager.getSidebarItems());
-
-  useEffect(() => {
-    const unsub = extensionManager.onChange(() => {
-      setExtensionItems(extensionManager.getSidebarItems());
-    });
-    return () => { unsub(); };
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -281,18 +270,14 @@ export default function Sidebar({
               {/* Core Features */}
               <div className="bg-[#151516]/50 border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
                 {[
-                  { icon: <LayoutGrid size={14} />, label: 'এক্সটেনশন হাব', path: '/extension-hub', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },
-                  { icon: <Zap size={14} />, label: 'এক্সটেনশন', action: 'add-extension', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.1)]' },
-                  { icon: <Monitor size={14} />, label: 'ডেভেলপার এডিটর', path: '/extensions/editor', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', glow: 'shadow-[0_0_15px_rgba(34,211,238,0.1)]' },
+                  { icon: <LayoutGrid size={14} />, label: 'টুলস', path: '/tools', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },
                   { icon: <Settings size={14} />, label: 'সেটিংস', path: '/settings', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
                   { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]' }
                 ].map((item, idx) => (
                   <button 
                     key={idx}
                     onClick={() => { 
-                      if (item.action === 'add-extension') {
-                        handleNavigation('/extensions');
-                      } else if (item.path) { 
+                      if (item.path) { 
                         handleNavigation(item.path); 
                       }
                     }}
@@ -322,44 +307,6 @@ export default function Sidebar({
                     </div>
                   </button>
                 ))}
-
-                {/* Extension Items */}
-                {extensionItems.map((item, idx) => {
-                  const Icon = item.icon;
-                  return (
-                    <button 
-                      key={`ext-${item.id}-${idx}`}
-                      onClick={() => { 
-                        if (item.onClick) {
-                          item.onClick();
-                        } else if (item.path) { 
-                          handleNavigation(item.path); 
-                        }
-                      }}
-                      className={cn(
-                        "w-full flex items-center justify-between p-4 bg-[#1C1C1D] hover:bg-[#222223] rounded-2xl transition-all group relative overflow-hidden active:scale-[0.98]",
-                        item.color ? `shadow-[0_0_15px_rgba(0,0,0,0.1)]` : ""
-                      )}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-inner bg-white/5 text-white/40 group-hover:text-white",
-                          item.color || "border-white/5"
-                        )}>
-                          {typeof item.icon === 'string'
-                            ? <span>{item.icon}</span>
-                            : typeof item.icon === 'function'
-                              ? <item.icon size={14} />
-                              : React.isValidElement(item.icon)
-                                ? item.icon
-                                : <Box size={14} />}
-                        </div>
-                        <span className="font-black text-[10px] uppercase tracking-[0.15em] text-white/40 group-hover:text-white transition-colors">{item.label}</span>
-                      </div>
-                      <ChevronRight size={14} className="text-white/20 group-hover:text-white" />
-                    </button>
-                  );
-                })}
               </div>
 
             </div>
