@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
-    base: '/',
+    base: './',
     plugins: [
       react(), 
       tailwindcss(),
@@ -31,8 +31,8 @@ export default defineConfig(({mode}) => {
           background_color: '#0a0a0a',
           display: 'standalone',
           orientation: 'portrait',
-          scope: '/',
-          start_url: '/',
+          scope: './',
+          start_url: './',
           icons: [
             {
               src: 'pwa-192x192.png',
