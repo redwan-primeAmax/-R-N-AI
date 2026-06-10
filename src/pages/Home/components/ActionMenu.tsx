@@ -179,8 +179,11 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                       <FileText size={18} className="text-blue-400" />
                       Edit Note
                     </button>
-                    <button 
-                      onClick={() => { onDelete(note.id); onClose(); }}
+                     <button 
+                      onClick={async () => { 
+                        await onDelete(note.id); 
+                        onClose(); 
+                      }}
                       className="flex items-center justify-center gap-2 py-3.5 bg-red-500/10 hover:bg-red-500/20 rounded-2xl font-bold text-sm text-red-500 transition-all active:scale-95"
                     >
                       <Trash2 size={18} />

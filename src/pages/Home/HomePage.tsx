@@ -151,10 +151,15 @@ export default function HomePage() {
   }, [loadData, navigate]);
 
   const handleSoftDelete = async (id: string) => {
-    const note = await DataManager.getNoteById(id);
-    if (note) {
-      await DataManager.saveNote({ ...note, isTrashed: true, updatedAt: Date.now() });
-      // Removed redundant loadData() as saveNote triggers workspace-notes-changed event
+    setIsLoading(true);
+    try {
+      await DataManager.deleteNote(id);
+    } catch (err) {
+      console.error('Delete failed:', err);
+    } finally {
+      setIsLoading(false);
+      setSelectedNoteForMenu(null);
+      await loadData();
     }
   };
 

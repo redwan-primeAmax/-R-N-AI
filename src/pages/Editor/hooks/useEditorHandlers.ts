@@ -39,6 +39,7 @@ interface UseEditorHandlersParams {
   themeRef: React.MutableRefObject<string>;
   blocksRef: React.MutableRefObject<any[]>;
   handleStartCollab: (options?: { password?: string; memberLimit?: number }) => Promise<void>;
+  isDeletingRef?: React.MutableRefObject<boolean>;
 }
 
 export function useEditorHandlers({
@@ -69,6 +70,7 @@ export function useEditorHandlers({
   themeRef,
   blocksRef,
   handleStartCollab,
+  isDeletingRef,
 }: UseEditorHandlersParams) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -185,8 +187,13 @@ export function useEditorHandlers({
   };
 
   const handleDelete = async () => {
+    if (isDeletingRef) {
+      isDeletingRef.current = true;
+    }
     const currentNote = noteRef.current || note!;
-    await DataManager.saveNote({ ...currentNote, isTrashed: true, updatedAt: Date.now() });
+    if (currentNote) {
+      await DataManager.deleteNote(currentNote.id);
+    }
     navigate('/');
   };
 

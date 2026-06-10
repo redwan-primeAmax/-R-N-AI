@@ -42,7 +42,7 @@ function EditorPage({ id }: { id: string | undefined }) {
     tags, setTags, theme, setTheme,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
-    saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef
+    saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef, isDeletingRef
   } = useEditorState(id, blocksRefs as any);
 
   // Collaboration P2P Setup
@@ -77,7 +77,7 @@ function EditorPage({ id }: { id: string | undefined }) {
     id, note, editor, title, emoji, description, theme, tags, currentSubPages, collabRoom,
     setNote, setTitle, setEmoji, setDescription, setTags, setTheme, setNotification,
     setIsReadOnly, isReadOnly, saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef,
-    handleStartCollab
+    handleStartCollab, isDeletingRef
   });
 
   // Additional event sync & listening setup with throttling guard to prevent DOM flooding
@@ -331,7 +331,7 @@ function EditorPage({ id }: { id: string | undefined }) {
                 className={cn(
                   "prose max-w-none focus:outline-none pb-20 w-full",
                   !isLight && "prose-invert",
-                  isReadOnly && "pointer-events-none select-none text-muted-foreground"
+                  isReadOnly && "select-none text-muted-foreground"
                 )} 
               />
             </div>
