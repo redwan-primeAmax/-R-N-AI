@@ -174,6 +174,7 @@ export default function Sidebar({
     window.addEventListener('notes-updated', handleSyncEvent);
     window.addEventListener('history-updated', handleSyncEvent);
     window.addEventListener('workspace-notes-changed', handleSyncEvent);
+    window.addEventListener('notes-cache-invalidated', handleSyncEvent);
     
     return () => {
       clearInterval(interval);
@@ -181,6 +182,7 @@ export default function Sidebar({
       window.removeEventListener('notes-updated', handleSyncEvent);
       window.removeEventListener('history-updated', handleSyncEvent);
       window.removeEventListener('workspace-notes-changed', handleSyncEvent);
+      window.removeEventListener('notes-cache-invalidated', handleSyncEvent);
     };
   }, [loadData]);
 

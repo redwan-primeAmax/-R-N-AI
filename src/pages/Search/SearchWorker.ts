@@ -21,9 +21,15 @@ self.onmessage = async (e: MessageEvent) => {
 
   // 1. DATA SYNC - Only happens once or when a note is added/edited
   if (type === 'SYNC') {
-    localNotes = notes;
+    localNotes = notes || [];
     initializeRST(localNotes);
     self.postMessage({ type: 'SYNC_COMPLETE', requestId });
+    return;
+  }
+
+  if (type === 'INVALIDATE' || type === 'FORCE_REFRESH') {
+    localNotes = [];           // Force empty/stale
+    self.postMessage({ type: 'INVALIDATE_COMPLETE', requestId });
     return;
   }
 

@@ -45,15 +45,20 @@ const localSyncEmitter = new EventTarget();
 const activeObjectUrls = new Set<string>();
 
 syncChannel.onmessage = (event) => {
-  if (event.data.type?.includes('NOTE')) {
-    // Background refresh from Dexie storage
-    DataManager.getAllNotes().then(notes => {
-      if (notes) cachedNotes = notes;
-    });
+  const type = event.data.type || '';
+  if (type.includes('NOTE') || type.includes('CACHE_INVALIDATED') || type.includes('PERMANENT')) {
+    // Force full invalidation on receiver side too (cross-tab safety)
+    DataManager.invalidateNotesCache(`broadcast:${type}`);
+    // Then optionally warm the cache in background (the invalidate already dispatched events)
+    DataManager.getAllNotes(true).then(notes => {
+      // getAllNotes(true) will bypass and set fresh because we just invalidated
+      console.log(`[DataManager] Cross-tab refresh complete, ${notes?.length || 0} notes`);
+    }).catch(console.error);
   }
-  if (event.data.type?.includes('SETTINGS')) cachedSettings = null;
-  
-  // Forward to local listeners
+  if (type.includes('SETTINGS')) {
+    cachedSettings = null;
+  }
+
   const customEvent = new CustomEvent('sync', { detail: event.data });
   localSyncEmitter.dispatchEvent(customEvent);
 };
@@ -77,6 +82,10 @@ let isFullyIndexed = false;
 
 let cachedStorageUsage: { used: number; quota: number } | null = null;
 let lastStorageCheck = 0;
+
+// === NEW: Strong stale-load protection ===
+let cacheVersion = 0;                    // Incremented on every invalidation
+let lastInvalidationReason = '';         // For debugging
 
 // Internal helper to trigger sync both locally and remotely
 const CHAT_HISTORY_KEY = 'chat_history';
@@ -262,7 +271,7 @@ export const DataManager = {
     const config = await this.getSystemConfig();
     const newConfig = { ...config, activeWorkspaceId: id };
     await this.saveSystemConfig(newConfig);
-    cachedNotes = null;
+    this.invalidateNotesCache(`switch-workspace:${id}`);
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
@@ -302,7 +311,7 @@ export const DataManager = {
       }
     });
 
-    cachedNotes = null;
+    this.invalidateNotesCache(`delete-workspace:${id}`);
 
     // Check workspaces to swap active one
     const remainingWorkspaces = await db.workspaces.toArray();
@@ -422,20 +431,21 @@ export const DataManager = {
 
   // --- Notes Operations ---
   
-  async getAllNotes(): Promise<Note[]> {
-    if (cachedNotes !== null) {
+  async getAllNotes(forceRefresh: boolean = false): Promise<Note[]> {
+    if (!forceRefresh && cachedNotes !== null) {
       return cachedNotes;
     }
-    
-    if (notesLoadingPromise) {
+
+    if (!forceRefresh && notesLoadingPromise) {
       return notesLoadingPromise;
     }
+
+    const thisVersion = cacheVersion;  // Capture at scheduling time
 
     notesLoadingPromise = (async () => {
       try {
         const currentWorkspaceId = await this.getActiveWorkspaceId();
-        
-        // Memory-safe active workspace note loading with support for deep indexing
+
         let notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
 
         if (notes.length === 0) {
@@ -443,15 +453,26 @@ export const DataManager = {
           if (allNotesCount === 0) {
             const defaults = await this.initializeDefaultNotes();
             const filteredDefault = defaults.filter(n => n.workspaceId === currentWorkspaceId || (currentWorkspaceId === 'default' && !n.workspaceId));
-            cachedNotes = filteredDefault;
+            if (thisVersion === cacheVersion) {
+              cachedNotes = filteredDefault;
+            }
             return filteredDefault;
           }
+        }
+
+        // === CRITICAL: Stale load guard ===
+        if (thisVersion !== cacheVersion) {
+          console.warn(`[DataManager] Discarding stale getAllNotes result (load v${thisVersion} vs current v${cacheVersion}). Reason was: ${lastInvalidationReason}`);
+          return cachedNotes || notes; // Return whatever we have, but do NOT poison cache
         }
 
         cachedNotes = notes;
         return notes;
       } finally {
-        notesLoadingPromise = null;
+        // Only clear the promise if no newer invalidation happened during our load
+        if (thisVersion === cacheVersion) {
+          notesLoadingPromise = null;
+        }
       }
     })();
 
@@ -460,6 +481,39 @@ export const DataManager = {
 
   // --- Storage Usage ---
   
+  // === STRONG CACHE INVALIDATION (NEW - fixes permanent delete ghosting) ===
+  invalidateNotesCache(reason: string = 'mutation') {
+    const oldVersion = cacheVersion;
+    cacheVersion++;
+    lastInvalidationReason = reason;
+
+    const hadCached = cachedNotes !== null;
+    const hadPromise = notesLoadingPromise !== null;
+
+    cachedNotes = null;
+    notesLoadingPromise = null;
+    this.resetStorageCache();
+
+    // Also aggressively invalidate RST search state (main thread)
+    try {
+      // Dynamic import to avoid circular deps / tree-shaking issues
+      import('../../pages/Search/RSTSearch/RSTSearch').then(mod => {
+        if (mod && typeof mod.invalidateRST === 'function') {
+          mod.invalidateRST();
+        }
+      }).catch(() => {});
+    } catch (e) {
+      // ignore - RST may not be loaded
+    }
+
+    console.warn(`[DataManager] CACHE INVALIDATED (v${cacheVersion} from ${oldVersion}). Reason: ${reason}. Had cached=${hadCached}, hadPromise=${hadPromise}`);
+
+    // Notify everyone (UI + cross-tab) that notes are now dirty
+    notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason, version: cacheVersion });
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason, version: cacheVersion } }));
+    window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason, version: cacheVersion } }));
+  },
+
   resetStorageCache() {
     cachedStorageUsage = null;
     lastStorageCheck = 0;
@@ -601,7 +655,7 @@ export const DataManager = {
     });
     
     // Reset cache
-    cachedNotes = null;
+    this.invalidateNotesCache('import-all-data');
     isFullyIndexed = false;
     
     // Notify other tabs
@@ -668,7 +722,7 @@ export const DataManager = {
     if (note) {
       // Update lastOpenedAt in background
       db.notes.update(id, { lastOpenedAt: Date.now() }).then(() => {
-        cachedNotes = null;
+        this.invalidateNotesCache(`open-note:${id}`);
       });
 
       // Add to recent notes history
@@ -746,7 +800,7 @@ export const DataManager = {
       const deleteList = notesInWorkspace.slice(10000);
       const idsToDelete = deleteList.map(n => n.id);
       await db.notes.bulkDelete(idsToDelete);
-      cachedNotes = null;
+      this.invalidateNotesCache('limit-truncation');
       if (idsToDelete.includes(note.id)) {
         throw new Error('Workspace Note Limit Reached (Max 10,000)! Note is discarded to maintain device stability.');
       }
@@ -800,7 +854,7 @@ export const DataManager = {
       }
       throw e;
     }
-    cachedNotes = null;
+    this.invalidateNotesCache(`save-note:${note.id}`);
     
     scheduleIndexing(updatedNote);
     notifySync({ type: 'UPDATE_NOTE', id: note.id });
@@ -843,7 +897,7 @@ export const DataManager = {
         updatedAt: Date.now(),
       };
       await db.notes.put(duplicatedNote);
-      cachedNotes = null;
+      this.invalidateNotesCache(`duplicate-note:${id}`);
       return duplicatedNote;
     }
     return null;
@@ -853,7 +907,7 @@ export const DataManager = {
     const note = await db.notes.get(id);
     if (note) {
       await db.notes.update(id, { isFavorite: !note.isFavorite });
-      cachedNotes = null;
+      this.invalidateNotesCache(`toggle-favorite:${id}`);
     }
   },
 
@@ -864,7 +918,7 @@ export const DataManager = {
   async deleteNote(id: string): Promise<void> {
     const now = Date.now();
     await db.notes.update(id, { isTrashed: true, updatedAt: now });
-    cachedNotes = null;
+    this.invalidateNotesCache(`soft-delete:${id}`);
     
     // Garbage Collection: Remove local note backups efficiently
     const prefix = `note_backup_${id}`;
@@ -882,9 +936,20 @@ export const DataManager = {
   },
 
   async deleteNotePermanent(id: string): Promise<void> {
-    await db.notes.delete(id);
-    cachedNotes = null;
-    this.resetStorageCache();
+    // Use transaction for atomicity + cleanup
+    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs], async () => {
+      await db.notes.delete(id);
+      await db.note_versions.where('noteId').equals(id).delete();
+      // Also clean this note from recent history (prevents ghost recents)
+      const hist = await db.key_value_pairs.get('recent_notes_history');
+      if (hist?.value) {
+        const updated = hist.value.filter((r: any) => r.id !== id);
+        await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
+      }
+    });
+
+    // STRONG INVALIDATION
+    this.invalidateNotesCache(`permanent-delete:${id}`);
     
     // Garbage Collection
     const prefix = `note_backup_${id}`;
@@ -904,7 +969,7 @@ export const DataManager = {
   async deleteNotes(ids: string[]): Promise<void> {
     const now = Date.now();
     await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
-    cachedNotes = null;
+    this.invalidateNotesCache(`bulk-soft-delete:${ids.length} notes`);
     
     const allKeys = Object.keys(localStorage);
     for (const id of ids) {
@@ -919,8 +984,19 @@ export const DataManager = {
   },
 
   async bulkDeleteNotesPermanent(ids: string[]): Promise<void> {
-    await db.notes.bulkDelete(ids);
-    cachedNotes = null;
+    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs], async () => {
+      await db.notes.bulkDelete(ids);
+      await db.note_versions.where('noteId').anyOf(ids).delete();
+
+      // Clean history for all
+      const hist = await db.key_value_pairs.get('recent_notes_history');
+      if (hist?.value) {
+        const updated = hist.value.filter((r: any) => !ids.includes(r.id));
+        await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
+      }
+    });
+
+    this.invalidateNotesCache(`bulk-permanent-delete:${ids.length} notes`);
 
     // Collect all keys once for efficiency
     const allKeys = Object.keys(localStorage);
@@ -938,7 +1014,7 @@ export const DataManager = {
   async bulkTrashNotes(ids: string[]): Promise<void> {
     const now = Date.now();
     await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
-    cachedNotes = null;
+    this.invalidateNotesCache(`bulk-trash:${ids.length} notes`);
     notifySync({ type: 'UPDATE_NOTES', ids });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
@@ -981,7 +1057,7 @@ export const DataManager = {
       note.content = note.content.replace(search, replacement);
       note.updatedAt = Date.now();
       await db.notes.put(note);
-      cachedNotes = null;
+      this.invalidateNotesCache(`replace-content:${idOrTitle}`);
     }
   },
 
@@ -1242,7 +1318,7 @@ export const DataManager = {
     await db.transaction('rw', db.notes, async () => {
       await db.notes.bulkPut(demoNotes);
     });
-    cachedNotes = null;
+    this.invalidateNotesCache('demo-data-seed');
     this.triggerSync('NOTES_UPDATE');
   },
 
@@ -1312,7 +1388,7 @@ export const DataManager = {
     if (ids.length > 0) {
       await db.notes.bulkDelete(ids);
       await db.note_versions.where('noteId').anyOf(ids).delete();
-      cachedNotes = null;
+      this.invalidateNotesCache('clean-trashed-notes');
       this.resetStorageCache();
     }
     return ids.length;

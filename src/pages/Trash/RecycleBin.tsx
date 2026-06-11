@@ -30,6 +30,16 @@ export default function RecycleBin() {
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    const onInvalidated = () => loadTrashed();
+    window.addEventListener('notes-cache-invalidated', onInvalidated);
+    window.addEventListener('workspace-notes-changed', onInvalidated);
+    return () => {
+      window.removeEventListener('notes-cache-invalidated', onInvalidated);
+      window.removeEventListener('workspace-notes-changed', onInvalidated);
+    };
+  }, [loadTrashed]);
+
   const loadMore = () => {
     const nextPage = page + 1;
     const nextNotes = trashedNotes.slice(0, nextPage * ITEMS_PER_PAGE);
@@ -53,7 +63,10 @@ export default function RecycleBin() {
     if (!noteToDelete) return;
     await DataManager.deleteNotePermanent(noteToDelete);
     setNoteToDelete(null);
-    loadTrashed();
+    
+    // Extra strong refresh
+    await DataManager.getAllNotes(true); // force a clean load
+    loadTrashed();                       // your existing
   };
 
   const handleEmptyTrash = async () => {
@@ -61,6 +74,7 @@ export default function RecycleBin() {
     try {
       const ids = trashedNotes.map(n => n.id);
       await DataManager.bulkDeleteNotesPermanent(ids);
+      await DataManager.getAllNotes(true);
     } catch (err) {
       console.error('Failed to empty trash:', err);
     } finally {

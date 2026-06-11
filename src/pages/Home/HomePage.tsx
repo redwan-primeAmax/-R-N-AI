@@ -141,12 +141,14 @@ export default function HomePage() {
 
     const handleWorkspaceChange = () => loadData();
     window.addEventListener('workspace-notes-changed', handleWorkspaceChange);
+    window.addEventListener('notes-cache-invalidated', handleWorkspaceChange);
 
     return () => {
       DataManager.offSync(syncHandler);
       window.removeEventListener('open-external-import', handleOpenExternal);
       window.removeEventListener('history-updated', handleHistoryUpdate);
       window.removeEventListener('workspace-notes-changed', handleWorkspaceChange);
+      window.removeEventListener('notes-cache-invalidated', handleWorkspaceChange);
     };
   }, [loadData, navigate]);
 

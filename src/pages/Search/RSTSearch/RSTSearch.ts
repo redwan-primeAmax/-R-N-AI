@@ -98,7 +98,18 @@ function calculateProximityBonus(docText: string, terms: string[]): number {
  */
 export function initializeRST(notes: Note[]) {
   globalStorage = new StorageBuffer(notes);
+  (globalStorage as any).lastUpdate = Date.now();
   globalIndex = new InvertedIndex(globalStorage);
+}
+
+/**
+ * Nuclear invalidation for when notes are permanently deleted.
+ * Forces re-initialization on next searchWithRST call.
+ */
+export function invalidateRST(): void {
+  globalStorage = null;
+  globalIndex = null;
+  console.warn('[RSTSearch] Global storage & index invalidated (permanent delete or major mutation).');
 }
 
 /**
@@ -107,7 +118,8 @@ export function initializeRST(notes: Note[]) {
 export function searchWithRST(notes: Note[], query: string, isAccurate: boolean = false): Note[] {
   if (!query || query.trim().length === 0) return notes;
 
-  if (!globalStorage || globalStorage.size !== notes.length) {
+  // Re-init if we have no storage OR size mismatch OR a significant time has passed (basic safety)
+  if (!globalStorage || globalStorage.size !== notes.length || (globalStorage as any).lastUpdate < (Date.now() - 30000)) {
     initializeRST(notes);
   }
 

@@ -71,14 +71,17 @@ export default function Navigation() {
   return (
     <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
       <nav className="relative overflow-hidden bg-[#1a1a1a]/95 backdrop-blur-3xl border border-white/10 border-b-[4px] border-r-[1.5px] p-2 rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
-        {/* Texture Overlay */}
+        {/* Texture Overlay - Strategic layering for high quality visual finish */}
         <div 
-          className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
+          className="absolute inset-0 opacity-15 pointer-events-none mix-blend-overlay"
           style={{ 
             backgroundImage: "url('/textures/navbar_icon.png')",
-            backgroundColor: "rgba(255,255,255,0.02)"
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
           }}
         />
+        <div className="absolute inset-0 bg-blue-500/5 pointer-events-none" />
         
         {/* Search */}
         <NavLink

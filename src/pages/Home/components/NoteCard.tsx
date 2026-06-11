@@ -83,12 +83,14 @@ export const NoteCard = React.memo<NoteCardProps>(({
         {/* Subtle Inner Glow Layer */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#24334d] via-[#0f172a] to-[#050810] opacity-90" />
         
-        {/* Texture Overlay */}
+        {/* Texture Overlay - Premium tactile finish */}
         <div 
-          className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
+          className="absolute inset-0 opacity-[0.25] pointer-events-none mix-blend-soft-light"
           style={{ 
             backgroundImage: "url('/textures/web_note_card_bg.png')",
-            backgroundColor: "rgba(255,255,255,0.02)" /* Fallback texture feel */
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
           }}
         />
         
