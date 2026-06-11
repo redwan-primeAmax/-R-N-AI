@@ -83,9 +83,9 @@ export const NoteCard = React.memo<NoteCardProps>(({
         {/* Subtle Inner Glow Layer */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#24334d] via-[#0f172a] to-[#050810] opacity-90" />
         
-        {/* Texture Overlay - Premium tactile finish */}
+        {/* Texture Overlay - Locked at 100% visibility per developer instructions */}
         <div 
-          className="absolute inset-0 opacity-[0.25] pointer-events-none mix-blend-soft-light"
+          className="absolute inset-0 opacity-100 pointer-events-none z-0"
           style={{ 
             backgroundImage: "url('/textures/web_note_card_bg.png')",
             backgroundSize: 'cover',
@@ -95,9 +95,9 @@ export const NoteCard = React.memo<NoteCardProps>(({
         />
         
         {/* Subtle Highlight line at the top inner */}
-        <div className="absolute top-[1px] left-[10%] right-[10%] h-[1px] bg-white/5 blur-[0.5px]" />
+        <div className="absolute top-[1px] left-[10%] right-[10%] h-[1px] bg-white/5 blur-[0.5px] z-10" />
 
-        <div className="relative z-10 flex flex-col h-full gap-4 max-w-full">
+        <div className="relative z-20 flex flex-col h-full gap-4 max-w-full">
           <div className="flex items-start justify-between min-h-[44px]">
             <div className="flex items-center gap-2 flex-wrap max-w-full overflow-hidden">
               {note.isCollaborated && (

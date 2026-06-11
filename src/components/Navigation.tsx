@@ -70,56 +70,65 @@ export default function Navigation() {
 
   return (
     <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
-      <nav className="relative overflow-hidden bg-[#1a1a1a]/95 backdrop-blur-3xl border border-white/10 border-b-[4px] border-r-[1.5px] p-2 rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
-        {/* Texture Overlay - Strategic layering for high quality visual finish */}
+      <nav className="relative overflow-hidden border border-white/10 border-b-[4px] border-r-[1.5px] rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
+        {/* Layer 1: Solid Background */}
+        <div className="absolute inset-0 bg-[#1a1a1a]/95 backdrop-blur-3xl" />
+        
+        {/* Layer 2: Texture Overlay - Locked at 100% visibility per developer instructions */}
         <div 
-          className="absolute inset-0 opacity-15 pointer-events-none mix-blend-overlay"
+          className="absolute inset-0 opacity-100 pointer-events-none z-0"
           style={{ 
             backgroundImage: "url('/textures/navbar_icon.png')",
-            backgroundSize: 'contain',
+            backgroundSize: '180px auto',
             backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
+            backgroundRepeat: 'repeat'
           }}
         />
-        <div className="absolute inset-0 bg-blue-500/5 pointer-events-none" />
         
-        {/* Search */}
-        <NavLink
-          to="/search"
-          className={({ isActive }) =>
-            cn(
-              "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border",
-              isActive 
-                ? "bg-white text-black border-white border-b-[3px] border-r-[1px] shadow-lg shadow-white/10" 
-                : "bg-white/5 text-white/40 border-transparent hover:bg-white/10 hover:text-white hover:border-white/5"
-            )
-          }
-        >
-          <Search size={20} className={cn("transition-opacity", "opacity-40")} />
-        </NavLink>
+        {/* Layer 3: Content (Buttons) */}
+        <div className="relative z-10 flex items-center gap-2 p-2 focus-within:ring-2 ring-white/20 rounded-[32px]">
+          {/* Search */}
+          <NavLink
+            to="/search"
+            className={({ isActive }) =>
+              cn(
+                "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border",
+                isActive 
+                  ? "bg-white text-black border-white border-b-[3px] border-r-[1px] shadow-lg shadow-white/20" 
+                  : "bg-white/5 text-white/70 border-transparent hover:bg-white/10 hover:text-white hover:border-white/10"
+              )
+            }
+          >
+            <Search size={22} className="transition-transform group-hover:scale-110" />
+          </NavLink>
 
-        {/* Quick Note */}
-        <button
-          onClick={createQuickNote}
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white hover:border-white/5 transition-all duration-300 active:scale-95 active:translate-y-0.5"
-        >
-          <Plus size={22} className="opacity-40" />
-        </button>
+          <div className="w-[1px] h-8 bg-white/10 mx-1" />
 
-        {/* Ask AI */}
-        <NavLink
-          to="/ai-auto"
-          className={({ isActive }) =>
-            cn(
-              "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border",
-              isActive 
-                ? "bg-white text-black border-white border-b-[3px] border-r-[1px] shadow-lg shadow-white/10" 
-                : "bg-white/5 text-white/40 border-transparent hover:bg-white/10 hover:text-white hover:border-white/5"
-            )
-          }
-        >
-          <Sparkles size={20} className={cn("transition-opacity", "opacity-40")} />
-        </NavLink>
+          {/* Quick Note */}
+          <button
+            onClick={createQuickNote}
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white/80 border border-white/10 hover:bg-white/20 hover:text-white transition-all duration-300 active:scale-95 active:translate-y-0.5 shadow-lg"
+          >
+            <Plus size={24} />
+          </button>
+
+          <div className="w-[1px] h-8 bg-white/10 mx-1" />
+
+          {/* Ask AI */}
+          <NavLink
+            to="/ai-auto"
+            className={({ isActive }) =>
+              cn(
+                "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border",
+                isActive 
+                  ? "bg-white text-black border-white border-b-[3px] border-r-[1px] shadow-lg shadow-white/20" 
+                  : "bg-white/5 text-white/70 border-transparent hover:bg-white/10 hover:text-white hover:border-white/10"
+              )
+            }
+          >
+            <Sparkles size={22} className="transition-transform group-hover:scale-110" />
+          </NavLink>
+        </div>
       </nav>
     </div>
   );

@@ -62,10 +62,14 @@ export default function RecycleBin() {
   const handlePermanentDelete = async () => {
     if (!noteToDelete) return;
     await DataManager.deleteNotePermanent(noteToDelete);
+    const deletedId = noteToDelete;
     setNoteToDelete(null);
     
     // Extra strong refresh
     await DataManager.getAllNotes(true); // force a clean load
+    if (deletedId === 'welcome-note') {
+       console.warn('[RecycleBin] V2: Welcome note was permanently deleted by user. It will not auto-reappear.');
+    }
     loadTrashed();                       // your existing
   };
 
@@ -73,8 +77,12 @@ export default function RecycleBin() {
     setIsLoading(true);
     try {
       const ids = trashedNotes.map(n => n.id);
+      const hasWelcome = ids.includes('welcome-note');
       await DataManager.bulkDeleteNotesPermanent(ids);
       await DataManager.getAllNotes(true);
+      if (hasWelcome) {
+        console.warn('[RecycleBin] V2: Welcome note was permanently deleted during bulk empty. It will not auto-reappear.');
+      }
     } catch (err) {
       console.error('Failed to empty trash:', err);
     } finally {

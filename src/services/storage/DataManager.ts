@@ -87,6 +87,10 @@ let lastStorageCheck = 0;
 let cacheVersion = 0;                    // Incremented on every invalidation
 let lastInvalidationReason = '';         // For debugging
 
+// V2 WELCOME NOTE PERMANENT DELETE FIX constants
+const WELCOME_NOTE_ID = 'welcome-note';
+const USER_DELETED_DEFAULT_WELCOME_KEY = 'user_deleted_default_welcome_note';
+
 // Internal helper to trigger sync both locally and remotely
 const CHAT_HISTORY_KEY = 'chat_history';
 const TASKS_KEY = 'ai_tasks';
@@ -451,12 +455,20 @@ export const DataManager = {
         if (notes.length === 0) {
           const allNotesCount = await db.notes.count();
           if (allNotesCount === 0) {
-            const defaults = await this.initializeDefaultNotes();
-            const filteredDefault = defaults.filter(n => n.workspaceId === currentWorkspaceId || (currentWorkspaceId === 'default' && !n.workspaceId));
-            if (thisVersion === cacheVersion) {
-              cachedNotes = filteredDefault;
+            // V2 WELCOME NOTE PERMANENT DELETE FIX
+            const userDeletedWelcome = await this.hasUserPermanentlyDeletedWelcomeNote();
+            if (!userDeletedWelcome) {
+              const defaults = await this.initializeDefaultNotes();
+              const filteredDefault = defaults.filter(n => n.workspaceId === currentWorkspaceId || (currentWorkspaceId === 'default' && !n.workspaceId));
+              if (defaults.length > 0) {
+                if (thisVersion === cacheVersion) {
+                  cachedNotes = filteredDefault;
+                }
+                return filteredDefault;
+              }
+            } else {
+              console.warn('[DataManager] V2: DB is empty but user permanently deleted welcome note -> returning truly empty list.');
             }
-            return filteredDefault;
           }
         }
 
@@ -512,6 +524,33 @@ export const DataManager = {
     notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason, version: cacheVersion });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason, version: cacheVersion } }));
     window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason, version: cacheVersion } }));
+  },
+
+  // === V2 WELCOME NOTE PERMANENT DELETE FIX helper methods ===
+  async hasUserPermanentlyDeletedWelcomeNote(): Promise<boolean> {
+    const record = await db.key_value_pairs.get(USER_DELETED_DEFAULT_WELCOME_KEY);
+    return !!(record && record.value === true);
+  },
+
+  async markWelcomeNoteAsPermanentlyDeletedByUser(): Promise<void> {
+    await db.key_value_pairs.put({ key: USER_DELETED_DEFAULT_WELCOME_KEY, value: true });
+    console.warn('[DataManager] V2: User has permanently deleted the default welcome note. Future auto-creation is DISABLED.');
+  },
+
+  async clearWelcomeNoteDeletionFlag(): Promise<void> {
+    await db.key_value_pairs.delete(USER_DELETED_DEFAULT_WELCOME_KEY);
+    console.log('[DataManager] V2: Welcome note deletion flag cleared (reset to defaults allowed).');
+  },
+
+  async resetToDefaultWelcomeNote(): Promise<Note | null> {
+    await this.clearWelcomeNoteDeletionFlag();
+    await db.notes.delete(WELCOME_NOTE_ID); // clean any stale version
+
+    const created = await this.initializeDefaultNotes();
+    this.invalidateNotesCache('reset-welcome-note');
+    this.triggerSync('NOTES_UPDATE');
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { type: 'reset-welcome' } }));
+    return created[0] || null;
   },
 
   resetStorageCache() {
@@ -695,8 +734,15 @@ export const DataManager = {
   },
 
   async initializeDefaultNotes(): Promise<Note[]> {
+    // V2 WELCOME NOTE PERMANENT DELETE FIX
+    const userDeletedIt = await this.hasUserPermanentlyDeletedWelcomeNote();
+    if (userDeletedIt) {
+      console.warn('[DataManager] V2: Skipping default welcome note creation because user permanently deleted it.');
+      return [];
+    }
+
     const welcomeNote: Note = {
-      id: 'welcome-note',
+      id: WELCOME_NOTE_ID,
       title: 'স্বাগতম RETWAN Assistant-এ!',
       content: 'আপনার প্রথম নোটটি এখানে শুরু করুন। আপনি বাম পাশের মেনু থেকে নতুন নোট তৈরি করতে পারেন এবং সেটিংস থেকে এআই কনফিগার করতে পারেন।',
       emoji: '',
@@ -710,6 +756,7 @@ export const DataManager = {
       tags: ['Welcome', 'Guide']
     };
     await db.notes.put(welcomeNote);
+    console.log('[DataManager] V2: Created fresh default welcome note (user never permanently deleted it before).');
     return [welcomeNote];
   },
 
@@ -780,7 +827,12 @@ export const DataManager = {
     // If the note doesn't exist in DB but has an ID, check if it's meant to be a new creation.
     // If it was recently deleted (permanent delete), we block re-creation from stale auto-saves.
     if (!existing) {
-        const isActuallyNew = note.id.length < 30 || note.id.includes('welcome') || (Date.now() - note.createdAt < 5000);
+        // V2 WELCOME NOTE PERMANENT DELETE FIX
+        // We no longer blindly allow 'welcome' ID. If user permanently deleted it, we respect that.
+        // Only allow very short IDs (new client-generated) or very recent creations.
+        const isActuallyNew = note.id.length < 30 || (Date.now() - note.createdAt < 5000);
+        // NOTE: We deliberately removed the 'includes("welcome")' special case.
+        // If someone tries to save the old welcome ID after permanent delete, it will now be blocked (correct behavior).
         if (!isActuallyNew) {
             console.warn(`DataManager: Blocking re-creation of potentially deleted note ${note.id}`);
             return note; 
@@ -936,6 +988,8 @@ export const DataManager = {
   },
 
   async deleteNotePermanent(id: string): Promise<void> {
+    const isWelcome = id === WELCOME_NOTE_ID;   // V2
+
     // Use transaction for atomicity + cleanup
     await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs], async () => {
       await db.notes.delete(id);
@@ -946,10 +1000,14 @@ export const DataManager = {
         const updated = hist.value.filter((r: any) => r.id !== id);
         await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
       }
+
+      if (isWelcome) {
+        await this.markWelcomeNoteAsPermanentlyDeletedByUser();   // V2
+      }
     });
 
     // STRONG INVALIDATION
-    this.invalidateNotesCache(`permanent-delete:${id}`);
+    this.invalidateNotesCache(`permanent-delete:${id}${isWelcome ? ' (WELCOME)' : ''}`);
     
     // Garbage Collection
     const prefix = `note_backup_${id}`;
@@ -984,6 +1042,8 @@ export const DataManager = {
   },
 
   async bulkDeleteNotesPermanent(ids: string[]): Promise<void> {
+    const hasWelcome = ids.includes(WELCOME_NOTE_ID); // V2
+
     await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs], async () => {
       await db.notes.bulkDelete(ids);
       await db.note_versions.where('noteId').anyOf(ids).delete();
@@ -994,9 +1054,13 @@ export const DataManager = {
         const updated = hist.value.filter((r: any) => !ids.includes(r.id));
         await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
       }
+
+      if (hasWelcome) {
+        await this.markWelcomeNoteAsPermanentlyDeletedByUser(); // V2
+      }
     });
 
-    this.invalidateNotesCache(`bulk-permanent-delete:${ids.length} notes`);
+    this.invalidateNotesCache(`bulk-permanent-delete:${ids.length} notes${hasWelcome ? ' (INCL WELCOME)' : ''}`);
 
     // Collect all keys once for efficiency
     const allKeys = Object.keys(localStorage);

@@ -20,7 +20,8 @@ import {
   History, 
   Lock,
   User,
-  Zap
+  Zap,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -114,6 +115,18 @@ const SettingsPage: React.FC = () => {
           description: "মুছে ফেলা কন্টেন্ট পুনরুদ্ধার করুন",
           path: "/recycle-bin",
           iconColor: "text-red-400"
+        },
+        {
+          icon: RotateCcw,
+          title: "ডিফল্ট নোট রিস্টোর",
+          description: "মুছে ফেলা 'ওয়েলকাম নোট' আবার ফিরে পেতে এটি ব্যবহার করুন",
+          onClick: async () => {
+            if (window.confirm('ডিফল্ট ওয়েলকাম নোট আবার ফিরিয়ে আনতে চান?')) {
+              await DataManager.resetToDefaultWelcomeNote();
+              alert('ওয়েলকাম নোট সফলভাবে রিস্টোর করা হয়েছে।');
+            }
+          },
+          iconColor: "text-indigo-400"
         }
       ]
     },
@@ -194,13 +207,13 @@ const SettingsPage: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {section.tiles.map((tile, tIdx) => (
+              {section.tiles.map((tile: any, tIdx) => (
                 <SettingsTile
                   key={tile.title}
                   icon={tile.icon}
                   title={tile.title}
                   description={tile.description}
-                  onClick={() => navigate(tile.path)}
+                  onClick={tile.onClick ? tile.onClick : () => navigate(tile.path)}
                   iconColor={tile.iconColor}
                 />
               ))}
