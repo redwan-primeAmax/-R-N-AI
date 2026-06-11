@@ -37,7 +37,7 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({ notes, onNoteClick }) 
               {/* Texture Overlay */}
               <div 
                 className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
-                style={{ backgroundImage: "url('/assets/web_note_card_bg/web_note_card_bg.png')" }}
+                style={{ backgroundImage: "url('/textures/web_note_card_bg.png')" }}
               />
 
               <div className="relative z-10 flex flex-col items-center gap-3 w-full">

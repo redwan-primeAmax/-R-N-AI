@@ -51,7 +51,6 @@ export default function RecycleBin() {
 
   const handlePermanentDelete = async () => {
     if (!noteToDelete) return;
-    const note = trashedNotes.find(n => n.id === noteToDelete);
     await DataManager.deleteNotePermanent(noteToDelete);
     setNoteToDelete(null);
     loadTrashed();
@@ -193,7 +192,7 @@ export default function RecycleBin() {
           </p>
         </div>
       </div>
-      
+
       <ConfirmDialog
         isOpen={noteToDelete !== null}
         onClose={() => setNoteToDelete(null)}

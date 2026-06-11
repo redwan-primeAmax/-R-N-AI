@@ -71,11 +71,11 @@ export default function Navigation() {
   return (
     <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
       <nav className="relative overflow-hidden bg-[#1a1a1a]/95 backdrop-blur-3xl border border-white/10 border-b-[4px] border-r-[1.5px] p-2 rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
-        {/* Texture Overlay - Use absolute path and fallback bg (Bug 2 Fix) */}
+        {/* Texture Overlay */}
         <div 
-          className="absolute inset-0 opacity-40 pointer-events-none bg-cover bg-center mix-blend-overlay"
+          className="absolute inset-0 opacity-100 pointer-events-none bg-cover bg-center"
           style={{ 
-            backgroundImage: "url('/assets/nev/navbar_icon.png')",
+            backgroundImage: "url('/textures/navbar_icon.png')",
             backgroundColor: "rgba(255,255,255,0.02)"
           }}
         />

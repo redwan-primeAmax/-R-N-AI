@@ -67,8 +67,9 @@ const notifySync = (data: any) => {
   localSyncEmitter.dispatchEvent(customEvent);
 };
 
-// In-memory cache for speed
+// In-memory cache for speed with race-condition protection
 let cachedNotes: Note[] | null = null;
+let notesLoadingPromise: Promise<Note[]> | null = null;
 let cachedSettings: AISettings | null = null;
 let isSyncing = false;
 let pendingSync = false;
@@ -425,23 +426,36 @@ export const DataManager = {
     if (cachedNotes !== null) {
       return cachedNotes;
     }
-    const currentWorkspaceId = await this.getActiveWorkspaceId();
     
-    // Memory-safe active workspace note loading with support for deep indexing
-    let notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
-
-    if (notes.length === 0) {
-      const allNotesCount = await db.notes.count();
-      if (allNotesCount === 0) {
-        const defaults = await this.initializeDefaultNotes();
-        const filteredDefault = defaults.filter(n => n.workspaceId === currentWorkspaceId || (currentWorkspaceId === 'default' && !n.workspaceId));
-        cachedNotes = filteredDefault;
-        return filteredDefault;
-      }
+    if (notesLoadingPromise) {
+      return notesLoadingPromise;
     }
 
-    cachedNotes = notes;
-    return notes;
+    notesLoadingPromise = (async () => {
+      try {
+        const currentWorkspaceId = await this.getActiveWorkspaceId();
+        
+        // Memory-safe active workspace note loading with support for deep indexing
+        let notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
+
+        if (notes.length === 0) {
+          const allNotesCount = await db.notes.count();
+          if (allNotesCount === 0) {
+            const defaults = await this.initializeDefaultNotes();
+            const filteredDefault = defaults.filter(n => n.workspaceId === currentWorkspaceId || (currentWorkspaceId === 'default' && !n.workspaceId));
+            cachedNotes = filteredDefault;
+            return filteredDefault;
+          }
+        }
+
+        cachedNotes = notes;
+        return notes;
+      } finally {
+        notesLoadingPromise = null;
+      }
+    })();
+
+    return notesLoadingPromise;
   },
 
   // --- Storage Usage ---
@@ -707,6 +721,18 @@ export const DataManager = {
 
     const wsId = note.workspaceId || currentWorkspaceId;
     const existing = await db.notes.get(note.id);
+    
+    // Safety check (Anti-Ghosting Bug): 
+    // If the note doesn't exist in DB but has an ID, check if it's meant to be a new creation.
+    // If it was recently deleted (permanent delete), we block re-creation from stale auto-saves.
+    if (!existing) {
+        const isActuallyNew = note.id.length < 30 || note.id.includes('welcome') || (Date.now() - note.createdAt < 5000);
+        if (!isActuallyNew) {
+            console.warn(`DataManager: Blocking re-creation of potentially deleted note ${note.id}`);
+            return note; 
+        }
+    }
+
     const isNew = !existing;
 
     // Hacker-proof verification & database truncation sweep
@@ -836,7 +862,8 @@ export const DataManager = {
   },
 
   async deleteNote(id: string): Promise<void> {
-    await db.notes.delete(id);
+    const now = Date.now();
+    await db.notes.update(id, { isTrashed: true, updatedAt: now });
     cachedNotes = null;
     
     // Garbage Collection: Remove local note backups efficiently
@@ -857,6 +884,7 @@ export const DataManager = {
   async deleteNotePermanent(id: string): Promise<void> {
     await db.notes.delete(id);
     cachedNotes = null;
+    this.resetStorageCache();
     
     // Garbage Collection
     const prefix = `note_backup_${id}`;
@@ -874,7 +902,8 @@ export const DataManager = {
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
-    await db.notes.bulkDelete(ids);
+    const now = Date.now();
+    await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
     cachedNotes = null;
     
     const allKeys = Object.keys(localStorage);
@@ -886,14 +915,6 @@ export const DataManager = {
     }
     
     notifySync({ type: 'DELETE_NOTES', ids });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
-  },
-
-  async bulkTrashNotes(ids: string[]): Promise<void> {
-    const now = Date.now();
-    await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
-    cachedNotes = null;
-    notifySync({ type: 'UPDATE_NOTES', ids });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
@@ -911,6 +932,14 @@ export const DataManager = {
     }
 
     notifySync({ type: 'PERMANENT_DELETE_NOTES', ids });
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+  },
+
+  async bulkTrashNotes(ids: string[]): Promise<void> {
+    const now = Date.now();
+    await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
+    cachedNotes = null;
+    notifySync({ type: 'UPDATE_NOTES', ids });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
