@@ -105,7 +105,15 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
     };
   }, [block.databaseData]);
 
-  const [activeLayout, setActiveLayout] = useState<'table' | 'board' | 'gallery' | 'list' | 'calendar' | 'timeline'>(dbData.layout || 'table');
+  const [activeLayout, setActiveLayout] = useState<'table' | 'board' | 'gallery' | 'list' | 'calendar' | 'timeline'>(block.databaseData?.layout || 'table');
+  
+  // Sync layout from external changes (collab)
+  useEffect(() => {
+    if (block.databaseData?.layout && block.databaseData.layout !== activeLayout) {
+      setActiveLayout(block.databaseData.layout);
+    }
+  }, [block.databaseData?.layout]);
+
   const [showConfigCol, setShowConfigCol] = useState<string | null>(null);
   const [colNameInput, setColNameInput] = useState('');
   const [colTypeInput, setColTypeInput] = useState<'text' | 'number' | 'select' | 'date'>('text');
@@ -250,16 +258,22 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
 
   // Calendar rendering helper
   const calendarDays = useMemo(() => {
-    const d = new Date(2026, 5, 1); // June 2026 as per local current time metadata
+    const today = new Date();
+    const d = new Date(today.getFullYear(), today.getMonth(), 1); 
     const days = [];
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    
     // Pad starts
     const startOffset = d.getDay(); 
     for(let i = 0; i < startOffset; i++) {
       days.push({ day: null, dateStr: null });
     }
-    // Fill June days (30 days)
-    for(let i = 1; i <= 30; i++) {
-      const currentLabel = `2026-06-${i.toString().padStart(2, '0')}`;
+    
+    // Days in month
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for(let i = 1; i <= daysInMonth; i++) {
+      const currentLabel = `${year}-${(month + 1).toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
       const items = dbData.rows.filter((r: any) => r.date === currentLabel);
       days.push({ day: i, dateStr: currentLabel, items });
     }
@@ -727,7 +741,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                     type="text"
                     value={colNameInput}
                     onChange={(e) => setColNameInput(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 focus:border-purple-550 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
+                    className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
                   />
                 </div>
 
@@ -736,7 +750,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                   <select
                     value={colTypeInput}
                     onChange={(e: any) => setColTypeInput(e.target.value)}
-                    className="w-full bg-[#121212] border border-white/10 focus:border-purple-550 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
+                    className="w-full bg-[#121212] border border-white/10 focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
                   >
                     <option value="text">Rich Text</option>
                     <option value="number">Number</option>
@@ -753,7 +767,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                       placeholder="High, Medium, Low"
                       value={colOptionsInput}
                       onChange={(e) => setColOptionsInput(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 focus:border-purple-550 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
+                      className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
                     />
                   </div>
                 )}

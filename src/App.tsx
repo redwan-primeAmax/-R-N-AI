@@ -120,7 +120,7 @@ function AppContent() {
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; severity: 'warning' | 'error' } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; severity: 'warning' | 'error' | 'success' } | null>(null);
   const [isOverLimit, setIsOverLimit] = useState(false);
   const [hasDismissedLimitWarning, setHasDismissedLimitWarning] = useState(false);
 

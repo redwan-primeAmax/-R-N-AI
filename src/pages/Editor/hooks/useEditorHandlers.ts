@@ -92,6 +92,7 @@ export function useEditorHandlers({
   const [isTitleFocused, setIsTitleFocused] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showPageEmojiPicker, setShowPageEmojiPicker] = useState(false);
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Link Click Interception for Page Links (SPA navigation)
   useEffect(() => {
@@ -137,54 +138,61 @@ export function useEditorHandlers({
     setShowLinkPanel(false);
   };
 
-  const handleBack = () => {
-    // Save current blocks instantly before navigating using the most current ref
-    saveNote(blocksToHtml(blocksRef.current), true);
+  const handleBack = async () => {
+    if (isDeletingRef?.current) return;
+
+    // Clear any pending save debounces and save instantly
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    
+    // Use the latest content from the editor/refs
+    const currentRefContent = blocksRef.current ? blocksToHtml(blocksRef.current) : editor.getHTML();
+    await saveNote(currentRefContent, true);
 
     const now = Date.now();
     const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
 
-    // Direct Home Redirection on Double Click
+    // If double pressed within 300ms, go straight home
     if (now - lastClickTime.current < 300) {
       navigate(`/${collabParam}`);
       return;
     }
     lastClickTime.current = now;
 
-    // Step-by-Step Back Navigation
+    // Preferred logic: if we have a parent, go to it. Otherwise home.
     if (note?.parentId) {
-      if (location.state?.fromParent) {
-        navigate(-1);
-      } else {
-        // Go to Parent Note if it exists with replace to prevent routing loops in history
-        navigate(`/editor/${note.parentId}${collabParam}`, { replace: true });
-      }
+      navigate(`/editor/${note.parentId}${collabParam}`, { replace: true });
     } else {
-      // Otherwise, go back in history or to Home
-      if (location.state?.fromOutside) {
-        navigate(-1);
-      } else {
-        navigate(`/${collabParam}`);
-      }
+      navigate(`/${collabParam}`);
     }
   };
 
   const updateTitle = (newTitle: string) => {
     setTitle(newTitle);
     titleRef.current = newTitle;
-    saveNote(editor.getHTML());
+    
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      saveNote(editor.getHTML());
+    }, 1000);
   };
 
   const updateDescription = (newDesc: string) => {
     setDescription(newDesc);
     descriptionRef.current = newDesc;
-    saveNote(editor.getHTML());
+    
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      saveNote(editor.getHTML());
+    }, 1500);
   };
 
   const updateEmoji = (newEmoji: string) => {
     setEmoji(newEmoji);
     emojiRef.current = newEmoji;
-    saveNote(editor.getHTML());
+    
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    // Emoji is a single click, can save faster or instantly
+    saveNote(editor.getHTML()); 
   };
 
   const handleDelete = async () => {

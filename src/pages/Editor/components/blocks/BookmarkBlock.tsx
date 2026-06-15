@@ -24,11 +24,22 @@ export const BookmarkBlock: React.FC<BookmarkBlockProps> = ({ block, setBlocks, 
     let validUrl = urlInput.trim();
     if (!validUrl.startsWith('http')) validUrl = 'https://' + validUrl;
     
-    setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? { 
-      ...b, 
-      meta: { ...b.meta, url: validUrl, status: 'ready', title: new URL(validUrl).hostname } 
-    } : b));
-    setShowPopup(false);
+    try {
+      const urlObj = new URL(validUrl);
+      setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? { 
+        ...b, 
+        meta: { ...b.meta, url: validUrl, status: 'ready', title: urlObj.hostname } 
+      } : b));
+      setShowPopup(false);
+    } catch (err) {
+      console.error('Invalid URL:', err);
+      // Fallback for invalid URLs that passed simple checks
+      setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? { 
+        ...b, 
+        meta: { ...b.meta, url: validUrl, status: 'ready', title: validUrl } 
+      } : b));
+      setShowPopup(false);
+    }
   };
 
   const handleBlockClick = () => {

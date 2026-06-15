@@ -33,7 +33,7 @@ export const EditorLockScreen: React.FC<EditorLockScreenProps> = ({
     const trimmedInput = passwordInput.trim();
     if (!trimmedInput) return;
     const hashed = await hashPassword(trimmedInput);
-    if (hashed === note.password || trimmedInput === note.password) {
+    if (hashed === note.password) {
       setIsUnlocked(true);
     } else {
       setNotification({ message: 'ভুল পাসওয়ার্ড!', type: 'error' });

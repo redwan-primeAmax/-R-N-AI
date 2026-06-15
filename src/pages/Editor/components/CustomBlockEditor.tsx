@@ -115,7 +115,8 @@ const MemoizedBlockRow = React.memo(({
   handleBlockChange,
   hasIndent,
   indentStyle,
-  currentHiddenIndent
+  currentHiddenIndent,
+  searchTerm
 }: any) => {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
@@ -375,7 +376,12 @@ const MemoizedBlockRow = React.memo(({
     </div>
   );
 }, (prev, next) => {
-  return prev.block === next.block && 
+  return prev.block.id === next.block.id && 
+         prev.block.content === next.block.content &&
+         prev.block.type === next.block.type &&
+         prev.block.indent === next.block.indent &&
+         prev.block.checked === next.block.checked &&
+         prev.block.isExpanded === next.block.isExpanded &&
          prev.idx === next.idx && 
          prev.hasIndent === next.hasIndent && 
          prev.currentHiddenIndent === next.currentHiddenIndent &&
@@ -456,6 +462,8 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
       lastActionRef.current = e.key;
     }
 
+    const target = e.target as HTMLElement;
+
     // Requirement: Nesting with Tab / Shift+Tab
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -486,29 +494,46 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
       }
 
       e.preventDefault();
-      const target = e.target as HTMLElement;
-      const html = target.innerHTML.trim();
-      const isListType = block.type === 'todo' || block.type === 'bullet' || block.type === 'ordered';
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      
+      const range = sel.getRangeAt(0);
+      const preRange = range.cloneRange();
+      preRange.selectNodeContents(target);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      const beforeHtml = preRange.cloneContents();
+      const divBefore = document.createElement('div');
+      divBefore.appendChild(beforeHtml);
+      const before = divBefore.innerHTML;
 
-      // Requirement 12: Enter twice on empty list or Backspace -> Revert to paragraph
-      if (isListType && (html === '' || html === '<br>' || html === '&nbsp;')) {
+      const postRange = range.cloneRange();
+      postRange.selectNodeContents(target);
+      postRange.setStart(range.endContainer, range.endOffset);
+      const afterHtml = postRange.cloneContents();
+      const divAfter = document.createElement('div');
+      divAfter.appendChild(afterHtml);
+      const after = divAfter.innerHTML;
+
+      const isListType = block.type === 'todo' || block.type === 'bullet' || block.type === 'ordered';
+      const cleanContent = target.textContent?.trim() || '';
+
+      // Requirement 12: Enter twice on empty list -> Revert to paragraph
+      if (isListType && cleanContent === '') {
         handleBlockTypeChange(block.id, 'paragraph');
-        lastActionRef.current = 'RevertToParagraph';
         return;
       }
-      
-      // Requirement: Auto indent for new block
-      addBlockAfter(block.id, isListType ? block.type : 'paragraph', block.indent || 0);
-      lastActionRef.current = 'CreateBlock';
-      return;
-    } else if (e.key === 'Backspace' && block.type !== 'table' && blocks.length > 1) {
-      const target = e.target as HTMLElement;
-      const cleanText = target.innerHTML.replace(/<[^>]*>/g, '').trim();
-      const isEmpty = (cleanText === '' || cleanText === '&nbsp;' || !target.textContent?.trim() || target.innerHTML === '<br>');
 
-      if (isEmpty) {
-        // If indented, backspace decreases indent first
-        if ((block.indent || 0) > 0) {
+      // Split the block
+      setBlocks((prev: EditorBlock[]) => prev.map(b => b.id === block.id ? { ...b, content: before } : b));
+      addBlockAfter(block.id, isListType ? block.type : 'paragraph', block.indent || 0, after);
+      return;
+    } else if (e.key === 'Backspace' && block.type !== 'table') {
+      const isIndented = (block.indent || 0) > 0;
+      const sel = window.getSelection();
+      const isAtStart = sel && sel.anchorOffset === 0 && (sel.anchorNode === target || (sel.anchorNode?.parentNode === target && !sel.anchorNode.previousSibling));
+
+      if (isAtStart) {
+        if (isIndented) {
           e.preventDefault();
           handleBlockIndentChange(block.id, (block.indent || 0) - 1);
           return;
@@ -516,24 +541,71 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
 
         if (block.type !== 'paragraph') {
           e.preventDefault();
-          target.innerHTML = ''; // reset element display
           handleBlockTypeChange(block.id, 'paragraph');
-        } else {
+          return;
+        }
+
+        // Merge with previous block
+        if (idx > 0) {
           e.preventDefault();
-          deleteBlock(block.id);
+          const prevBlock = blocks[idx - 1];
+          // We can only merge if the previous block is editable
+          if (['paragraph', 'h1', 'h2', 'h3', 'quote', 'todo', 'bullet', 'ordered', 'callout', 'synced'].includes(prevBlock.type)) {
+            const currentContent = target.innerHTML;
+            const prevContent = prevBlock.content;
+            
+            setBlocks((prev: EditorBlock[]) => {
+              const updated = prev.filter(b => b.id !== block.id);
+              return updated.map(b => b.id === prevBlock.id ? { ...b, content: prevContent + currentContent } : b);
+            });
+
+            setTimeout(() => {
+              const el = blockRefs.current[prevBlock.id];
+              if (el) {
+                el.focus();
+                // Place cursor at the merge point
+                const range = document.createRange();
+                const sel = window.getSelection();
+                if (sel) {
+                  // This is a bit complex to get perfectly right with mixed nodes, 
+                  // but focusing the end of the previous content is a good start.
+                  range.selectNodeContents(el);
+                  // Try to find the transition point? For now just go to end or similar.
+                  // For simplicity, we just collapse to where the old content ended.
+                  // But since we updated state, we might need a better way.
+                  range.collapse(false);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+              }
+            }, 50);
+          } else {
+            // If previous is not mergeable, just delete current if empty
+            if (target.textContent?.trim() === '') {
+              deleteBlock(block.id);
+            }
+          }
         }
       }
     } else if (e.key === 'ArrowUp') {
-      const prev = blocks[idx - 1];
-      if (prev) {
-        e.preventDefault();
-        blockRefs.current[prev.id]?.focus();
+      const sel = window.getSelection();
+      const isAtTop = !sel || sel.anchorOffset === 0; // Rough check
+      if (isAtTop && idx > 0) {
+        const prev = blocks[idx - 1];
+        if (prev) {
+          e.preventDefault();
+          blockRefs.current[prev.id]?.focus();
+        }
       }
     } else if (e.key === 'ArrowDown') {
-      const next = blocks[idx + 1];
-      if (next) {
-        e.preventDefault();
-        blockRefs.current[next.id]?.focus();
+      const sel = window.getSelection();
+      const isAtBottom = !sel || (sel.anchorOffset === target.textContent?.length); // Rough check
+      if (isAtBottom && idx < blocks.length - 1) {
+        const next = blocks[idx + 1];
+        if (next) {
+          e.preventDefault();
+          blockRefs.current[next.id]?.focus();
+        }
       }
     }
   };
@@ -543,17 +615,18 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
     setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === id ? { ...b, indent: newIndent } : b));
   };
 
-  const addBlockAfter = (id: string, type: EditorBlock['type'] = 'paragraph', indent: number = 0) => {
+  const addBlockAfter = (id: string, type: EditorBlock['type'] = 'paragraph', indent: number = 0, content: string = '', focusAtStart: boolean = true) => {
     if (!setBlocks) return;
     const newBlock: EditorBlock = {
       id: crypto.randomUUID(),
       type: type,
-      content: '',
+      content: content,
       indent: indent
     };
     
     setBlocks((prev: EditorBlock[]) => {
       const idx = prev.findIndex((b: EditorBlock) => b.id === id);
+      if (idx === -1) return prev;
       const updated = [...prev];
       updated.splice(idx + 1, 0, newBlock);
       return updated;
@@ -563,12 +636,15 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
       const el = blockRefs.current[newBlock.id];
       if (el) {
         el.focus();
+        if (focusAtStart) {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          range.collapse(true);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        // Retry once if DOM not ready
-        setTimeout(() => {
-           blockRefs.current[newBlock.id]?.focus();
-        }, 100);
       }
     }, 50);
   };
@@ -631,6 +707,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
             hasIndent={hasIndent}
             indentStyle={indentStyle}
             currentHiddenIndent={currentHiddenIndent}
+            searchTerm={editor.searchTerm}
           />
         );
       })}

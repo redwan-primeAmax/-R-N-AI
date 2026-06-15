@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Music, Video, FileText, Loader2, Pause, Play, Download } from 'lucide-react';
+import { cn } from '../../../../utils/cn';
 import { operationRunner } from '../../../../services/storage/OperationRunner';
 import { DataManager } from '../../../../services/storage/DataManager';
 import { EditorBlock } from '../../../../utils/blockParser';
@@ -16,7 +17,7 @@ interface MediaBlockProps {
 }
 
 export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
-  const { id, type, fileName, fileSize, status, url } = block.mediaData || {};
+  const { id, type, fileName, fileSize, status, url, width } = (block.mediaData || {}) as any;
   const [progress, setProgress] = useState(0);
   const [resolvedUrl, setResolvedUrl] = useState<string>(url || '');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -151,10 +152,49 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
   return (
     <div className="border border-white/5 rounded-2xl overflow-hidden bg-[#0a0a0a] shadow-xl group">
       {type === 'image' && (
-        <img src={resolvedUrl} referrerPolicy="no-referrer" className="w-full h-auto max-h-[60vh] object-contain" alt={fileName} />
+        <div className={cn(
+          "relative group/img transition-all mx-auto",
+          width === 'small' ? "max-w-[150px]" : width === 'medium' ? "max-w-md" : "w-full"
+        )}>
+           <img src={resolvedUrl} referrerPolicy="no-referrer" className="w-full h-auto max-h-[60vh] object-contain rounded-lg" alt={fileName} />
+           
+           {/* Width Controls */}
+           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/10 z-10">
+              {[
+                { id: 'small', label: 'S' },
+                { id: 'medium', label: 'M' },
+                { id: 'full', label: 'F' }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    setBlocks((prev: EditorBlock[]) => prev.map(b => b.id === block.id ? {
+                      ...b,
+                      mediaData: { ...b.mediaData!, width: opt.id as any }
+                    } : b));
+                  }}
+                  className={cn(
+                    "w-7 h-7 flex items-center justify-center text-[10px] font-black rounded-lg transition-all",
+                    width === opt.id || (!width && opt.id === 'full') ? "bg-white text-black" : "text-white/60 hover:bg-white/10"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+           </div>
+        </div>
       )}
       {type === 'video' && (
         <video src={resolvedUrl} controls className="w-full h-auto max-h-[60vh]" />
+      )}
+      {type === 'file' && (
+        <div className="flex flex-col items-center justify-center py-12 px-6 bg-white/[0.02]">
+           <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4">
+              <FileText size={32} className="text-white/20" />
+           </div>
+           <p className="text-sm font-bold text-white/80 mb-1">{fileName}</p>
+           <p className="text-[10px] font-black uppercase tracking-widest text-white/20">{fileSize || 'Unknown Size'}</p>
+        </div>
       )}
       <div className="flex items-center justify-between w-full p-4 border-t border-white/5 bg-white/[0.01]">
         <div className="flex items-center gap-3 overflow-hidden">

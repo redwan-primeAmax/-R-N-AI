@@ -6,6 +6,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Palette } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { THEME_METADATA } from '../../pages/Editor/themes/ThemeRegistry';
 import { useEffect, useState } from 'react';
 
 interface ThemeSelectorModalProps {
@@ -20,7 +21,7 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
 
   useEffect(() => {
     if (isOpen) {
-      return () => { };
+      setThemes(THEME_METADATA);
     }
   }, [isOpen]);
 

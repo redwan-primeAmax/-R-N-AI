@@ -101,7 +101,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[100] bg-transparent transition-colors px-4 h-14 flex items-center border-none">
+    <header className="fixed top-0 left-0 right-0 z-[100] bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-xl transition-colors px-4 h-14 flex items-center border-b border-black/5 dark:border-white/5">
       <AnimatePresence mode="wait">
         {isSearchActive ? (
           <motion.div 

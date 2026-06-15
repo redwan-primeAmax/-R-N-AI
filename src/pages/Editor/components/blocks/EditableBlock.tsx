@@ -17,6 +17,7 @@ interface EditableBlockProps {
   setFocusedId: (id: string | null) => void;
   editor: any;
   handleBlockChange: (id: string, content: string) => void;
+  searchTerm?: string;
 }
 
 export const EditableBlock = ({ 
@@ -27,7 +28,8 @@ export const EditableBlock = ({
   handleKeyDown, 
   setFocusedId, 
   editor, 
-  handleBlockChange 
+  handleBlockChange,
+  searchTerm
 }: EditableBlockProps) => {
   const localRef = React.useRef<HTMLDivElement | null>(null);
   const localValRef = React.useRef<string | null>(null);
@@ -36,13 +38,21 @@ export const EditableBlock = ({
   // This is crucial for remote updates and Undo/Redo
   React.useEffect(() => {
     if (localRef.current) {
-      const sanitized = DOMPurify.sanitize(block.content);
+      let contentToShow = block.content;
+      
+      // Apply search highlighting if searchTerm exists
+      if (searchTerm && searchTerm.length >= 2) {
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        contentToShow = block.content.replace(regex, '<mark class="search-result">$1</mark>');
+      }
+
+      const sanitized = DOMPurify.sanitize(contentToShow);
       if (localValRef.current !== block.content && localRef.current.innerHTML !== sanitized) {
         localRef.current.innerHTML = sanitized;
         localValRef.current = block.content;
       }
     }
-  }, [block.content]);
+  }, [block.content, searchTerm]);
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
     const rawHTML = e.currentTarget.innerHTML;
