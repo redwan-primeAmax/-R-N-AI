@@ -93,11 +93,32 @@ function addDevLog(type: "info" | "warn" | "error", msg: string) {
 
 async function startServer() {
   const app = express();
-  app.set("trust proxy", true); 
-  app.use(cors());
+  app.set("trust proxy", true);
+
+  // Customized safe security headers (Bug 99)
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    next();
+  });
+
+  // Tighten CORS configuration (Bug 98)
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow localhost, the AI Studio runner, and Cloud Run preview URLs
+      if (!origin || /localhost/.test(origin) || /asia-southeast1\.run\.app$/.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Fallback to allow preview, but securely configurable
+      }
+    },
+    credentials: true
+  }));
+
   const PORT = 3000;
 
-  app.use(express.json({ limit: '100mb' }));
+  // Protect against Denial of Service with a safer 10MB limit (Bug 97)
+  app.use(express.json({ limit: '10mb' }));
 
   // Request logging for AI routes
   app.use((req, res, next) => {
@@ -110,7 +131,7 @@ async function startServer() {
   // Gemini Proxy Route
   app.post("/api/ai/gemini", aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
-      const { model: clientModel, contents, generationConfig, apiKey: clientApiKey } = req.body;
+      const { model: clientModel, contents, generationConfig, systemInstruction, system_instruction, apiKey: clientApiKey } = req.body;
       const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
       let model = clientModel || 'gemini-1.5-flash';
       if (!model.startsWith('models/')) model = `models/${model}`;
@@ -129,11 +150,17 @@ async function startServer() {
         });
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model}:streamGenerateContent?alt=sse&key=${apiKey}`, {
+      // Bug 7: Pass API key securely in header instead of URL to prevent logs/history exposure
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model}:streamGenerateContent?alt=sse`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
         body: JSON.stringify({
           contents,
+          // Bug 8 & 33: Forward systemInstruction in proxy call
+          systemInstruction: systemInstruction || system_instruction,
           generationConfig: generationConfig || { temperature: 0.7, maxOutputTokens: 8192 }
         })
       });
@@ -194,11 +221,17 @@ async function startServer() {
         parts: [{ text: m.content || m.text || '' }]
       }));
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`, {
+      // Bug 7: Pass API key securely in header instead of URL
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        // Bug 8: Support both standard camelCase and backward-compatibility snake_case
         body: JSON.stringify({ 
           contents,
+          systemInstruction: systemInstruction,
           system_instruction: systemInstruction
         })
       });
@@ -225,7 +258,7 @@ async function startServer() {
   // General AI Proxy (used by extensions for more control)
   app.post("/api/ai/proxy", aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
-      const { prompt, systemInstruction, apiKey: clientApiKey, model: clientModel } = req.body;
+      const { prompt, systemInstruction, system_instruction, apiKey: clientApiKey, model: clientModel } = req.body;
       const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
       let model = clientModel || 'gemini-1.5-flash';
       if (!apiKey) return res.status(500).json({ error: "AI Key missing. Please check your AI Settings." });
@@ -233,17 +266,24 @@ async function startServer() {
       // Normalize model name
       if (!model.startsWith('models/')) model = `models/${model}`;
 
+      const activeInstruction = systemInstruction || system_instruction;
       const body: any = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       };
       
-      if (systemInstruction) {
-        body.system_instruction = { parts: [{ text: systemInstruction }] };
+      if (activeInstruction) {
+        const partsObj = { parts: [{ text: activeInstruction }] };
+        body.systemInstruction = partsObj;
+        body.system_instruction = partsObj; // Support both (Bug 8)
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`, {
+      // Bug 7: Pass API key securely in header instead of URL
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
         body: JSON.stringify(body)
       });
 

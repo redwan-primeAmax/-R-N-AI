@@ -5,6 +5,7 @@
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
 import { AIService, AIServiceOptions } from '../AIService';
+import { executeAICommands } from '../AICommandExecutor';
 import { SYSTEM_PROMPTS } from '../../../constants/prompts';
 
 const OPENROUTER_SYSTEM_PROMPT = SYSTEM_PROMPTS.OPENROUTER;
@@ -134,6 +135,11 @@ export const handleOpenRouterSendMessage = async (
     const aiMessage: ChatMessage = { role: 'model', text: response, timestamp: Date.now() };
     setMessages((prev: any) => [...prev, aiMessage]);
     await DataManager.saveChatMessage(aiMessage);
+    try {
+      await executeAICommands(response);
+    } catch (cmdErr) {
+      console.error('[OpenRouter] Command executor failed:', cmdErr);
+    }
     setStreamingMessage(null);
     setAiStatus('idle');
   } catch (err: any) {

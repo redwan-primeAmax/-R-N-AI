@@ -5,6 +5,7 @@
 
 import { AIService, AIServiceOptions } from '../AIService';
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
+import { executeAICommands } from '../AICommandExecutor';
 
 export class LocalHandler extends AIService {
   name = 'local';
@@ -62,6 +63,11 @@ export const handleLocalSendMessage = async (
     const assistantMessage: ChatMessage = { role: 'model', text: response, timestamp: Date.now() };
     
     setMessages((prev: any) => [...prev, assistantMessage]);
+    try {
+      await executeAICommands(response);
+    } catch (cmdErr) {
+      console.error('[Local] Command executor failed:', cmdErr);
+    }
     setStreamingMessage(null);
     await DataManager.saveChatMessage(assistantMessage);
   } catch (err: any) {

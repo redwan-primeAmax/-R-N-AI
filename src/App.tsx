@@ -203,7 +203,7 @@ function AppContent() {
     const handleAppNotification = (e: any) => {
       setNotification({
         message: e.detail.message,
-        severity: e.detail.type === 'success' ? 'warning' : 'warning' // Map types to existing UI
+        severity: e.detail.type === 'success' ? 'success' : 'warning'
       });
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => setNotification(null), 4000);
@@ -245,7 +245,7 @@ function AppContent() {
 
     bootstrap();
 
-    const handleOpenExternal = () => navigate('/ai/external-import');
+    const handleOpenExternal = () => navigate('/external-ai-import');
     const handleOpenSearch = () => navigate('/search');
 
     window.addEventListener('open-external-import', handleOpenExternal);
@@ -411,7 +411,9 @@ function AppContent() {
               "px-6 py-4 rounded-2xl border shadow-2xl flex items-center gap-4",
               notification.severity === 'error' 
                 ? "bg-red-500/90 text-white border-red-400 backdrop-blur-xl" 
-                : "bg-yellow-500/90 text-black border-yellow-400 backdrop-blur-xl"
+                : notification.severity === 'success'
+                  ? "bg-emerald-600/95 text-white border-emerald-500 backdrop-blur-xl"
+                  : "bg-yellow-500/90 text-black border-yellow-400 backdrop-blur-xl"
             )}>
               <div className="shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <AlertCircle size={20} />

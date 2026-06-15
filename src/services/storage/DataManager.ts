@@ -43,9 +43,36 @@ const localSyncEmitter = new EventTarget();
 
 // Tracking active object URLs to prevent memory leaks (Bug 10)
 const activeObjectUrls = new Set<string>();
+const objectUrlToMediaId = new Map<string, string>(); // Bug 2: reverse object URL mapping
+
+// Helper to convert Blob to Base64 (Bug 3)
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1] || '';
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Helper to convert Base64 back to Blob (Bug 3)
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
 
 syncChannel.onmessage = (event) => {
-  const type = event.data.type || '';
+  if (event.data?.senderId === clientId) return; // Prevent self-message loop (Bug 6)
+  const type = event.data?.type || '';
   if (type.includes('NOTE') || type.includes('CACHE_INVALIDATED') || type.includes('PERMANENT')) {
     // Force full invalidation on receiver side too (cross-tab safety)
     DataManager.invalidateNotesCache(`broadcast:${type}`);
@@ -74,6 +101,7 @@ const notifySync = (data: any) => {
 
 // In-memory cache for speed with race-condition protection
 let cachedNotes: Note[] | null = null;
+let cachedWorkspaceId: string | null = null; // Bug 15: Validate workspace of cached notes
 let notesLoadingPromise: Promise<Note[]> | null = null;
 let cachedSettings: AISettings | null = null;
 let isSyncing = false;
@@ -112,7 +140,60 @@ const scheduleIndexing = (note: Note) => {
 const ENCRYPTION_KEY_RAW = 'redwan-ai-super-secret-key-2024';
 const SALT = 'redwan-salt';
 
+let derivedKeyCache: CryptoKey | null = null;
 async function getEncryptionKey() {
+  if (derivedKeyCache) return derivedKeyCache;
+
+  let customKey = ENCRYPTION_KEY_RAW;
+  let customSalt = SALT;
+  try {
+    const storedKey = await db.key_value_pairs.get('user_encryption_key_seed');
+    if (storedKey && storedKey.value) {
+      customKey = storedKey.value;
+    } else {
+      const randomSeed = crypto.randomUUID() + '-' + crypto.randomUUID();
+      await db.key_value_pairs.put({ key: 'user_encryption_key_seed', value: randomSeed });
+      customKey = randomSeed;
+    }
+
+    const storedSalt = await db.key_value_pairs.get('user_encryption_salt_seed');
+    if (storedSalt && storedSalt.value) {
+      customSalt = storedSalt.value;
+    } else {
+      const randomSalt = crypto.randomUUID();
+      await db.key_value_pairs.put({ key: 'user_encryption_salt_seed', value: randomSalt });
+      customSalt = randomSalt;
+    }
+  } catch (e) {
+    console.warn('DataManager: Could not fetch user custom encryption keys, falling back to static:', e);
+  }
+
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(customKey),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  derivedKeyCache = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(customSalt),
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+  return derivedKeyCache;
+}
+
+let staticKeyCache: CryptoKey | null = null;
+async function getStaticEncryptionKey() {
+  if (staticKeyCache) return staticKeyCache;
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -121,7 +202,7 @@ async function getEncryptionKey() {
     false,
     ['deriveKey']
   );
-  return await crypto.subtle.deriveKey(
+  staticKeyCache = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
       salt: encoder.encode(SALT),
@@ -133,6 +214,7 @@ async function getEncryptionKey() {
     false,
     ['encrypt', 'decrypt']
   );
+  return staticKeyCache;
 }
 
 const encrypt = async (text: string) => {
@@ -162,9 +244,6 @@ const encrypt = async (text: string) => {
 const decrypt = async (encoded: string) => {
   if (!encoded) return '';
   try {
-    // If it's too short to be a valid AES-GCM payload (12 IV + 16 Tag = 28 bytes)
-    // Base64 of 28 bytes is around 38-40 characters.
-    // If it's much shorter, it's likely a plain text key from an older version.
     if (encoded.length < 28) return encoded;
 
     let binaryString;
@@ -185,15 +264,24 @@ const decrypt = async (encoded: string) => {
 
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
-    const key = await getEncryptionKey();
     
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      data
-    );
-    
-    return new TextDecoder().decode(decrypted);
+    try {
+      const key = await getEncryptionKey();
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        data
+      );
+      return new TextDecoder().decode(decrypted);
+    } catch (err) {
+      const staticKey = await getStaticEncryptionKey();
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        staticKey,
+        data
+      );
+      return new TextDecoder().decode(decrypted);
+    }
   } catch (e) {
     // Silently return original if decryption fails (likely plain text or old format)
     return encoded;
@@ -458,7 +546,8 @@ export const DataManager = {
   // --- Notes Operations ---
   
   async getAllNotes(forceRefresh: boolean = false): Promise<Note[]> {
-    if (!forceRefresh && cachedNotes !== null) {
+    const currentWorkspaceId = await this.getActiveWorkspaceId();
+    if (!forceRefresh && cachedNotes !== null && cachedWorkspaceId === currentWorkspaceId) {
       return cachedNotes;
     }
 
@@ -485,6 +574,7 @@ export const DataManager = {
               if (defaults.length > 0) {
                 if (thisVersion === cacheVersion) {
                   cachedNotes = filteredDefault;
+                  cachedWorkspaceId = currentWorkspaceId;
                 }
                 return filteredDefault;
               }
@@ -501,6 +591,7 @@ export const DataManager = {
         }
 
         cachedNotes = notes;
+        cachedWorkspaceId = currentWorkspaceId;
         return notes;
       } finally {
         // Only clear the promise if no newer invalidation happened during our load
@@ -525,6 +616,7 @@ export const DataManager = {
     const hadPromise = notesLoadingPromise !== null;
 
     cachedNotes = null;
+    cachedWorkspaceId = null;
     notesLoadingPromise = null;
     this.resetStorageCache();
 
@@ -543,7 +635,10 @@ export const DataManager = {
     console.warn(`[DataManager] CACHE INVALIDATED (v${cacheVersion} from ${oldVersion}). Reason: ${reason}. Had cached=${hadCached}, hadPromise=${hadPromise}`);
 
     // Notify everyone (UI + cross-tab) that notes are now dirty
-    notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason, version: cacheVersion });
+    // Fix Bug 5: Only broadcast if we didn't receive this from a broadcast!
+    if (!reason.startsWith('broadcast:')) {
+      notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason, version: cacheVersion });
+    }
     window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason, version: cacheVersion } }));
     window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason, version: cacheVersion } }));
   },
@@ -625,10 +720,23 @@ export const DataManager = {
     const preferences = await this.getUserPreferences();
     const userName = await this.getFullUserName();
 
+    // Convert all media blobs to base64 safely (Bug 3 / 66)
+    const mediaWithBase64 = [];
+    for (const m of media) {
+      if (m.blob) {
+        try {
+          const base64 = await blobToBase64(m.blob);
+          mediaWithBase64.push({ id: m.id, base64, mimeType: m.blob.type });
+        } catch (e) {
+          console.error("Failed to export media item:", m.id, e);
+        }
+      }
+    }
+
     const backupData = {
       notes,
       workspaces,
-      media: media.map(m => ({ id: m.id, blob: m.blob })),
+      media: mediaWithBase64,
       settings,
       preferences,
       userName,
@@ -640,8 +748,6 @@ export const DataManager = {
     const json = JSON.stringify(backupData);
     const encrypted = await encrypt(json);
     
-    // Obfuscate further by adding random noise or different encoding if needed
-    // For now, AES-GCM + Base64 is quite strong.
     return encrypted;
   },
 
@@ -678,6 +784,11 @@ export const DataManager = {
     const json = await decrypt(anonData);
     const data = JSON.parse(json);
     
+    // Bug 89: Validate required fields are arrays before destructing/iterating
+    if (!data || !Array.isArray(data.notes) || !Array.isArray(data.workspaces)) {
+      throw new Error("Invalid backup file: 'notes' and 'workspaces' are required arrays. (অকার্যকর ব্যাকআপ ফাইল)");
+    }
+
     const { notes, workspaces, media, settings, preferences, userName } = data;
 
     // Robustly filter/clamp notes so no workspace has more than 10,000 notes
@@ -707,7 +818,13 @@ export const DataManager = {
       await db.workspaces.bulkPut(workspaces);
       
       if (media && Array.isArray(media)) {
-        await db.media.bulkPut(media);
+        const mediaRecords = media.map((m: any) => {
+          if (m.base64 && m.mimeType) {
+            return { id: m.id, blob: base64ToBlob(m.base64, m.mimeType) };
+          }
+          return m; // fallback
+        });
+        await db.media.bulkPut(mediaRecords);
       }
       
       if (settings) await this.saveAISettings(settings);
@@ -721,7 +838,11 @@ export const DataManager = {
     
     // Notify other tabs
     syncChannel.postMessage({ type: 'SYNC_COMPLETE' });
-    window.location.reload(); // Refresh to ensure all states are clean
+    
+    // Bug 90: Add a small delay/timeout before page reload to ensure all async writes/events successfully commit
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   },
 
   async getNotesPaginated(page: number, pageSize: number): Promise<{ notes: Note[], hasMore: boolean }> {
@@ -910,8 +1031,8 @@ export const DataManager = {
     if (!existing) {
         // V2 WELCOME NOTE PERMANENT DELETE FIX
         // We no longer blindly allow 'welcome' ID. If user permanently deleted it, we respect that.
-        // Only allow very short IDs (new client-generated) or very recent creations.
-        const isActuallyNew = note.id.length < 30 || (Date.now() - note.createdAt < 5000);
+        // Only allow very short IDs (new client-generated) or very recent creations (Bug 20: 10 mins instead of 5s).
+        const isActuallyNew = note.id.length < 30 || (Date.now() - note.createdAt < 600000) || (note as any).isImported;
         // NOTE: We deliberately removed the 'includes("welcome")' special case.
         // If someone tries to save the old welcome ID after permanent delete, it will now be blocked (correct behavior).
         if (!isActuallyNew) {
@@ -945,6 +1066,9 @@ export const DataManager = {
 
     if (isNew) {
       let finalTitle = note.title;
+      if (!finalTitle || !finalTitle.trim()) {
+        finalTitle = 'Untitled'; // Bug 21: Default empty title to "Untitled"
+      }
       let counter = 1;
       
       const checkTitleExists = async (title: string) => {
@@ -958,7 +1082,7 @@ export const DataManager = {
       };
 
       while (await checkTitleExists(finalTitle)) {
-        finalTitle = `${note.title} (${counter})`;
+        finalTitle = `${note.title || 'Untitled'} (${counter})`;
         counter++;
       }
       note.title = finalTitle;
@@ -1348,7 +1472,9 @@ export const DataManager = {
       if (blob) {
         const url = URL.createObjectURL(blob);
         activeObjectUrls.add(url);
-        resolved = resolved.replace(match[0], url);
+        objectUrlToMediaId.set(url, mediaId);
+        // Bug 17: Replace ALL occurrences of the blob-id with the object URL
+        resolved = resolved.split(match[0]).join(url);
       }
     }
     
@@ -1368,15 +1494,22 @@ export const DataManager = {
       }
     });
     activeObjectUrls.clear();
+    objectUrlToMediaId.clear(); // Clear mapping too
   },
 
   async extractMediaFromContent(content: string): Promise<string> {
     if (!content) return '';
-    if (!content.includes('data:image/')) return content;
+
+    // Bug 2: Convert active object URLs back to blob-id first
+    let processed = content;
+    objectUrlToMediaId.forEach((mediaId, url) => {
+      processed = processed.split(url).join(`blob-id:${mediaId}`);
+    });
+
+    if (!processed.includes('data:image/')) return processed;
     
     const base64Regex = /src="data:image\/([a-zA-Z]*);base64,([^"]*)"/g;
-    let processed = content;
-    const matches = Array.from(content.matchAll(base64Regex));
+    const matches = Array.from(processed.matchAll(base64Regex));
     
     for (const match of matches) {
       const mimeType = `image/${match[1]}`;
@@ -1392,7 +1525,8 @@ export const DataManager = {
         const blob = new Blob([byteArray], { type: mimeType });
         
         const mediaId = await this.saveMedia(blob);
-        processed = processed.replace(match[0], `src="blob-id:${mediaId}"`);
+        // Bug 17: Replace ALL occurrences of base64
+        processed = processed.split(match[0]).join(`src="blob-id:${mediaId}"`);
       } catch (e) {
         console.error('Failed to extract media:', e);
       }

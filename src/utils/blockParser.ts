@@ -58,7 +58,7 @@ export function cleanBlockHTML(html: string, blockType: string): string {
     const nestedHeadings = body.querySelectorAll('h1, h2, h3, p');
     nestedHeadings.forEach(h => {
       const parent = h.parentNode;
-      if (parent) {
+      if (parent && parent !== body) { // Fix bug 19: Only flatten nested descendants
         const docFrag = doc.createDocumentFragment();
         while (h.firstChild) {
           docFrag.appendChild(h.firstChild);
@@ -338,78 +338,126 @@ export function htmlToBlocks(html: string): EditorBlock[] {
 export function blocksToHtml(blocks: EditorBlock[]): string {
   let html = '';
 
+  let activeOrderedList: { indent: number } | null = null;
+  let activeBulletList: { indent: number } | null = null;
+  let activeTodoList: { indent: number } | null = null;
+
+  const closeActiveLists = (except?: 'ordered' | 'bullet' | 'todo') => {
+    if (activeOrderedList && except !== 'ordered') {
+      html += '</ol>';
+      activeOrderedList = null;
+    }
+    if (activeBulletList && except !== 'bullet') {
+      html += '</ul>';
+      activeBulletList = null;
+    }
+    if (activeTodoList && except !== 'todo') {
+      html += '</ul>';
+      activeTodoList = null;
+    }
+  };
+
   blocks.forEach((block) => {
+    const indent = block.indent || 0;
+
+    if (block.type === 'ordered') {
+      closeActiveLists('ordered');
+      if (!activeOrderedList || activeOrderedList.indent !== indent) {
+        if (activeOrderedList) { html += '</ol>'; }
+        html += `<ol data-type="ordered" style="margin-left: ${indent * 24}px">`;
+        activeOrderedList = { indent };
+      }
+      html += `<li>${block.content || ''}</li>`;
+      return;
+    }
+
+    if (block.type === 'bullet') {
+      closeActiveLists('bullet');
+      if (!activeBulletList || activeBulletList.indent !== indent) {
+        if (activeBulletList) { html += '</ul>'; }
+        html += `<ul data-type="bullet" style="margin-left: ${indent * 24}px">`;
+        activeBulletList = { indent };
+      }
+      html += `<li>${block.content || ''}</li>`;
+      return;
+    }
+
+    if (block.type === 'todo') {
+      closeActiveLists('todo');
+      if (!activeTodoList || activeTodoList.indent !== indent) {
+        if (activeTodoList) { html += '</ul>'; }
+        html += `<ul data-type="taskList" style="margin-left: ${indent * 24}px">`;
+        activeTodoList = { indent };
+      }
+      html += `<li class="${block.checked ? 'checked task-item-modern' : 'task-item-modern'}" data-checked="${block.checked ? 'true' : 'false'}"><input type="checkbox" ${block.checked ? 'checked' : ''} disabled><label>${block.content || ''}</label></li>`;
+      return;
+    }
+
+    // For any other blocks, close all open lists
+    closeActiveLists();
+
     switch (block.type) {
       case 'toc':
-        html += `<div class="toc-block" data-type="toc" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="toc-block" data-type="toc" style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'synced':
-        html += `<div class="synced-block" data-type="synced" data-synced-id="${block.syncedBlockId || ''}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        html += `<div class="synced-block" data-type="synced" data-synced-id="${block.syncedBlockId || ''}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h1':
-        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h2':
-        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h3':
-        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'database': {
         const dbJson = encodeURIComponent(JSON.stringify(block.databaseData || {}));
-        html += `<div class="database-block" data-type="database" data-database="${dbJson}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="database-block" data-type="database" data-database="${dbJson}" style="margin-left: ${indent * 24}px"></div>`;
         break;
       }
       case 'embed':
-        html += `<div class="embed-block" data-type="embed" data-provider="${block.embedData?.provider || 'custom'}" data-url="${block.embedData?.url || ''}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="embed-block" data-type="embed" data-provider="${block.embedData?.provider || 'custom'}" data-url="${block.embedData?.url || ''}" style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'table_view':
-        html += `<div class="table-view-block" data-type="table_view" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="table-view-block" data-type="table_view" style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'bookmark':
-        html += `<div class="bookmark-block" data-type="bookmark" data-url="${block.meta?.url || ''}" data-status="${block.meta?.status || 'empty'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="bookmark-block" data-type="bookmark" data-url="${block.meta?.url || ''}" data-status="${block.meta?.status || 'empty'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'audio_generator':
-        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'column':
-        html += `<div class="column-block" data-type="column" data-col1="${encodeURIComponent(block.col1Content || '')}" data-col2="${encodeURIComponent(block.col2Content || '')}" style="margin-left: ${(block.indent || 0) * 24}px"></div>`;
+        html += `<div class="column-block" data-type="column" data-col1="${encodeURIComponent(block.col1Content || '')}" data-col2="${encodeURIComponent(block.col2Content || '')}" style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'page_link':
-        html += `<div class="page-link-block" data-type="page_link" data-subpageid="${block.subPageId || ''}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content || ''}</div>`;
+        html += `<div class="page-link-block" data-type="page_link" data-subpageid="${block.subPageId || ''}" style="margin-left: ${indent * 24}px">${block.content || ''}</div>`;
         break;
       case 'paragraph':
-        html += `<p style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</p>`;
+        html += `<p style="margin-left: ${indent * 24}px">${block.content}</p>`;
         break;
       case 'h1':
-        html += `<h1 style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</h1>`;
+        html += `<h1 style="margin-left: ${indent * 24}px">${block.content}</h1>`;
         break;
       case 'h2':
-        html += `<h2 style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</h2>`;
+        html += `<h2 style="margin-left: ${indent * 24}px">${block.content}</h2>`;
         break;
       case 'h3':
-        html += `<h3 style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</h3>`;
+        html += `<h3 style="margin-left: ${indent * 24}px">${block.content}</h3>`;
         break;
       case 'quote':
-        html += `<blockquote style="margin-left: ${(block.indent || 0) * 24}px">${block.content}</blockquote>`;
+        html += `<blockquote style="margin-left: ${indent * 24}px">${block.content}</blockquote>`;
         break;
       case 'hr':
-        html += `<hr style="margin-left: ${(block.indent || 0) * 24}px" />`;
-        break;
-      case 'bullet':
-        html += `<ul data-type="bullet" style="margin-left: ${(block.indent || 0) * 24}px"><li>${block.content}</li></ul>`;
-        break;
-      case 'ordered':
-        html += `<ol data-type="ordered" style="margin-left: ${(block.indent || 0) * 24}px"><li>${block.content}</li></ol>`;
-        break;
-      case 'todo':
-        html += `<ul data-type="taskList" style="margin-left: ${(block.indent || 0) * 24}px"><li class="${block.checked ? 'checked task-item-modern' : 'task-item-modern'}" data-checked="${block.checked ? 'true' : 'false'}"><input type="checkbox" ${block.checked ? 'checked' : ''} disabled><label>${block.content}</label></li></ul>`;
+        html += `<hr style="margin-left: ${indent * 24}px" />`;
         break;
       case 'toggle':
-        html += `<div class="toggle-list" data-type="toggle" style="margin-left: ${(block.indent || 0) * 24}px" data-expanded="${block.isExpanded ? 'true' : 'false'}">${block.content}</div>`;
+        html += `<div class="toggle-list" data-type="toggle" style="margin-left: ${indent * 24}px" data-expanded="${block.isExpanded ? 'true' : 'false'}">${block.content}</div>`;
         break;
       case 'code':
-        html += `<pre style="margin-left: ${(block.indent || 0) * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
+        html += `<pre style="margin-left: ${indent * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
         break;
       case 'callout':
         html += `<div class="callout" data-type="callout" data-emoji="${block.emoji || '💡'}">${block.content}</div>`;
@@ -444,11 +492,14 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         {
           // Extension block serialization
           const metaStr = block.meta ? encodeURIComponent(JSON.stringify(block.meta)) : '';
-          html += `<div class="extension-block" data-type="${block.type}" data-meta="${metaStr}" style="margin-left: ${(block.indent || 0) * 24}px">${block.content || ''}</div>`;
+          html += `<div class="extension-block" data-type="${block.type}" data-meta="${metaStr}" style="margin-left: ${indent * 24}px">${block.content || ''}</div>`;
           break;
         }
     }
   });
+
+  // Final list cleanup
+  closeActiveLists();
 
   return html;
 }

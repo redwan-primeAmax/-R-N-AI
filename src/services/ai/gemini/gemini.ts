@@ -5,6 +5,7 @@
 
 import { DataManager, ChatMessage, Note, ContextSummary } from '../../storage/DataManager';
 import { AIService, AIServiceOptions } from '../AIService';
+import { executeAICommands } from '../AICommandExecutor';
 
 export const GEMINI_SYSTEM_PROMPT = `You are the Redwan Assistant (Gemini Edition).
 You are a professional Content Creator and AI Architect for a Notion-style editor.
@@ -199,6 +200,11 @@ export const handleGeminiSendMessage = async (
     const aiMessage: ChatMessage = { role: 'model', text: response, timestamp: Date.now() };
     setMessages((prev: ChatMessage[]) => [...prev, aiMessage]);
     await DataManager.saveChatMessage(aiMessage);
+    try {
+      await executeAICommands(response);
+    } catch (cmdErr) {
+      console.error('[Gemini] Command executor failed:', cmdErr);
+    }
     setStreamingMessage(null);
     setAiStatus('idle');
   } catch (err: any) {
