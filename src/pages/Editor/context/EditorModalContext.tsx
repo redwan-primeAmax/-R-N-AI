@@ -31,6 +31,8 @@ export interface EditorModalContextType {
   setShowTagPrompt: (val: boolean) => void;
   showExportModal: boolean;
   setShowExportModal: (val: boolean) => void;
+  showBookmarkModal: boolean;
+  setShowBookmarkModal: (val: boolean) => void;
   showLinkPanel: boolean;
   setShowLinkPanel: (val: boolean) => void;
   isUploading: boolean;

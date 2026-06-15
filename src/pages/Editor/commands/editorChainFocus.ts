@@ -4,7 +4,7 @@
  */
 
 export function focusEditor(activeBlockId: string | null) {
-  setTimeout(() => {
+  const applyFocus = () => {
     let idToFocus = activeBlockId;
     if (!idToFocus) {
       const activeEls = document.querySelectorAll('[contenteditable="true"]');
@@ -15,16 +15,20 @@ export function focusEditor(activeBlockId: string | null) {
     if (idToFocus) {
       const el = document.getElementById(idToFocus);
       if (el) {
-        el.focus();
-        try {
-          const range = document.createRange();
-          range.selectNodeContents(el);
-          range.collapse(false);
-          const sel = window.getSelection();
-          sel?.removeAllRanges();
-          sel?.addRange(range);
-        } catch (err) {}
+        if (document.activeElement !== el) {
+          el.focus();
+        }
       }
     }
-  }, 50);
+  };
+
+  // If already focused on something in the editor, don't use timeout to avoid race conditions
+  if (document.activeElement instanceof HTMLElement && 
+      (document.activeElement.hasAttribute('contenteditable') || 
+       document.activeElement.getAttribute('data-block-id'))) {
+    applyFocus();
+  } else {
+    // Small timeout only if entirely outside to ensure DOM stability
+    setTimeout(applyFocus, 10);
+  }
 }

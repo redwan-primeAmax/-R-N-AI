@@ -115,37 +115,6 @@ const SettingsPage: React.FC = () => {
           description: "মুছে ফেলা কন্টেন্ট পুনরুদ্ধার করুন",
           path: "/recycle-bin",
           iconColor: "text-red-400"
-        },
-        {
-          icon: RotateCcw,
-          title: "ডিফল্ট নোট রিস্টোর",
-          description: "মুছে ফেলা 'ওয়েলকাম নোট' আবার ফিরে পেতে এটি ব্যবহার করুন",
-          onClick: async () => {
-            if (window.confirm('ডিফল্ট ওয়েলকাম নোট আবার ফিরিয়ে আনতে চান?')) {
-              await DataManager.resetToDefaultWelcomeNote();
-              alert('ওয়েলকাম নোট সফলভাবে রিস্টোর করা হয়েছে।');
-            }
-          },
-          iconColor: "text-indigo-400"
-        }
-      ]
-    },
-    {
-      label: "সুরক্ষা এবং সিস্টেম",
-      tiles: [
-        {
-          icon: Shield,
-          title: "নেটওয়ার্ক শিল্ড",
-          description: "ব্রাউজার সিকিউরিটি এবং প্রাইভেসি কন্ট্রোল",
-          path: "/network-shield",
-          iconColor: "text-emerald-400"
-        },
-        {
-          icon: Lock,
-          title: "প্রাইভেসি এবং ভল্ট",
-          description: "পাসওয়ার্ড ম্যানেজমেন্ট এবং সুরক্ষিত ভল্ট",
-          path: "/ai/settings", // We'll link to specific section or handle in general settings
-          iconColor: "text-amber-400"
         }
       ]
     },

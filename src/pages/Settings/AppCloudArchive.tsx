@@ -76,7 +76,7 @@ export default function AppCloudArchive() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white p-6">
+    <div className="min-h-screen bg-[#0A0A0A] text-white p-6 pb-40">
       <header className="flex items-center gap-4 mb-12">
         <button 
           onClick={() => navigate(-1)}

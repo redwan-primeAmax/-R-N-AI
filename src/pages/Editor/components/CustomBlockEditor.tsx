@@ -433,7 +433,17 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
       setTimeout(() => {
         const prevBlock = updated[idx - 1] || updated[idx];
         if (prevBlock) {
-          blockRefs.current[prevBlock.id]?.focus();
+          const el = blockRefs.current[prevBlock.id];
+          if (el) {
+            el.focus();
+            // Move cursor to end
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          }
         }
       }, 50);
       
@@ -494,7 +504,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
     } else if (e.key === 'Backspace' && block.type !== 'table' && blocks.length > 1) {
       const target = e.target as HTMLElement;
       const cleanText = target.innerHTML.replace(/<[^>]*>/g, '').trim();
-      const isEmpty = cleanText === '' || cleanText === '&nbsp;' || !target.textContent?.trim();
+      const isEmpty = (cleanText === '' || cleanText === '&nbsp;' || !target.textContent?.trim() || target.innerHTML === '<br>');
 
       if (isEmpty) {
         // If indented, backspace decreases indent first
@@ -550,7 +560,16 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
     });
 
     setTimeout(() => {
-      blockRefs.current[newBlock.id]?.focus();
+      const el = blockRefs.current[newBlock.id];
+      if (el) {
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        // Retry once if DOM not ready
+        setTimeout(() => {
+           blockRefs.current[newBlock.id]?.focus();
+        }, 100);
+      }
     }, 50);
   };
 

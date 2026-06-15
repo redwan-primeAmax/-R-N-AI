@@ -7,7 +7,7 @@ import Dexie, { type Table } from 'dexie';
 import localforage from 'localforage';
 import { 
   Note, Workspace, NoteVersion, ChatMessage, 
-  AITask, ContextSummary, AISettings, UserPreferences 
+  AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder 
 } from '../../types';
 
 export interface KeyValuePair {
@@ -29,18 +29,20 @@ export class NotionCloneDexieDB extends Dexie {
   media!: Table<MediaRecord, string>;
   key_value_pairs!: Table<KeyValuePair, string>;
   extension_projects!: Table<any, string>;
+  bookmark_folders!: Table<BookmarkFolder, string>;
 
   constructor() {
     super('NotionCloneDexie');
-    this.version(3).stores({
-      notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, updatedAt, [workspaceId+isTrashed]',
+    this.version(4).stores({
+      notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, [workspaceId+isTrashed]',
       workspaces: 'id, name, createdAt',
       chat_history: '++id, timestamp',
       ai_tasks: 'id, status, createdAt, updatedAt',
       note_versions: 'id, noteId, createdAt',
       media: 'id',
       key_value_pairs: 'key',
-      extension_projects: 'id, workspaceId'
+      extension_projects: 'id, workspaceId',
+      bookmark_folders: 'id, name, parentId'
     });
   }
 }

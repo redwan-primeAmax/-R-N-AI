@@ -71,7 +71,7 @@ export default function RecentBackups() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white p-6 pb-20">
+    <div className="min-h-screen bg-[#0A0A0A] text-white p-6 pb-40">
       <header className="flex items-center gap-4 mb-10">
         <button 
           onClick={() => navigate(-1)}

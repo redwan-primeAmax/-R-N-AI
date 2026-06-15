@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Check, FileText, MoreVertical } from 'lucide-react';
+import { Check, FileText, MoreVertical, Lock } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -29,15 +29,20 @@ export const NoteCard = React.memo<NoteCardProps>(({
   onClick,
   onMoreClick
 }) => {
-  const description = note.description || 'No Description';
-  const truncatedDesc = description.length > 60 ? description.substring(0, 57) + '...' : description;
-
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const mouseXSpring = useSpring(x);
   const mouseYSpring = useSpring(y);
   const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["7deg", "-7deg"]);
   const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-7deg", "7deg"]);
+
+  // Determine a stable random background based on ID
+  const cardBackground = React.useMemo(() => {
+    const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return hash % 2 === 0 
+      ? "radial-gradient(circle, #c1c9b5, #736868)" 
+      : "linear-gradient(360deg, #c1c9b5, #736868)";
+  }, [note.id]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -71,31 +76,19 @@ export const NoteCard = React.memo<NoteCardProps>(({
       }}
       onClick={() => onClick(note.id)}
       className={cn(
-        "relative group rounded-[32px] p-0.5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[220px] [perspective:1000px] touch-manipulation",
-        "bg-gradient-to-b from-[#4d5b6b] to-[#1a1f26] shadow-[0_10px_40px_rgba(0,0,0,0.7)]",
+        "relative group rounded-[32px] p-0.5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[220px] [perspective:1000px] touch-manipulation shadow-[0_10px_40px_rgba(0,0,0,0.7)]",
         isSelected && "ring-2 ring-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]"
       )}
     >
       <div 
-        style={{ transform: "translateZ(50px)" }}
-        className="absolute inset-[3px] rounded-[29px] bg-[#1a2332] flex flex-col p-6 overflow-hidden"
+        style={{ 
+          transform: "translateZ(50px)",
+          background: cardBackground
+        }}
+        className="absolute inset-[3px] rounded-[29px] flex flex-col p-6 overflow-hidden"
       >
-        {/* Subtle Inner Glow Layer */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#24334d] via-[#0f172a] to-[#050810] opacity-90" />
-        
-        {/* Texture Overlay - Locked at 100% visibility per developer instructions */}
-        <div 
-          className="absolute inset-0 opacity-100 pointer-events-none z-0"
-          style={{ 
-            backgroundImage: "url('/textures/web_note_card_bg.png')",
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
-          }}
-        />
-        
         {/* Subtle Highlight line at the top inner */}
-        <div className="absolute top-[1px] left-[10%] right-[10%] h-[1px] bg-white/5 blur-[0.5px] z-10" />
+        <div className="absolute top-[1px] left-[10%] right-[10%] h-[1px] bg-white/10 blur-[0.5px] z-10" />
 
         <div className="relative z-20 flex flex-col h-full gap-4 max-w-full">
           <div className="flex items-start justify-between min-h-[44px]">
@@ -131,30 +124,33 @@ export const NoteCard = React.memo<NoteCardProps>(({
           </div>
           
           <div className="mt-1 min-w-0 flex-1 flex flex-col gap-2 overflow-hidden">
-            <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-4">
               <div 
-                className="w-14 h-14 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 transition-all duration-500 group-hover:scale-110 group-hover:bg-white/[0.05] group-hover:border-white/10 shrink-0"
+                className="w-16 h-16 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 transition-all duration-500 group-hover:scale-105 group-hover:bg-white/[0.05] group-hover:border-white/10 shrink-0"
               >
                 {note.emoji ? (
                   <span className="text-4xl drop-shadow-lg leading-none">{note.emoji}</span>
                 ) : (
-                  <FileText size={28} className="text-white/30" />
+                  <FileText size={32} className="text-white/30" />
                 )}
               </div>
-              <h3 className="font-bold text-[19px] leading-tight tracking-tight text-white/95 group-hover:text-white transition-colors truncate block">
-                {note.title || 'শিরোনামহীন চিন্তা'}
-              </h3>
+              <div className="flex-1 min-w-0 pt-1">
+                <h3 className="font-bold text-[20px] leading-tight tracking-tight text-white/95 group-hover:text-white transition-colors truncate block">
+                  {note.title || 'শিরোনামহীন চিন্তা'}
+                </h3>
+                <p className="text-[13px] text-white/35 font-medium leading-relaxed line-clamp-2 mt-1 group-hover:text-white/60 transition-colors break-words max-h-[40px] overflow-hidden">
+                  {note.description ? (note.description.length > 100 ? note.description.substring(0, 97) + '...' : note.description) : 'কোনো বর্ণনা নেই'}
+                </p>
+              </div>
             </div>
-            <p className="text-[13px] text-white/35 font-medium leading-relaxed line-clamp-2 mt-1 group-hover:text-white/60 transition-colors break-words">
-              {truncatedDesc}
-            </p>
           </div>
 
           <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/[0.05] overflow-hidden">
-            <div className="flex gap-1.5 flex-wrap max-w-full overflow-hidden">
+            <div className="flex gap-1.5 flex-wrap max-w-full overflow-hidden items-center">
+              {note.isLocked && <Lock size={12} className="text-amber-500 mr-1" />}
               {note.tags && note.tags.length > 0 ? (
                 note.tags.slice(0, 2).map(tag => (
-                  <span key={tag} className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.05] text-white/40 rounded-lg text-[9px] font-bold uppercase tracking-wider truncate">
+                  <span key={tag} className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black uppercase tracking-widest truncate shadow-[0_0_10px_rgba(245,158,11,0.1)]">
                     {tag}
                   </span>
                 ))

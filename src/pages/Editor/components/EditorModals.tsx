@@ -13,8 +13,10 @@ import { ConfirmDialog, InputDialog } from '../../../components/modals/CustomDia
 import { TagManagerModal } from '../../../components/modals/TagManagerModal';
 import { ThemeSelectorModal } from '../../../components/modals/ThemeSelectorModal';
 import { NoteExportModal } from '../../../components/modals/NoteExportModal';
+import { MoveToBookmarkModal } from '../../../components/modals/MoveToBookmarkModal';
 import LoadingScreen from '../../../components/LoadingScreen';
 import { useEditorModal } from '../context/EditorModalContext';
+import { DataManager } from '../../../services/storage/DataManager';
 
 export const EditorModals: React.FC = () => {
   const {
@@ -41,6 +43,8 @@ export const EditorModals: React.FC = () => {
     setShowTagPrompt,
     showExportModal,
     setShowExportModal,
+    showBookmarkModal,
+    setShowBookmarkModal,
     showLinkPanel,
     setShowLinkPanel,
     isUploading,
@@ -58,6 +62,13 @@ export const EditorModals: React.FC = () => {
     handleLinkPageSelect,
     noteRef,
   } = useEditorModal();
+
+  const handleMoveToBookmark = async (folderId?: string) => {
+    if (!note) return;
+    await DataManager.addNoteToBookmark(note.id, folderId);
+    setShowBookmarkModal(false);
+    // Notify or redirect? The user said "if moved, hide from main screen", so we stay here or redirect to bookmarks
+  };
 
   return (
     <>
@@ -97,6 +108,7 @@ export const EditorModals: React.FC = () => {
         onDelete={() => setShowDeleteConfirm(true)}
         onCopy={handleCopy}
         onLock={() => setShowLockPrompt(true)}
+        onBookmark={() => setShowBookmarkModal(true)}
         onExport={() => { setShowActionSheet(false); setShowExportModal(true); }}
         onTag={() => setShowTagPrompt(true)}
         onTheme={() => { setShowActionSheet(false); setShowThemeSelector(true); }}
@@ -107,6 +119,14 @@ export const EditorModals: React.FC = () => {
         collabRoomId={collabRoom || undefined}
         collaborators={collaborators}
         onKickCollaborator={handleKickCollaborator}
+        blocks={editor.blocks}
+      />
+
+      <MoveToBookmarkModal 
+        isOpen={showBookmarkModal}
+        onClose={() => setShowBookmarkModal(false)}
+        onMove={handleMoveToBookmark}
+        noteTitle={note?.title || 'Untitled'}
       />
 
       <ConfirmDialog 

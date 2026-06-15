@@ -18,10 +18,10 @@ runMigrationFromLocalForage().then(() => {
 
 import { 
   Note, Workspace, NoteVersion, ChatMessage, 
-  AITask, ContextSummary, AISettings, UserPreferences 
+  AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder
 } from '../../types';
 
-export type { Note, Workspace, NoteVersion, ChatMessage, AITask, ContextSummary, AISettings, UserPreferences };
+export type { Note, Workspace, NoteVersion, ChatMessage, AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder };
 
 // Configure localforage for temporary fallbacks if needed
 localforage.config({
@@ -247,6 +247,28 @@ export const DataManager = {
   async saveUserPreferences(prefs: UserPreferences): Promise<void> {
     await db.key_value_pairs.put({ key: 'user_preferences', value: prefs });
     this.triggerSync('SYNC_COMPLETE');
+  },
+
+  async getUser(): Promise<any> {
+    const record = await db.key_value_pairs.get('master_user_profile');
+    if (!record) {
+      const initial = { id: 'user-0', masterPassword: '' };
+      await db.key_value_pairs.put({ key: 'master_user_profile', value: initial });
+      return initial;
+    }
+    return record.value;
+  },
+
+  async updateUser(user: any): Promise<void> {
+    await db.key_value_pairs.put({ key: 'master_user_profile', value: user });
+  },
+
+  async updateNote(id: string, updates: Partial<Note>): Promise<void> {
+    const note = await db.notes.get(id);
+    if (!note) return;
+    const now = Date.now();
+    await db.notes.update(id, { ...updates, updatedAt: now });
+    this.invalidateNotesCache(`update-note:${id}`);
   },
 
   // --- Workspace Operations ---
@@ -806,6 +828,65 @@ export const DataManager = {
     return await this.saveNote(newNote);
   },
 
+  // --- Bookmark Operations ---
+  async getBookmarkFolders(): Promise<BookmarkFolder[]> {
+    return await db.bookmark_folders.toArray();
+  },
+
+  async createBookmarkFolder(name: string, parentId?: string): Promise<BookmarkFolder> {
+    const folder: BookmarkFolder = {
+      id: crypto.randomUUID(),
+      name,
+      parentId,
+      createdAt: Date.now()
+    };
+    await db.bookmark_folders.put(folder);
+    return folder;
+  },
+
+  async deleteBookmarkFolder(id: string): Promise<void> {
+    await db.transaction('rw', [db.bookmark_folders, db.notes], async () => {
+      await db.bookmark_folders.delete(id);
+      // Remove folder reference from notes
+      await db.notes.where('bookmarkFolderId').equals(id).modify({ bookmarkFolderId: undefined, isBookmarked: false });
+      // Delete subfolders recursively
+      const subfolders = await db.bookmark_folders.where('parentId').equals(id).toArray();
+      for (const sub of subfolders) {
+        await this.deleteBookmarkFolder(sub.id);
+      }
+    });
+  },
+
+  async toggleLock(noteId: string): Promise<boolean> {
+    const note = await db.notes.get(noteId);
+    if (!note) return false;
+    const newState = !note.isLocked;
+    await db.notes.update(noteId, { isLocked: newState, updatedAt: Date.now() });
+    this.invalidateNotesCache(`lock:${noteId}`);
+    return newState;
+  },
+
+  async addNoteToBookmark(noteId: string, folderId?: string): Promise<void> {
+    const note = await db.notes.get(noteId);
+    if (note) {
+      await db.notes.update(noteId, { 
+        isBookmarked: true, 
+        bookmarkFolderId: folderId,
+        updatedAt: Date.now() 
+      });
+      this.invalidateNotesCache(`add-bookmark:${noteId}`);
+    }
+  },
+
+  async removeNoteFromBookmark(noteId: string): Promise<void> {
+    await db.notes.update(noteId, { 
+      isBookmarked: false, 
+      bookmarkFolderId: undefined,
+      updatedAt: Date.now() 
+    });
+    this.invalidateNotesCache(`remove-bookmark:${noteId}`);
+  },
+
   async saveNote(note: Note): Promise<Note> {
     const usage = await this.getStorageUsage();
     if (usage.used > usage.quota * 0.9) {
@@ -958,7 +1039,23 @@ export const DataManager = {
   async toggleFavorite(id: string): Promise<void> {
     const note = await db.notes.get(id);
     if (note) {
-      await db.notes.update(id, { isFavorite: !note.isFavorite });
+      const isNowFavorite = !note.isFavorite;
+      let bookmarkFolderId = note.bookmarkFolderId;
+
+      if (isNowFavorite) {
+        // Find or create 'Favorites' folder
+        let favFolder = await db.bookmark_folders.where('name').equals('Favorites').first();
+        if (!favFolder) {
+          favFolder = await this.createBookmarkFolder('Favorites');
+        }
+        bookmarkFolderId = favFolder.id;
+      }
+
+      await db.notes.update(id, { 
+        isFavorite: isNowFavorite,
+        isBookmarked: isNowFavorite ? true : note.isBookmarked,
+        bookmarkFolderId: isNowFavorite ? bookmarkFolderId : note.bookmarkFolderId
+      });
       this.invalidateNotesCache(`toggle-favorite:${id}`);
     }
   },

@@ -12,6 +12,8 @@ export interface Note {
   isTrashed?: boolean;
   isLocked?: boolean;
   isPinned?: boolean;
+  isBookmarked?: boolean;
+  bookmarkFolderId?: string;
   password?: string;
   publishedCode?: string;
   lastPublishedContent?: string;
@@ -49,5 +51,12 @@ export interface NoteVersion {
   content: string;
   emoji: string;
   version: string;
+  createdAt: number;
+}
+
+export interface BookmarkFolder {
+  id: string;
+  name: string;
+  parentId?: string;
   createdAt: number;
 }

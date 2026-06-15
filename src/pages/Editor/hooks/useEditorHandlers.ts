@@ -84,6 +84,7 @@ export function useEditorHandlers({
   const [showLockPrompt, setShowLockPrompt] = useState(false);
   const [showTagPrompt, setShowTagPrompt] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [activeTheme, setActiveTheme] = useState<ThemeConfig | null>(null);
   const lastClickTime = useRef<number>(0);
 
@@ -190,11 +191,28 @@ export function useEditorHandlers({
     if (isDeletingRef) {
       isDeletingRef.current = true;
     }
-    const currentNote = noteRef.current || note!;
-    if (currentNote) {
-      await DataManager.deleteNote(currentNote.id);
+    
+    // Clear any pending save timers
+    if ((window as any)._autoSaveTimer) {
+      clearTimeout((window as any)._autoSaveTimer);
     }
-    navigate('/');
+
+    try {
+      const currentNote = noteRef.current || note!;
+      if (currentNote) {
+        // Force immediate navigation to prevent state updates on this page
+        navigate('/', { replace: true });
+        
+        // Background delete
+        await DataManager.deleteNote(currentNote.id).catch(console.error);
+        
+        // Clean up drafts
+        localStorage.removeItem(`note_draft_${currentNote.id}`);
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      navigate('/', { replace: true });
+    }
   };
 
   const handleCopy = async () => {
@@ -283,6 +301,8 @@ export function useEditorHandlers({
     setShowTagPrompt,
     showExportModal,
     setShowExportModal,
+    showBookmarkModal,
+    setShowBookmarkModal,
     activeTheme,
     isLight,
     themeClass,

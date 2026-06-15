@@ -146,37 +146,6 @@ export default function SearchPage() {
     loadTags();
   }, []);
 
-  // STRONG: React to cache invalidations (e.g. permanent delete from RecycleBin while Search is open or in bg)
-  useEffect(() => {
-    const handleInvalidation = async (e?: any) => {
-      console.log('[SearchPage] Received notes-cache-invalidated or workspace change');
-      if (workerRef.current) {
-        try {
-          const fresh = await DataManager.getAllNotes(true); // force
-          const clean = fresh.filter((n: Note) => !n.isTrashed);
-          workerRef.current.postMessage({
-            type: 'SYNC',
-            notes: clean,
-            requestId: Date.now()
-          });
-        } catch (err) {
-          console.error(err);
-        }
-      }
-      // Also re-run current search if there was a query
-      if (query.trim()) {
-        performSearch(query, selectedTags, isAccurateMode);
-      }
-    };
-
-    window.addEventListener('notes-cache-invalidated', handleInvalidation);
-    window.addEventListener('workspace-notes-changed', handleInvalidation);
-
-    return () => {
-      window.removeEventListener('notes-cache-invalidated', handleInvalidation);
-      window.removeEventListener('workspace-notes-changed', handleInvalidation);
-    };
-  }, [query, selectedTags, isAccurateMode, performSearch]);
 
   const performSearch = useCallback(async (currentQuery: string, currentTags: string[], currentAccurateMode: boolean) => {
     setIsSearching(true);
@@ -276,6 +245,38 @@ export default function SearchPage() {
       setIsSearching(false);
     }
   }, []);
+
+  // STRONG: React to cache invalidations (e.g. permanent delete from RecycleBin while Search is open or in bg)
+  useEffect(() => {
+    const handleInvalidation = async (e?: any) => {
+      console.log('[SearchPage] Received notes-cache-invalidated or workspace change');
+      if (workerRef.current) {
+        try {
+          const fresh = await DataManager.getAllNotes(true); // force
+          const clean = fresh.filter((n: Note) => !n.isTrashed);
+          workerRef.current.postMessage({
+            type: 'SYNC',
+            notes: clean,
+            requestId: Date.now()
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      // Also re-run current search if there was a query
+      if (query.trim()) {
+        performSearch(query, selectedTags, isAccurateMode);
+      }
+    };
+
+    window.addEventListener('notes-cache-invalidated', handleInvalidation);
+    window.addEventListener('workspace-notes-changed', handleInvalidation);
+
+    return () => {
+      window.removeEventListener('notes-cache-invalidated', handleInvalidation);
+      window.removeEventListener('workspace-notes-changed', handleInvalidation);
+    };
+  }, [query, selectedTags, isAccurateMode, performSearch]);
 
   // Debounced auto-search effect as user types
   useEffect(() => {

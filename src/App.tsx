@@ -64,6 +64,8 @@ const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArc
 const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
 const SettingsPage = lazyWithRetry(() => import('./pages/Settings/SettingsPage'));
+const BookmarkPage = lazyWithRetry(() => import('./pages/Bookmark/BookmarkPage'));
+const VaultPage = lazyWithRetry(() => import('./pages/Vault/Vault'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 const ToolsPage = lazyWithRetry(() => import('./pages/Tools/ToolsPage'));
 
@@ -110,6 +112,7 @@ function AppContent() {
                        location.pathname === '/backup' ||
                        location.pathname === '/data-management' ||
                        location.pathname === '/templates' ||
+                       location.pathname === '/vault' ||
                        location.pathname === '/tools';
     const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage;
   const [userName, setUserName] = useState<string | null>(null);
@@ -309,6 +312,8 @@ function AppContent() {
     { path: "/manual-control/*", element: <PageWrapper><AIChat /></PageWrapper> },
     { path: "/ai", element: <Navigate to="/ai-auto" replace /> },
     { path: "/settings", element: <PageWrapper><SettingsPage /></PageWrapper> },
+    { path: "/bookmarks", element: <PageWrapper><BookmarkPage /></PageWrapper> },
+    { path: "/vault", element: <PageWrapper><VaultPage /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AIConfiguration /></PageWrapper> },
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
@@ -431,7 +436,7 @@ function AppContent() {
           {routingElement}
         </Suspense>
       </ErrorBoundary>
-
+      
       {!isFullPage && <Navigation />}
       <VersionControl />
     </div>

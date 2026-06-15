@@ -137,30 +137,36 @@ export default function StorageOptimizer() {
   const cleanAllGarbage = async () => {
     setCleaningKey('all');
     try {
-      setCleaningProgress('ব্যাকআপ এবং অপ্টিমাইজেশন শুরু হচ্ছে...');
+      setCleaningProgress('সিস্টেম স্ক্যান এবং অপ্টিমাইজেশন শুরু হচ্ছে...');
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      setCleaningProgress('১/৪: অব্যবহৃত ইমেজ ও মিডিয়া ক্লিন করা হচ্ছে...');
-      await DataManager.optimizeStorage();
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      setCleaningProgress('২/৪: পুরোনো ক্যাশ এবং ডুপ্লিকেট রিমুভ করা হয়েছে...');
+      setCleaningProgress('১/৫: রিসাইকেল বিন খালি করা হচ্ছে...');
+      await DataManager.cleanTrashedNotes();
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      setCleaningProgress('৩/৪: চ্যাট হিস্ট্রি রিসেট করা হয়েছে...');
+      setCleaningProgress('২/৫: অব্যব্যহৃত মিডিয়া এবং ছবি ক্লিন করা হচ্ছে...');
+      await DataManager.cleanUnusedMedia();
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      setCleaningProgress('৩/৫: পুরোনো ভার্সন হিস্ট্রি অপ্টিমাইজ করা হচ্ছে...');
+      await DataManager.cleanOutdatedVersions();
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      setCleaningProgress('৪/৪: ডাটাবেস ভলিডেশন সফল হয়েছে!');
+      setCleaningProgress('৪/৫: সিস্টেম ক্যাশ এবং ডুপ্লিকেট রিমুভ করা হচ্ছে...');
+      await DataManager.cleanLegacyCache();
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      setCleaningProgress('৫/৫: ডেটাবেজ ইনডেক্সিং এবং ভ্যালিডেশন সফল হয়েছে!');
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      setCleaningProgress('সফল! নোট এবং ডিরেক্টরি অক্ষত রেখে বাকি সব ক্লিন করা হয়েছে।');
+      setCleaningProgress('সফল! অপ্রয়োজনীয় সব ডাটা মুছে ফেলা হয়েছে।');
       
       DataManager.resetStorageCache();
       await new Promise(resolve => setTimeout(resolve, 1500));
       await loadGarbageStats();
     } catch (e) {
       console.error(e);
-      setCleaningProgress('অপ্টিমাইজেশন প্রক্রিয়া ব্যর্থ!');
+      setCleaningProgress('অপ্টিমাইজেশন প্রক্রিয়া সম্পন্ন করতে সমস্যা হয়েছে!');
       await new Promise(resolve => setTimeout(resolve, 1500));
     } finally {
       setCleaningKey(null);

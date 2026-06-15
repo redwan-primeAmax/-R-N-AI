@@ -11,8 +11,8 @@ import { HistoryManager, RecentNote } from '../../services/storage/HistoryManage
 import { motion, AnimatePresence } from 'framer-motion';
 import { operationRunner } from '../../services/storage/OperationRunner';
 
-import Sidebar from '../../components/Sidebar';
 import LoadingScreen from '../../components/LoadingScreen';
+import Sidebar from '../../components/Sidebar';
 import AnimatedDivider from '../../components/AnimatedDivider';
 import { HomeHeader } from './components/HomeHeader';
 import { RecentNotes } from './components/RecentNotes';
@@ -53,7 +53,12 @@ export default function HomePage() {
 
       const workspaceNotes = allNotes.filter(n => (n.workspaceId === activeWsId || (activeWsId === 'default' && !n.workspaceId)));
       
-      const filtered = workspaceNotes.filter((n: Note) => !n.isTrashed && !n.isLocked && !n.parentId);
+      const filtered = workspaceNotes.filter((n: Note) => 
+        !n.isTrashed && 
+        !n.isLocked && 
+        !n.parentId && 
+        !n.bookmarkFolderId // Hide if moved to a bookmark folder
+      );
       
       setNotes(filtered.sort((a: Note, b: Note) => b.updatedAt - a.updatedAt));
 

@@ -16,8 +16,8 @@ interface HomeHeaderProps {
 export const HomeHeader: React.FC<HomeHeaderProps> = ({ 
   currentWorkspaceName, 
   activeTasksCount, 
-  onOpenWorkspace, 
-  onOpenMenu 
+  onOpenWorkspace,
+  onOpenMenu
 }) => {
   return (
     <div className="px-4 pt-8 pb-4 flex items-center justify-between sticky top-0 bg-[#0A0A0A]/80 backdrop-blur-2xl z-40">

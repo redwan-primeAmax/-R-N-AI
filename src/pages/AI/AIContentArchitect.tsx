@@ -34,9 +34,9 @@ Return a single JSON ARRAY of objects. Even for single-page topics, return an ar
 [
   {
     "tempId": "unique-slug-0", 
-    "title": "Title (Clean, Max 25 chars, Bengali where appropriate)",
-    "description": "Powerful 1-line summary in Bengali",
-    "content": "Rich, multi-layered HTML structure",
+    "title": "Title (Clean, Max 30 chars, Elegant Bengali)",
+    "description": "Powerful 1-line summary in Bengali (max 80 chars)",
+    "content": "Rich, multi-layered HTML structure with high-value density",
     "emoji": "Vibrant emoji icon (REQUIRED for main page)"
   }
 ]
@@ -44,25 +44,25 @@ Return a single JSON ARRAY of objects. Even for single-page topics, return an ar
 ### CORE ARCHITECTURAL STANDARDS:
 1. DEEP HIERARCHY & SMARTER LINKING:
    - For complex ideas, decompose into a "Main Navigation Page" and multiple "Deep Dive Sub-pages".
-   - You MUST implement cross-linkage in HTML: <a class='sub-page-link' data-id='tempId-of-subpage'>Link Label</a>.
-   - Every sub-page must be authoritative, data-dense, and contextually rich.
+   - Implement cross-linkage in HTML: <a class='sub-page-link' data-id='tempId-of-subpage'>Link Label</a>.
+   - Use <div class='cards-grid'> to house these sub-page links for a modern dashboard look.
 
-2. ADVANCED BILINGUAL LEARNING LAYER:
-   - For educational or technical content, utilize a "Translation Shadow" pattern.
-   - Format: <p class='bilingual-row'><strong>English Phrase</strong> <span class='pronunciation'>(Bengali Pronunciation)</span> <mark class='meaning'>Bengali Contextual Meaning</mark></p>
+2. ADVANCED DATA VIBRANCY:
+   - Utilize <table> for comparative data.
+   - Use <hr class='my-8 opacity-5'> for delicate section breaks.
+   - For educational content, use the "Bilingual Layer": <p class='bilingual-row'><strong>English</strong> (Bengali Pronunciation) <mark>Bengali Meaning</mark></p>
 
-3. RICH WIDGET ECOSYSTEM:
-   - TASK GRIDS: Use <ul data-type='taskList'> with <li data-checked='false'><p>Item Title</p></li>.
-   - PERSPECTIVE CALLOUTS: Use <blockquote> for high-value insights, warnings, or expert tips.
-   - SEMANTIC MARKERS: Use <mark> for standard highlights. Use inline styles for custom semantic color-coding: <mark style='background: rgba(239,68,68,0.15); color: #f87171;'>Critical</mark> or <mark style='background: rgba(16,185,129,0.15); color: #34d399;'>Verified</mark>.
+3. WIDGET & SEMANTIC COMPONENTS:
+   - TASK LISTS: <ul data-type='taskList'><li data-checked='false'><p>Item</p></li></ul>.
+   - CALLOUTS: <blockquote class='expert-tip'>Insight here...</blockquote>.
+   - STATUS BADGES: <span class='badge bg-red-400/10 text-red-500'>CRITICAL</span>.
 
-4. MODERN EDITORIAL STYLE:
-   - Use semantic HTML: <h1>, <h2>, <h3>, <section>, <table>, <hr>.
-   - Tone must be professional, authoritative, and linguistically precise (Clean Bengali).
-   - Use single quotes for HTML attributes to ensure JSON parsing reliability: <div class='card'>.
+4. LINGUISTIC PRECISION:
+   - Output must be in **Standard Modern Bengali** (Shuddho). Avoid mixed-language clutter unless technical.
+   - Strictly avoid conversational filler. No introductory text outside the JSON.
 
-### OUTPUT DIRECTIVE:
-Return ONLY the raw JSON array. NO code blocks, NO markdown wrappers, NO preamble, NO conversational filler. Your response must be directly parsable by JSON.parse().`;
+### FINAL OUTPUT DIRECTIVE:
+Return ONLY the raw JSON array. Start with [ and end with ]. Your response must be directly parsable by JSON.parse().`;
 
 const AIContentArchitect: React.FC = () => {
   const navigate = useNavigate();
