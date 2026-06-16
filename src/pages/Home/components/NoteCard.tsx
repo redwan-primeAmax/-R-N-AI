@@ -6,6 +6,7 @@
 import React from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Check, FileText, MoreVertical, Lock } from 'lucide-react';
+import { PageIcon } from '../../../components/PageIcon';
 import { Note } from '../../../services/storage/DataManager';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -129,7 +130,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
                 className="w-16 h-16 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 transition-all duration-500 group-hover:scale-105 group-hover:bg-white/[0.05] group-hover:border-white/10 shrink-0"
               >
                 {note.emoji ? (
-                  <span className="text-4xl drop-shadow-lg leading-none">{note.emoji}</span>
+                  <PageIcon emoji={note.emoji} className="text-4xl drop-shadow-lg" fallback="📄" />
                 ) : (
                   <FileText size={32} className="text-white/30" />
                 )}

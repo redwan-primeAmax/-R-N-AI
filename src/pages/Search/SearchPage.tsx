@@ -10,6 +10,7 @@ import { DataManager, Note } from '../../services/storage/DataManager';
 import { db } from '../../services/storage/DexieDB';
 import { motion, AnimatePresence } from 'framer-motion';
 import FloatingHomeButton from '../../components/FloatingHomeButton';
+import { PageIcon } from '../../components/PageIcon';
 import { searchWithRST, searchWithRSTParallel } from './RSTSearch/RSTSearch';
 import localforage from 'localforage';
 import { clsx, type ClassValue } from 'clsx';
@@ -635,8 +636,8 @@ export default function SearchPage() {
                     }}
                     className="flex items-center gap-4 p-4 bg-white/[0.03] border border-white/[0.05] rounded-[32px] hover:bg-white/5 hover:border-white/10 transition-all cursor-pointer group shadow-xl hover:shadow-2xl hover:scale-[1.01] duration-300"
                   >
-                    <div className="flex-shrink-0 w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner">
-                      {note.emoji || '📄'}
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner flex items-center justify-center">
+                      <PageIcon emoji={note.emoji} className="text-3xl" fallback="📄" />
                     </div>
                     <div className="flex-grow min-w-0 font-sans">
                       <h3 className="font-bold text-[14px] text-white/90 truncate group-hover:text-white">

@@ -10,6 +10,9 @@ import CustomBlockEditor from './components/CustomBlockEditor';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { X } from 'lucide-react';
 
+import { IconChange } from '../../components/icon/IconChange';
+import { PageIcon } from '../../components/PageIcon';
+
 import { useEditorState } from './hooks/useEditorState';
 import { useCollaboration } from './hooks/useCollaboration';
 import { usePdfExport } from './hooks/usePdfExport';
@@ -268,32 +271,19 @@ function EditorPage({ id }: { id: string | undefined }) {
               <div className="relative group/emoji">
                 <button
                   onClick={() => setShowPageEmojiPicker(!showPageEmojiPicker)}
-                  className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none"
-                  title="Change Emoji"
+                  className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none flex items-center justify-center"
+                  title="Change Icon"
                 >
-                  {emoji || '📄'}
+                  <PageIcon emoji={emoji} className="text-5xl" fallback="📄" />
                 </button>
-                {showPageEmojiPicker && (
-                  <div className="absolute top-16 left-0 z-50 shadow-2xl rounded-2xl overflow-hidden border border-white/10">
-                    <div className="bg-[#1f1f1f] p-2 flex justify-end border-b border-white/5">
-                      <button 
-                        onClick={() => setShowPageEmojiPicker(false)}
-                        className="p-1 hover:bg-white/10 rounded-lg text-white/50"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <EmojiPicker 
-                      onEmojiClick={(emojiData) => {
-                        updateEmoji(emojiData.emoji);
-                        setShowPageEmojiPicker(false);
-                      }}
-                      theme={EmojiTheme.DARK}
-                      width={320}
-                      height={400}
-                    />
-                  </div>
-                )}
+                <IconChange 
+                  isOpen={showPageEmojiPicker}
+                  onClose={() => setShowPageEmojiPicker(false)}
+                  onSelectIcon={(svg) => {
+                    updateEmoji(svg);
+                  }}
+                  currentIcon={emoji}
+                />
               </div>
 
               <textarea

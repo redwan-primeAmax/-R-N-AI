@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DataManager, Note } from '../../services/storage/DataManager';
+import { PageIcon } from '../../components/PageIcon';
 import { BookmarkFolder } from '../../types';
 import LoadingScreen from '../../components/LoadingScreen';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
@@ -182,9 +183,9 @@ export default function BookmarkPage() {
                   onClick={() => navigate(`/editor/${note.id}`)}
                   className="p-5 bg-[#151516] border border-white/5 rounded-3xl flex items-center gap-4 hover:border-white/10 transition-all cursor-pointer active:scale-[0.99]"
                 >
-                  <div className="w-12 h-12 bg-white/[0.03] rounded-2xl flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 bg-white/[0.03] rounded-2xl flex items-center justify-center shrink-0 flex items-center justify-center">
                     {note.emoji ? (
-                      <span className="text-2xl">{note.emoji}</span>
+                      <PageIcon emoji={note.emoji} className="text-2xl" fallback="📄" />
                     ) : (
                       <FileText size={20} className="text-white/20" />
                     )}

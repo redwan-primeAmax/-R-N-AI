@@ -8,9 +8,13 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { Readable } from "stream";
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import cors from 'cors';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -315,6 +319,149 @@ async function startServer() {
       res.sendFile(filePath);
     } else {
       res.status(404).json({ error: "Specification file not found" });
+    }
+  });
+
+  // Mediafire direct download proxy
+  app.get("/api/icons/download-proxy", async (req, res) => {
+    try {
+      addDevLog("info", "Starting icon library direct URL scraping and download processes");
+      
+      // Serve pre-cached local ZIP if available to bypass Cloud Run IP blocks and scrape failures
+      // We check multiple candidate paths to ensure robust path resolution in both dev and production containers.
+      const candidatePaths = [
+        path.join(process.cwd(), "public", "library1.zip"),
+        path.join(process.cwd(), "dist", "library1.zip"),
+        path.join(process.cwd(), "library1.zip"),
+        path.join(__dirname, "library1.zip"),
+        path.join(__dirname, "..", "public", "library1.zip"),
+        path.join(__dirname, "..", "dist", "library1.zip"),
+        path.join(__dirname, "..", "library1.zip")
+      ];
+      
+      let localZipPath: string | null = null;
+      for (const p of candidatePaths) {
+        if (fs.existsSync(p)) {
+          localZipPath = p;
+          break;
+        }
+      }
+
+      if (localZipPath) {
+        console.log(`[Icon Download Node] Serving pre-cached local zip file from: ${localZipPath}`);
+        addDevLog("info", `Successfully served pre-cached local icon library1.zip from: ${localZipPath}`);
+        const stats = fs.statSync(localZipPath);
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="library1.zip"');
+        res.setHeader('Content-Length', stats.size);
+        
+        const readStream = fs.createReadStream(localZipPath);
+        readStream.pipe(res);
+        return;
+      } else {
+        const checkedPathsStr = candidatePaths.join(", ");
+        console.warn(`[Icon Download Node] Pre-cached local ZIP not found in candidates: [${checkedPathsStr}]`);
+        addDevLog("warn", "Pre-cached local library1.zip not found on disk. Attempting to fall back to scrape & download.");
+      }
+
+      let directUrl: string | null = null;
+      
+      // Attempt 1: Scrape first version of the Mediafire page (with parameters)
+      const pageUrls = [
+        "https://www.mediafire.com/file/sm5axccozk9owk6/library1.zip/file?dkey=kf1dhqzov1m&r=170",
+        "https://www.mediafire.com/file/sm5axccozk9owk6/library1.zip/file"
+      ];
+      
+      for (const pageUrl of pageUrls) {
+        try {
+          console.log(`[Icon Download Node] Trying to scrape direct URL from page: ${pageUrl}`);
+          addDevLog("info", `Trying to scrape direct URL from: ${pageUrl}`);
+          
+          const pageRes = await fetch(pageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
+            }
+          });
+          
+          if (pageRes.ok) {
+            const html = await pageRes.text();
+            const match = html.match(/https?:\/\/download[a-zA-Z0-9.-]*\.mediafire\.com\/[^\s"'>]+/i) ||
+                          html.match(/https?:\/\/download[^\s"'>]+/i);
+            if (match) {
+              directUrl = match[0].replace(/&amp;/g, '&');
+              console.log(`[Icon Download Node] Successfully scraped direct URL: ${directUrl}`);
+              addDevLog("info", `Scraper successfully resolved URL: ${directUrl}`);
+              break;
+            } else {
+              console.warn(`[Icon Download Node] Could not match direct URL in page content for: ${pageUrl}. Content length: ${html.length}`);
+              addDevLog("warn", `REGEX mismatch in page body of ${pageUrl} (Length ${html.length}). Body preview: ${html.substring(0, 300)}`);
+            }
+          } else {
+            console.warn(`[Icon Download Node] Page response was not ok: ${pageRes.status} for ${pageUrl}`);
+            addDevLog("warn", `Scrape HTTP non-ok status: ${pageRes.status} received for target: ${pageUrl}`);
+          }
+        } catch (scrapeErr: any) {
+          console.warn(`[Icon Download Node] Scrape attempt failed for ${pageUrl}:`, scrapeErr.message || scrapeErr);
+          addDevLog("error", `Exception encountered scraping target ${pageUrl}: ${scrapeErr.message || scrapeErr}`);
+        }
+      }
+      
+      // Fallback: If scraper failed, use the hardcoded URL provided by the user
+      if (!directUrl) {
+        console.log("[Icon Download Node] Scraper failed to retrieve a direct link. Falling back to the hardcoded direct URL.");
+        addDevLog("warn", "Scraper fell back to static hardcoded link (might be expired)");
+        directUrl = "https://download2297.mediafire.com/4r46itftwxtguVVUKeGB4WrmA6HFWPB4Yo0_WsTD_7Qoaxtk-X9aRcBDxntXGToQmhwMjmTupA9Dom00IxIAlxh6aZp28WsDoUASdbJsgJv0fzSc4dpTvfZ_2gaTlvwweLZWvk5kJvoSepJkUnb9r1N7jiFgoafOok8miwWJQ5w2boc/sm5axccozk9owk6/library1.zip";
+      }
+      
+      console.log(`[Icon Download Node] Requesting actual download from: ${directUrl}`);
+      addDevLog("info", `Initiating direct file stream fetch from: ${directUrl}`);
+      
+      const downloadRes = await fetch(directUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      });
+      
+      if (!downloadRes.ok) {
+        addDevLog("error", `Direct file stream HTTP error: Received code ${downloadRes.status} from file server`);
+        throw new Error(`Direct zip download failed with status ${downloadRes.status}`);
+      }
+      
+      const contentLength = downloadRes.headers.get('content-length');
+      const contentType = downloadRes.headers.get('content-type') || 'application/zip';
+      
+      console.log(`[Icon Download Node] Streaming direct download size: ${contentLength} bytes to client`);
+      addDevLog("info", `Streaming file download content-length: ${contentLength} bytes, content-type: ${contentType}`);
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', 'attachment; filename="library1.zip"');
+      if (contentLength) {
+        res.setHeader('Content-Length', contentLength);
+      }
+      
+      if (downloadRes.body) {
+        // Convert Web standard ReadableStream to Node.js Readable stream and pipe it to response
+        Readable.fromWeb(downloadRes.body as any).pipe(res);
+        addDevLog("info", `Download stream piping initiated successfully`);
+      } else {
+        addDevLog("error", `Streaming downstream failed: downloadRes.body is not defined`);
+        throw new Error("No download response body available to stream");
+      }
+    } catch (err: any) {
+      console.error("[Icon Download Node Error]", err);
+      addDevLog("error", `FATAL exception in download process: ${err.message || err}`);
+      try {
+        const timestamp = new Date().toISOString();
+        const errDetail = `[${timestamp}] Error: ${err.message}\nStack: ${err.stack}\n\n`;
+        fs.appendFileSync(path.join(process.cwd(), "proxy_error.log"), errDetail);
+      } catch (logErr) {
+        console.error("Failed to write to proxy_error.log:", logErr);
+      }
+      res.status(500).json({ error: err.message || "Failed to download icons. Ensure Mediafire remains reachable." });
     }
   });
 

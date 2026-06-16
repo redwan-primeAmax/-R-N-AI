@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { Note, DataManager } from '../../../services/storage/DataManager';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
+import { PageIcon } from '../../../components/PageIcon';
+import { IconChange } from '../../../components/icon/IconChange';
 import { RenameModal } from '../../../components/modals/RenameModal';
 import { MoveToBookmarkModal } from '../../../components/modals/MoveToBookmarkModal';
 import { ConfirmDialog } from '../../../components/modals/CustomDialogs';
@@ -201,10 +203,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
               {/* Note Header Info */}
               <div className="flex items-center gap-4 mb-6 p-2">
                 <button 
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="w-16 h-16 bg-white/[0.03] hover:bg-white/[0.08] rounded-2xl flex items-center justify-center text-4xl transition-all active:scale-95 border border-white/5"
+                  onClick={() => setShowEmojiPicker(true)}
+                  className="w-16 h-16 bg-white/[0.03] hover:bg-white/[0.08] rounded-2xl flex items-center justify-center text-4xl transition-all active:scale-95 border border-white/5 flex items-center justify-center"
                 >
-                  {note.emoji || '📄'}
+                  <PageIcon emoji={note.emoji} className="text-4xl" fallback="📄" />
                 </button>
                 <div className="flex-1 overflow-hidden">
                   <h3 className="font-bold text-xl truncate text-white/90">{note.title || 'শিরোনামহীন চিন্তা'}</h3>
@@ -215,23 +217,18 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                 <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-white/30">
                   <X size={20} />
                 </button>
+                
+                <IconChange
+                  isOpen={showEmojiPicker}
+                  onClose={() => setShowEmojiPicker(false)}
+                  onSelectIcon={(svg) => {
+                    if (onEmojiSelect) onEmojiSelect(note.id, svg);
+                  }}
+                  currentIcon={note.emoji}
+                />
               </div>
 
-              {showEmojiPicker ? (
-                <div className="h-[350px] overflow-hidden rounded-2xl border border-white/5 bg-[#1a1a1a]">
-                  <EmojiPicker 
-                    onEmojiClick={(emoji) => {
-                      if (onEmojiSelect) onEmojiSelect(note.id, emoji.emoji);
-                      setShowEmojiPicker(false);
-                    }}
-                    theme={EmojiTheme.DARK}
-                    width="100%"
-                    height={350}
-                    lazyLoadEmojis={true}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col">
+              <div className="flex flex-col">
                   {menuItems.map((item, index) => (
                     <div key={index} className="relative">
                       <button
@@ -288,7 +285,6 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                     </button>
                   </div>
                 </div>
-              )}
             </div>
           </motion.div>
 

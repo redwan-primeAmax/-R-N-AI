@@ -6,6 +6,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText } from 'lucide-react';
+import { PageIcon } from '../../../components/PageIcon';
 import { RecentNote } from '../../../services/storage/HistoryManager';
 
 interface RecentNotesProps {
@@ -43,7 +44,7 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({ notes, onNoteClick }) 
               <div className="relative z-10 flex flex-col items-center gap-3 w-full">
                 <div className="w-12 h-12 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 group-hover:scale-105 transition-transform">
                   {note.emoji ? (
-                    <span className="text-2xl drop-shadow-md">{note.emoji}</span>
+                    <PageIcon emoji={note.emoji} className="text-2xl drop-shadow-md" fallback="📄" />
                   ) : (
                     <FileText size={20} className="text-white/30" />
                   )}
