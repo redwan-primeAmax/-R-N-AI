@@ -1,43 +1,46 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Search, X, Loader2, Download, AlertCircle, 
-  HelpCircle, ChevronRight, Check, SlidersHorizontal, Eye
+  Search, X, Loader2, Download, ChevronRight, Eye, RefreshCw
 } from 'lucide-react';
+import { FixedSizeGrid as Grid } from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
 import { 
   iconsDb, 
   isLibraryDownloaded, 
   getTotalIconsCount, 
   downloadAndExtractIcons, 
   CustomIcon,
-  getCategories
+  getCategories,
+  AVAILABLE_LIBRARIES,
+  IconLibrary
 } from './IconManager';
 
 interface IconChangeProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectIcon: (svgContent: string) => void;
+  onSelectIcon: (svg: string) => void;
   currentIcon?: string;
 }
 
 export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconChangeProps) => {
   const [downloadProgress, setDownloadProgress] = useState<string>('');
   const [downloadPercent, setDownloadPercent] = useState<number>(0);
+  const [foundCount, setFoundCount] = useState<number>(0);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [hasDownloaded, setHasDownloaded] = useState<boolean>(false);
   const [showPrompt, setShowPrompt] = useState<boolean>(false);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [selectedLibrary, setSelectedLibrary] = useState<IconLibrary | null>(null);
 
   // Filters & State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
   const [displayedIcons, setDisplayedIcons] = useState<CustomIcon[]>([]);
   const [totalMatched, setTotalMatched] = useState<number>(0);
-  const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  
-  // Scopes for streaming batch
-  const streamRef = useRef<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const searchIdRef = useRef<number>(0);
 
   // Check state on mount / open
   useEffect(() => {
@@ -47,10 +50,13 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
       if (!downloaded) {
         setShowPrompt(true);
       } else {
-        getTotalIconsCount().then(c => setTotalCount(c));
+        getTotalIconsCount().then(c => {
+          setTotalCount(c);
+          setFoundCount(c);
+        });
         loadCategories();
-        // Load default batch
-        setTimeout(() => triggerFiltering(), 100);
+        // Initial search to populate
+        searchIcons('', 'All');
       }
     }
   }, [isOpen]);
@@ -58,28 +64,32 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
   const loadCategories = async () => {
     try {
       const cats = await getCategories();
-      setCategories(cats);
+      setCategories(['All', ...cats]);
     } catch (err) {
       console.error("Categories failed", err);
     }
   };
 
-  const startDownload = async () => {
+  const startDownload = async (library: IconLibrary) => {
+    setSelectedLibrary(library);
     setShowPrompt(false);
     setIsDownloading(true);
+    setFoundCount(0);
     try {
-      const count = await downloadAndExtractIcons((status, current, total) => {
+      const count = await downloadAndExtractIcons(library.fileName, (status, current, total, found) => {
         setDownloadProgress(status);
+        setFoundCount(found);
         if (total > 0) {
           const pct = Math.round((current / total) * 100);
           setDownloadPercent(pct);
         }
       });
       setTotalCount(count);
+      setFoundCount(count);
       setHasDownloaded(true);
       setIsDownloading(false);
       loadCategories();
-      triggerFiltering();
+      searchIcons('', 'All');
     } catch (err: any) {
       console.error(err);
       alert(err.message || "ডাউনলোড করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
@@ -88,74 +98,76 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
     }
   };
 
-  const triggerFiltering = async (query = searchQuery, cat = selectedCategory) => {
-    // Cancel previous stream
-    streamRef.current += 1;
-    const currentStreamId = streamRef.current;
+  const searchIcons = async (query: string, cat: string) => {
+    searchIdRef.current += 1;
+    const currentSearchId = searchIdRef.current;
     
-    setIsStreaming(true);
+    setIsLoading(true);
     setDisplayedIcons([]);
+    setTotalMatched(0);
 
     try {
-      let results: CustomIcon[] = [];
-      
       if (!query.trim() && cat === 'All') {
-        // Default: display first 500 items sorted by id for consistency
-        results = await iconsDb.icons.limit(800).toArray();
-      } else {
-        // Query database with search
-        const term = query.toLowerCase().trim();
-        const baseQuery = iconsDb.icons;
+        const count = await iconsDb.icons.count();
+        if (currentSearchId !== searchIdRef.current) return;
+        setTotalMatched(count);
         
-        const allIcons = await baseQuery.toArray();
-        results = allIcons.filter(icon => {
-          const matchTerm = !term || 
+        const CHUNK_SIZE = 500;
+        for (let i = 0; i < count; i += CHUNK_SIZE) {
+          if (currentSearchId !== searchIdRef.current) return;
+          const chunk = await iconsDb.icons.offset(i).limit(CHUNK_SIZE).toArray();
+          if (currentSearchId !== searchIdRef.current) return;
+          setDisplayedIcons(prev => [...prev, ...chunk]);
+          await new Promise(r => setTimeout(r, 10));
+        }
+      } else {
+        let collection = iconsDb.icons.toCollection();
+        if (cat !== 'All') {
+          collection = iconsDb.icons.where('category').equals(cat);
+        }
+        
+        const allInCategory = await collection.toArray();
+        if (currentSearchId !== searchIdRef.current) return;
+        
+        let filtered = allInCategory;
+        if (query.trim()) {
+          const term = query.toLowerCase().trim();
+          filtered = allInCategory.filter(icon => 
             icon.name.toLowerCase().includes(term) || 
             icon.category.toLowerCase().includes(term) || 
-            icon.subcategory.toLowerCase().includes(term);
-          
-          const matchCat = cat === 'All' || icon.category === cat;
-          return matchTerm && matchCat;
-        });
-      }
-
-      setTotalMatched(results.length);
-
-      // Stream matching elements "একটা একটা করে" (batch by batch for performance to support 50k+ icons)
-      let offset = 0;
-      const batchSize = 12; // Small chunks for highly responsive streaming
-      
-      const streamNextBatch = () => {
-        if (currentStreamId !== streamRef.current) return; // stale stream check
-        
-        if (offset >= results.length) {
-          setIsStreaming(false);
-          return;
+            icon.subcategory.toLowerCase().includes(term)
+          );
         }
-
-        const batch = results.slice(offset, offset + batchSize);
-        setDisplayedIcons(prev => [...prev, ...batch]);
-        offset += batchSize;
-
-        // Visual staggering and frame-by-frame loading
-        requestAnimationFrame(streamNextBatch);
-      };
-
-      streamNextBatch();
+        
+        if (currentSearchId !== searchIdRef.current) return;
+        setTotalMatched(filtered.length);
+        
+        const CHUNK_SIZE = 200;
+        for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+          if (currentSearchId !== searchIdRef.current) return;
+          const chunk = filtered.slice(i, i + CHUNK_SIZE);
+          if (currentSearchId !== searchIdRef.current) return;
+          setDisplayedIcons(prev => [...prev, ...chunk]);
+          await new Promise(r => setTimeout(r, 5));
+        }
+      }
     } catch (err) {
       console.error("Filtering error", err);
-      setIsStreaming(false);
+    } finally {
+      if (currentSearchId === searchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    triggerFiltering();
+    searchIcons(searchQuery, selectedCategory);
   };
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
-    triggerFiltering(searchQuery, category);
+    searchIcons(searchQuery, category);
   };
 
   const isCurrent = (svgContent: string) => {
@@ -163,219 +175,233 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
     return currentIcon.trim() === svgContent.trim();
   };
 
+  // Grid Cell Renderer
+  const Cell = ({ columnIndex, rowIndex, style, data }: { columnIndex: number, rowIndex: number, style: any, data: CustomIcon[] }) => {
+    const index = rowIndex * 2 + columnIndex;
+    const icon = data[index];
+    if (!icon) return null;
+    const isActive = isCurrent(icon.content);
+
+    return (
+      <div style={style} className="p-1 sm:p-2">
+        <button
+          onClick={() => {
+            onSelectIcon(icon.content);
+            onClose();
+          }}
+          className={`relative w-full h-full bg-[#1A1A1A] border border-white/[0.03] hover:border-purple-500/50 hover:bg-white/[0.05] rounded-[2rem] transition-all group flex flex-col items-center justify-center p-4 active:scale-95 ${
+            isActive ? 'ring-2 ring-purple-500 bg-purple-500/10 border-transparent shadow-[0_0_30px_rgba(168,85,247,0.15)]' : ''
+          }`}
+        >
+          <div 
+            className="flex-1 w-full flex items-center justify-center text-neutral-400 group-hover:text-white group-hover:scale-105 transition-all duration-500 [&>svg]:w-full [&>svg]:h-full [&>svg]:block [&>svg]:max-w-[85%] [&>svg]:max-h-[85%]"
+            dangerouslySetInnerHTML={{ 
+              __html: icon.content.replace(/<svg/i, '<svg preserveAspectRatio="xMidYMid meet" ') 
+            }}
+          />
+          
+          <div className="mt-auto pt-2 w-full">
+            <span className="text-[9px] font-black text-neutral-600 group-hover:text-neutral-400 transition-colors truncate block w-full text-center px-2 uppercase tracking-tighter opacity-80">
+              {icon.name}
+            </span>
+          </div>
+
+          {isActive && (
+            <div className="absolute top-4 right-4 bg-purple-500 p-1.5 rounded-full shadow-lg">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+          )}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Dark overlay backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
+            animate={{ opacity: 0.6 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110]"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9998]"
           />
-
-          {/* Bottom Sheet Modal */}
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 220 }}
-            className="fixed bottom-0 left-0 right-0 max-h-[85vh] h-[85vh] bg-[#141414] border-t border-white/5 rounded-t-[2.5rem] shadow-2xl z-[120] flex flex-col text-white overflow-hidden pb-safe font-sans"
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 h-[85vh] bg-[#121212] border-t border-white/5 z-[9999] rounded-t-[2.5rem] flex flex-col overflow-hidden shadow-2xl"
           >
-            {/* Header top handle */}
-            <div className="flex justify-center py-3">
-              <div className="w-12 h-1 rounded-full bg-white/10" />
+            {/* Handle Bar */}
+            <div className="flex justify-center py-2.5 shrink-0">
+              <div className="w-12 h-1.5 rounded-full bg-white/10" />
             </div>
 
-            {/* Prompt modal inside bottom sheet */}
+            {/* Header Area */}
+            <div className="flex items-start justify-between px-6 pb-4 border-b border-white/5 shrink-0">
+              <div className="flex flex-col">
+                <h3 className="text-xl font-black tracking-tight text-white mb-1">আইকন সেটআপ</h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-black">
+                    {hasDownloaded ? `${totalCount.toLocaleString()} আইকন প্রস্তুত` : 'লাইব্রেরি লোড নেই'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={onClose}
+                className="w-10 h-10 bg-white/5 hover:bg-white/10 rounded-2xl flex items-center justify-center text-white/50 hover:text-white transition-all border border-white/5 active:scale-90"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Prompt for lib selection */}
             {showPrompt && (
-              <div className="flex flex-col items-center justify-center flex-1 px-8 text-center max-w-lg mx-auto">
-                <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 border border-purple-500/20 text-purple-400">
-                  <Download size={32} className="animate-bounce" />
+              <div className="flex flex-col items-center justify-center flex-1 px-8 text-center max-w-lg mx-auto overflow-y-auto w-full">
+                <div className="w-20 h-20 bg-purple-500/10 rounded-3xl flex items-center justify-center mb-8 border border-purple-500/20 text-purple-400">
+                  <Download size={40} className="animate-bounce" />
                 </div>
-                <h3 className="text-xl font-black tracking-tight text-white mb-3">আইকন লাইব্রেরি ডাউনলোড করুন</h3>
-                <p className="text-sm text-neutral-400 leading-relaxed mb-8">
-                  ৫০,০০০+ প্রিমিয়াম ভেক্টর এবং আধুনিক ক্যাটাগরি সমন্বিত আইকন লাইব্রেরি অফলাইনে কাজের উপযোগী করে আপনার ব্রাউজারে ইনডেক্স করতে চান? এটি একবার ডাউনলোড হবে এবং পরবর্তীতে সম্পূর্ণ ক্যাশিং এ চলবে।
+                <h3 className="text-2xl font-black tracking-tight text-white mb-3">লাইব্রেরি নির্বাচন করুন</h3>
+                <p className="text-sm text-neutral-400 leading-relaxed mb-10 font-medium">
+                  আইকনগুলো দেখার জন্য প্রথমে যেকোনো একটি প্যাক ইন্ডেক্স করতে হবে।
                 </p>
-                <div className="flex gap-3 w-full">
-                  <button
-                    onClick={onClose}
-                    className="flex-1 bg-white/5 hover:bg-white/10 text-white/80 font-bold py-3.5 rounded-2xl border border-white/5 transition-all text-sm active:scale-[0.98]"
-                  >
-                    না, পরে হবে
-                  </button>
-                  <button
-                    onClick={startDownload}
-                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-3.5 rounded-2xl hover:shadow-lg hover:shadow-purple-500/20 transition-all text-sm active:scale-[0.98]"
-                  >
-                    হ্যাঁ, ডাউনলোড করুন
-                  </button>
+                <div className="grid grid-cols-1 gap-4 w-full mb-10">
+                  {AVAILABLE_LIBRARIES.map(lib => (
+                    <button
+                      key={lib.id}
+                      onClick={() => startDownload(lib)}
+                      className="w-full bg-white/5 hover:bg-white/10 text-white font-black py-5 px-6 rounded-3xl border border-white/10 transition-all text-sm flex items-center justify-between group active:scale-[0.98]"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-purple-500/20 rounded-2xl flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-all">
+                          <Eye size={22} />
+                        </div>
+                        <span className="text-left font-bold">{lib.name}</span>
+                      </div>
+                      <ChevronRight size={18} className="text-neutral-500" />
+                    </button>
+                  ))}
                 </div>
+                <button
+                  onClick={onClose}
+                  className="w-full text-neutral-500 hover:text-white font-bold py-3 transition-colors text-xs uppercase tracking-widest"
+                >
+                  না, পরে হবে
+                </button>
               </div>
             )}
 
-            {/* Download Progress Bar Screen */}
+            {/* Indexing Progress */}
             {isDownloading && (
               <div className="flex flex-col items-center justify-center flex-1 px-12 text-center max-w-lg mx-auto">
-                <div className="relative w-20 h-20 mb-8 flex items-center justify-center">
-                  <Loader2 size={42} className="text-purple-500 animate-spin" />
-                  {downloadPercent > 0 && (
-                    <span className="absolute text-xs font-black text-purple-400">{downloadPercent}%</span>
-                  )}
+                <div className="mb-10 text-center">
+                  <span className="text-[10px] uppercase font-black tracking-[0.3em] text-purple-400 block mb-2 opacity-60">Scanning SVGs</span>
+                  <div className="text-5xl font-black text-white tracking-tight tabular-nums">
+                    {foundCount.toLocaleString()}
+                  </div>
                 </div>
-                <h4 className="text-lg font-black tracking-tight text-white mb-2">লাইব্রেরি প্রস্তুত হচ্ছে</h4>
-                <p className="text-xs text-purple-300/60 font-mono select-none tracking-widest uppercase mb-6">
-                  {downloadProgress || 'অফলাইন ইন্ডেক্স তৈরি হচ্ছে...'}
+                <div className="relative mb-10">
+                  <Loader2 size={48} className="text-purple-500 animate-spin" />
+                </div>
+                <h4 className="text-xl font-black text-white mb-2">{selectedLibrary?.name}</h4>
+                <p className="text-[10px] text-purple-300/60 font-mono tracking-[0.2em] uppercase mb-10">
+                  {downloadProgress || 'ইন্ডেক্স তৈরি হচ্ছে...'}
                 </p>
-                {/* Progress bar container */}
-                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/[0.02]">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-purple-500 to-indigo-500"
-                    animate={{ width: `${downloadPercent || 20}%` }}
+                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
+                  <motion.div 
+                    className="bg-purple-600 h-full"
+                    animate={{ width: `${downloadPercent}%` }}
                     transition={{ ease: "easeInOut" }}
                   />
                 </div>
               </div>
             )}
 
-            {/* Standard Dashboard Screen */}
+            {/* Main Content Dashboard */}
             {hasDownloaded && !isDownloading && !showPrompt && (
               <div className="flex flex-col flex-1 overflow-hidden">
-                {/* Search Header Container */}
-                <div className="px-6 pb-4 border-b border-white/5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                        <span>আইকন গ্যালারি</span>
-                        <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] rounded-full font-mono font-bold uppercase select-none">
-                          {totalCount.toLocaleString()} Icons
-                        </span>
-                      </h3>
-                      <p className="text-xs text-neutral-400">খুঁজুন অথবা ফিল্টার চিপস সিলেক্ট করে ব্রাউজ করুন</p>
-                    </div>
-                    <button
-                      onClick={onClose}
-                      className="p-1.5 bg-white/5 hover:bg-white/15 rounded-xl border border-white/5 text-neutral-400 hover:text-white transition-all active:scale-95"
-                    >
-                      <X size={18} />
-                    </button>
+                {/* Fixed Search & Filters */}
+                <div className="p-6 pb-4 bg-[#121212] shrink-0">
+                  <div className="relative mb-6">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+                    <input 
+                      type="text"
+                      placeholder="আইকন খুঁজুন..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                      className="w-full bg-white/[0.03] border border-white/10 focus:border-purple-500/50 rounded-3xl py-5 pl-14 pr-6 text-white text-base font-medium focus:outline-none transition-all"
+                    />
                   </div>
 
-                  {/* Search Bar Form */}
-                  <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="যেকোনো আইকনের নাম লিখে এন্টার চাপুন..."
-                        className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-2xl py-3 pl-11 pr-4 text-sm text-white font-medium outline-none transition-all placeholder:text-neutral-500"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="bg-purple-500 hover:bg-purple-600 text-white px-5 rounded-2xl text-xs font-bold transition-all active:scale-[0.98]"
-                    >
-                      খুঁজুন
-                    </button>
-                  </form>
-                </div>
-
-                {/* Sub category / Category Filters Scroll list */}
-                <div className="px-6 py-3 border-b border-white/5 flex gap-1.5 overflow-x-auto scrollbar-none select-none shrink-0">
-                  <button
-                    onClick={() => handleCategorySelect('All')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                      selectedCategory === 'All'
-                        ? 'bg-purple-500 text-white'
-                        : 'bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white border border-white/[0.03]'
-                    }`}
-                  >
-                    সকল ক্যাটাগরি
-                  </button>
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => handleCategorySelect(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                        selectedCategory === cat
-                          ? 'bg-purple-500 text-white'
-                          : 'bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white border border-white/[0.03]'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Main Results Container */}
-                <div className="flex-1 overflow-y-auto px-6 py-4">
-                  {/* Total matches info */}
-                  {searchQuery && (
-                    <div className="mb-3 text-xs text-neutral-400 flex items-center justify-between">
-                      <span>ম্যাচিং ফলাফল: <strong className="text-purple-400">{totalMatched}</strong> টি আইকন</span>
-                      {isStreaming && (
-                        <span className="flex items-center gap-1.5 text-[10px] text-purple-400 animate-pulse uppercase font-black tracking-wider">
-                          <Loader2 size={10} className="animate-spin" />
-                          লোড হচ্ছে...
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 2 columns grid as requested ("এসবিজিগুলো দুই গুণ এক গ্রিডে দেখাবে") */}
-                  <div className="grid grid-cols-2 gap-3 pb-8">
-                    {displayedIcons.map((icon, idx) => (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.15, delay: Math.min(idx * 0.01, 0.15) }}
-                        key={icon.id}
-                        onClick={() => {
-                          onSelectIcon(icon.content);
-                          onClose();
-                        }}
-                        className={`flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 hover:border-purple-500/40 hover:bg-white/[0.04] rounded-2xl cursor-pointer transition-all group active:scale-[0.98] ${
-                          isCurrent(icon.content) ? 'ring-2 ring-purple-500 border-transparent bg-purple-500/[0.02]' : ''
+                  <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none select-none">
+                    {categories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => handleCategorySelect(cat)}
+                        className={`px-5 py-2.5 rounded-2xl text-[11px] font-black whitespace-nowrap transition-all border uppercase tracking-wider ${
+                          selectedCategory === cat 
+                            ? 'bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-500/20' 
+                            : 'bg-white/5 border-white/5 text-neutral-500 hover:text-white hover:bg-white/10'
                         }`}
                       >
-                        {/* SVG Visual icon display */}
-                        <div 
-                          className="w-9 h-9 flex items-center justify-center shrink-0 border border-white/[0.03] rounded-xl group-hover:scale-105 transition-all text-neutral-400 group-hover:text-purple-400 svg-icon"
-                          dangerouslySetInnerHTML={{ __html: icon.content }}
-                        />
-                        
-                        {/* Meta information */}
-                        <div className="overflow-hidden pr-2 flex flex-col justify-center">
-                          <p className="text-[11px] font-black tracking-tight text-white truncate capitalize line-clamp-1 group-hover:text-purple-300 transition-colors">
-                            {icon.name}
-                          </p>
-                          <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider truncate">
-                            {icon.category} {icon.subcategory ? `• ${icon.subcategory}` : ''}
-                          </span>
-                        </div>
-                        
-                        {/* Selection check */}
-                        {isCurrent(icon.content) && (
-                          <div className="ml-auto bg-purple-500 p-1 rounded-full shrink-0">
-                            <Check size={8} className="text-white" />
-                          </div>
-                        )}
-                      </motion.div>
+                        {cat}
+                      </button>
                     ))}
                   </div>
+                </div>
 
-                  {/* Empty state */}
-                  {displayedIcons.length === 0 && !isStreaming && (
-                    <div className="flex flex-col items-center justify-center py-20 text-center text-neutral-500">
-                      <SlidersHorizontal size={36} className="text-neutral-600 mb-4" />
-                      <p className="text-sm font-bold">কোনো ম্যাচিং আইকন পাওয়া যায়নি।</p>
-                      <p className="text-xs text-neutral-600 mt-1">সব ক্যাটাগরি চিপস সিলেক্ট করে আবার ও খুঁজুন।</p>
+                {/* Grid Area */}
+                <div className="flex-1 min-h-0 bg-black/20">
+                  {isLoading ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <Loader2 className="text-purple-500 animate-spin mb-4" size={32} />
+                      <p className="text-[10px] text-neutral-500 uppercase tracking-[0.3em] font-black">Search Scanning...</p>
+                    </div>
+                  ) : displayedIcons.length > 0 ? (
+                    <AutoSizer>
+                      {({ height, width }) => (
+                        <Grid
+                          columnCount={2}
+                          columnWidth={width / 2}
+                          height={height}
+                          rowCount={Math.ceil(displayedIcons.length / 2)}
+                          rowHeight={width / 2}
+                          width={width}
+                          itemData={displayedIcons}
+                          className="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+                        >
+                          {Cell}
+                        </Grid>
+                      )}
+                    </AutoSizer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-neutral-500 opacity-40">
+                      <Search size={64} className="mb-6 stroke-[1.5]" />
+                      <p className="text-sm font-black">কোনো আইকন মেলেনি</p>
                     </div>
                   )}
+                </div>
+
+                {/* Bottom Status Bar */}
+                <div className="px-8 py-4 border-t border-white/5 flex items-center justify-between text-[10px] text-neutral-600 font-mono tracking-[0.2em] uppercase shrink-0 bg-[#121212]">
+                  <div className="flex items-center gap-4">
+                    <span>Matched: <span className="text-purple-400 font-black">{totalMatched.toLocaleString()}</span></span>
+                    <span className="w-1 h-1 rounded-full bg-neutral-800" />
+                    <span>Grid: 2xN Virtualized</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowPrompt(true)}
+                    className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors font-black active:scale-95"
+                  >
+                    <RefreshCw size={12} />
+                    Packs
+                  </button>
                 </div>
               </div>
             )}

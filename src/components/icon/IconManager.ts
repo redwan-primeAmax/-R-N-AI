@@ -22,12 +22,27 @@ export class NotionCloneIconsDB extends Dexie {
 
 export const iconsDb = new NotionCloneIconsDB();
 
-export function isLibraryDownloaded(): boolean {
+export interface IconLibrary {
+  id: string;
+  name: string;
+  fileName: string;
+}
+
+export const AVAILABLE_LIBRARIES: IconLibrary[] = [
+  { id: 'pack1', name: 'Note App Icon Pack', fileName: 'note_app_svg_icon_pack.zip' },
+  { id: 'part1', name: 'SVG Icon Pack Part 1', fileName: 'svg-icon-pack-part1.zip' },
+  { id: 'part2', name: 'SVG Icon Pack Part 2', fileName: 'svg-icon-pack-part2.zip' }
+  // You can add more here if found
+];
+
+export function isLibraryDownloaded(libraryId?: string): boolean {
+  if (libraryId) {
+    return localStorage.getItem(`lib_downloaded_${libraryId}`) === 'true';
+  }
   return localStorage.getItem('library_downloaded') === 'true';
 }
 
 export async function getTotalIconsCount(): Promise<number> {
-  if (!isLibraryDownloaded()) return 0;
   return await iconsDb.icons.count();
 }
 
@@ -48,145 +63,36 @@ export async function getSubcategories(category: string): Promise<string[]> {
 }
 
 export async function downloadAndExtractIcons(
-  onProgress: (status: string, current: number, total: number) => void
+  libraryFileName: string,
+  onProgress: (status: string, current: number, total: number, foundCount: number) => void
 ): Promise<number> {
   // Graceful scaled progress feedback helper
-  const reportProgress = (status: string, current: number, total: number, rangeStart: number, rangeEnd: number) => {
+  const reportProgress = (status: string, current: number, total: number, rangeStart: number, rangeEnd: number, loadedSoFar = 0) => {
     let pct = 0;
     if (total > 0) {
       pct = Math.min(1, Math.max(0, current / total));
     }
     const scaled = Math.round(rangeStart + pct * (rangeEnd - rangeStart));
-    onProgress(status, scaled, 100);
+    onProgress(status, scaled, 100, loadedSoFar);
   };
 
-  reportProgress("ডাউনলোড শুরু হচ্ছে...", 0, 100, 0, 100);
+  reportProgress("আইকন লাইব্রেরি লোড হচ্ছে...", 0, 100, 0, 10);
   
-  let response: Response | null = null;
-  let chosenUrl = "";
-  let lastError = "";
-
+  // Construct URL for the local zip file
   const base = import.meta.env.BASE_URL || './';
   const appBaseUrl = base.endsWith('/') ? base : base + '/';
+  const url = `${appBaseUrl}svg_data/${libraryFileName}`;
+
+  console.log(`[IconManager] Loading library from: ${url}`);
   
-  let relativeUrl = 'library1.zip';
-  try {
-    relativeUrl = new URL('library1.zip', window.location.href).href;
-  } catch (e) {
-    console.error("Failed to build absolute URL with location", e);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`সার্ভার থেকে আইকন ফাইল পাওয়া যায়নি: ${response.status}`);
   }
 
-  const candidates = [
-    `${appBaseUrl}library1.zip`,
-    relativeUrl,
-    '/library1.zip',
-    '/api/icons/download-proxy'
-  ];
-
-  const uniqueCandidates = Array.from(new Set(candidates));
-  console.log("[IconManager] Candidate ZIP URLs:", uniqueCandidates);
-
-  for (const url of uniqueCandidates) {
-    try {
-      console.log(`[IconManager] Attempting fetch to: ${url}`);
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`HTTP status ${res.status}`);
-      }
-      
-      const contentType = res.headers.get('Content-Type') || '';
-      if (contentType.toLowerCase().includes('text/html')) {
-        throw new Error("Returned HTML content-type instead of ZIP");
-      }
-
-      response = res;
-      chosenUrl = url;
-      break; // found one!
-    } catch (err: any) {
-      console.warn(`[IconManager] Failed to fetch from [${url}]: ${err.message || err}`);
-      lastError = err.message || String(err);
-    }
-  }
-
-  if (!response || !chosenUrl) {
-    throw new Error(`আইকন লাইব্রেরি ডাউনলোডে কোনো লিংক কাজ করেনি। সর্বশেষ ত্রুটি: ${lastError}`);
-  }
-
-  console.log(`[IconManager] Selected working ZIP URL: ${chosenUrl}`);
-
-  const contentLength = Number(response.headers.get('Content-Length')) || 63240612; // fallback total size if chunked
-  let arrayBuf: ArrayBuffer;
-
-  try {
-    const reader = response.body?.getReader();
-    if (reader) {
-      let receivedLength = 0;
-      const chunks: Uint8Array[] = [];
-      let isFirstChunk = true;
-      
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          if (isFirstChunk && value && value.length >= 4) {
-            isFirstChunk = false;
-            // Verify ZIP magic bytes on first chunk: PK\x03\x04 (0x50, 0x4B, 0x03, 0x04)
-            const isZipMagic = value[0] === 0x50 && value[1] === 0x4B && value[2] === 0x03 && value[3] === 0x04;
-            if (!isZipMagic) {
-              const textSample = new TextDecoder().decode(value.slice(0, 50));
-              console.error(`[IconManager] ZIP magic verification failed. Received sample: ${textSample}`);
-              throw new Error("ফাইলটি জিপ (ZIP) ফরম্যাটে নেই (ম্যাজিক বাইট অমিল)। এটি সম্ভবত একটি HTML ত্রুটি পাতা বা ডোমেইন সংক্রান্ত সমস্যা।");
-            }
-          }
-          
-          chunks.push(value);
-          receivedLength += value.length;
-          
-          const pct = Math.round((receivedLength / contentLength) * 100);
-          reportProgress(`আইকন লাইব্রেরি ডাউনলোড হচ্ছে... ${pct}% (${Math.round(receivedLength / 1024 / 1024)} MB)`, receivedLength, contentLength, 0, 50);
-        }
-        
-        const joinedArray = new Uint8Array(receivedLength);
-        let position = 0;
-        for (const chunk of chunks) {
-          joinedArray.set(chunk, position);
-          position += chunk.length;
-        }
-        arrayBuf = joinedArray.buffer;
-      } catch (streamErr: any) {
-        console.warn("[IconManager] Streaming reader failed, falling back to direct full download...", streamErr);
-        reportProgress("ডাউনলোড পুনরায় শুরু হচ্ছে (নন-স্ট্রিমিং)...", 0, 100, 0, 50);
-        
-        const fallbackRes = await fetch(chosenUrl);
-        if (!fallbackRes.ok) {
-          throw new Error(`রিস্টার্ট ডাউনলোড ব্যর্থ: ${fallbackRes.status}`);
-        }
-        arrayBuf = await fallbackRes.arrayBuffer();
-        
-        const uint8 = new Uint8Array(arrayBuf);
-        if (uint8.length >= 4) {
-          const isZipMagic = uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
-          if (!isZipMagic) {
-            throw new Error("ফাইলটি জিপ (ZIP) ফরম্যাটে নেই (ম্যাজিক বাইট অমিল)।");
-          }
-        }
-      }
-    } else {
-      arrayBuf = await response.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuf);
-      if (uint8.length >= 4) {
-        const isZipMagic = uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
-        if (!isZipMagic) {
-          throw new Error("ফাইলটি জিপ (ZIP) ফরম্যাটে নেই (ম্যাজিক বাইট অমিল)। এটি সম্ভবত একটি HTML ত্রুটি পাতা।");
-        }
-      }
-    }
-  } catch (downloadErr: any) {
-    throw new Error(`ডাউনলোড সম্পন্ন করতে ব্যর্থ: ${downloadErr.message || downloadErr}`);
-  }
-
-  reportProgress("জিপ আর্কাইভ রিড করা হচ্ছে...", 0, 1, 50, 51);
+  const arrayBuf = await response.arrayBuffer();
+  
+  reportProgress("জিপ আর্কাইভ রিড করা হচ্ছে...", 0, 1, 10, 20, 0);
   let mainZip: JSZip;
   try {
     const jszip = new JSZip();
@@ -206,7 +112,6 @@ export async function downloadAndExtractIcons(
     const filename = parts[parts.length - 1];
     if (!filename.toLowerCase().endsWith('.svg')) return;
 
-    // clean and make name human readable
     const name = filename
       .replace(/\.svg$/i, '')
       .replace(/[-_]/g, ' ')
@@ -224,27 +129,50 @@ export async function downloadAndExtractIcons(
 
     const id = path.toLowerCase();
     
-    // Validate SVG structure
     if (content.toLowerCase().includes('<svg')) {
+      // Normalize SVG for scaling
+      let normalizedContent = content;
+      
+      // Ensure it has a viewBox if it has width/height
+      if (!normalizedContent.toLowerCase().includes('viewbox')) {
+        const widthMatch = normalizedContent.match(/width=["'](\d+)(px)?["']/i);
+        const heightMatch = normalizedContent.match(/height=["'](\d+)(px)?["']/i);
+        if (widthMatch && heightMatch) {
+          const w = widthMatch[1];
+          const h = heightMatch[1];
+          normalizedContent = normalizedContent.replace('<svg', `<svg viewBox="0 0 ${w} ${h}"`);
+        } else {
+          // Default fallback viewBox for icons if none found
+          normalizedContent = normalizedContent.replace('<svg', '<svg viewBox="0 0 24 24"');
+        }
+      }
+
+      // Remove hardcoded width/height to let CSS handle it
+      normalizedContent = normalizedContent.replace(/width=["']\d+(px)?["']/gi, 'width="100%"');
+      normalizedContent = normalizedContent.replace(/height=["']\d+(px)?["']/gi, 'height="100%"');
+
       svgRecords.push({
         id,
         category,
         subcategory,
         name,
-        content
+        content: normalizedContent
       });
       iconCount++;
     }
   };
 
-  // Traverse the files inside the outer ZIP with progress scaled 50% to 80%
+  // Clear existing icons for fresh load
+  await iconsDb.icons.clear();
+
+  // Traverse and extract
   for (let i = 0; i < entries.length; i++) {
     const entryKey = entries[i];
     const entry = mainZip.files[entryKey];
     if (entry.dir) continue;
 
     if (entryKey.endsWith('.zip') && !entryKey.includes('__MACOSX')) {
-      reportProgress(`নেস্টেড জিপ থেকে ডেকম্প্রেস করা হচ্ছে: ${entryKey.split('/').pop()}`, i, entries.length, 50, 80);
+      reportProgress(`নেস্টেড জিপ থেকে ডেকম্প্রেস করা হচ্ছে: ${entryKey.split('/').pop()}`, i, entries.length, 20, 70, iconCount);
       try {
         const nestedData = await entry.async('arraybuffer');
         const nestedZip = await JSZip.loadAsync(nestedData);
@@ -265,23 +193,32 @@ export async function downloadAndExtractIcons(
     } else if (entryKey.endsWith('.svg') && !entryKey.includes('__MACOSX')) {
       const content = await entry.async('string');
       addSvgRecord(entryKey, content);
+      
+      // Periodically report progress for regular SVGs
+      if (iconCount % 100 === 0) {
+        reportProgress(`এসভিজি প্রসেস করা হচ্ছে...`, i, entries.length, 20, 70, iconCount);
+      }
     }
   }
 
-  // Bulk index icons in custom batches to be fast, progress scaled 80% to 100%
-  reportProgress(`ডাটাবেজ প্রস্তুত করা হচ্ছে... ${iconCount} টি আইকন ইনডেক্স হবে।`, 0, iconCount, 80, 85);
-  await iconsDb.icons.clear();
+  // Bulk index icons
+  reportProgress(`ডাটাবেজ প্রস্তুত করা হচ্ছে... ${iconCount} টি আইকন ইনডেক্স হবে।`, 0, iconCount, 70, 80, iconCount);
 
-  const CHUNK_SIZE = 3000;
+  const CHUNK_SIZE = 1000;
   for (let i = 0; i < svgRecords.length; i += CHUNK_SIZE) {
     const chunk = svgRecords.slice(i, i + CHUNK_SIZE);
     await iconsDb.icons.bulkPut(chunk);
-    reportProgress(`নতুন আইকন ডাটাবেজে সংরক্ষিত হচ্ছে... ${Math.min(i + CHUNK_SIZE, svgRecords.length)} / ${svgRecords.length}`, i, svgRecords.length, 85, 100);
+    reportProgress(`ডাটাবেজে সংরক্ষিত হচ্ছে...`, i, svgRecords.length, 80, 100, iconCount);
   }
 
   localStorage.setItem('library_downloaded', 'true');
+  const lib = AVAILABLE_LIBRARIES.find(l => l.fileName === libraryFileName);
+  if (lib) {
+    localStorage.setItem(`lib_downloaded_${lib.id}`, 'true');
+  }
   localStorage.setItem('library_icon_count', String(iconCount));
   
-  reportProgress("সম্পূর্ণ হয়েছে!", iconCount, iconCount, 100, 100);
+  reportProgress("সম্পূর্ণ হয়েছে!", iconCount, iconCount, 100, 100, iconCount);
   return iconCount;
 }
+
