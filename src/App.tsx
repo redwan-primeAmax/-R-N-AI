@@ -334,7 +334,7 @@ function AppContent() {
 
   return (
     <MotionConfig reducedMotion={reducedMotion ? "always" : "user"}>
-    <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[#0A0A0A] text-white'} ${isFullPage ? '' : 'pb-32'} transition-colors duration-300`}>
+    <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[var(--bg-main)] text-white'} ${isFullPage ? '' : 'pb-32'} transition-colors duration-300`}>
       <AnimatePresence mode="wait">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
         {isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning && (

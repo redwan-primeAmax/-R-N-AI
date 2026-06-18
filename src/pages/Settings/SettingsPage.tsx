@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -21,9 +21,12 @@ import {
   Lock,
   User,
   Zap,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { DataManager } from '../../services/storage/DataManager';
+import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 
 const SettingsTile = ({ 
   icon: Icon, 
@@ -64,6 +67,12 @@ const SettingsTile = ({
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [showConfirm1, setShowConfirm1] = useState(false);
+  const [showConfirm2, setShowConfirm2] = useState(false);
+
+  const handleDeleteAppData = async () => {
+    await DataManager.deleteAllData();
+  };
 
   const sections = [
     {
@@ -115,6 +124,14 @@ const SettingsPage: React.FC = () => {
           description: "মুছে ফেলা কন্টেন্ট পুনরুদ্ধার করুন",
           path: "/recycle-bin",
           iconColor: "text-red-400"
+        },
+        {
+          icon: AlertTriangle,
+          title: "সমস্ত ডেটা মুছুন",
+          description: "অ্যাপের সমস্ত ডেটা চিরতরে মুছে ফেলুন এবং রিসেট করুন",
+          onClick: () => setShowConfirm1(true),
+          iconColor: "text-red-600",
+          colorClasses: "bg-red-500/5 border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30"
         }
       ]
     },
@@ -140,12 +157,12 @@ const SettingsPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-[var(--bg-main)] text-white flex flex-col font-sans overflow-x-hidden">
       {/* Background Decor */}
       <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] pointer-events-none -translate-y-1/2" />
       <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-600/5 blur-[100px] pointer-events-none translate-y-1/2" />
 
-      <header className="px-6 py-8 md:px-12 flex items-center justify-between sticky top-0 bg-[#0A0A0A]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
+      <header className="px-6 py-8 md:px-12 flex items-center justify-between sticky top-0 bg-[var(--bg-main)]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
         <div className="flex items-center gap-6">
           <button 
             onClick={() => navigate('/main')} 
@@ -198,6 +215,29 @@ const SettingsPage: React.FC = () => {
         </div>
         <p className="text-[10px] text-white/10 font-bold uppercase tracking-widest">Designed for Professional Optimization</p>
       </footer>
+
+      {/* Custom Confirmation Dialogs */}
+      <ConfirmDialog
+        isOpen={showConfirm1}
+        onClose={() => setShowConfirm1(false)}
+        onConfirm={() => setShowConfirm2(true)}
+        title="ডেটা মুছুন (Step 1/2)"
+        message="আপনি কি নিশ্চিত যে আপনি সমস্ত অ্যাপ ডেটা মুছে ফেলতে চান? এটি আর পুনরুদ্ধার করা সম্ভব হবে না। আপনার সমস্ত নোট, সেটিংস এবং ফাইল হারাবে।"
+        confirmText="নিশ্চিত করুন"
+        cancelText="বাতিল"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={showConfirm2}
+        onClose={() => setShowConfirm2(false)}
+        onConfirm={handleDeleteAppData}
+        title="চূড়ান্ত নিশ্চিতকরণ (Step 2/2)"
+        message="শেষবার নিশ্চিত করুন: লকাল স্টোরেজ, ডাটাবেজ এবং সেটিংস সবকিছু মুছে যাবে। আপনি কি প্রস্তুত? এই অ্যাকশনটি রিভার্স করা যাবে না।"
+        confirmText="চিরতরে মুছুন"
+        cancelText="না, ফিরে যান"
+        variant="danger"
+      />
     </div>
   );
 };

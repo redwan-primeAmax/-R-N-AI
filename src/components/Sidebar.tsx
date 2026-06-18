@@ -227,7 +227,7 @@ export default function Sidebar({
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.22 }}
-            className="fixed top-0 left-0 bottom-0 w-[80%] max-w-[280px] bg-[#0A0A0B] border-r border-white/5 z-[101] flex flex-col pt-6 overflow-hidden rounded-r-[32px]"
+            className="fixed top-0 left-0 bottom-0 w-[80%] max-w-[280px] bg-[var(--bg-main)] border-r border-white/5 z-[101] flex flex-col pt-6 overflow-hidden rounded-r-[32px]"
           >
             {/* Loading Overlay */}
             <AnimatePresence>
@@ -250,8 +250,8 @@ export default function Sidebar({
                   )}
                 </div>
                 <div className="flex flex-col">
-                  <h2 className="text-lg font-black tracking-tighter text-white leading-none">মূল মেনু</h2>
-                  <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1 truncate max-w-[120px]">
+                  <h2 className="text-lg font-black tracking-tighter leading-none" style={{ color: 'var(--text-primary)' }}>মূল মেনু</h2>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] mt-1 truncate max-w-[120px]" style={{ color: 'var(--text-secondary)' }}>
                     {activeWorkspace?.name || 'Workspace'}
                   </span>
                 </div>
@@ -270,13 +270,13 @@ export default function Sidebar({
             {/* Menu List Section */}
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 mb-6 space-y-6">
               {/* Core Features */}
-              <div className="bg-[#151516]/50 border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
+              <div className="bg-white/[0.02] border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
                 {[
-                  { icon: <Bookmark size={14} />, label: 'বুকমার্ক', path: '/bookmarks', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]' },
-                  { icon: <Lock size={14} />, label: 'সিকিউর ভল্ট', path: '/vault', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' },
-                  { icon: <LayoutGrid size={14} />, label: 'টুলস', path: '/tools', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]' },
-                  { icon: <Settings size={14} />, label: 'অ্যাপ ম্যানেজমেন্ট', path: '/settings', color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', glow: 'shadow-[0_0_15px_rgba(99,102,241,0.1)]' },
-                  { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]' }
+                  { icon: <Bookmark size={14} />, label: 'বুকমার্ক', path: '/bookmarks' },
+                  { icon: <Lock size={14} />, label: 'সিকিউর ভল্ট', path: '/vault' },
+                  { icon: <LayoutGrid size={14} />, label: 'টুলস', path: '/tools' },
+                  { icon: <Settings size={14} />, label: 'অ্যাপ ম্যানেজমেন্ট', path: '/settings' },
+                  { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
                 ].map((item, idx) => (
                   <button 
                     key={idx}
@@ -286,14 +286,13 @@ export default function Sidebar({
                       }
                     }}
                     className={cn(
-                      "w-full flex items-center justify-between p-4 bg-[#1C1C1D] hover:bg-[#222223] rounded-2xl transition-all group relative overflow-hidden active:scale-[0.98]",
-                      item.glow
+                      "w-full flex items-center justify-between p-4 rounded-2xl transition-all group relative overflow-hidden active:scale-[0.98] border border-[#403C37] hover:border-[#FFB03A] hover:shadow-[0_4px_20px_rgba(255,176,58,0.05)]"
                     )}
+                    style={{ background: 'linear-gradient(135deg, #332F2A 0%, #262422 100%)' }}
                   >
                     <div className="flex items-center gap-4">
                       <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-inner",
-                        item.bg, item.color, item.border,
+                        "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-inner bg-[#FFB03A]/10 text-[#FFB03A] border-[#FFB03A]/20",
                         "group-hover:scale-110 group-hover:rotate-3"
                       )}>
                         {iconsLoaded ? (
@@ -304,10 +303,10 @@ export default function Sidebar({
                           <SidebarIconPlaceholder />
                         )}
                       </div>
-                      <span className="font-black text-[10px] uppercase tracking-[0.15em] text-white/40 group-hover:text-white transition-colors">{item.label}</span>
+                      <span className="font-black text-[10px] uppercase tracking-[0.15em] transition-colors" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0">
-                       <ChevronRight size={14} className={item.color} />
+                       <ChevronRight size={14} className="text-[#FFB03A]" />
                     </div>
                   </button>
                 ))}

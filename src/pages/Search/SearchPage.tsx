@@ -412,7 +412,7 @@ export default function SearchPage() {
   const queryWords = queryLower.split(/\s+/).filter(t => t.length > 0);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <div className="min-h-screen bg-[var(--bg-main)] text-white">
       <div className="max-w-2xl mx-auto px-6 pt-12 pb-32">
         <header className="mb-6 space-y-4">
           <div className="flex items-center justify-between px-2">

@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 const LoadingScreen: React.FC = () => {
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#0A0A0A] flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[9999] bg-[var(--bg-main)] flex flex-col items-center justify-center">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}

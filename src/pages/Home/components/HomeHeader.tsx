@@ -20,7 +20,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onOpenMenu
 }) => {
   return (
-    <div className="px-4 pt-8 pb-4 flex items-center justify-between sticky top-0 bg-[#0A0A0A]/80 backdrop-blur-2xl z-40">
+    <div className="px-4 pt-8 pb-4 flex items-center justify-between sticky top-0 bg-[var(--bg-main)]/80 backdrop-blur-2xl z-40">
       <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
       <button 
         onClick={onOpenWorkspace}

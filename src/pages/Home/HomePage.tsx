@@ -208,7 +208,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white pb-48 overflow-x-hidden select-none">
+    <div className="min-h-screen bg-[var(--bg-main)] text-white pb-48 overflow-x-hidden select-none">
       {isLoading && <LoadingScreen />}
 
       <Sidebar 

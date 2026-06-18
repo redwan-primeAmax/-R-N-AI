@@ -3,11 +3,22 @@
 
 @theme {
   --font-sans: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Golden Harmony Palette */
+  --bg-main: #1A1A1A;
+  --bg-card-start: #332F2A;
+  --bg-card-end: #262422;
+  --color-accent: #FFB03A;
+  --text-primary: #F5F5EC;
+  --text-secondary: #8A8A85;
+  --divider-color: #403C37;
 }
 
 @layer base {
   html, body {
-    @apply bg-[#0A0A0A] text-white antialiased font-sans;
+    @apply antialiased font-sans;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
     -webkit-tap-highlight-color: transparent;
@@ -23,7 +34,6 @@
     padding: 0;
     word-break: break-word;
     overflow-wrap: break-word;
-    background-color: #0A0A0A;
   }
 
   #root {

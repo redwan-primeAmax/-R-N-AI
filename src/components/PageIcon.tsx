@@ -1,4 +1,5 @@
 import React from 'react';
+import { cleanRootSvgAttributes } from './icon/IconManager';
 
 interface PageIconProps {
   emoji?: string;
@@ -14,14 +15,15 @@ export const PageIcon = ({ emoji, className = "text-xl", fallback = '📄', id }
   
   const trimmed = emoji.trim();
   if (trimmed.startsWith('<svg') || (Symbol.iterator in Object(trimmed) && trimmed.includes('<svg'))) {
+    const cleanSvg = cleanRootSvgAttributes(trimmed);
     return (
       <span 
         id={id}
         className={`${className} flex items-center justify-center shrink-0 overflow-hidden svg-icon`}
-        dangerouslySetInnerHTML={{ __html: emoji }}
+        dangerouslySetInnerHTML={{ __html: cleanSvg }}
       />
     );
   }
   
-  return <span id={id} className={className}>{emoji}</span>;
+  return <span id={id} className={`${className} leading-none flex items-center justify-center p-1`}>{emoji}</span>;
 };

@@ -5,6 +5,7 @@
 
 import localforage from 'localforage';
 import { db, runMigrationFromLocalForage } from './DexieDB';
+import { iconsDb } from '../../components/icon/IconManager';
 import { HistoryManager } from './HistoryManager';
 
 console.log('DataManager: File loaded');
@@ -1104,6 +1105,14 @@ export const DataManager = {
 
     try {
       await db.notes.put(updatedNote);
+      
+      // Update Recent Activity History with latest info
+      HistoryManager.addNoteToHistory({
+        id: updatedNote.id,
+        title: updatedNote.title || 'Untitled',
+        emoji: updatedNote.emoji || ''
+      }).catch(err => console.warn('History background update failed:', err));
+
     } catch (e: any) {
       console.error('DataManager: Save failed!', e);
       if (e.name === 'QuotaExceededError' || e.message?.includes('quota')) {
@@ -1770,5 +1779,49 @@ export const DataManager = {
 
   async reindexAll(): Promise<void> {
     isFullyIndexed = false;
+  },
+
+  async deleteAllData(): Promise<void> {
+    try {
+      // 1. Safely clear all Dexie tables without closing/deleting database connections
+      const tablesToClear = [
+        db.notes,
+        db.workspaces,
+        db.chat_history,
+        db.ai_tasks,
+        db.note_versions,
+        db.media,
+        db.key_value_pairs,
+        db.extension_projects,
+        db.bookmark_folders
+      ];
+      
+      await Promise.all(tablesToClear.map(async (table) => {
+        try {
+          await table.clear();
+        } catch (err) {
+          console.warn(`DataManager: Failed to clear table ${table.name}`, err);
+        }
+      }));
+
+      try {
+        await iconsDb.icons.clear();
+      } catch (err) {
+        console.warn('DataManager: Failed to clear icons table', err);
+      }
+      
+      // 2. Clear localStorage
+      localStorage.clear();
+      
+      // 3. Clear localforage
+      await localforage.clear();
+      
+      // 4. Reload page to reset all states
+      window.location.reload();
+    } catch (e) {
+      console.error('DataManager: Critical failure deleting all data', e);
+      // Fallback: reload anyway to try and recover
+      window.location.reload();
+    }
   }
 };

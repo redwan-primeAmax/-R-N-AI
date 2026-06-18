@@ -22,45 +22,101 @@ export default function ToolRunner({ tool, onClose }: ToolRunnerProps) {
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
       if (!doc) return;
 
-      // 1. Get index.html content
+      const fileToUrl: Record<string, string> = {};
+
+      const replaceAssetRefs = (content: string, relativePath: string, blobUrl: string): string => {
+        const escaped = relativePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // 1. Matches HTML attributes (src, href, value, etc)
+        const htmlAttrRegex = new RegExp(`(src|href|data|srcset|poster|action|content)\\s*=\\s*(["'])(\\.\\/|\\.\\.\\/|\\/)*${escaped}\\2`, 'ig');
+        let newContent = content.replace(htmlAttrRegex, (_, attr, quote) => {
+          return `${attr}=${quote}${blobUrl}${quote}`;
+        });
+
+        // 2. CSS: url("path") or url('path') or url(path) with optional quotes/slashes
+        const cssUrlRegex = new RegExp(`url\\(\\s*(["']?)(\\.\\/|\\.\\.\\/|\\/)*${escaped}\\1\\s*\\)`, 'ig');
+        newContent = newContent.replace(cssUrlRegex, () => {
+          return `url("${blobUrl}")`;
+        });
+
+        // 3. JS imports/strings: "path" or 'path' or `path` with optional slashes
+        const jsImportRegex = new RegExp(`(["'\`])(\\.\\/|\\.\\.\\/|\\/)*${escaped}\\1`, 'g');
+        newContent = newContent.replace(jsImportRegex, (_, quote) => {
+          return `${quote}${blobUrl}${quote}`;
+        });
+
+        return newContent;
+      };
+
+      // 1. Phase 1: Directly create blob URLs for physical assets (non-HTML, non-CSS, non-JS)
+      const nonTextEntries = Object.entries(tool.files).filter(([path]) => {
+        const lower = path.toLowerCase();
+        return !lower.endsWith('.html') && !lower.endsWith('.css') && !lower.endsWith('.js');
+      });
+
+      for (const [path, blob] of nonTextEntries) {
+        const url = URL.createObjectURL(blob);
+        blobUrls.push(url);
+        fileToUrl[path] = url;
+      }
+
+      // 2. Phase 2: Process CSS files (can reference physical assets)
+      const cssEntries = Object.entries(tool.files).filter(([path]) => path.toLowerCase().endsWith('.css'));
+      const sortedKnownPathsPhase2 = Object.keys(fileToUrl).sort((a, b) => b.length - a.length);
+
+      for (const [path, blob] of cssEntries) {
+        let content = await blob.text();
+        for (const assetPath of sortedKnownPathsPhase2) {
+          content = replaceAssetRefs(content, assetPath, fileToUrl[assetPath]);
+        }
+        const updatedBlob = new Blob([content], { type: 'text/css' });
+        const url = URL.createObjectURL(updatedBlob);
+        blobUrls.push(url);
+        fileToUrl[path] = url;
+      }
+
+      // 3. Phase 3: Process JS files (can reference physical assets and CSS files)
+      const jsEntries = Object.entries(tool.files).filter(([path]) => path.toLowerCase().endsWith('.js'));
+      const sortedKnownPathsPhase3 = Object.keys(fileToUrl).sort((a, b) => b.length - a.length);
+
+      for (const [path, blob] of jsEntries) {
+        let content = await blob.text();
+        for (const knownPath of sortedKnownPathsPhase3) {
+          content = replaceAssetRefs(content, knownPath, fileToUrl[knownPath]);
+        }
+        const updatedBlob = new Blob([content], { type: 'application/javascript' });
+        const url = URL.createObjectURL(updatedBlob);
+        blobUrls.push(url);
+        fileToUrl[path] = url;
+      }
+
+      // 4. Phase 4: Process sub-HTML files (not index.html)
+      const otherHtmlEntries = Object.entries(tool.files).filter(([path]) => {
+        const lower = path.toLowerCase();
+        return lower.endsWith('.html') && lower !== 'index.html';
+      });
+      const sortedKnownPathsPhase4 = Object.keys(fileToUrl).sort((a, b) => b.length - a.length);
+
+      for (const [path, blob] of otherHtmlEntries) {
+        let content = await blob.text();
+        for (const knownPath of sortedKnownPathsPhase4) {
+          content = replaceAssetRefs(content, knownPath, fileToUrl[knownPath]);
+        }
+        const updatedBlob = new Blob([content], { type: 'text/html' });
+        const url = URL.createObjectURL(updatedBlob);
+        blobUrls.push(url);
+        fileToUrl[path] = url;
+      }
+
+      // 5. Phase 5: Main index.html resolution
       const indexHtmlBlob = tool.files['index.html'];
       if (!indexHtmlBlob) return;
       let htmlContent = await indexHtmlBlob.text();
 
-      // 2. Create URLs for all files
-      const fileToUrl: Record<string, string> = {};
-      Object.entries(tool.files).forEach(([path, blob]) => {
-        const url = URL.createObjectURL(blob);
-        blobUrls.push(url);
-        fileToUrl[path] = url;
-      });
-
-      // 3. Systematically replace relative paths
-      // Sort paths by length descending to avoid partial replacements (e.g., 'a/b.js' before 'b.js')
-      const sortedPaths = Object.keys(tool.files).sort((a, b) => b.length - a.length);
-
-      sortedPaths.forEach(path => {
-        if (path === 'index.html') return;
-        const url = fileToUrl[path];
-
-        // Replace src="path", src='path', href="path", href='path'
-        // Also handle background: url('path') and CSS imports
-        const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        const regexPatterns = [
-          // Attributes: src="./path.js", src="path.js"
-          new RegExp(`(src|href)=["'](\\.\\/|\\.\\.\\/)*${escapedPath}["']`, 'g'),
-          // CSS url(): url("./img.png"), url(img.png)
-          new RegExp(`url\\(["']?(\\.\\/|\\.\\.\\/)*${escapedPath}["']?\\)`, 'g')
-        ];
-
-        regexPatterns.forEach(regex => {
-          htmlContent = htmlContent.replace(regex, (match, prefix, dots) => {
-             if (match.startsWith('url')) return `url("${url}")`;
-             return `${prefix}="${url}"`;
-          });
-        });
-      });
+      const finalSortedPaths = Object.keys(fileToUrl).sort((a, b) => b.length - a.length);
+      for (const knownPath of finalSortedPaths) {
+        htmlContent = replaceAssetRefs(htmlContent, knownPath, fileToUrl[knownPath]);
+      }
 
       if (!isMounted) return;
 

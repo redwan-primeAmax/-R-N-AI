@@ -94,11 +94,11 @@ export default function BookmarkPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white pb-32 select-none">
+    <div className="min-h-screen bg-[var(--bg-main)] text-white pb-32 select-none">
       {isLoading && <LoadingScreen />}
 
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-3xl border-b border-white/5 px-6 py-4">
+      <div className="sticky top-0 z-50 bg-[var(--bg-main)]/80 backdrop-blur-3xl border-b border-white/5 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 

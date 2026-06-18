@@ -39,11 +39,21 @@ export const NoteCard = React.memo<NoteCardProps>(({
 
   // Determine a stable random background based on ID
   const cardBackground = React.useMemo(() => {
-    const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return hash % 2 === 0 
-      ? "radial-gradient(circle, #c1c9b5, #736868)" 
-      : "linear-gradient(360deg, #c1c9b5, #736868)";
-  }, [note.id]);
+    return "linear-gradient(135deg, var(--bg-card-start) 0%, var(--bg-card-end) 100%)";
+  }, []);
+
+  const getTagStyle = (tag: string) => {
+    const TAG_COLORS = [
+      { bg: 'bg-emerald-400/10', border: 'border-emerald-400/20', text: 'text-emerald-400' },
+      { bg: 'bg-sky-400/10', border: 'border-sky-400/20', text: 'text-sky-400' },
+      { bg: 'bg-rose-400/10', border: 'border-rose-400/20', text: 'text-rose-400' },
+      { bg: 'bg-violet-400/10', border: 'border-violet-400/20', text: 'text-violet-400' },
+      { bg: 'bg-amber-400/10', border: 'border-amber-400/20', text: 'text-amber-400' },
+      { bg: 'bg-fuchsia-400/10', border: 'border-fuchsia-400/20', text: 'text-fuchsia-400' },
+    ];
+    const hash = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return TAG_COLORS[hash % TAG_COLORS.length];
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -91,9 +101,9 @@ export const NoteCard = React.memo<NoteCardProps>(({
         {/* Subtle Highlight line at the top inner */}
         <div className="absolute top-[1px] left-[10%] right-[10%] h-[1px] bg-white/10 blur-[0.5px] z-10" />
 
-        <div className="relative z-20 flex flex-col h-full gap-4 max-w-full">
-          <div className="flex items-start justify-between min-h-[44px]">
-            <div className="flex items-center gap-2 flex-wrap max-w-full overflow-hidden">
+        <div className="relative z-20 flex flex-col h-full max-w-full">
+          <div className="flex items-start justify-between min-h-[32px] mb-2">
+            <div className="flex items-center gap-2 flex-wrap max-w-full overflow-hidden pt-1">
               {note.isCollaborated && (
                 <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center gap-1.5 shrink-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -110,7 +120,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
               )}
             </div>
 
-            {/* More Vertical Button (Bug 1 Fix) */}
+            {/* More Vertical Button */}
             {!isSelectionMode && (
               <button 
                 onClick={(e) => {
@@ -124,10 +134,10 @@ export const NoteCard = React.memo<NoteCardProps>(({
             )}
           </div>
           
-          <div className="mt-1 min-w-0 flex-1 flex flex-col gap-2 overflow-hidden">
+          <div className="-mt-1 min-w-0 flex-1 flex flex-col gap-2 overflow-hidden">
             <div className="flex items-start gap-4">
               <div 
-                className="w-16 h-16 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 transition-all duration-500 group-hover:scale-105 group-hover:bg-white/[0.05] group-hover:border-white/10 shrink-0"
+                className="w-16 h-16 bg-white/[0.02] rounded-2xl flex items-center justify-center shadow-inner border border-white/5 group-hover:scale-105 group-hover:bg-white/[0.05] group-hover:border-white/10 shrink-0 overflow-hidden"
               >
                 {note.emoji ? (
                   <PageIcon emoji={note.emoji} className="text-4xl drop-shadow-lg" fallback="📄" />
@@ -139,7 +149,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
                 <h3 className="font-bold text-[20px] leading-tight tracking-tight text-white/95 group-hover:text-white transition-colors truncate block">
                   {note.title || 'শিরোনামহীন চিন্তা'}
                 </h3>
-                <p className="text-[13px] text-white/35 font-medium leading-relaxed line-clamp-2 mt-1 group-hover:text-white/60 transition-colors break-words max-h-[40px] overflow-hidden">
+              <p className="text-[13px] font-medium leading-relaxed line-clamp-2 mt-1 group-hover:text-white transition-colors break-words max-h-[40px] overflow-hidden" style={{ color: 'var(--text-secondary)' }}>
                   {note.description ? (note.description.length > 100 ? note.description.substring(0, 97) + '...' : note.description) : 'কোনো বর্ণনা নেই'}
                 </p>
               </div>
@@ -150,13 +160,22 @@ export const NoteCard = React.memo<NoteCardProps>(({
             <div className="flex gap-1.5 flex-wrap max-w-full overflow-hidden items-center">
               {note.isLocked && <Lock size={12} className="text-amber-500 mr-1" />}
               {note.tags && note.tags.length > 0 ? (
-                note.tags.slice(0, 2).map(tag => (
-                  <span key={tag} className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black uppercase tracking-widest truncate shadow-[0_0_10px_rgba(245,158,11,0.1)]">
-                    {tag}
-                  </span>
-                ))
+                note.tags.slice(0, 2).map(tag => {
+                  const style = getTagStyle(tag);
+                  return (
+                    <span 
+                      key={tag} 
+                      className={cn(
+                        "px-2.5 py-1 border rounded-lg text-[9px] font-black uppercase tracking-widest truncate",
+                        style.bg, style.border, style.text
+                      )}
+                    >
+                      {tag}
+                    </span>
+                  );
+                })
               ) : (
-                <span className="text-[9px] font-mono text-white/10 uppercase tracking-widest truncate">Thought</span>
+                <span className="text-[9px] font-mono uppercase tracking-widest truncate" style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>Thought</span>
               )}
             </div>
             

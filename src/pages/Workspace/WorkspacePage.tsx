@@ -126,10 +126,10 @@ export default function WorkspacePage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0A0A0A] overflow-hidden antialiased">
+    <div className="relative min-h-screen bg-[var(--bg-main)] overflow-hidden antialiased">
       {isLoading && <LoadingScreen />}
       {/* Background Layer to prevent flashes */}
-      <div className="fixed inset-0 bg-[#0A0A0A] z-[-1]" />
+      <div className="fixed inset-0 bg-[var(--bg-main)] z-[-1]" />
 
       {/* Split Animation Containers */}
       <AnimatePresence mode="wait">
