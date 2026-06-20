@@ -7,8 +7,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import { cn } from '../../../utils/cn';
-import { hashPassword } from '../../../utils/crypto';
-import { Note } from '../../../services/storage/DataManager';
+import { Note, decrypt } from '../../../services/storage/DataManager';
 
 interface EditorLockScreenProps {
   note: Note;
@@ -32,8 +31,15 @@ export const EditorLockScreen: React.FC<EditorLockScreenProps> = ({
   const handleAuthSubmit = async () => {
     const trimmedInput = passwordInput.trim();
     if (!trimmedInput) return;
-    const hashed = await hashPassword(trimmedInput);
-    if (hashed === note.password) {
+    
+    if (!note.password) {
+       // Should not happen for locked notes
+       setIsUnlocked(true);
+       return;
+    }
+
+    const decrypted = await decrypt(note.password);
+    if (decrypted === trimmedInput) {
       setIsUnlocked(true);
     } else {
       setNotification({ message: 'ভুল পাসওয়ার্ড!', type: 'error' });

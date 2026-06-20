@@ -175,11 +175,11 @@ export const NoteCard = React.memo<NoteCardProps>(({
                   );
                 })
               ) : (
-                <span className="text-[9px] font-mono uppercase tracking-widest truncate" style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>Thought</span>
+                <span className="text-[9px] font-mono uppercase tracking-widest truncate text-white">Thought</span>
               )}
             </div>
             
-            <span className="text-[9px] font-mono text-white/30 group-hover:text-white/50 transition-colors shrink-0 whitespace-nowrap ml-2">
+            <span className="text-[9px] font-mono text-white group-hover:text-white transition-colors shrink-0 whitespace-nowrap ml-2">
               {new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </span>
           </div>

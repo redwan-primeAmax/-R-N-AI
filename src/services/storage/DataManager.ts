@@ -100,25 +100,14 @@ const notifySync = (data: any) => {
   localSyncEmitter.dispatchEvent(customEvent);
 };
 
-// In-memory cache for speed with race-condition protection
+// In-memory cache for speed
 let cachedNotes: Note[] | null = null;
-let cachedWorkspaceId: string | null = null; // Bug 15: Validate workspace of cached notes
-let notesLoadingPromise: Promise<Note[]> | null = null;
+let cachedWorkspaceId: string | null = null;
 let cachedSettings: AISettings | null = null;
-let isSyncing = false;
-let pendingSync = false;
 let isFullyIndexed = false;
 
 let cachedStorageUsage: { used: number; quota: number } | null = null;
 let lastStorageCheck = 0;
-
-// === NEW: Strong stale-load protection ===
-let cacheVersion = 0;                    // Incremented on every invalidation
-let lastInvalidationReason = '';         // For debugging
-
-// V2 WELCOME NOTE PERMANENT DELETE FIX constants
-const WELCOME_NOTE_ID = 'welcome-note';
-const USER_DELETED_DEFAULT_WELCOME_KEY = 'user_deleted_default_welcome_note';
 
 // Internal helper to trigger sync both locally and remotely
 const CHAT_HISTORY_KEY = 'chat_history';
@@ -138,14 +127,13 @@ const scheduleIndexing = (note: Note) => {
 };
 
 // Encryption/decryption helpers (AES-GCM for better security)
-const ENCRYPTION_KEY_RAW = 'redwan-ai-super-secret-key-2024';
 const SALT = 'redwan-salt';
 
 let derivedKeyCache: CryptoKey | null = null;
 async function getEncryptionKey() {
   if (derivedKeyCache) return derivedKeyCache;
 
-  let customKey = ENCRYPTION_KEY_RAW;
+  let customKey = 'default-fallback-key-should-be-randomized';
   let customSalt = SALT;
   try {
     const storedKey = await db.key_value_pairs.get('user_encryption_key_seed');
@@ -166,7 +154,8 @@ async function getEncryptionKey() {
       customSalt = randomSalt;
     }
   } catch (e) {
-    console.warn('DataManager: Could not fetch user custom encryption keys, falling back to static:', e);
+    console.error('DataManager: Critical error fetching encryption keys:', e);
+    throw new Error('Encryption initialization failed');
   }
 
   const encoder = new TextEncoder();
@@ -192,33 +181,7 @@ async function getEncryptionKey() {
   return derivedKeyCache;
 }
 
-let staticKeyCache: CryptoKey | null = null;
-async function getStaticEncryptionKey() {
-  if (staticKeyCache) return staticKeyCache;
-  const encoder = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(ENCRYPTION_KEY_RAW),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey']
-  );
-  staticKeyCache = await crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: encoder.encode(SALT),
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-  return staticKeyCache;
-}
-
-const encrypt = async (text: string) => {
+export const encrypt = async (text: string) => {
   if (!text) return '';
   try {
     const key = await getEncryptionKey();
@@ -242,7 +205,7 @@ const encrypt = async (text: string) => {
   }
 };
 
-const decrypt = async (encoded: string) => {
+export const decrypt = async (encoded: string) => {
   if (!encoded) return '';
   try {
     if (encoded.length < 28) return encoded;
@@ -266,23 +229,13 @@ const decrypt = async (encoded: string) => {
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
     
-    try {
-      const key = await getEncryptionKey();
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        data
-      );
-      return new TextDecoder().decode(decrypted);
-    } catch (err) {
-      const staticKey = await getStaticEncryptionKey();
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        staticKey,
-        data
-      );
-      return new TextDecoder().decode(decrypted);
-    }
+    const key = await getEncryptionKey();
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    );
+    return new TextDecoder().decode(decrypted);
   } catch (e) {
     // Silently return original if decryption fails (likely plain text or old format)
     return encoded;
@@ -552,73 +505,18 @@ export const DataManager = {
       return cachedNotes;
     }
 
-    if (!forceRefresh && notesLoadingPromise) {
-      return notesLoadingPromise;
-    }
-
-    const thisVersion = cacheVersion;  // Capture at scheduling time
-
-    notesLoadingPromise = (async () => {
-      try {
-        const currentWorkspaceId = await this.getActiveWorkspaceId();
-
-        let notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
-
-        if (notes.length === 0) {
-          const allNotesCount = await db.notes.count();
-          if (allNotesCount === 0) {
-            // V2 WELCOME NOTE PERMANENT DELETE FIX
-            const userDeletedWelcome = await this.hasUserPermanentlyDeletedWelcomeNote();
-            if (!userDeletedWelcome) {
-              const defaults = await this.initializeDefaultNotes();
-              const filteredDefault = defaults.filter(n => n.workspaceId === currentWorkspaceId || (currentWorkspaceId === 'default' && !n.workspaceId));
-              if (defaults.length > 0) {
-                if (thisVersion === cacheVersion) {
-                  cachedNotes = filteredDefault;
-                  cachedWorkspaceId = currentWorkspaceId;
-                }
-                return filteredDefault;
-              }
-            } else {
-              console.warn('[DataManager] V2: DB is empty but user permanently deleted welcome note -> returning truly empty list.');
-            }
-          }
-        }
-
-        // === CRITICAL: Stale load guard ===
-        if (thisVersion !== cacheVersion) {
-          console.warn(`[DataManager] Discarding stale getAllNotes result (load v${thisVersion} vs current v${cacheVersion}). Reason was: ${lastInvalidationReason}`);
-          return cachedNotes || notes; // Return whatever we have, but do NOT poison cache
-        }
-
-        cachedNotes = notes;
-        cachedWorkspaceId = currentWorkspaceId;
-        return notes;
-      } finally {
-        // Only clear the promise if no newer invalidation happened during our load
-        if (thisVersion === cacheVersion) {
-          notesLoadingPromise = null;
-        }
-      }
-    })();
-
-    return notesLoadingPromise;
+    const notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
+    cachedNotes = notes;
+    cachedWorkspaceId = currentWorkspaceId;
+    return notes;
   },
 
   // --- Storage Usage ---
   
   // === STRONG CACHE INVALIDATION (NEW - fixes permanent delete ghosting) ===
   invalidateNotesCache(reason: string = 'mutation') {
-    const oldVersion = cacheVersion;
-    cacheVersion++;
-    lastInvalidationReason = reason;
-
-    const hadCached = cachedNotes !== null;
-    const hadPromise = notesLoadingPromise !== null;
-
     cachedNotes = null;
     cachedWorkspaceId = null;
-    notesLoadingPromise = null;
     this.resetStorageCache();
 
     // Also aggressively invalidate RST search state (main thread)
@@ -633,42 +531,12 @@ export const DataManager = {
       // ignore - RST may not be loaded
     }
 
-    console.warn(`[DataManager] CACHE INVALIDATED (v${cacheVersion} from ${oldVersion}). Reason: ${reason}. Had cached=${hadCached}, hadPromise=${hadPromise}`);
-
     // Notify everyone (UI + cross-tab) that notes are now dirty
-    // Fix Bug 5: Only broadcast if we didn't receive this from a broadcast!
     if (!reason.startsWith('broadcast:')) {
-      notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason, version: cacheVersion });
+      notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason });
     }
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason, version: cacheVersion } }));
-    window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason, version: cacheVersion } }));
-  },
-
-  // === V2 WELCOME NOTE PERMANENT DELETE FIX helper methods ===
-  async hasUserPermanentlyDeletedWelcomeNote(): Promise<boolean> {
-    const record = await db.key_value_pairs.get(USER_DELETED_DEFAULT_WELCOME_KEY);
-    return !!(record && record.value === true);
-  },
-
-  async markWelcomeNoteAsPermanentlyDeletedByUser(): Promise<void> {
-    await db.key_value_pairs.put({ key: USER_DELETED_DEFAULT_WELCOME_KEY, value: true });
-    console.warn('[DataManager] V2: User has permanently deleted the default welcome note. Future auto-creation is DISABLED.');
-  },
-
-  async clearWelcomeNoteDeletionFlag(): Promise<void> {
-    await db.key_value_pairs.delete(USER_DELETED_DEFAULT_WELCOME_KEY);
-    console.log('[DataManager] V2: Welcome note deletion flag cleared (reset to defaults allowed).');
-  },
-
-  async resetToDefaultWelcomeNote(): Promise<Note | null> {
-    await this.clearWelcomeNoteDeletionFlag();
-    await db.notes.delete(WELCOME_NOTE_ID); // clean any stale version
-
-    const created = await this.initializeDefaultNotes();
-    this.invalidateNotesCache('reset-welcome-note');
-    this.triggerSync('NOTES_UPDATE');
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { type: 'reset-welcome' } }));
-    return created[0] || null;
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason } }));
+    window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason } }));
   },
 
   resetStorageCache() {
@@ -858,52 +726,12 @@ export const DataManager = {
       .limit(pageSize)
       .toArray();
 
-    if (currentWorkspaceId === 'default') {
-      const countNoWorkspace = await db.notes.filter(n => !n.workspaceId).count();
-      if (countNoWorkspace > 0) {
-        const allWorkspaceNotes = await this.getAllNotes();
-        const sliced = allWorkspaceNotes.slice(start, start + pageSize);
-        return {
-          notes: sliced,
-          hasMore: start + pageSize < allWorkspaceNotes.length
-        };
-      }
-    }
-
     const totalNotes = await db.notes.where('workspaceId').equals(currentWorkspaceId).count();
     return {
       notes: paginatedNotes,
       hasMore: start + pageSize < totalNotes
     };
   },
-
-  async initializeDefaultNotes(): Promise<Note[]> {
-    // V2 WELCOME NOTE PERMANENT DELETE FIX
-    const userDeletedIt = await this.hasUserPermanentlyDeletedWelcomeNote();
-    if (userDeletedIt) {
-      console.warn('[DataManager] V2: Skipping default welcome note creation because user permanently deleted it.');
-      return [];
-    }
-
-    const welcomeNote: Note = {
-      id: WELCOME_NOTE_ID,
-      title: 'স্বাগতম RETWAN Assistant-এ!',
-      content: 'আপনার প্রথম নোটটি এখানে শুরু করুন। আপনি বাম পাশের মেনু থেকে নতুন নোট তৈরি করতে পারেন এবং সেটিংস থেকে এআই কনফিগার করতে পারেন।',
-      emoji: '',
-      workspaceId: 'default',
-      isPinned: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      isTrashed: false,
-      isFavorite: false,
-      isLocked: false,
-      tags: ['Welcome', 'Guide']
-    };
-    await db.notes.put(welcomeNote);
-    console.log('[DataManager] V2: Created fresh default welcome note (user never permanently deleted it before).');
-    return [welcomeNote];
-  },
-
   async clearMemory(): Promise<void> {
     console.log('Memory cleared');
   },
@@ -1009,6 +837,11 @@ export const DataManager = {
     this.invalidateNotesCache(`remove-bookmark:${noteId}`);
   },
 
+  async wasPermanentlyDeleted(id: string): Promise<boolean> {
+    const record = await db.deleted_notes.get(id);
+    return !!record;
+  },
+
   async saveNote(note: Note): Promise<Note> {
     const usage = await this.getStorageUsage();
     if (usage.used > usage.quota * 0.9) {
@@ -1024,109 +857,73 @@ export const DataManager = {
     }
 
     const wsId = note.workspaceId || currentWorkspaceId;
-    const existing = await db.notes.get(note.id);
     
-    // Safety check (Anti-Ghosting Bug): 
-    // If the note doesn't exist in DB but has an ID, check if it's meant to be a new creation.
-    // If it was recently deleted (permanent delete), we block re-creation from stale auto-saves.
-    if (!existing) {
-        // V2 WELCOME NOTE PERMANENT DELETE FIX
-        // We no longer blindly allow 'welcome' ID. If user permanently deleted it, we respect that.
-        // Only allow very short IDs (new client-generated) or very recent creations (Bug 20: 10 mins instead of 5s).
-        const isActuallyNew = note.id.length < 30 || (Date.now() - note.createdAt < 600000) || (note as any).isImported;
-        // NOTE: We deliberately removed the 'includes("welcome")' special case.
-        // If someone tries to save the old welcome ID after permanent delete, it will now be blocked (correct behavior).
-        if (!isActuallyNew) {
-            console.warn(`DataManager: Blocking re-creation of potentially deleted note ${note.id}`);
-            return note; 
-        }
-    }
-
-    const isNew = !existing;
-
-    // Hacker-proof verification & database truncation sweep
-    const notesCountInWorkspace = await db.notes.where('workspaceId').equals(wsId).count();
-    
-    if (notesCountInWorkspace > 10000) {
-      // If limit exceeded, we only refetch to delete the excess (rare case)
-      let notesInWorkspace = await db.notes.where('workspaceId').equals(wsId).toArray();
-      // Sort oldest first and delete any excess notes exceeding 10,000
-      notesInWorkspace.sort((a, b) => a.createdAt - b.createdAt);
-      const deleteList = notesInWorkspace.slice(10000);
-      const idsToDelete = deleteList.map(n => n.id);
-      await db.notes.bulkDelete(idsToDelete);
-      this.invalidateNotesCache('limit-truncation');
-      if (idsToDelete.includes(note.id)) {
-        throw new Error('Workspace Note Limit Reached (Max 10,000)! Note is discarded to maintain device stability.');
-      }
-    }
-
-    if (isNew && notesCountInWorkspace >= 10000) {
-      throw new Error('Workspace Note Limit Reached (Max 10,000)! Note creation blocked.');
-    }
-
-    if (isNew) {
-      let finalTitle = note.title;
-      if (!finalTitle || !finalTitle.trim()) {
-        finalTitle = 'Untitled'; // Bug 21: Default empty title to "Untitled"
-      }
-      let counter = 1;
-      
-      const checkTitleExists = async (title: string) => {
-        // Optimization (Bug 12): Query by workspaceId first then check title to avoid loading all notes
-        const found = await db.notes
-          .where('workspaceId')
-          .equals(note.workspaceId || currentWorkspaceId)
-          .and(n => n.title.toLowerCase() === title.toLowerCase())
-          .first();
-        return !!found;
-      };
-
-      while (await checkTitleExists(finalTitle)) {
-        finalTitle = `${note.title || 'Untitled'} (${counter})`;
-        counter++;
-      }
-      note.title = finalTitle;
+    // Safety check (Anti-Ghosting): Use tombstones
+    const isDeleted = await this.wasPermanentlyDeleted(note.id);
+    if (isDeleted) {
+      console.warn(`DataManager: Blocking re-creation of permanently deleted note ${note.id}`);
+      return note;
     }
 
     const processedContent = await this.extractMediaFromContent(note.content);
     const now = Date.now();
-    const updatedNote = { 
-      ...note, 
-      content: processedContent, 
-      updatedAt: now,
-      createdAt: isNew ? now : (existing.createdAt || now)
-    };
+    
+    return await db.transaction('rw', [db.notes, db.deleted_notes, db.key_value_pairs], async () => {
+      const existing = await db.notes.get(note.id);
+      const isNew = !existing;
 
-    const contentSize = new Blob([updatedNote.content]).size;
-    if (contentSize > 2 * 1024 * 1024) {
-      console.warn("DataManager: Large note content detected (> 2MB).");
-    }
+      // Limit enforcement inside transaction
+      const notesCountInWorkspace = await db.notes.where('workspaceId').equals(wsId).count();
+      if (isNew && notesCountInWorkspace >= 10000) {
+        throw new Error('Workspace Note Limit Reached (Max 10,000)! Note creation blocked.');
+      }
 
-    try {
+      if (isNew) {
+        let finalTitle = note.title;
+        if (!finalTitle || !finalTitle.trim()) {
+          finalTitle = 'Untitled';
+        }
+        let counter = 1;
+        
+        // Efficient title check
+        const findDuplicate = async (title: string) => {
+          return await db.notes
+            .where('workspaceId')
+            .equals(wsId)
+            .and(n => n.title.toLowerCase() === title.toLowerCase())
+            .first();
+        };
+
+        while (await findDuplicate(finalTitle)) {
+          finalTitle = `${note.title || 'Untitled'} (${counter})`;
+          counter++;
+        }
+        note.title = finalTitle;
+      }
+
+      const updatedNote = { 
+        ...note, 
+        content: processedContent, 
+        updatedAt: now,
+        createdAt: isNew ? now : (existing?.createdAt || now)
+      };
+
       await db.notes.put(updatedNote);
       
-      // Update Recent Activity History with latest info
+      // Update Recent Activity History
       HistoryManager.addNoteToHistory({
         id: updatedNote.id,
         title: updatedNote.title || 'Untitled',
         emoji: updatedNote.emoji || ''
-      }).catch(err => console.warn('History background update failed:', err));
+      }).catch(() => {});
 
-    } catch (e: any) {
-      console.error('DataManager: Save failed!', e);
-      if (e.name === 'QuotaExceededError' || e.message?.includes('quota')) {
-        throw new Error('Storage quota exceeded. Your notes are too large (maybe too many images). Try deleting some old notes.');
-      }
-      throw e;
-    }
-    this.invalidateNotesCache(`save-note:${note.id}`);
-    
-    scheduleIndexing(updatedNote);
-    notifySync({ type: 'UPDATE_NOTE', id: note.id });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+      this.invalidateNotesCache(`save-note:${note.id}`);
+      scheduleIndexing(updatedNote);
+      notifySync({ type: 'UPDATE_NOTE', id: note.id });
+      window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
 
-    return updatedNote;
+      return updatedNote;
+    });
   },
 
   async checkDuplicateTitle(title: string, workspaceId?: string): Promise<string> {
@@ -1218,39 +1015,60 @@ export const DataManager = {
   },
 
   async deleteNotePermanent(id: string): Promise<void> {
-    const isWelcome = id === WELCOME_NOTE_ID;   // V2
-
     // Use transaction for atomicity + cleanup
-    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs], async () => {
+    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs, db.deleted_notes], async () => {
       await db.notes.delete(id);
       await db.note_versions.where('noteId').equals(id).delete();
-      // Also clean this note from recent history (prevents ghost recents)
+      await db.deleted_notes.put({ id, deletedAt: Date.now() });
+
+      // Also clean this note from recent history
       const hist = await db.key_value_pairs.get('recent_notes_history');
       if (hist?.value) {
         const updated = hist.value.filter((r: any) => r.id !== id);
         await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
       }
+    });
 
-      if (isWelcome) {
-        await this.markWelcomeNoteAsPermanentlyDeletedByUser();   // V2
+    this.invalidateNotesCache(`permanent-delete:${id}`);
+    
+    // Garbage Collection: Local backups
+    const prefix = `note_backup_${id}`;
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(prefix))
+      .forEach(k => localStorage.removeItem(k));
+    
+    notifySync({ type: 'PERMANENT_DELETE_NOTE', id });
+    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+  },
+
+  async bulkDeleteNotesPermanent(ids: string[]): Promise<void> {
+    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs, db.deleted_notes], async () => {
+      await db.notes.bulkDelete(ids);
+      await db.note_versions.where('noteId').anyOf(ids).delete();
+      
+      const tombstones = ids.map(id => ({ id, deletedAt: Date.now() }));
+      await db.deleted_notes.bulkPut(tombstones);
+
+      // Clean history for all
+      const hist = await db.key_value_pairs.get('recent_notes_history');
+      if (hist?.value) {
+        const updated = hist.value.filter((r: any) => !ids.includes(r.id));
+        await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
       }
     });
 
-    // STRONG INVALIDATION
-    this.invalidateNotesCache(`permanent-delete:${id}${isWelcome ? ' (WELCOME)' : ''}`);
-    
-    // Garbage Collection
-    const prefix = `note_backup_${id}`;
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-            keysToRemove.push(key);
-        }
+    this.invalidateNotesCache(`bulk-permanent-delete:${ids.length} notes`);
+
+    // Collect all keys once for efficiency
+    const allKeys = Object.keys(localStorage);
+    for (const id of ids) {
+      const prefix = `note_backup_${id}`;
+      allKeys
+        .filter(k => k.startsWith(prefix))
+        .forEach(k => localStorage.removeItem(k));
     }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
-    
-    notifySync({ type: 'PERMANENT_DELETE_NOTE', id });
+
+    notifySync({ type: 'PERMANENT_DELETE_NOTES', ids });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
@@ -1268,40 +1086,6 @@ export const DataManager = {
     }
     
     notifySync({ type: 'DELETE_NOTES', ids });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
-  },
-
-  async bulkDeleteNotesPermanent(ids: string[]): Promise<void> {
-    const hasWelcome = ids.includes(WELCOME_NOTE_ID); // V2
-
-    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs], async () => {
-      await db.notes.bulkDelete(ids);
-      await db.note_versions.where('noteId').anyOf(ids).delete();
-
-      // Clean history for all
-      const hist = await db.key_value_pairs.get('recent_notes_history');
-      if (hist?.value) {
-        const updated = hist.value.filter((r: any) => !ids.includes(r.id));
-        await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
-      }
-
-      if (hasWelcome) {
-        await this.markWelcomeNoteAsPermanentlyDeletedByUser(); // V2
-      }
-    });
-
-    this.invalidateNotesCache(`bulk-permanent-delete:${ids.length} notes${hasWelcome ? ' (INCL WELCOME)' : ''}`);
-
-    // Collect all keys once for efficiency
-    const allKeys = Object.keys(localStorage);
-    for (const id of ids) {
-      const prefix = `note_backup_${id}`;
-      allKeys
-        .filter(k => k.startsWith(prefix))
-        .forEach(k => localStorage.removeItem(k));
-    }
-
-    notifySync({ type: 'PERMANENT_DELETE_NOTES', ids });
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 

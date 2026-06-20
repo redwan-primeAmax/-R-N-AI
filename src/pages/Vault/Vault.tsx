@@ -11,7 +11,7 @@ import {
   Eye, EyeOff, Key, AlertCircle, FileLock, Search,
   Filter, ArrowRight
 } from 'lucide-react';
-import { DataManager, Note } from '../../services/storage/DataManager';
+import { DataManager, Note, decrypt } from '../../services/storage/DataManager';
 import { PasswordTakeCare } from './PasswordTakeCare';
 import { cn } from '../../utils/cn';
 
@@ -26,6 +26,8 @@ export default function Vault() {
   const [lockedNotes, setLockedNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewingPasswordId, setViewingPasswordId] = useState<string | null>(null);
+  const [decryptedNotePwd, setDecryptedNotePwd] = useState<string>('');
 
   useEffect(() => {
     checkPasswordStatus();
@@ -79,6 +81,15 @@ export default function Vault() {
     }
   };
 
+  const handleShowPassword = async (note: Note) => {
+    if (!note.password) {
+      alert('এই নোটের জন্য কোনো পাসওয়ার্ড সেট করা নেই।');
+      return;
+    }
+    const decrypted = await decrypt(note.password);
+    alert(`এই নোটের পাসওয়ার্ড হলো: ${decrypted}`);
+  };
+
   const filteredNotes = lockedNotes.filter(n => 
     n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (n.description || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -86,7 +97,7 @@ export default function Vault() {
 
   if (loading && hasPasswordSet === null) {
     return (
-      <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
       </div>
     );
@@ -95,7 +106,7 @@ export default function Vault() {
   // --- Auth View ---
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0A0A0B] text-white flex flex-col items-center justify-center p-6 font-sans">
+      <div className="min-h-screen bg-[var(--bg-main)] text-white flex flex-col items-center justify-center p-6 font-sans">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -107,7 +118,7 @@ export default function Vault() {
             </div>
             <div className="space-y-1">
               <h1 className="text-3xl font-black tracking-tight">সিকিউর ভল্ট</h1>
-              <p className="text-white/40 text-sm font-medium">
+              <p className="text-white/40 text-sm font-medium px-4">
                 {hasPasswordSet ? 'ভল্টে প্রবেশ করতে পাসওয়ার্ড দিন' : 'আপনার গোপন নোটগুলো সুরক্ষিত রাখতে একটি মাস্টার পাসওয়ার্ড সেট করুন'}
               </p>
             </div>
@@ -183,10 +194,10 @@ export default function Vault() {
 
   // --- Dashboard View ---
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-[var(--bg-main)] text-white flex flex-col font-sans">
       <div className="fixed top-0 left-0 w-full h-1 bg-amber-500/20 z-[1001]" />
       
-      <header className="px-6 py-10 md:px-12 flex items-center justify-between sticky top-0 bg-[#0A0A0B]/80 backdrop-blur-2xl z-[1000] border-b border-white/5">
+      <header className="px-6 py-10 md:px-12 flex items-center justify-between sticky top-0 bg-[var(--bg-main)]/80 backdrop-blur-2xl z-[1000] border-b border-white/5">
         <div className="flex items-center gap-6">
           <button 
             onClick={() => navigate('/main')} 
@@ -249,11 +260,11 @@ export default function Vault() {
                   </div>
                   
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 bg-white/5 rounded-[1.5rem] flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner">
+                    <div className="w-14 h-14 bg-white/5 rounded-[1.5rem] flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner border border-white/[0.05]">
                       {note.emoji || '📄'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-black tracking-tight truncate group-hover:text-amber-500 transition-colors">{note.title || 'শিরোনামহীন'}</h3>
+                      <h3 className="text-lg font-black tracking-tight truncate group-hover:text-amber-500 transition-colors uppercase">{note.title || 'শিরোনামহীন'}</h3>
                       <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
                         {new Date(note.updatedAt).toLocaleDateString()}
                       </p>
@@ -264,19 +275,27 @@ export default function Vault() {
                     {note.description || 'কোন বিবরণী নেই...'}
                   </p>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => navigate(`/editor/${note.id}`)}
+                        className="flex-1 py-4 bg-white/5 hover:bg-amber-500 hover:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 flex items-center justify-center gap-2"
+                      >
+                        ভল্ট থেকে খুলুন <ArrowRight size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleUnlockNote(note.id)}
+                        className="p-4 bg-white/5 hover:bg-red-500/20 text-white/20 hover:text-red-400 rounded-2xl transition-all border border-white/5"
+                        title="সরিয়ে ফেলুন"
+                      >
+                        <Unlock size={18} />
+                      </button>
+                    </div>
                     <button 
-                      onClick={() => navigate(`/editor/${note.id}`)}
-                      className="flex-1 py-4 bg-white/5 hover:bg-amber-500 hover:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 flex items-center justify-center gap-2"
+                      onClick={() => handleShowPassword(note)}
+                      className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 flex items-center justify-center gap-2 text-amber-500/60"
                     >
-                      ভল্ট থেকে খুলুন <ArrowRight size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleUnlockNote(note.id)}
-                      className="p-4 bg-white/5 hover:bg-red-500/20 text-white/20 hover:text-red-400 rounded-2xl transition-all border border-white/5"
-                      title="সরিয়ে ফেলুন"
-                    >
-                      <Unlock size={18} />
+                      পাসওয়ার্ড দেখুন <Key size={14} />
                     </button>
                   </div>
                 </motion.div>
@@ -288,7 +307,7 @@ export default function Vault() {
                  </div>
                  <div className="space-y-1">
                     <h3 className="text-xl font-black uppercase tracking-wider">ভল্ট খালি</h3>
-                    <p className="text-xs font-medium">লক করা কোন নোট পাওয়া যায়নি</p>
+                    <p className="text-xs font-medium">লক করা কোনো নোট পাওয়া যায়নি</p>
                  </div>
               </div>
             )}

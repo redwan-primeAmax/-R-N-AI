@@ -5,16 +5,17 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   Star, Share, Link, Copy, Bookmark, Edit, Info,
   Trash2, FileText, Lock,
-  MoveRight, Check, X, ClipboardCopy
+  MoveRight, Check, X, ClipboardCopy, Shield
 } from 'lucide-react';
-import { Note, DataManager } from '../../../services/storage/DataManager';
+import { Note, DataManager, encrypt } from '../../../services/storage/DataManager';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { PageIcon } from '../../../components/PageIcon';
 import { IconChange } from '../../../components/icon/IconChange';
-import { RenameModal } from '../../../components/modals/RenameModal';
+import { PasswordTakeCare } from '../../Vault/PasswordTakeCare';
 import { MoveToBookmarkModal } from '../../../components/modals/MoveToBookmarkModal';
 import { ConfirmDialog } from '../../../components/modals/CustomDialogs';
 import { clsx, type ClassValue } from 'clsx';
@@ -43,15 +44,19 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
   onToggleSelection,
   onEmojiSelect
 }) => {
+  const navigate = useNavigate();
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [copied, setCopied] = React.useState<'link' | 'content' | null>(null);
-  const [showRenameModal, setShowRenameModal] = React.useState(false);
   const [showBookmarkModal, setShowBookmarkModal] = React.useState(false);
   const [showShareError, setShowShareError] = React.useState(false);
+  const [isEditingTitle, setIsEditingTitle] = React.useState(false);
+  const [titleValue, setTitleValue] = React.useState('');
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (note) {
       document.body.style.overflow = 'hidden';
+      setTitleValue(note.title || '');
     } else {
       document.body.style.overflow = '';
       setShowEmojiPicker(false);
@@ -104,11 +109,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     }
   };
 
-  const handleRename = async (newName: string) => {
-    if (!note) return;
-    await DataManager.saveNote({ ...note, title: newName });
-    setShowRenameModal(false);
-    onClose();
+  const handleRename = async () => {
+    if (!note || !titleValue.trim()) return;
+    await DataManager.saveNote({ ...note, title: titleValue });
+    setIsEditingTitle(false);
     // Force reload in home page via event
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   };
@@ -140,8 +144,26 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
       label: note?.isLocked ? "Unlock Page" : "Lock Page", 
       onClick: async () => {
         if (note) {
-          await DataManager.toggleLock(note.id);
-          onClose();
+          const hasMaster = await PasswordTakeCare.hasMasterPassword();
+          if (!hasMaster) {
+            alert('আপনার গোপন নোটগুলো সুরক্ষিত রাখতে আগে সিকিউর ভল্টে মাস্টার পাসওয়ার্ড সেটআপ করুন।');
+            navigate('/vault');
+            onClose();
+            return;
+          }
+
+          if (note.isLocked) {
+             // Unlock logic
+             await DataManager.toggleLock(note.id);
+             onClose();
+          } else {
+             const pwd = prompt('এই পেজটির জন্য একটি আলাদা সিকিউরিটি পাসওয়ার্ড সেট করুন:');
+             if (pwd && pwd.length >= 2) {
+                const encryptedNotePwd = await encrypt(pwd);
+                await DataManager.saveNote({ ...note, isLocked: true, password: encryptedNotePwd });
+                onClose();
+             }
+          }
         }
       }
     },
@@ -160,7 +182,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     { 
       icon: <Edit size={20} className="text-white/70" />, 
       label: "Rename", 
-      onClick: () => setShowRenameModal(true)
+      onClick: () => {
+        setIsEditingTitle(true);
+        setTimeout(() => titleInputRef.current?.focus(), 100);
+      }
     },
     { 
       icon: copied === 'content' ? <Check size={20} className="text-emerald-500" /> : <ClipboardCopy size={20} className="text-white/70" />, 
@@ -209,7 +234,27 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                   <PageIcon emoji={note.emoji} className="text-4xl" fallback="📄" />
                 </button>
                 <div className="flex-1 overflow-hidden">
-                  <h3 className="font-bold text-xl truncate text-white/90">{note.title || 'শিরোনামহীন চিন্তা'}</h3>
+                  {isEditingTitle ? (
+                    <input
+                      ref={titleInputRef}
+                      type="text"
+                      value={titleValue}
+                      onChange={(e) => setTitleValue(e.target.value)}
+                      onBlur={handleRename}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white font-bold text-xl focus:outline-none focus:border-blue-500/50"
+                    />
+                  ) : (
+                    <h3 
+                      onClick={() => {
+                        setIsEditingTitle(true);
+                        setTimeout(() => titleInputRef.current?.focus(), 100);
+                      }}
+                      className="font-bold text-xl truncate text-white/90 cursor-text hover:text-white"
+                    >
+                      {note.title || 'শিরোনামহীন চিন্তা'}
+                    </h3>
+                  )}
                   <p className="text-[11px] text-white/30 font-medium tracking-tight uppercase">
                     Modified: {new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
@@ -288,13 +333,6 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
             </div>
           </motion.div>
 
-          {/* Additional Modals */}
-          <RenameModal 
-            isOpen={showRenameModal}
-            onClose={() => setShowRenameModal(false)}
-            onRename={handleRename}
-            currentName={note.title || ''}
-          />
           <MoveToBookmarkModal 
             isOpen={showBookmarkModal}
             onClose={() => setShowBookmarkModal(false)}

@@ -30,10 +30,11 @@ export class NotionCloneDexieDB extends Dexie {
   key_value_pairs!: Table<KeyValuePair, string>;
   extension_projects!: Table<any, string>;
   bookmark_folders!: Table<BookmarkFolder, string>;
+  deleted_notes!: Table<{ id: string; deletedAt: number }, string>;
 
   constructor() {
     super('NotionCloneDexie');
-    this.version(4).stores({
+    this.version(5).stores({
       notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, [workspaceId+isTrashed]',
       workspaces: 'id, name, createdAt',
       chat_history: '++id, timestamp',
@@ -42,7 +43,8 @@ export class NotionCloneDexieDB extends Dexie {
       media: 'id',
       key_value_pairs: 'key',
       extension_projects: 'id, workspaceId',
-      bookmark_folders: 'id, name, parentId'
+      bookmark_folders: 'id, name, parentId',
+      deleted_notes: 'id, deletedAt'
     });
   }
 }
