@@ -12,6 +12,7 @@ import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import VersionControl from './components/VersionControl';
+import AndroidStatusBar from './components/AndroidStatusBar';
 import { Modal } from './components/modals/Modal';
 import { UserNamePopup } from './components/modals/UserNamePopup';
 import { Loader2, Check, AlertCircle, X } from 'lucide-react';
@@ -100,21 +101,8 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
-  const isSearchPage = location.pathname === '/search';
-    const isAIPage = location.pathname.startsWith('/ai') || 
-                   location.pathname.startsWith('/manual-control') || 
-                   location.pathname === '/ai-auto' ||
-                   location.pathname === '/settings' ||
-                   location.pathname === '/external-ai-import';
-    const isWorkspacePage = location.pathname === '/workspaces';
-    const isSpecialPage = location.pathname === '/recycle-bin' || 
-                       location.pathname === '/offline' || 
-                       location.pathname === '/backup' ||
-                       location.pathname === '/data-management' ||
-                       location.pathname === '/templates' ||
-                       location.pathname === '/vault' ||
-                       location.pathname === '/tools';
-    const isFullPage = isEditorPage || isSearchPage || isAIPage || isWorkspacePage || isSpecialPage;
+  const isWorkspacePage = location.pathname === '/workspaces';
+  const isHideBottomNav = isEditorPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -334,7 +322,8 @@ function AppContent() {
 
   return (
     <MotionConfig reducedMotion={reducedMotion ? "always" : "user"}>
-    <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[var(--bg-main)] text-white'} ${isFullPage ? '' : 'pb-32'} transition-colors duration-300`}>
+    <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[var(--bg-main)] text-white'} ${isHideBottomNav ? '' : 'pb-32'} transition-colors duration-300`}>
+      <AndroidStatusBar />
       <AnimatePresence mode="wait">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
         {isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning && (
@@ -439,7 +428,7 @@ function AppContent() {
         </Suspense>
       </ErrorBoundary>
       
-      {!isFullPage && <Navigation />}
+      {!isHideBottomNav && <Navigation />}
       <VersionControl />
     </div>
     </MotionConfig>

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, MoreHorizontal, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { PublishIcon } from '../svg/PublishIcon';
 
@@ -202,8 +202,9 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                 onClick={onShowMenu}
                 className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-90"
                 title="More options"
+                aria-label="আরও অপশন"
                >
-                <MoreHorizontal size={24} />
+                <MoreVertical size={22} />
                </button>
             </div>
           </motion.div>

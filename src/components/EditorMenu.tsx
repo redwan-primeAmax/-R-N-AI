@@ -40,7 +40,7 @@ const EditorMenu: React.FC<EditorMenuProps> = ({
 
   const handleExportPdf = async () => {
     onClose(); // Close menu first
-    const editorElement = document.querySelector('.ProseMirror') as HTMLElement;
+    const editorElement = document.querySelector('.ProseMirror, .prose, #editor-content-root') as HTMLElement;
     
     if (!editorElement) {
       // Fallback if editor not found

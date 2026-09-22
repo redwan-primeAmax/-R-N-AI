@@ -19,10 +19,22 @@ export function usePdfExport({ note, setNotification }: UsePdfExportParams) {
       if (!note) return;
       setNotification({ message: 'Generating PDF...', type: 'info' });
 
-      const element = document.querySelector('.prose') as HTMLElement;
+      let element = document.querySelector('.ProseMirror, .prose, #editor-content-root') as HTMLElement | null;
+      let tempContainer: HTMLElement | null = null;
+
       if (!element) {
-        setNotification({ message: 'Content not found', type: 'error' });
-        return;
+        tempContainer = document.createElement('div');
+        tempContainer.className = 'ProseMirror prose p-8 bg-white text-black';
+        tempContainer.style.position = 'fixed';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        tempContainer.style.width = '800px';
+        tempContainer.innerHTML = `
+          <h1 style="font-size: 26px; font-weight: bold; margin-bottom: 16px;">${note.emoji || ''} ${note.title || 'Note'}</h1>
+          <div style="font-size: 15px; line-height: 1.6;">${note.content || '<p>Empty note</p>'}</div>
+        `;
+        document.body.appendChild(tempContainer);
+        element = tempContainer;
       }
 
       html2canvas(element, {
@@ -47,6 +59,9 @@ export function usePdfExport({ note, setNotification }: UsePdfExportParams) {
           setNotification({ message: 'PDF failed!', type: 'error' });
         })
         .finally(() => {
+          if (tempContainer && tempContainer.parentNode) {
+            tempContainer.parentNode.removeChild(tempContainer);
+          }
           setTimeout(() => setNotification(null), 2000);
         });
     };

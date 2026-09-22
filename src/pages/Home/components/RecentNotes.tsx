@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { FileText, Clock } from 'lucide-react';
 import { PageIcon } from '../../../components/PageIcon';
 import { RecentNote } from '../../../services/storage/HistoryManager';
 
@@ -18,46 +18,33 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({ notes, onNoteClick }) 
   if (notes.length === 0) return null;
 
   return (
-    <div className="mb-10 overflow-hidden mt-8">
-      <h2 className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 px-5 opacity-40" style={{ color: 'var(--text-secondary)' }}>
-        Recent Activity
-      </h2>
-      <div className="flex gap-3 overflow-x-auto px-5 no-scrollbar pb-4 -mx-1">
-        {notes.map(note => {
-          const cardBackground = "linear-gradient(135deg, var(--bg-card-start) 0%, var(--bg-card-end) 100%)";
+    <div className="mb-6 overflow-hidden mt-4">
+      <div className="flex items-center gap-1.5 mb-3 px-5">
+        <Clock size={12} className="text-amber-400" />
+        <h2 className="text-[11px] font-bold uppercase tracking-wider text-white/50">
+          সাম্প্রতিক নোটস
+        </h2>
+      </div>
 
+      <div className="flex gap-2.5 overflow-x-auto px-4 no-scrollbar pb-2">
+        {notes.map(note => {
           return (
             <motion.button 
               key={note.id}
-              whileHover={{ scale: 1.05, translateY: -4 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onNoteClick(note.id)}
-              className="flex-shrink-0 w-36 relative overflow-hidden rounded-[32px] p-[1.5px] transition-all duration-300 bg-white/10 shadow-[0_6px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.45)] cursor-pointer"
+              className="flex-shrink-0 w-32 relative overflow-hidden rounded-[20px] p-[1px] transition-all duration-150 bg-white/[0.08] hover:bg-amber-400/20 shadow-md border border-white/[0.06] active:scale-95 cursor-pointer text-left"
             >
-              <div className="relative w-full h-full bg-[#1a2332] rounded-[30.5px] p-5 flex flex-col items-center text-center gap-3 overflow-hidden">
-                {/* Subtle Inner Glow Layer - Golden Harmony */}
-                <div 
-                  className="absolute inset-0 opacity-100" 
-                  style={{ background: cardBackground }}
-                />
-                
-                {/* Texture Overlay */}
-                <div 
-                  className="absolute inset-0 opacity-40 pointer-events-none bg-cover bg-center"
-                  style={{ backgroundImage: "url('/textures/web_note_card_bg.png')" }}
-                />
-
-                <div className="relative z-10 flex flex-col items-center gap-3 w-full">
-                  <div className="w-12 h-12 bg-white/[0.1] rounded-2xl flex items-center justify-center shadow-inner border border-white/20 group-hover:scale-105 transition-transform overflow-hidden">
-                    {note.emoji ? (
-                      <PageIcon emoji={note.emoji} className="text-2xl drop-shadow-md" fallback="📄" />
-                    ) : (
-                      <FileText size={20} className="text-white/30" />
-                    )}
-                  </div>
-                  <div className="font-bold text-[11px] truncate w-full px-1 text-white/90">
-                    {note.title || 'শিরোনামহীন'}
-                  </div>
+              <div className="relative w-full h-full bg-[#242220] rounded-[19px] p-3.5 flex flex-col items-start gap-2.5 overflow-hidden">
+                <div className="w-9 h-9 bg-white/[0.05] rounded-xl flex items-center justify-center border border-white/10 overflow-hidden shadow-inner">
+                  {note.emoji ? (
+                    <PageIcon emoji={note.emoji} className="text-xl drop-shadow-sm" fallback="📄" />
+                  ) : (
+                    <FileText size={16} className="text-amber-400" />
+                  )}
+                </div>
+                <div className="font-bold text-[12px] truncate w-full text-white/90">
+                  {note.title || 'শিরোনামহীন নোট'}
                 </div>
               </div>
             </motion.button>

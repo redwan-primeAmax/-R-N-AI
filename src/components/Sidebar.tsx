@@ -237,12 +237,16 @@ export default function Sidebar({
             </AnimatePresence>
 
             {/* Header */}
-            <div className="px-6 flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] border border-blue-400/20 overflow-hidden">
+            <div className="px-6 flex items-center justify-between mb-4 pb-4 border-b border-white/[0.06]">
+              <div 
+                onClick={() => handleNavigation('/workspaces')}
+                className="flex items-center gap-3 cursor-pointer group"
+                title="ওয়ার্কস্পেস পরিবর্তন করুন"
+              >
+                <div className="w-11 h-11 bg-gradient-to-tr from-[#FFB03A] to-[#FFC966] rounded-2xl flex items-center justify-center text-black font-black text-xl shadow-[0_4px_16px_rgba(255,176,58,0.35)] border border-amber-300/30 overflow-hidden group-hover:scale-105 transition-transform">
                   {activeWorkspace?.logoSvg ? (
                     <div 
-                      className="w-7 h-7 flex items-center justify-center overflow-hidden"
+                      className="w-7 h-7 flex items-center justify-center overflow-hidden text-black"
                       dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeWorkspace.logoSvg) }}
                     />
                   ) : (
@@ -250,68 +254,57 @@ export default function Sidebar({
                   )}
                 </div>
                 <div className="flex flex-col">
-                  <h2 className="text-lg font-black tracking-tighter leading-none" style={{ color: 'var(--text-primary)' }}>মূল মেনু</h2>
-                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] mt-1 truncate max-w-[120px]" style={{ color: 'var(--text-secondary)' }}>
-                    {activeWorkspace?.name || 'Workspace'}
+                  <h2 className="text-base font-black tracking-tight leading-none text-white/95 group-hover:text-amber-300 transition-colors">
+                    {activeWorkspace?.name || 'My Notes'}
+                  </h2>
+                  <span className="text-[10px] font-bold text-amber-400 mt-1 flex items-center gap-1">
+                    ট্যাপ করে ওয়ার্কস্পেস বদলান <ChevronRight size={10} />
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={onClose}
-                  className="w-8 h-8 flex items-center justify-center text-white/20 hover:text-white transition-colors"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
                   aria-label="বন্ধ করুন"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
 
             {/* Menu List Section */}
-            <div className="flex-1 overflow-y-auto no-scrollbar px-4 mb-6 space-y-6">
-              {/* Core Features */}
-              <div className="bg-white/[0.02] border border-white/[0.03] rounded-[32px] p-2 space-y-2 shadow-2xl">
-                {[
-                  { icon: <Bookmark size={14} />, label: 'বুকমার্ক', path: '/bookmarks' },
-                  { icon: <Lock size={14} />, label: 'সিকিউর ভল্ট', path: '/vault' },
-                  { icon: <LayoutGrid size={14} />, label: 'টুলস', path: '/tools' },
-                  { icon: <Settings size={14} />, label: 'অ্যাপ ম্যানেজমেন্ট', path: '/settings' },
-                  { icon: <Trash2 size={14} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
-                ].map((item, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={() => { 
-                      if (item.path) { 
-                        handleNavigation(item.path); 
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between p-4 rounded-2xl transition-all group relative overflow-hidden active:scale-[0.98] border border-[#403C37] hover:border-[#FFB03A] hover:shadow-[0_4px_20px_rgba(255,176,58,0.05)]"
-                    )}
-                    style={{ background: 'linear-gradient(135deg, #332F2A 0%, #262422 100%)' }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-inner bg-[#FFB03A]/10 text-[#FFB03A] border-[#FFB03A]/20",
-                        "group-hover:scale-110 group-hover:rotate-3"
-                      )}>
-                        {iconsLoaded ? (
-                          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center justify-center">
-                            {item.icon}
-                          </motion.div>
-                        ) : (
-                          <SidebarIconPlaceholder />
-                        )}
-                      </div>
-                      <span className="font-black text-[10px] uppercase tracking-[0.15em] transition-colors" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
+            <div className="flex-1 overflow-y-auto no-scrollbar px-3 mb-4 space-y-1">
+              {[
+                { icon: <FileText size={16} />, label: 'সমস্ত নোটস', path: '/main' },
+                { icon: <Search size={16} />, label: 'অনুসন্ধান ও ফিল্টার', path: '/search' },
+                { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
+                { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
+                { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
+                { icon: <LayoutGrid size={16} />, label: 'ইউটিলিটি ও টুলস', path: '/tools' },
+                { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },
+                { icon: <Trash2 size={16} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
+              ].map((item, idx) => (
+                <button 
+                  key={idx}
+                  onClick={() => { 
+                    if (item.path) { 
+                      handleNavigation(item.path); 
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl transition-all duration-150 group active:scale-[0.98] hover:bg-white/[0.06] text-white/80 hover:text-white"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/[0.04] text-amber-400 border border-white/[0.06] group-hover:bg-amber-400/20 group-hover:border-amber-400/30 transition-all">
+                      {item.icon}
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0">
-                       <ChevronRight size={14} className="text-[#FFB03A]" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-
+                    <span className="text-[13px] font-semibold tracking-tight text-white/85 group-hover:text-white">
+                      {item.label}
+                    </span>
+                  </div>
+                  <ChevronRight size={14} className="text-white/20 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+                </button>
+              ))}
             </div>
 
             {/* Footer Notice */}

@@ -672,7 +672,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
   };
 
   return (
-    <div className={cn("space-y-0 pb-12", className)}>
+    <div id="editor-content-root" className={cn("ProseMirror prose space-y-0 pb-12", className)}>
       {blocks.map((block: EditorBlock, idx: number) => {
         // If we are currently hiding blocks due to a parent toggle
         if (currentHiddenIndent !== null) {

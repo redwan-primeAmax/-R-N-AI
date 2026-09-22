@@ -1,17 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Roboto:wght@400;500;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Roboto", "Hind Siliguri", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   
-  /* Golden Harmony Palette */
-  --bg-main: #1A1A1A;
-  --bg-card-start: #332F2A;
-  --bg-card-end: #262422;
+  /* Modern Android Material 3 Palette */
+  --bg-main: #121212;
+  --bg-card-start: #23211f;
+  --bg-card-end: #1a1918;
   --color-accent: #FFB03A;
   --text-primary: #F5F5EC;
-  --text-secondary: #8A8A85;
-  --divider-color: #403C37;
+  --text-secondary: #9E9E98;
+  --divider-color: #383531;
 }
 
 @layer base {

@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Search, Plus, Sparkles, Boxes } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Sparkles, FileText, LayoutGrid } from 'lucide-react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { DataManager, Note } from '../services/storage/DataManager';
-import { useState, useEffect } from 'react';
+import { DataManager } from '../services/storage/DataManager';
+import { motion } from 'framer-motion';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -16,6 +17,7 @@ function cn(...inputs: ClassValue[]) {
 
 export default function Navigation() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOverLimit, setIsOverLimit] = useState(false);
 
   useEffect(() => {
@@ -47,80 +49,100 @@ export default function Navigation() {
     }
   };
 
-  if (isOverLimit) {
-    return (
-      <div className="fixed bottom-8 right-8 z-[100] pointer-events-none">
-        <nav className="bg-[#1c1c1c]/90 backdrop-blur-3xl border-2 border-red-500/30 p-2 rounded-full flex items-center shadow-2xl shadow-red-500/5 pointer-events-auto">
-          <NavLink
-            to="/search"
-            title="Search Notes"
-            className={({ isActive }) =>
-              cn(
-                "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300",
-                isActive ? "bg-white text-black shadow-lg shadow-white/10" : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
-              )
-            }
-          >
-            <Search size={20} />
-          </NavLink>
-        </nav>
-      </div>
-    );
-  }
+  const isEditorPage = location.pathname.startsWith('/editor/');
+  if (isEditorPage) return null;
+
+  const navItems = [
+    {
+      to: '/main',
+      label: 'নোটস',
+      icon: FileText,
+      isActive: location.pathname === '/' || location.pathname === '/main'
+    },
+    {
+      to: '/search',
+      label: 'সার্চ',
+      icon: Search,
+      isActive: location.pathname === '/search'
+    },
+    {
+      to: '/ai-auto',
+      label: 'AI সহকারী',
+      icon: Sparkles,
+      isActive: location.pathname.startsWith('/ai') || location.pathname === '/manual-control'
+    },
+    {
+      to: '/tools',
+      label: 'টুলস',
+      icon: LayoutGrid,
+      isActive: location.pathname === '/tools'
+    }
+  ];
 
   return (
-    <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center px-6 pointer-events-none">
-      <nav className="relative overflow-hidden border border-white/10 border-b-[4px] border-r-[1.5px] rounded-[32px] flex items-center gap-2 shadow-2xl shadow-black/90 pointer-events-auto">
-        {/* Background */}
-        <div 
-          className="absolute inset-0 opacity-100 pointer-events-none bg-[#1a1a1a]/95 backdrop-blur-3xl"
-        />
-        
-        {/* Content (Buttons) */}
-        <div className="relative z-10 flex items-center gap-2 p-2 focus-within:ring-2 ring-white/20 rounded-[32px]">
-          {/* Search */}
-          <NavLink
-            to="/search"
-            className={({ isActive }) =>
-              cn(
-                "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border",
-                isActive 
-                  ? "bg-white text-black border-white border-b-[3px] border-r-[1px] shadow-lg shadow-white/20" 
-                  : "bg-white/5 text-white/70 border-transparent hover:bg-white/10 hover:text-white hover:border-white/10"
-              )
-            }
-          >
-            <Search size={22} className="transition-transform group-hover:scale-110" />
-          </NavLink>
-
-          <div className="w-[1px] h-8 bg-white/10 mx-1" />
-
-          {/* Quick Note */}
+    <>
+      {/* Android Material 3 Floating Action Button (FAB) */}
+      {!isOverLimit && (
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="fixed bottom-24 right-5 z-[80]"
+        >
           <button
             onClick={createQuickNote}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white/80 border border-white/10 hover:bg-white/20 hover:text-white transition-all duration-300 active:scale-95 active:translate-y-0.5 shadow-lg"
+            id="android-fab-new-note"
+            aria-label="নতুন নোট তৈরি করুন"
+            className="flex items-center gap-2 px-4 py-3.5 rounded-[22px] bg-gradient-to-r from-[#FFB03A] to-[#FFC966] text-black font-extrabold shadow-[0_10px_25px_rgba(255,176,58,0.4)] border border-amber-300/30 hover:shadow-[0_14px_30px_rgba(255,176,58,0.5)] active:scale-95 transition-all duration-150 group"
           >
-            <Plus size={24} />
+            <Plus size={22} strokeWidth={2.6} className="group-hover:rotate-90 transition-transform duration-200" />
+            <span className="text-[13px] tracking-tight font-black pr-1 hidden sm:inline">নতুন নোট</span>
           </button>
+        </motion.div>
+      )}
 
-          <div className="w-[1px] h-8 bg-white/10 mx-1" />
+      {/* Android Material 3 Bottom Navigation Bar */}
+      <div 
+        className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1918]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-[0_-8px_30px_rgba(0,0,0,0.6)] select-none"
+        style={{ paddingBottom: 'max(0.4rem, env(safe-area-inset-bottom))' }}
+      >
+        <div className="max-w-md mx-auto px-3 pt-1.5 flex items-center justify-around">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.isActive;
 
-          {/* Ask AI */}
-          <NavLink
-            to="/ai-auto"
-            className={({ isActive }) =>
-              cn(
-                "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border",
-                isActive 
-                  ? "bg-white text-black border-white border-b-[3px] border-r-[1px] shadow-lg shadow-white/20" 
-                  : "bg-white/5 text-white/70 border-transparent hover:bg-white/10 hover:text-white hover:border-white/10"
-              )
-            }
-          >
-            <Sparkles size={22} className="transition-transform group-hover:scale-110" />
-          </NavLink>
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                id={`android-nav-${item.label}`}
+                className="flex-1 flex flex-col items-center py-1 group active:scale-95 transition-transform"
+              >
+                <div 
+                  className={cn(
+                    "px-4 py-1 rounded-full transition-all duration-200 flex items-center justify-center",
+                    active 
+                      ? "bg-[#FFB03A]/20 text-[#FFB03A] shadow-inner" 
+                      : "text-white/50 group-hover:text-white/80 group-hover:bg-white/[0.04]"
+                  )}
+                >
+                  <Icon size={20} strokeWidth={active ? 2.4 : 1.9} />
+                </div>
+                <span 
+                  className={cn(
+                    "text-[10px] font-semibold mt-0.5 tracking-tight transition-colors",
+                    active ? "text-[#FFB03A] font-bold" : "text-white/50 group-hover:text-white/70"
+                  )}
+                >
+                  {item.label}
+                </span>
+              </NavLink>
+            );
+          })}
         </div>
-      </nav>
-    </div>
+
+        {/* Android Gesture Navigation Indicator Pill */}
+        <div className="w-28 h-1 bg-white/20 rounded-full mx-auto mt-1.5 mb-0.5 pointer-events-none" />
+      </div>
+    </>
   );
 }

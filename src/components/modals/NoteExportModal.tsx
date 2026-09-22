@@ -94,9 +94,24 @@ export function NoteExportModal({ isOpen, onClose, note, onPdfExport }: NoteExpo
     if (hasMedia) return;
     setIsExporting(true);
     setExportSuccess(null);
+    let tempContainer: HTMLElement | null = null;
     try {
-      const element = document.querySelector('.ProseMirror') as HTMLElement;
-      if (!element) throw new Error("Editor content not found");
+      let element = document.querySelector('.ProseMirror, .prose, #editor-content-root') as HTMLElement | null;
+      
+      if (!element) {
+        tempContainer = document.createElement('div');
+        tempContainer.className = 'ProseMirror prose p-8 bg-[#1a1a1a] text-white';
+        tempContainer.style.position = 'fixed';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        tempContainer.style.width = '800px';
+        tempContainer.innerHTML = `
+          <h1 style="font-size: 26px; font-weight: bold; margin-bottom: 16px;">${note.emoji || ''} ${note.title || 'Note'}</h1>
+          <div style="font-size: 15px; line-height: 1.6;">${note.content || '<p>No content</p>'}</div>
+        `;
+        document.body.appendChild(tempContainer);
+        element = tempContainer;
+      }
       
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
       
@@ -130,6 +145,9 @@ export function NoteExportModal({ isOpen, onClose, note, onPdfExport }: NoteExpo
     } catch (err) {
       console.error(err);
     } finally {
+      if (tempContainer && tempContainer.parentNode) {
+        tempContainer.parentNode.removeChild(tempContainer);
+      }
       setIsExporting(false);
     }
   };
