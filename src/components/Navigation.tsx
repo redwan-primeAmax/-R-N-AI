@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Sparkles, FileText, LayoutGrid } from 'lucide-react';
+import { Search, Plus, FileText } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { DataManager } from '../services/storage/DataManager';
 import { motion } from 'framer-motion';
@@ -59,18 +59,6 @@ export default function Navigation() {
       label: 'সার্চ',
       icon: Search,
       isActive: location.pathname === '/search'
-    },
-    {
-      to: '/ai-auto',
-      label: 'AI সহকারী',
-      icon: Sparkles,
-      isActive: location.pathname.startsWith('/ai') || location.pathname === '/manual-control'
-    },
-    {
-      to: '/tools',
-      label: 'টুলস',
-      icon: LayoutGrid,
-      isActive: location.pathname === '/tools'
     }
   ];
 

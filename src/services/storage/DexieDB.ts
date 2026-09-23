@@ -34,6 +34,25 @@ export class NotionCloneDexieDB extends Dexie {
 
   constructor() {
     super('NotionCloneDexie');
+    this.version(1).stores({
+      notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt',
+      workspaces: 'id, name, createdAt',
+      chat_history: '++id, timestamp',
+      ai_tasks: 'id, status, createdAt, updatedAt',
+      note_versions: 'id, noteId, createdAt',
+      media: 'id',
+      key_value_pairs: 'key'
+    });
+    this.version(2).stores({
+      notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, [workspaceId+isTrashed]',
+      extension_projects: 'id, workspaceId'
+    });
+    this.version(3).stores({
+      bookmark_folders: 'id, name, parentId'
+    });
+    this.version(4).stores({
+      deleted_notes: 'id, deletedAt'
+    });
     this.version(5).stores({
       notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, [workspaceId+isTrashed]',
       workspaces: 'id, name, createdAt',

@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, ChevronUp } from 'lucide-react';
+import { FileText, ChevronUp, LayoutGrid, Layers } from 'lucide-react';
 import { DataManager, Note, Workspace } from '../../services/storage/DataManager';
 import { HistoryManager, RecentNote } from '../../services/storage/HistoryManager';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,7 +25,7 @@ import { cn } from '../../utils/cn';
 
 export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  const [viewMode, setViewMode] = useState<'grid' | 'layer'>('layer');
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -241,54 +241,64 @@ export default function HomePage() {
       <AnimatedDivider />
 
       <div className="px-4 max-w-4xl mx-auto w-full">
-        {/* Section Header with Density Switcher */}
+        {/* Section Header with View Mode Switcher */}
         <div className="flex items-center justify-between pb-2 mb-2 px-1">
           <span className="text-[12px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
             পেজসমূহ ({notes.length})
           </span>
-          <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg text-[11px]">
+          <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-1 rounded-xl text-[11px]">
             <button 
-              onClick={() => setDensity('comfortable')}
+              onClick={() => setViewMode('grid')}
               className={cn(
-                "px-2 py-0.5 rounded-md font-medium transition-all",
-                density === 'comfortable' 
+                "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
+                viewMode === 'grid' 
                   ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs" 
                   : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
               )}
+              title="Grid Mode (2-Column Grid)"
             >
-              স্বাভাবিক
+              <LayoutGrid size={14} />
+              <span>Grid</span>
             </button>
             <button 
-              onClick={() => setDensity('compact')}
+              onClick={() => setViewMode('layer')}
               className={cn(
-                "px-2 py-0.5 rounded-md font-medium transition-all",
-                density === 'compact' 
+                "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
+                viewMode === 'layer' 
                   ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs" 
                   : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
               )}
+              title="Layer Mode (Single Column List)"
             >
-              কমপ্যাক্ট
+              <Layers size={14} />
+              <span>Layer</span>
             </button>
           </div>
         </div>
 
-        {/* Flat Single-Column Notion List */}
-        <div className="flex flex-col pb-24">
+        {/* Notes Container: Grid or Layer */}
+        <div className="pb-24">
           {notes.length > 0 ? (
             <>
-              {notes.slice(0, visibleCount).map(note => (
-                <NoteCard 
-                  key={note.id}
-                  note={note}
-                  isSelectionMode={isSelectionMode}
-                  isSelected={selectedIds.includes(note.id)}
-                  onClick={handleNoteClick}
-                  onMoreClick={(n) => setSelectedNoteForMenu(n)}
-                  density={density}
-                />
-              ))}
+              <div className={cn(
+                viewMode === 'grid' 
+                  ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" 
+                  : "flex flex-col gap-0.5"
+              )}>
+                {notes.slice(0, visibleCount).map(note => (
+                  <NoteCard 
+                    key={note.id}
+                    note={note}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedIds.includes(note.id)}
+                    onClick={handleNoteClick}
+                    onMoreClick={(n) => setSelectedNoteForMenu(n)}
+                    mode={viewMode}
+                  />
+                ))}
+              </div>
               
-              {/* Sentinel target for high-performance lazy loading without visual loader */}
+              {/* Sentinel target for high-performance lazy loading */}
               {notes.length > visibleCount && (
                 <div 
                   ref={observerTarget}

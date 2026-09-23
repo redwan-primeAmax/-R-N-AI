@@ -297,9 +297,9 @@ export default function WorkspacePage() {
                 </div>
                 
                 {ws.id === activeWorkspaceId && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 rounded-full shadow-[0_4px_12px_rgba(37,99,235,0.4)]">
-                    <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
-                    <span className="text-[8px] font-black uppercase tracking-widest text-white">Live</span>
+                  <div className="flex flex-row items-center gap-1.5 px-3 py-1 bg-blue-600 rounded-full shadow-[0_4px_12px_rgba(37,99,235,0.4)] shrink-0 whitespace-nowrap">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white whitespace-nowrap">LIVE</span>
                   </div>
                 )}
               </div>
@@ -308,13 +308,13 @@ export default function WorkspacePage() {
                 <div className="flex items-center gap-3">
                   <button 
                     onClick={() => handleSwitch(ws.id)}
-                    className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    className={`px-5 py-2 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 ${
                       ws.id === activeWorkspaceId 
-                        ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" 
+                        ? "bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-default" 
                         : "bg-white/5 text-white/40 hover:bg-white/10"
                     }`}
                   >
-                    {ws.id === activeWorkspaceId ? "Live" : "Select"}
+                    {ws.id === activeWorkspaceId ? "Active" : "Select"}
                   </button>
                   <span className="text-[9px] font-mono font-bold text-white/20 bg-white/5 px-2 py-1 rounded-lg">
                     {workspaceNoteCounts[ws.id] || 0} / 10,000

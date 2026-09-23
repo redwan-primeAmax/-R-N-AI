@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Menu, Search, Loader2, Sparkles, Bookmark, Lock, LayoutGrid } from 'lucide-react';
+import { Menu, Search, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface HomeHeaderProps {
@@ -71,44 +71,6 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             </span>
           </button>
         </div>
-      </div>
-
-      {/* Android Material 3 Quick Filter Chips Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3 px-1">
-        <button
-          onClick={() => navigate('/main')}
-          className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-[#FFB03A] text-black text-[11px] font-black tracking-tight flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-        >
-          সব নোট
-        </button>
-        <button
-          onClick={() => navigate('/bookmarks')}
-          className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/80 text-[11px] font-bold tracking-tight flex items-center gap-1.5 active:scale-95 transition-all"
-        >
-          <Bookmark size={12} className="text-amber-400" />
-          বুকমার্ক
-        </button>
-        <button
-          onClick={() => navigate('/vault')}
-          className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/80 text-[11px] font-bold tracking-tight flex items-center gap-1.5 active:scale-95 transition-all"
-        >
-          <Lock size={12} className="text-amber-400" />
-          সিকিউর ভল্ট
-        </button>
-        <button
-          onClick={() => navigate('/tools')}
-          className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/80 text-[11px] font-bold tracking-tight flex items-center gap-1.5 active:scale-95 transition-all"
-        >
-          <LayoutGrid size={12} className="text-amber-400" />
-          টুলস
-        </button>
-        <button
-          onClick={() => navigate('/ai-auto')}
-          className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/80 text-[11px] font-bold tracking-tight flex items-center gap-1.5 active:scale-95 transition-all"
-        >
-          <Sparkles size={12} className="text-amber-400" />
-          AI সাহায্য
-        </button>
       </div>
     </div>
   );

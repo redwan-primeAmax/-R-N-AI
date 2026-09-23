@@ -17,7 +17,7 @@ interface NoteCardProps {
   isSelected: boolean;
   onClick: (id: string) => void;
   onMoreClick?: (note: Note, e: React.MouseEvent) => void;
-  density?: 'comfortable' | 'compact';
+  mode?: 'grid' | 'layer';
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -46,17 +46,83 @@ export const NoteCard = React.memo<NoteCardProps>(({
   isSelected, 
   onClick,
   onMoreClick,
-  density = 'comfortable'
+  mode = 'layer'
 }) => {
-  const isCompact = density === 'compact';
+  const isGrid = mode === 'grid';
   const previewText = React.useMemo(() => {
     if (!note.description) return '';
-    return truncateGraphemes(note.description, isCompact ? 50 : 80);
-  }, [note.description, isCompact]);
+    return truncateGraphemes(note.description, isGrid ? 90 : 60);
+  }, [note.description, isGrid]);
 
   const timeLabel = React.useMemo(() => {
     return formatRelativeTime(note.updatedAt);
   }, [note.updatedAt]);
+
+  if (isGrid) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => onClick(note.id)}
+        className={cn(
+          "group relative flex flex-col justify-between p-4 rounded-2xl transition-all cursor-pointer select-none min-h-[120px]",
+          "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-white/20 shadow-sm",
+          isSelected && "bg-amber-400/15 border-amber-400/40"
+        )}
+      >
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {isSelectionMode ? (
+              <div 
+                className={cn(
+                  "w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0",
+                  isSelected ? "bg-amber-500 border-amber-500 text-white" : "border-white/30 bg-transparent"
+                )}
+              >
+                {isSelected && <Check size={13} strokeWidth={3} />}
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.06] shrink-0 text-base">
+                {note.emoji ? (
+                  <PageIcon emoji={note.emoji} className="text-xl" fallback="📄" />
+                ) : (
+                  <FileText size={18} className="text-white/60" />
+                )}
+              </div>
+            )}
+            <h3 className="text-sm font-bold text-white truncate min-w-0 flex-1">
+              {note.title || 'শিরোনামহীন নোট'}
+            </h3>
+          </div>
+          {!isSelectionMode && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoreClick?.(note, e);
+              }}
+              className="p-1 -mr-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+              title="More actions"
+            >
+              <MoreVertical size={16} />
+            </button>
+          )}
+        </div>
+
+        {previewText && (
+          <p className="text-xs text-white/60 line-clamp-2 mb-3 leading-relaxed">
+            {previewText}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between text-[11px] text-white/40 mt-auto pt-2 border-t border-white/[0.04]">
+          <span>{timeLabel}</span>
+          {note.isLocked && <Lock size={12} className="text-amber-400 shrink-0" />}
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div 
@@ -69,7 +135,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
         "group relative flex items-center justify-between transition-colors cursor-pointer select-none",
         "border-b border-black/[0.06] dark:border-white/[0.06] last:border-b-0",
         "hover:bg-black/[0.03] dark:hover:bg-white/[0.04] active:bg-black/[0.05] dark:active:bg-white/[0.06]",
-        isCompact ? "py-2 px-3" : "py-3 px-3.5 rounded-xl sm:rounded-2xl my-0.5",
+        "py-2.5 px-3 rounded-xl my-0.5",
         isSelected && "bg-amber-400/10 dark:bg-amber-400/15 hover:bg-amber-400/15"
       )}
     >

@@ -91,13 +91,21 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ScrollToTopOnRouteChange() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 function AppContent() {
   console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
-  const isWorkspacePage = location.pathname === '/workspaces';
-  const isHideBottomNav = isEditorPage;
+  const isWorkspacePage = location.pathname === '/workspaces' || location.pathname === '/workspace';
+  const isHideBottomNav = isEditorPage || isWorkspacePage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -317,6 +325,7 @@ function AppContent() {
 
   return (
     <MotionConfig reducedMotion={reducedMotion ? "always" : "user"}>
+    <ScrollToTopOnRouteChange />
     <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[var(--bg-main)] text-white'} ${isHideBottomNav ? '' : 'pb-32'} transition-colors duration-300`}>
       <AndroidStatusBar />
       <AnimatePresence mode="wait">
@@ -359,24 +368,24 @@ function AppContent() {
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: -20 }}
-          className="fixed bottom-24 left-4 right-4 z-[9999] p-4 bg-blue-600 rounded-3xl shadow-2xl flex items-center justify-between"
+          className="fixed bottom-24 left-4 right-4 z-[9999] p-4 bg-blue-600 rounded-3xl shadow-2xl flex items-center justify-between gap-3"
         >
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-blue-600">
-              <Check size={24} />
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="h-11 w-11 bg-white rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
+              <Check size={22} />
             </div>
-            <div>
-              <p className="font-black text-xs uppercase tracking-wider">অ্যাপটি ইনস্টল করুন</p>
-              <p className="text-[10px] text-white/60">দ্রুত এক্সেস এবং অফলাইন ব্যবহারের জন্য</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-xs text-white leading-tight">অ্যাপটি ইনস্টল করুন</p>
+              <p className="text-[10px] text-white/70 truncate mt-0.5">দ্রুত এক্সেস এবং অফলাইন ব্যবহারের জন্য</p>
             </div>
           </div>
-          <div className="flex gap-2">
-             <button onClick={handleDismissInstall} className="p-2 text-white/40 hover:text-white">
-                <X size={20} />
+          <div className="flex items-center gap-2 shrink-0">
+             <button onClick={handleDismissInstall} className="p-2 text-white/60 hover:text-white shrink-0" aria-label="Dismiss">
+                <X size={18} />
              </button>
              <button 
               onClick={handleInstall}
-              className="bg-white text-blue-600 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-transform active:scale-90"
+              className="bg-white text-blue-600 px-5 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition-transform active:scale-90 shrink-0 flex items-center justify-center text-center"
             >
               ইন্সটল
             </button>

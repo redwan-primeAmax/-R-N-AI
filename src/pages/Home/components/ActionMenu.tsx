@@ -215,7 +215,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
             animate={{ y: 0 }} 
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 bg-[#121212] border-t border-white/[0.08] rounded-t-[32px] overflow-hidden z-[101] shadow-[0_-20px_50px_rgba(0,0,0,0.8)]"
+            className="fixed bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto bg-[#121212] border-t border-white/[0.08] rounded-t-[32px] z-[101] shadow-[0_-20px_50px_rgba(0,0,0,0.8)]"
           >
             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto my-4" />
             
