@@ -233,14 +233,7 @@ export default function HomePage() {
         onOpenMenu={() => setShowSidebar(true)}
       />
 
-      <RecentNotes 
-        notes={historyNotes}
-        onNoteClick={(id) => navigate(`/editor/${id}`, { state: { fromOutside: true } })}
-      />
-
-      <AnimatedDivider />
-
-      <div className="px-4 max-w-4xl mx-auto w-full">
+      <div className="px-4 max-w-4xl mx-auto w-full pt-4">
         {/* Section Header with View Mode Switcher */}
         <div className="flex items-center justify-between pb-2 mb-2 px-1">
           <span className="text-[12px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">

@@ -302,10 +302,10 @@ TASK: Update the existing content or create new sub-pages based on the requireme
           </button>
           <div>
             <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-              AI CONTENT ARCHITECT
-              <span className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-400 font-black">2.0</span>
+              টুলস সেকশন (TOOLS SECTION)
+              <span className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-400 font-black">AI 2.0</span>
             </h1>
-            <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-0.5">Automated Content Architect (ঐতিহাসিক)</p>
+            <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-0.5">Content Architect & Automated Import</p>
           </div>
         </div>
       </header>

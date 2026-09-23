@@ -84,13 +84,6 @@ const SettingsPage: React.FC = () => {
           description: "এপিআই কী, মডেল এবং ব্যাকগ্রাউন্ড অটোমেশন কন্ট্রোল",
           path: "/ai/settings",
           iconColor: "text-purple-400"
-        },
-        {
-          icon: Sparkles,
-          title: "কন্টেন্ট আর্কিটেক্ট",
-          description: "এআই ব্যবহার করে অটোমেটিক কন্টেন্ট জেনারেশন সেটিংস",
-          path: "/external-ai-import",
-          iconColor: "text-blue-400"
         }
       ]
     },

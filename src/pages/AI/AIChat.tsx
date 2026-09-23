@@ -3,383 +3,288 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../services/storage/DataManager';
-import { exportChatHistory } from '../../components/NoteExporter';
-import DOMPurify from 'dompurify';
-import { AIInterface } from './components/ChatInterface';
-import { ChatInput } from './components/ChatInput';
-import { handleGeminiSendMessage } from '../../services/ai/gemini/gemini';
-import { handleOpenRouterSendMessage } from '../../services/ai/openrouter/openrouter';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { handleFireworksSendMessage } from '../../services/ai/fireworks/fireworks';
-import { handleLocalSendMessage } from '../../services/ai/local/localHandler';
-import { deleteChatHistory, resetAIMemory } from './components/chatActions';
+import { 
+  ArrowLeft, Sparkles, Send, Copy, Check, 
+  Trash2, ChevronDown, Paperclip
+} from 'lucide-react';
+import { DataManager, ChatMessage, Note } from '../../services/storage/DataManager';
+import { handleGeminiSendMessage } from '../../services/ai/gemini/gemini';
+import { cn } from '../../utils/cn';
 
-console.log('AIChat: File loaded');
-
-/**
- * Main AI Chat component (main.tsx).
- * Orchestrates the modular components and manages the overall state.
- */
-const AIChat: React.FC = () => {
-  console.log('AIChat: Rendering component');
+export default function AIChat() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'checking' | 'updating' | 'error'>('idle');
   const [aiReason, setAiReason] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (aiStatus === 'error') {
-      const timer = setTimeout(() => {
-        setAiStatus('idle');
-        setAiReason(null);
-      }, 10000); // 10 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [aiStatus]);
-
-  const [completionPercentage, setCompletionPercentage] = useState<number | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<AITask[]>([]);
-  const [contextSummary, setContextSummary] = useState<ContextSummary | null>(null);
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState('gemini');
-  const [selectedModel, setSelectedModel] = useState('');
-  const [showMentions, setShowMentions] = useState(false);
-  
-  // URL Sync Logic
-  useEffect(() => {
-    if (!selectedProvider) return;
-    
-    // Simplify URL - only show the provider
-    let base = '/manual-control';
-    
-    // Only add model if it's actually relevant
-    let modelPart = '';
-    if (selectedModel) {
-      modelPart = `/${selectedModel}`;
-    }
-    
-    const newPath = `${base}${modelPart}`;
-    
-    // Normalize paths for comparison (remove trailing slashes)
-    const currentPath = location.pathname.replace(/\/$/, '') || '/';
-    const targetPath = newPath.replace(/\/$/, '') || '/';
-
-    if (currentPath !== targetPath && !location.pathname.startsWith('/ai/settings')) {
-      console.log('AIChat: Syncing URL', { currentPath, targetPath });
-      navigate(newPath, { replace: true });
-    }
-  }, [selectedProvider, selectedModel, navigate, location.pathname]);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [attachedNotes, setAttachedNotes] = useState<Note[]>([]);
-  const [tokenUsage, setTokenUsage] = useState({ used: 0, total: 100000 });
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [selectedModel, setSelectedModel] = useState('Claude 3.5 Sonnet');
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const isBottom = Math.abs(target.scrollHeight - target.clientHeight - target.scrollTop) < 100;
-    setIsAtBottom(isBottom);
-  };
-
-  const loadHistory = useCallback(async () => {
-    const history = await DataManager.getChatHistory();
+  const loadData = useCallback(async () => {
+    const [history, allNotes] = await Promise.all([
+      DataManager.getChatHistory(),
+      DataManager.getAllNotes()
+    ]);
     setMessages(history);
-  }, []);
-
-  const loadNotes = useCallback(async () => {
-    const allNotes = await DataManager.getAllNotes();
-    setNotes(allNotes);
-  }, []);
-
-  const loadTasks = useCallback(async () => {
-    const allTasks = await DataManager.getTasks();
-    setTasks(allTasks);
-  }, []);
-
-  const loadContextSummary = useCallback(async () => {
-    const summary = await DataManager.getContextSummary();
-    if (summary && summary.text) {
-      setContextSummary(summary);
-    } else {
-      setContextSummary(null);
-    }
-  }, []);
-
-  const loadAISettings = useCallback(async () => {
-    const settings = await DataManager.getAISettings();
-    const provider = settings.selectedProvider || 'gemini';
-    setSelectedProvider(provider);
-    
-    if (settings.selectedModels && settings.selectedModels[provider as keyof typeof settings.selectedModels]) {
-      setSelectedModel(settings.selectedModels[provider as keyof typeof settings.selectedModels]);
-    } else {
-      setSelectedModel('AI');
-    }
+    setNotes(allNotes.filter(n => !n.isTrashed));
   }, []);
 
   useEffect(() => {
-    console.log('AIChat: Initializing...');
-    const init = async () => {
-      try {
-        await Promise.all([
-          loadHistory(),
-          loadNotes(),
-          loadTasks(),
-          loadContextSummary(),
-          loadAISettings()
-        ]);
-        console.log('AIChat: Data loaded successfully');
-      } catch (err) {
-        console.error('AIChat: Failed to load data:', err);
-      }
-    };
-    
-    init();
-
-    // Listen for sync events from other tabs
-    const handleSync = (data: any) => {
-      console.log('AIChat: Received sync event', data);
-      if (data.type === 'UPDATE_CHAT' || data.type === 'CLEAR_CHAT') {
-        loadHistory();
-      } else if (data.type === 'UPDATE_NOTE' || data.type === 'DELETE_NOTE' || data.type === 'DELETE_NOTES') {
-        loadNotes();
-      } else if (data.type === 'UPDATE_TASKS' || data.type === 'DELETE_TASK') {
-        loadTasks();
-      }
-    };
-    
-    const syncHandler = DataManager.onSync(handleSync);
-    
-    fetch('/prompts/system.txt')
-      .then(res => res.text())
-      .then(text => {
-        console.log('AIChat: System prompt loaded');
-        setSystemPrompt(text);
-      })
-      .catch(err => {
-        console.error('AIChat: Failed to load system prompt:', err);
-        setSystemPrompt("You are a professional Content Creator and AI Assistant. ALWAYS use standard Markdown for formatting. For any content generation (summaries, lists, articles), you MUST use <create_page> or <update_page> XML tags. End every message with [COMPLETION: X%]. Reply in the user's language.");
-      });
-
-    return () => {
-      DataManager.offSync(syncHandler);
-    };
-  }, [loadHistory, loadNotes, loadTasks, loadContextSummary, loadAISettings]);
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
-    const used = messages.reduce((acc, msg) => acc + (msg.text.length / 4), 0) + (systemPrompt.length / 4);
-    setTokenUsage(prev => ({ ...prev, used: Math.round(used) }));
-  }, [messages, systemPrompt]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading, streamingMessage]);
 
-  const scrollToBottom = useCallback((force = false) => {
-    if ((force || isAtBottom) && messagesEndRef.current) {
-      const scrollOptions: ScrollIntoViewOptions = {
-        behavior: force ? 'smooth' : 'auto',
-        block: 'end'
-      };
-      
-      // Use requestAnimationFrame for smoother timing
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView(scrollOptions);
-      });
-    }
-  }, [isAtBottom]);
-
-  // Use a separate effect for streaming to avoid jitter
+  // Auto-resize textarea
   useEffect(() => {
-    if (streamingMessage) {
-      scrollToBottom();
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
     }
-  }, [streamingMessage, scrollToBottom]);
+  }, [input]);
 
-  useEffect(() => {
-    scrollToBottom(true);
-  }, [messages, scrollToBottom]);
+  const handleSend = async () => {
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
 
-  const cleanAIText = (text: string) => {
-    if (!text) return "";
-    
-    // Sanitize first to prevent XSS attacks
-    const sanitizedText = DOMPurify.sanitize(text, {
-      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-      ALLOWED_ATTR: ['href', 'target', 'rel']
-    });
-
-    let cleaned = sanitizedText
-      // Remove XML commands
-      .replace(/<(create_page|update_page|create_task|update_task_status|complete_part|prune_context|verify_page|replace_content)>[\s\S]*?<\/\1>/gi, '')
-      
-      // Remove common AI prefixes and meta-talk (multiline)
-      .replace(/^(User|AI|Model|Assistant|System|Bot|Verifier):\s*/gim, '')
-      .replace(/^(I'm processing|Processing|Generating|Sure, I can help|Certainly|Here is|I've created|I am creating|I will|Okay|Sure|I have updated|The page has been|I've added).*\.?/gim, '')
-      .replace(/^(এখানে আপনার|আমি আপনার|পেজটি তৈরি|আপডেট করা হয়েছে|নিচে আপনার|প্রথাগত নিয়মোনুয়া|পেইজ ডিজাইন না করার জন্য নিজের যত্ন নেওয়া নিরাপদ).*\.?/gim, '')
-      
-      // Remove templates and internal tags
-      .replace(/\[(Task Title|Task Description|Part \d+ Title|Detailed HTML Content|NoteID or Title|Result\/Content|Summary of important context to keep|Number of messages to delete from start|Criteria)\]/gi, '')
-      .replace(/\[COMPLETION:\s*\d+%\]/gi, '')
-      .replace(/\[COUNT:\s*\d+\]/gi, '')
-      .replace(/\[REAL_COMPLETION:\s*\d+%\]/gi, '')
-      .replace(/\[REASON:\s*[^\]]+\]/gi, '')
-      .replace(/\[CONTINUATION_PROMPT:\s*[\s\S]+?\]/gi, '')
-      
-      // Final cleanup
-      .trim();
-    
-    if (cleaned === "" && text.includes('<')) {
-      if (text.includes('<create_page>')) return "নতুন পেজ তৈরি করা হয়েছে।";
-      if (text.includes('<update_page>')) return "পেজটি আপডেট করা হয়েছে।";
-      if (text.includes('<create_task>')) return "নতুন টাস্ক শুরু করা হয়েছে।";
-      return "কাজটি সফলভাবে সম্পন্ন হয়েছে।";
-    }
-    
-    return cleaned; // Returning raw markdown now
+    await handleGeminiSendMessage(
+      input,
+      messages,
+      {
+        setIsLoading,
+        setAiStatus,
+        setAiReason,
+        setMessages,
+        setStreamingMessage,
+        setInput,
+        loadHistory: loadData,
+        loadNotes: () => {},
+        loadTasks: () => {}
+      } as any,
+      []
+    );
   };
 
-  const onSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-    const currentAttachments = [...attachedNotes];
-    setAttachedNotes([]); // Clear UI immediately for better UX
-    
-    // Force scroll on send
-    setTimeout(() => scrollToBottom(true), 50);
-
-    const setters = {
-      setIsLoading, setAiStatus, setAiReason, setCompletionPercentage,
-      setMessages, setStreamingMessage, setInput,
-      loadNotes, loadTasks, loadContextSummary, loadHistory
-    };
-
-    if (selectedProvider === 'gemini') {
-      await handleGeminiSendMessage(input, messages, contextSummary, setters, currentAttachments);
-    } else if (selectedProvider === 'openrouter') {
-      await handleOpenRouterSendMessage(input, messages, contextSummary, setters, currentAttachments);
-    } else if (selectedProvider === 'fireworks') {
-      await handleFireworksSendMessage(input, messages, contextSummary, setters, currentAttachments);
-    } else if (selectedProvider === 'local') {
-      await handleLocalSendMessage(input, messages, contextSummary, setters, currentAttachments);
-    }
+  const handleClearChat = async () => {
+    setMessages([]);
+    await DataManager.clearChatHistory();
   };
 
-  const onClearHistory = () => {
-    deleteChatHistory(setMessages, setTasks, setContextSummary, setShowClearConfirm);
+  const handleCopy = (idx: number, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
   };
 
-  const onResetMemory = () => {
-    resetAIMemory(setContextSummary, setShowClearConfirm);
-  };
+  return (
+    <div className="flex flex-col h-screen bg-[#181816] text-[#ECEBE6] font-sans selection:bg-[#D97757]/30">
+      {/* Minimal Claude Header */}
+      <header className="h-14 border-b border-[#2B2A27] bg-[#181816] px-4 flex items-center justify-between z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/main')}
+            className="p-1.5 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors"
+            title="Back to Notes"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          
+          {/* Claude Model Selector Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowModelPicker(!showModelPicker)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-[#2B2A27] text-sm font-medium text-[#ECEBE6] transition-colors"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#D97757]" />
+              <span>{selectedModel}</span>
+              <ChevronDown size={14} className="text-[#9B9990]" />
+            </button>
 
-  const onExportChat = () => {
-    exportChatHistory(messages);
-  };
+            <AnimatePresence>
+              {showModelPicker && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="absolute top-full left-0 mt-1 w-56 bg-[#22211F] border border-[#363430] rounded-xl shadow-xl p-1.5 z-50 space-y-1"
+                >
+                  {['Claude 3.5 Sonnet', 'Claude 3 Opus', 'Claude 3 Haiku'].map((model) => (
+                    <button
+                      key={model}
+                      onClick={() => {
+                        setSelectedModel(model);
+                        setShowModelPicker(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between transition-colors",
+                        selectedModel === model ? "bg-[#D97757]/20 text-[#D97757]" : "text-[#ECEBE6] hover:bg-[#2B2A27]"
+                      )}
+                    >
+                      <span>{model}</span>
+                      {selectedModel === model && <Check size={14} />}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
 
-  const onExportAuditLogs = () => {
-    console.log('Audit logs export requested');
-    setNotification({ message: 'Audit logs exported (stub)', type: 'success' });
-    setTimeout(() => setNotification(null), 2000);
-  };
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleClearChat}
+            className="p-2 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors text-xs font-medium flex items-center gap-1.5"
+            title="Clear Conversation"
+          >
+            <Trash2 size={16} />
+            <span className="hidden sm:inline">Clear Chat</span>
+          </button>
+        </div>
+      </header>
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setInput(value);
+      {/* Main Chat Scroll Container */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 max-w-3xl mx-auto w-full no-scrollbar">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 my-auto py-20">
+            <div className="w-12 h-12 bg-[#D97757]/10 text-[#D97757] rounded-2xl flex items-center justify-center border border-[#D97757]/20">
+              <Sparkles size={24} />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <h2 className="text-xl font-semibold text-[#ECEBE6]">Welcome back</h2>
+              <p className="text-xs text-[#9B9990] leading-relaxed">
+                How can Claude help you analyze notes, organize tasks, or brainstorm ideas today?
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md pt-4">
+              {[
+                "Summarize recent workspace notes",
+                "Draft an outline for new document",
+                "Extract action items from text",
+                "Brainstorm creative solutions"
+              ].map((prompt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => { setInput(prompt); }}
+                  className="p-3 bg-[#22211F] hover:bg-[#2B2A27] border border-[#2B2A27] rounded-xl text-left text-xs text-[#ECEBE6]/80 hover:text-[#ECEBE6] transition-all"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((msg, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                "flex gap-4 p-4 rounded-2xl transition-all",
+                msg.role === 'user' ? "bg-[#22211F]/60 ml-auto max-w-[85%]" : "bg-transparent max-w-full"
+              )}
+            >
+              <div className="shrink-0">
+                {msg.role === 'user' ? (
+                  <div className="w-7 h-7 bg-[#363430] text-[#ECEBE6] rounded-full flex items-center justify-center font-bold text-xs">
+                    U
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 bg-[#D97757] text-black rounded-full flex items-center justify-center font-black text-xs shadow-md shadow-[#D97757]/20">
+                    C
+                  </div>
+                )}
+              </div>
 
-    // Reset error if user starts typing
-    if (aiStatus === 'error') {
-      setAiStatus('idle');
-      setAiReason(null);
-    }
+              <div className="flex-1 space-y-2 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#9B9990]">
+                    {msg.role === 'user' ? 'You' : 'Claude'}
+                  </span>
+                  <button
+                    onClick={() => handleCopy(idx, msg.text)}
+                    className="text-[#9B9990] hover:text-[#ECEBE6] transition-colors p-1"
+                    title="Copy response"
+                  >
+                    {copiedIdx === idx ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
 
-    const lastWord = value.split(' ').pop() || '';
-    if (lastWord.startsWith('@')) {
-      setShowMentions(true);
-    } else {
-      setShowMentions(false);
-    }
-  };
+                <div className="text-sm leading-relaxed text-[#ECEBE6] whitespace-pre-wrap font-sans">
+                  {msg.text}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
 
-  const filteredMentions = useMemo(() => {
-    const lastWord = input.split(' ').pop() || '';
-    const query = lastWord.slice(1).toLowerCase();
-    return notes.filter(n => n.title.toLowerCase().includes(query)).slice(0, 5);
-  }, [input, notes]);
+        {isLoading && (
+          <div className="flex gap-4 p-4 max-w-full items-center">
+            <div className="w-7 h-7 bg-[#D97757] text-black rounded-full flex items-center justify-center font-black text-xs animate-pulse">
+              C
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-[#9B9990]">
+              <span className="w-1.5 h-1.5 bg-[#D97757] rounded-full animate-ping" />
+              Claude is thinking...
+            </div>
+          </div>
+        )}
 
-  const selectMention = (note: Note) => {
-    const words = input.split(' ');
-    words.pop();
-    setInput(words.join(' ') + (words.length > 0 ? ' ' : '') + `[${note.title}] `);
-    setShowMentions(false);
-  };
-
-  try {
-    return (
-      <div className="flex flex-col h-screen bg-[#0d0d0d] text-white font-sans text-[0.92rem] overflow-hidden">
-      <AIInterface
-        messages={messages}
-        streamingMessage={streamingMessage}
-        isLoading={isLoading}
-        aiStatus={aiStatus}
-        aiReason={aiReason}
-        completionPercentage={completionPercentage}
-        notes={notes}
-        tasks={tasks}
-        contextSummary={contextSummary}
-        showClearConfirm={showClearConfirm}
-        setShowClearConfirm={setShowClearConfirm}
-        confirmClearHistory={onClearHistory}
-        resetAIMemory={onResetMemory}
-        exportChat={onExportChat}
-        exportAuditLogs={onExportAuditLogs}
-        navigateBack={() => {
-          navigate('/main');
-        }}
-        navigateToEditor={(id) => navigate(`/editor/${id}`)}
-        navigateToSettings={() => navigate('/ai/settings')}
-        setInput={setInput}
-        cleanAIText={cleanAIText}
-        messagesEndRef={messagesEndRef}
-        onScroll={handleScroll}
-        tokenUsage={tokenUsage}
-      />
-      <div className="flex-shrink-0">
-        <ChatInput
-          input={input}
-          setInput={setInput}
-          isLoading={isLoading}
-          handleSend={onSendMessage}
-          handleInputChange={handleInputChange}
-          showMentions={showMentions}
-          filteredMentions={filteredMentions}
-          selectMention={selectMention}
-          notes={notes}
-          attachedNotes={attachedNotes}
-          setAttachedNotes={setAttachedNotes}
-        />
+        <div ref={messagesEndRef} />
       </div>
-      
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .markdown-body p { margin-bottom: 0.75rem; }
-        .markdown-body p:last-child { margin-bottom: 0; }
-        .markdown-body ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
-        .markdown-body ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
-        .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-weight: bold; margin-bottom: 0.5rem; margin-top: 1rem; }
-        .markdown-body blockquote { border-left: 3px solid rgba(255,255,255,0.1); padding-left: 1rem; color: rgba(255,255,255,0.5); font-style: italic; }
-      `}</style>
+
+      {/* Floating Bottom Claude Input Dock */}
+      <div className="p-4 bg-[#181816] border-t border-[#2B2A27] shrink-0">
+        <div className="max-w-3xl mx-auto bg-[#22211F] border border-[#363430] focus-within:border-[#D97757]/60 rounded-2xl p-2.5 shadow-2xl transition-all">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Reply to Claude..."
+            rows={1}
+            className="w-full bg-transparent text-sm text-[#ECEBE6] placeholder-[#9B9990]/60 resize-none outline-none px-2 py-1 leading-relaxed font-sans min-h-[40px] max-h-[180px]"
+          />
+
+          <div className="flex items-center justify-between pt-2 px-1">
+            <div className="flex items-center gap-1 text-[#9B9990]">
+              <button 
+                onClick={() => navigate('/search')}
+                className="p-1.5 hover:bg-[#2B2A27] rounded-lg hover:text-[#ECEBE6] transition-colors"
+                title="Attach Note Context"
+              >
+                <Paperclip size={16} />
+              </button>
+            </div>
+
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className={cn(
+                "p-2 rounded-xl transition-all flex items-center justify-center",
+                input.trim() && !isLoading
+                  ? "bg-[#D97757] text-black shadow-md shadow-[#D97757]/20 hover:bg-[#c56647] active:scale-95"
+                  : "bg-[#2B2A27] text-[#9B9990]/40 cursor-not-allowed"
+              )}
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
-  } catch (err) {
-    console.error('AIChat: Rendering error:', err);
-    return <div className="p-10 text-red-500">AI Page Error: {String(err)}</div>;
-  }
-};
-
-export default AIChat;
+}

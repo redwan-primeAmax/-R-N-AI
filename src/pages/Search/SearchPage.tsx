@@ -152,7 +152,7 @@ export default function SearchPage() {
 
     try {
       let notes = await DataManager.getAllNotes(true); // force to be absolutely sure
-      notes = notes.filter(n => !n.isTrashed);
+      notes = notes.filter(n => !n.isTrashed && !n.isLocked);
       const totalAvailable = notes.length;
 
       if (currentTags.length > 0) {
@@ -249,7 +249,7 @@ export default function SearchPage() {
       if (workerRef.current) {
         try {
           const fresh = await DataManager.getAllNotes(true); // force
-          const clean = fresh.filter((n: Note) => !n.isTrashed);
+          const clean = fresh.filter((n: Note) => !n.isTrashed && !n.isLocked);
           workerRef.current.postMessage({
             type: 'SYNC',
             notes: clean,
@@ -408,7 +408,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-white">
-      <div className="max-w-2xl mx-auto px-6 pt-12 pb-32">
+      <div className="max-w-2xl mx-auto px-6 pt-16 pb-36">
         <header className="mb-6 space-y-4">
           <div className="flex items-center justify-between px-2">
              <h1 className="text-2xl font-black tracking-tighter text-white/90">Search</h1>

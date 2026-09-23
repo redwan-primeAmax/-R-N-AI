@@ -5,7 +5,7 @@ import {
   Settings2, Settings, Sun, Moon, Layers, Plus, Sparkles,
   ChevronRight, FileText, ChevronDown, MoreHorizontal,
   Box, Download, Zap, Database, AlertCircle, FileDown, Users,
-  Boxes, Layout, ArrowLeft, History, Clock, Loader2, LayoutGrid, Monitor
+  Boxes, Layout, ArrowLeft, History, Clock, Loader2, LayoutGrid, Monitor, Wrench
 } from 'lucide-react';
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
@@ -249,10 +249,13 @@ export default function Sidebar({
 
             {/* Menu List & Page Tree Section */}
             <div className="flex-1 overflow-y-auto no-scrollbar px-3 mb-4 space-y-4">
-              {/* Notion-style Page Tree */}
+              {/* Top Section: ONLY 3 Most Recently Opened Notes */}
               <div>
                 <div className="flex items-center justify-between px-3 py-1.5 mb-1 text-[11px] font-bold uppercase tracking-wider text-white/40">
-                  <span>পেজসমূহ (Pages)</span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={12} className="text-amber-400" />
+                    সাম্প্রতিক ৩টি নোট
+                  </span>
                   <button 
                     onClick={() => {
                       navigate('/editor/new');
@@ -265,16 +268,51 @@ export default function Sidebar({
                     <Plus size={14} />
                   </button>
                 </div>
-                <div className="space-y-0.5">
-                  {notes.filter(n => !n.parentId && !n.isTrashed).length > 0 ? (
-                    notes
-                      .filter(n => !n.parentId && !n.isTrashed)
-                      .map(rootNote => renderNoteTreeItem(rootNote, 0))
-                  ) : (
-                    <div className="px-3 py-2 text-xs text-white/30 italic">
-                      কোনো পেজ পাওয়া যায়নি
-                    </div>
-                  )}
+                <div className="space-y-1">
+                  {(() => {
+                    const top3Recent = [...notes]
+                      .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
+                      .slice(0, 3);
+
+                    if (top3Recent.length === 0) {
+                      return (
+                        <div className="px-3 py-2 text-xs text-white/30 italic">
+                          কোনো নোট পাওয়া যায়নি
+                        </div>
+                      );
+                    }
+
+                    return top3Recent.map(note => {
+                      const isActive = activeNoteId === note.id;
+                      return (
+                        <div 
+                          key={note.id}
+                          className={cn(
+                            "group flex items-center justify-between gap-2.5 py-2 px-3 rounded-xl cursor-pointer transition-all hover:bg-white/[0.06] text-white/80",
+                            isActive && "bg-amber-400/10 text-amber-300 font-semibold"
+                          )}
+                        >
+                          <div 
+                            onClick={() => { navigate(`/editor/${note.id}`); onClose(); }}
+                            className="flex items-center gap-2.5 flex-1 min-w-0"
+                          >
+                            <span className="text-base shrink-0">{note.emoji || '📄'}</span>
+                            <span className="text-[13px] truncate font-medium">{note.title || 'শিরোনামহীন'}</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowMoveTo(note);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-all"
+                            title="মোভ করুন (Move To)"
+                          >
+                            <MoreHorizontal size={14} />
+                          </button>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
@@ -289,7 +327,7 @@ export default function Sidebar({
                   { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
                   { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
                   { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
-                  { icon: <LayoutGrid size={16} />, label: 'ইউটিলিটি ও টুলস', path: '/tools' },
+                  { icon: <Wrench size={16} />, label: 'টুলস সেকশন', path: '/external-ai-import' },
                   { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },
                   { icon: <Trash2 size={16} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
                 ].map((item, idx) => (

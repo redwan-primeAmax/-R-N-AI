@@ -28,6 +28,19 @@ export default function WorkspacePage() {
   const [workspaceToDelete, setWorkspaceToDelete] = useState<string | null>(null);
   const [workspaceForLogo, setWorkspaceForLogo] = useState<Workspace | null>(null);
   const [workspaceSettingsModal, setWorkspaceSettingsModal] = useState<Workspace | null>(null);
+  const [showLimitNoticeModal, setShowLimitNoticeModal] = useState(false);
+
+  useEffect(() => {
+    const hasSeenNotice = localStorage.getItem('seen_workspace_limit_notice');
+    if (!hasSeenNotice) {
+      setShowLimitNoticeModal(true);
+    }
+  }, []);
+
+  const handleDismissLimitNotice = () => {
+    localStorage.setItem('seen_workspace_limit_notice', 'true');
+    setShowLimitNoticeModal(false);
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -384,12 +397,35 @@ export default function WorkspacePage() {
         )}
       </AnimatePresence>
 
-      <div className="mt-20 p-8 bg-amber-500/10 rounded-[40px] border border-amber-500/20 text-center max-w-2xl mx-auto space-y-2">
-        <h4 className="font-bold text-amber-400 mb-1">সীমাবদ্ধতা সংক্রান্ত তথ্য (Workspace Note Limit)</h4>
-        <p className="text-sm text-white/60 leading-relaxed font-semibold">
-          আপনি প্রত্যেকটা ওয়ার্কস্পেসে ১০,০০০ পর্যন্ত ম্যাক্সিমাম ১০,০০০ নোট রাখতে পারবেন। এর উপরে রাখতে পারবেন না, কারণ এতে আপনার ডিভাইসের সমস্যা দেখা দিতে পারে।
-        </p>
-      </div>
+      <AnimatePresence>
+        {showLimitNoticeModal && (
+          <Modal
+            id="workspace-limit-modal"
+            isOpen={true}
+            onClose={handleDismissLimitNotice}
+            title="সীমাবদ্ধতা সংক্রান্ত তথ্য"
+          >
+            <div className="p-6 text-center space-y-5">
+              <div className="w-14 h-14 bg-amber-500/10 text-amber-400 rounded-3xl flex items-center justify-center mx-auto border border-amber-500/20">
+                <Layout size={28} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-bold text-white">Workspace Note Limit</h3>
+                <p className="text-sm text-white/70 leading-relaxed">
+                  আপনি প্রত্যেকটা ওয়ার্কস্পেসে সর্বোচ্চ ১০,০০০টি নোট রাখতে পারবেন। এর বেশি রাখা যাবে না, কারণ এতে আপনার ডিভাইসের পারফরম্যান্সে প্রভাব পড়তে পারে।
+                </p>
+              </div>
+              <button
+                onClick={handleDismissLimitNotice}
+                className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-black font-extrabold rounded-2xl transition-all shadow-lg shadow-amber-400/20"
+              >
+                ঠিক আছে (OK)
+              </button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
       <ConfirmDialog
         isOpen={workspaceToDelete !== null}
         onClose={() => setWorkspaceToDelete(null)}

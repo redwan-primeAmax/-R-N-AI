@@ -63,7 +63,6 @@ const SettingsPage = lazyWithRetry(() => import('./pages/Settings/SettingsPage')
 const BookmarkPage = lazyWithRetry(() => import('./pages/Bookmark/BookmarkPage'));
 const VaultPage = lazyWithRetry(() => import('./pages/Vault/Vault'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
-const ToolsPage = lazyWithRetry(() => import('./pages/Tools/ToolsPage'));
 
 function LoadingFallback() {
   return (
@@ -309,7 +308,7 @@ function AppContent() {
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
-    { path: "/tools", element: <PageWrapper><ToolsPage /></PageWrapper> },
+    { path: "/tools", element: <Navigate to="/external-ai-import" replace /> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 
