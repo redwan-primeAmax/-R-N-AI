@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
+import { WasmBridgeService } from '../wasm/WasmModule';
 import { db } from '../services/storage/DexieDB';
 import { globalCollabManager } from '../services/PeerCollabManager';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
@@ -270,9 +271,18 @@ export default function Sidebar({
                 </div>
                 <div className="space-y-1">
                   {(() => {
-                    const top3Recent = [...notes]
-                      .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
-                      .slice(0, 3);
+                    const top3Recent = WasmBridgeService.getTop3RecentNotes(notes.map(n => ({
+                      id: n.id,
+                      title: n.title,
+                      workspaceId: n.workspaceId || 'default',
+                      parentId: n.parentId || '',
+                      tags: (n.tags || []).join(','),
+                      updatedAt: n.updatedAt,
+                      lastOpenedAt: n.lastOpenedAt || 0,
+                      isTrashed: !!n.isTrashed,
+                      isFavorite: !!n.isFavorite,
+                      isPinned: !!n.isPinned
+                    }))) as any[];
 
                     if (top3Recent.length === 0) {
                       return (
@@ -282,7 +292,8 @@ export default function Sidebar({
                       );
                     }
 
-                    return top3Recent.map(note => {
+                    return top3Recent.map(noteMeta => {
+                      const note = notes.find(n => n.id === noteMeta.id) || noteMeta;
                       const isActive = activeNoteId === note.id;
                       return (
                         <div 

@@ -7,8 +7,20 @@ import localforage from 'localforage';
 import { db, runMigrationFromLocalForage } from './DexieDB';
 import { iconsDb } from '../../components/icon/IconManager';
 import { HistoryManager } from './HistoryManager';
+import { NoteService } from './services/NoteService';
+import { WorkspaceService } from './services/WorkspaceService';
+import { MediaService } from './services/MediaService';
+import { BackupService } from './services/BackupService';
+import { SettingsService, encryptText, decryptText } from './services/SettingsService';
+import { AIServiceStorage } from './services/AIServiceStorage';
+import { AppStore } from './store';
 
-console.log('DataManager: File loaded');
+import type { 
+  Note, Workspace, NoteVersion, ChatMessage, 
+  AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder
+} from '../../types';
+
+export type { Note, Workspace, NoteVersion, ChatMessage, AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder };
 
 // Trigger background migration seamlessly on load
 runMigrationFromLocalForage().then(() => {
@@ -17,526 +29,163 @@ runMigrationFromLocalForage().then(() => {
   console.error('DataManager: Dexie migration error:', err);
 });
 
-import { 
-  Note, Workspace, NoteVersion, ChatMessage, 
-  AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder
-} from '../../types';
-
-export type { Note, Workspace, NoteVersion, ChatMessage, AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder };
-
-// Configure localforage for temporary fallbacks if needed
 localforage.config({
   name: 'NotionClone',
   storeName: 'notes_store'
 });
 
-// BroadcastChannel for multi-tab sync
 const syncChannel = new BroadcastChannel('notion_sync');
 const clientId = crypto.randomUUID();
 
-// Add beforeunload listener to close the channel (Bug 5)
 window.addEventListener('beforeunload', () => {
-    syncChannel.close();
+  syncChannel.close();
 });
 
-// Local event emitter for same-tab sync
 const localSyncEmitter = new EventTarget();
 
-// Tracking active object URLs to prevent memory leaks (Bug 10)
-const activeObjectUrls = new Set<string>();
-const objectUrlToMediaId = new Map<string, string>(); // Bug 2: reverse object URL mapping
-
-// Helper to convert Blob to Base64 (Bug 3)
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const base64 = result.split(',')[1] || '';
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-// Helper to convert Base64 back to Blob (Bug 3)
-function base64ToBlob(base64: string, mimeType: string): Blob {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return new Blob([bytes], { type: mimeType });
-}
-
 syncChannel.onmessage = (event) => {
-  if (event.data?.senderId === clientId) return; // Prevent self-message loop (Bug 6)
+  if (event.data?.senderId === clientId) return;
   const type = event.data?.type || '';
   if (type.includes('NOTE') || type.includes('CACHE_INVALIDATED') || type.includes('PERMANENT')) {
-    // Force full invalidation on receiver side too (cross-tab safety)
     DataManager.invalidateNotesCache(`broadcast:${type}`);
-    // Then optionally warm the cache in background (the invalidate already dispatched events)
-    DataManager.getAllNotes(true).then(notes => {
-      // getAllNotes(true) will bypass and set fresh because we just invalidated
-      console.log(`[DataManager] Cross-tab refresh complete, ${notes?.length || 0} notes`);
-    }).catch(console.error);
   }
   if (type.includes('SETTINGS')) {
-    cachedSettings = null;
+    SettingsService.invalidateSettingsCache();
   }
 
   const customEvent = new CustomEvent('sync', { detail: event.data });
   localSyncEmitter.dispatchEvent(customEvent);
 };
 
-// Internal helper to trigger sync both locally and remotely
 const notifySync = (data: any) => {
-  // Remote
   syncChannel.postMessage({ ...data, senderId: clientId });
-  // Local
   const customEvent = new CustomEvent('sync', { detail: { ...data, senderId: clientId } });
   localSyncEmitter.dispatchEvent(customEvent);
 };
 
-// In-memory cache for speed
-let cachedNotes: Note[] | null = null;
-let cachedWorkspaceId: string | null = null;
-let cachedSettings: AISettings | null = null;
-let isFullyIndexed = false;
-
 let cachedStorageUsage: { used: number; quota: number } | null = null;
 let lastStorageCheck = 0;
-
-// Internal helper to trigger sync both locally and remotely
-const CHAT_HISTORY_KEY = 'chat_history';
-const TASKS_KEY = 'ai_tasks';
-const CONTEXT_SUMMARY_KEY = 'context_summary';
-const USER_NAME_KEY = 'user_name';
-const AI_SETTINGS_KEY = 'ai_settings';
-const WORKSPACES_KEY = 'workspaces';
-const VERSIONS_KEY = 'note_versions';
-const MEDIA_KEY = 'media_store';
 const CUSTOM_EXTENSION = '.redwan';
 
-// Debounce indexing to avoid performance issues during rapid typing
-let indexingTimeout: NodeJS.Timeout | null = null;
-const scheduleIndexing = (note: Note) => {
-  // RST Search handles indexing via worker sync, so we just clear legacy placeholders here
-};
-
-// Encryption/decryption helpers (AES-GCM for better security)
-const SALT = 'redwan-salt';
-
-let derivedKeyCache: CryptoKey | null = null;
-async function getEncryptionKey() {
-  if (derivedKeyCache) return derivedKeyCache;
-
-  let customKey = 'default-fallback-key-should-be-randomized';
-  let customSalt = SALT;
-  try {
-    const storedKey = await db.key_value_pairs.get('user_encryption_key_seed');
-    if (storedKey && storedKey.value) {
-      customKey = storedKey.value;
-    } else {
-      const randomSeed = crypto.randomUUID() + '-' + crypto.randomUUID();
-      await db.key_value_pairs.put({ key: 'user_encryption_key_seed', value: randomSeed });
-      customKey = randomSeed;
-    }
-
-    const storedSalt = await db.key_value_pairs.get('user_encryption_salt_seed');
-    if (storedSalt && storedSalt.value) {
-      customSalt = storedSalt.value;
-    } else {
-      const randomSalt = crypto.randomUUID();
-      await db.key_value_pairs.put({ key: 'user_encryption_salt_seed', value: randomSalt });
-      customSalt = randomSalt;
-    }
-  } catch (e) {
-    console.error('DataManager: Critical error fetching encryption keys:', e);
-    throw new Error('Encryption initialization failed');
-  }
-
-  const encoder = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(customKey),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey']
-  );
-  derivedKeyCache = await crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: encoder.encode(customSalt),
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-  return derivedKeyCache;
-}
-
-export const encrypt = async (text: string) => {
-  if (!text) return '';
-  try {
-    const key = await getEncryptionKey();
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encoder = new TextEncoder();
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      encoder.encode(text)
-    );
-    
-    // Combine IV and Encrypted data
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(encrypted), iv.length);
-    
-    return btoa(String.fromCharCode(...combined));
-  } catch (e) {
-    console.error('Encryption failed:', e);
-    return '';
-  }
-};
-
-export const decrypt = async (encoded: string) => {
-  if (!encoded) return '';
-  try {
-    if (encoded.length < 28) return encoded;
-
-    let binaryString;
-    try {
-      binaryString = atob(encoded);
-    } catch (e) {
-      // Not valid base64
-      return encoded;
-    }
-    
-    const combined = new Uint8Array(
-      binaryString.split('').map(char => char.charCodeAt(0))
-    );
-
-    if (combined.length < 28) {
-      return encoded;
-    }
-
-    const iv = combined.slice(0, 12);
-    const data = combined.slice(12);
-    
-    const key = await getEncryptionKey();
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      data
-    );
-    return new TextDecoder().decode(decrypted);
-  } catch (e) {
-    // Silently return original if decryption fails (likely plain text or old format)
-    return encoded;
-  }
-};
-
-// Request persistent storage
-if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
-  navigator.storage.persist().then(persistent => {
-    if (persistent) {
-      console.log("Storage will not be cleared except by explicit user action");
-    } else {
-      console.log("Storage may be cleared by the UA under storage pressure.");
-    }
-  });
-}
+export const encrypt = encryptText;
+export const decrypt = decryptText;
 
 export const DataManager = {
   getClientId: () => clientId,
+  
   async encryptValue(text: string): Promise<string> {
-    return encrypt(text);
+    return encryptText(text);
   },
+  
   async decryptValue(encoded: string): Promise<string> {
-    return decrypt(encoded);
+    return decryptText(encoded);
   },
+
   async getUserName(): Promise<string | null> {
-    const record = await db.key_value_pairs.get('user_name');
-    const name = record ? record.value : null;
-    if (!name) return null;
-    if (name.length > 8) {
-      return name.substring(0, 8) + '...';
-    }
-    return name;
+    return SettingsService.getUserName();
   },
 
   async getFullUserName(): Promise<string | null> {
-    const record = await db.key_value_pairs.get('user_name');
-    return record ? record.value : null;
+    return SettingsService.getFullUserName();
   },
 
   async saveUserName(name: string): Promise<void> {
-    await db.key_value_pairs.put({ key: 'user_name', value: name });
+    await SettingsService.saveUserName(name);
   },
 
   async getUserPreferences(): Promise<UserPreferences> {
-    const record = await db.key_value_pairs.get('user_preferences');
-    const prefs = record ? record.value : null;
-    return prefs || { reducedMotion: false, theme: 'dark' };
+    return SettingsService.getUserPreferences();
   },
 
   async saveUserPreferences(prefs: UserPreferences): Promise<void> {
-    await db.key_value_pairs.put({ key: 'user_preferences', value: prefs });
+    await SettingsService.saveUserPreferences(prefs);
     this.triggerSync('SYNC_COMPLETE');
   },
 
   async getUser(): Promise<any> {
-    const record = await db.key_value_pairs.get('master_user_profile');
-    if (!record) {
-      const initial = { id: 'user-0', masterPassword: '' };
-      await db.key_value_pairs.put({ key: 'master_user_profile', value: initial });
-      return initial;
-    }
-    return record.value;
+    return SettingsService.getUserProfile();
   },
 
   async updateUser(user: any): Promise<void> {
-    await db.key_value_pairs.put({ key: 'master_user_profile', value: user });
+    await SettingsService.updateUserProfile(user);
   },
 
   async updateNote(id: string, updates: Partial<Note>): Promise<void> {
-    const note = await db.notes.get(id);
-    if (!note) return;
-    const now = Date.now();
-    await db.notes.update(id, { ...updates, updatedAt: now });
+    await NoteService.updateNote(id, updates);
     this.invalidateNotesCache(`update-note:${id}`);
   },
 
   // --- Workspace Operations ---
   async getWorkspaces(): Promise<Workspace[]> {
-    let workspaces = await db.workspaces.toArray();
-    
-    if (!workspaces || workspaces.length === 0) {
-      const defaultWorkspace: Workspace = {
-        id: 'default',
-        name: 'Default Workspace',
-        createdAt: Date.now()
-      };
-      workspaces = [defaultWorkspace];
-      await db.workspaces.put(defaultWorkspace);
-      await this.setActiveWorkspaceId(defaultWorkspace.id);
-    }
-    return workspaces;
+    return WorkspaceService.getWorkspaces();
   },
 
   async getActiveWorkspaceId(): Promise<string> {
-    const config = await this.getSystemConfig();
-    return config?.activeWorkspaceId || 'default';
+    return WorkspaceService.getActiveWorkspaceId();
   },
 
   async setActiveWorkspaceId(id: string): Promise<void> {
-    const config = await this.getSystemConfig();
-    const newConfig = { ...config, activeWorkspaceId: id };
-    await this.saveSystemConfig(newConfig);
+    await WorkspaceService.setActiveWorkspaceId(id);
     this.invalidateNotesCache(`switch-workspace:${id}`);
     window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
   async getSystemConfig(): Promise<any> {
-    const record = await db.key_value_pairs.get('system_config');
-    const config = record ? record.value : null;
-    if (!config) {
-      const defaultConfig = { activeWorkspaceId: 'default' };
-      await db.key_value_pairs.put({ key: 'system_config', value: defaultConfig });
-      return defaultConfig;
-    }
-    return config;
+    return SettingsService.getSystemConfig();
   },
 
   async saveSystemConfig(config: any): Promise<void> {
-    await db.key_value_pairs.put({ key: 'system_config', value: config });
+    await SettingsService.saveSystemConfig(config);
   },
 
   async saveWorkspace(workspace: Workspace): Promise<void> {
-    workspace.updatedAt = Date.now();
-    await db.workspaces.put(workspace);
+    await WorkspaceService.saveWorkspace(workspace);
     notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
   },
 
   async deleteWorkspace(id: string): Promise<void> {
-    await db.transaction('rw', [db.workspaces, db.notes, db.key_value_pairs, db.note_versions], async () => {
-      // 1. Delete the workspace
-      await db.workspaces.delete(id);
-
-      // 2. Identify and delete all notes in this workspace
-      const notesToDelete = await db.notes.where('workspaceId').equals(id).toArray();
-      const noteIdsToDelete = notesToDelete.map(n => n.id);
-      if (noteIdsToDelete.length > 0) {
-        await db.notes.bulkDelete(noteIdsToDelete);
-        // Delete all versions for these notes
-        await db.note_versions.where('noteId').anyOf(noteIdsToDelete).delete();
-      }
-    });
-
+    await WorkspaceService.deleteWorkspace(id);
     this.invalidateNotesCache(`delete-workspace:${id}`);
-
-    // Check workspaces to swap active one
-    const remainingWorkspaces = await db.workspaces.toArray();
-    const currentId = await this.getActiveWorkspaceId();
-    if (currentId === id) {
-      if (remainingWorkspaces.length > 0) {
-        await this.setActiveWorkspaceId(remainingWorkspaces[0].id);
-      } else {
-        const config = await this.getSystemConfig();
-        await this.saveSystemConfig({ ...config, activeWorkspaceId: 'default' });
-      }
-    }
+    AppStore.reloadWorkspaces();
   },
 
   async getNoteCountForWorkspaces(): Promise<Record<string, number>> {
-    const ws = await this.getWorkspaces();
-    const counts: Record<string, number> = {};
-    for (const w of ws) {
-      counts[w.id] = await db.notes.where('workspaceId').equals(w.id).count();
-    }
-    return counts;
+    return WorkspaceService.getNoteCountForWorkspaces();
   },
 
   // --- AI Settings Operations ---
   async getAISettings(): Promise<AISettings> {
-    if (cachedSettings) return cachedSettings;
-
-    const record = await db.key_value_pairs.get('ai_settings');
-    const settings = record ? record.value as AISettings : null;
-    const defaultSettings: AISettings = {
-      controlMode: 'auto',
-      selectedProvider: 'gemini',
-      selectedModels: {
-        gemini: 'gemini-1.5-flash',
-        openrouter: '',
-        fireworks: 'accounts/fireworks/models/deepseek-v3p1',
-        local: ''
-      },
-      apiKeys: {},
-      enabledProviders: ['gemini', 'openrouter', 'fireworks'],
-      dataCheckingEnabled: false,
-      dataCheckingModel: 'free',
-      retrySettings: {
-        enabled: false,
-        errorCodes: ''
-      },
-      selectedAppID: 'threat-all',
-      customAppIDs: [],
-      models: {
-        gemini: 'gemini-1.5-flash',
-        openrouter: '',
-        fireworks: 'accounts/fireworks/models/deepseek-v3p1',
-        local: ''
-      },
-      systemPrompt: 'আপনি একজন দক্ষ ব্যক্তিগত সহকারী। আপনি ব্যবহারকারীকে নিখুঁত এবং স্মার্ট উত্তর দিতে সাহায্য করেন।'
-    };
-
-    if (!settings) {
-      await db.key_value_pairs.put({ key: 'ai_settings', value: defaultSettings });
-      return defaultSettings;
-    }
-
-    // Decrypt API keys
-    const decryptedKeys: any = {};
-    if (settings.apiKeys) {
-      await Promise.all(Object.keys(settings.apiKeys).map(async key => {
-        const val = (settings.apiKeys as any)[key];
-        decryptedKeys[key] = await decrypt(val);
-      }));
-    }
-
-    // Merge stored settings with defaults to handle migrations from older versions
-    const mergedSettings: AISettings = {
-      ...defaultSettings,
-      ...settings,
-      selectedModels: {
-        ...defaultSettings.selectedModels,
-        ...(settings.selectedModels || {})
-      },
-      apiKeys: decryptedKeys,
-      enabledProviders: ['gemini', 'openrouter', 'fireworks'],
-      dataCheckingEnabled: settings.dataCheckingEnabled !== undefined ? settings.dataCheckingEnabled : defaultSettings.dataCheckingEnabled,
-      dataCheckingModel: settings.dataCheckingModel || defaultSettings.dataCheckingModel,
-      dataCheckingCustomProvider: settings.dataCheckingCustomProvider || 'gemini',
-      retrySettings: settings.retrySettings || defaultSettings.retrySettings,
-      selectedAppID: settings.selectedAppID || defaultSettings.selectedAppID,
-      customAppIDs: settings.customAppIDs || defaultSettings.customAppIDs,
-      models: settings.models || defaultSettings.models,
-      systemPrompt: settings.systemPrompt || defaultSettings.systemPrompt
-    };
-
-    if (mergedSettings.selectedProvider as any === 'picoapps' || mergedSettings.selectedProvider === 'local') {
-      mergedSettings.selectedProvider = 'gemini';
-    }
-
-    cachedSettings = mergedSettings;
-    return mergedSettings;
+    return SettingsService.getAISettings();
   },
 
   async saveAISettings(settings: AISettings): Promise<void> {
-    cachedSettings = settings;
-    // Encrypt API keys before saving
-    const encryptedKeys: any = {};
-    if (settings.apiKeys) {
-      await Promise.all(Object.keys(settings.apiKeys).map(async key => {
-        const val = (settings.apiKeys as any)[key];
-        encryptedKeys[key] = await encrypt(val);
-      }));
-    }
-
-    const settingsToSave = {
-      ...settings,
-      apiKeys: encryptedKeys
-    };
-    await db.key_value_pairs.put({ key: 'ai_settings', value: settingsToSave });
+    await SettingsService.saveAISettings(settings);
   },
 
   // --- Notes Operations ---
-  
   async getAllNotes(forceRefresh: boolean = false): Promise<Note[]> {
-    const currentWorkspaceId = await this.getActiveWorkspaceId();
-    if (!forceRefresh && cachedNotes !== null && cachedWorkspaceId === currentWorkspaceId) {
-      return cachedNotes;
-    }
-
-    const notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
-    cachedNotes = notes;
-    cachedWorkspaceId = currentWorkspaceId;
-    return notes;
+    return NoteService.getAllNotes(forceRefresh);
   },
 
-  // --- Storage Usage ---
-  
-  // === STRONG CACHE INVALIDATION (NEW - fixes permanent delete ghosting) ===
   invalidateNotesCache(reason: string = 'mutation') {
-    cachedNotes = null;
-    cachedWorkspaceId = null;
+    NoteService.invalidateCache();
     this.resetStorageCache();
 
-    // Also aggressively invalidate RST search state (main thread)
     try {
-      // Dynamic import to avoid circular deps / tree-shaking issues
       import('../../pages/Search/RSTSearch/RSTSearch').then(mod => {
         if (mod && typeof mod.invalidateRST === 'function') {
           mod.invalidateRST();
         }
       }).catch(() => {});
-    } catch (e) {
-      // ignore - RST may not be loaded
-    }
+    } catch {}
 
-    // Notify everyone (UI + cross-tab) that notes are now dirty
     if (!reason.startsWith('broadcast:')) {
       notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason });
     }
     window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason } }));
     window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason } }));
+    AppStore.reloadNotes(true);
   },
 
   resetStorageCache() {
@@ -552,16 +201,15 @@ export const DataManager = {
 
     try {
       if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
-         const estimate = await navigator.storage.estimate();
-         if (estimate.usage !== undefined && estimate.quota !== undefined) {
-             const result = { used: estimate.usage, quota: estimate.quota };
-             cachedStorageUsage = result;
-             lastStorageCheck = now;
-             return result;
-         }
+        const estimate = await navigator.storage.estimate();
+        if (estimate.usage !== undefined && estimate.quota !== undefined) {
+          const result = { used: estimate.usage, quota: estimate.quota };
+          cachedStorageUsage = result;
+          lastStorageCheck = now;
+          return result;
+        }
       }
-      
-      // Fallback manual calculation if estimate is not available
+
       let total = 0;
       const notesCount = await db.notes.count();
       if (notesCount > 0) {
@@ -570,7 +218,7 @@ export const DataManager = {
         const avgSize = sampleNotes.length > 0 ? sampleSize / sampleNotes.length : 1000;
         total += Math.round(avgSize * notesCount);
       }
-      
+
       const result = { used: total, quota: 1024 * 1024 * 1024 };
       cachedStorageUsage = result;
       lastStorageCheck = now;
@@ -582,264 +230,47 @@ export const DataManager = {
   },
 
   async exportAllData(): Promise<string> {
-    const notes = await db.notes.toArray();
-    const workspaces = await db.workspaces.toArray();
-    const media = await db.media.toArray();
-    const settings = await this.getAISettings();
-    const preferences = await this.getUserPreferences();
-    const userName = await this.getFullUserName();
-
-    // Convert all media blobs to base64 safely (Bug 3 / 66)
-    const mediaWithBase64 = [];
-    for (const m of media) {
-      if (m.blob) {
-        try {
-          const base64 = await blobToBase64(m.blob);
-          mediaWithBase64.push({ id: m.id, base64, mimeType: m.blob.type });
-        } catch (e) {
-          console.error("Failed to export media item:", m.id, e);
-        }
-      }
-    }
-
-    const backupData = {
-      notes,
-      workspaces,
-      media: mediaWithBase64,
-      settings,
-      preferences,
-      userName,
-      timestamp: Date.now(),
-      version: '3.0.0-anon'
-    };
-
-    // Serialize and encrypt for "impossible to decode" feel
-    const json = JSON.stringify(backupData);
-    const encrypted = await encrypt(json);
-    
-    return encrypted;
+    return BackupService.exportAllData();
   },
 
   async saveInternalBackup(data: string): Promise<void> {
-    const backupsRecord = await db.key_value_pairs.get('internal_backups');
-    const backups = backupsRecord ? backupsRecord.value : [];
-    
-    const newBackup = {
-      id: crypto.randomUUID(),
-      data: data,
-      timestamp: Date.now(),
-      size: new Blob([data]).size
-    };
-
-    // Keep only last 10 backups
-    const updatedBackups = [newBackup, ...backups].slice(0, 10);
-    await db.key_value_pairs.put({ key: 'internal_backups', value: updatedBackups });
+    return BackupService.saveInternalBackup(data);
   },
 
   async getInternalBackups(): Promise<any[]> {
-    const record = await db.key_value_pairs.get('internal_backups');
-    return record ? record.value : [];
+    return BackupService.getInternalBackups();
   },
 
   async deleteInternalBackup(id: string): Promise<void> {
-    const record = await db.key_value_pairs.get('internal_backups');
-    if (record) {
-      const updated = record.value.filter((b: any) => b.id !== id);
-      await db.key_value_pairs.put({ key: 'internal_backups', value: updated });
-    }
+    return BackupService.deleteInternalBackup(id);
   },
 
   async importAllData(anonData: string): Promise<void> {
-    const json = await decrypt(anonData);
-    const data = JSON.parse(json);
-    
-    // Bug 89: Validate required fields are arrays before destructing/iterating
-    if (!data || !Array.isArray(data.notes) || !Array.isArray(data.workspaces)) {
-      throw new Error("Invalid backup file: 'notes' and 'workspaces' are required arrays. (অকার্যকর ব্যাকআপ ফাইল)");
-    }
-
-    const { notes, workspaces, media, settings, preferences, userName } = data;
-
-    // Robustly filter/clamp notes so no workspace has more than 10,000 notes
-    const clampedNotes: Note[] = [];
-    const notesByWorkspace = new Map<string, Note[]>();
-    for (const note of notes) {
-      const ws = note.workspaceId || 'default';
-      let list = notesByWorkspace.get(ws);
-      if (!list) {
-        list = [];
-        notesByWorkspace.set(ws, list);
-      }
-      list.push(note);
-    }
-    for (const [ws, list] of notesByWorkspace.entries()) {
-      // Keep only up to 10000 notes
-      const kept = list.slice(0, 10000);
-      clampedNotes.push(...kept);
-    }
-
-    await db.transaction('rw', [db.notes, db.workspaces, db.media, db.key_value_pairs], async () => {
-      await db.notes.clear();
-      await db.workspaces.clear();
-      await db.media.clear();
-      
-      await db.notes.bulkPut(clampedNotes);
-      await db.workspaces.bulkPut(workspaces);
-      
-      if (media && Array.isArray(media)) {
-        const mediaRecords = media.map((m: any) => {
-          if (m.base64 && m.mimeType) {
-            return { id: m.id, blob: base64ToBlob(m.base64, m.mimeType) };
-          }
-          return m; // fallback
-        });
-        await db.media.bulkPut(mediaRecords);
-      }
-      
-      if (settings) await this.saveAISettings(settings);
-      if (preferences) await this.saveUserPreferences(preferences);
-      if (userName) await this.saveUserName(userName);
-    });
-    
-    // Reset cache
+    await BackupService.importAllData(anonData);
     this.invalidateNotesCache('import-all-data');
-    isFullyIndexed = false;
-    
-    // Notify other tabs
-    syncChannel.postMessage({ type: 'SYNC_COMPLETE' });
-    
-    // Bug 90: Add a small delay/timeout before page reload to ensure all async writes/events successfully commit
+    notifySync({ type: 'SYNC_COMPLETE' });
     setTimeout(() => {
       window.location.reload();
     }, 100);
   },
 
   async getNotesPaginated(page: number, pageSize: number): Promise<{ notes: Note[], hasMore: boolean }> {
-    const currentWorkspaceId = await this.getActiveWorkspaceId();
-    const start = page * pageSize;
-    
-    let paginatedNotes = await db.notes
-      .where('workspaceId')
-      .equals(currentWorkspaceId)
-      .reverse()
-      .offset(start)
-      .limit(pageSize)
-      .toArray();
-
-    const totalNotes = await db.notes.where('workspaceId').equals(currentWorkspaceId).count();
-    return {
-      notes: paginatedNotes,
-      hasMore: start + pageSize < totalNotes
-    };
+    return NoteService.getNotesPaginated(page, pageSize);
   },
+
   async clearMemory(): Promise<void> {
     console.log('Memory cleared');
   },
 
-  async getNoteById(id: string): Promise<Note | null> {
-    const note = await db.notes.get(id);
-    if (note) {
-      // Update lastOpenedAt in background
-      db.notes.update(id, { lastOpenedAt: Date.now() }).then(() => {
-        this.invalidateNotesCache(`open-note:${id}`);
-      });
-
-      // Add to recent notes history
-      HistoryManager.addNoteToHistory({
-        id: note.id,
-        title: note.title || 'Untitled',
-        emoji: note.emoji || ''
-      });
-    }
-    return note || null;
+  async getNoteById(id: string, recordHistory: boolean = false): Promise<Note | null> {
+    return NoteService.getNoteById(id, recordHistory);
   },
 
   async createNote(workspaceId: string = 'default', parentId?: string): Promise<Note> {
-    const wsId = workspaceId || 'default';
-    const totalNotes = await db.notes.where('workspaceId').equals(wsId).count();
-    if (totalNotes >= 10000) {
-      throw new Error('Workspace Note Limit Reached (Max 10,000)! Please switch or create a new workspace.');
-    }
-
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      title: '',
-      content: '',
-      emoji: '',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      workspaceId,
-      parentId,
-      isTrashed: false,
-      isFavorite: false,
-      isLocked: false,
-      tags: []
-    };
-    return await this.saveNote(newNote);
-  },
-
-  // --- Bookmark Operations ---
-  async getBookmarkFolders(): Promise<BookmarkFolder[]> {
-    return await db.bookmark_folders.toArray();
-  },
-
-  async createBookmarkFolder(name: string, parentId?: string): Promise<BookmarkFolder> {
-    const folder: BookmarkFolder = {
-      id: crypto.randomUUID(),
-      name,
-      parentId,
-      createdAt: Date.now()
-    };
-    await db.bookmark_folders.put(folder);
-    return folder;
-  },
-
-  async deleteBookmarkFolder(id: string): Promise<void> {
-    await db.transaction('rw', [db.bookmark_folders, db.notes], async () => {
-      await db.bookmark_folders.delete(id);
-      // Remove folder reference from notes
-      await db.notes.where('bookmarkFolderId').equals(id).modify({ bookmarkFolderId: undefined, isBookmarked: false });
-      // Delete subfolders recursively
-      const subfolders = await db.bookmark_folders.where('parentId').equals(id).toArray();
-      for (const sub of subfolders) {
-        await this.deleteBookmarkFolder(sub.id);
-      }
-    });
-  },
-
-  async toggleLock(noteId: string): Promise<boolean> {
-    const note = await db.notes.get(noteId);
-    if (!note) return false;
-    const newState = !note.isLocked;
-    await db.notes.update(noteId, { isLocked: newState, updatedAt: Date.now() });
-    this.invalidateNotesCache(`lock:${noteId}`);
-    return newState;
-  },
-
-  async addNoteToBookmark(noteId: string, folderId?: string): Promise<void> {
-    const note = await db.notes.get(noteId);
-    if (note) {
-      await db.notes.update(noteId, { 
-        isBookmarked: true, 
-        bookmarkFolderId: folderId,
-        updatedAt: Date.now() 
-      });
-      this.invalidateNotesCache(`add-bookmark:${noteId}`);
-    }
-  },
-
-  async removeNoteFromBookmark(noteId: string): Promise<void> {
-    await db.notes.update(noteId, { 
-      isBookmarked: false, 
-      bookmarkFolderId: undefined,
-      updatedAt: Date.now() 
-    });
-    this.invalidateNotesCache(`remove-bookmark:${noteId}`);
-  },
-
-  async wasPermanentlyDeleted(id: string): Promise<boolean> {
-    const record = await db.deleted_notes.get(id);
-    return !!record;
+    const note = await NoteService.createNote(workspaceId, parentId);
+    this.invalidateNotesCache(`create-note:${note.id}`);
+    notifySync({ type: 'UPDATE_NOTE', id: note.id });
+    return note;
   },
 
   async saveNote(note: Note): Promise<Note> {
@@ -851,143 +282,33 @@ export const DataManager = {
       window.dispatchEvent(new CustomEvent('storage-warning', { detail: { message: msg, severity: usage.used > usage.quota * 0.98 ? 'error' : 'warning' } }));
     }
 
-    const currentWorkspaceId = await this.getActiveWorkspaceId();
-    if (!note.workspaceId) {
-      note.workspaceId = currentWorkspaceId;
-    }
+    const saved = await NoteService.saveNote(note);
+    HistoryManager.addNoteToHistory({
+      id: saved.id,
+      title: saved.title || 'Untitled',
+      emoji: saved.emoji || ''
+    }).catch(() => {});
 
-    const wsId = note.workspaceId || currentWorkspaceId;
-    
-    // Safety check (Anti-Ghosting): Use tombstones
-    const isDeleted = await this.wasPermanentlyDeleted(note.id);
-    if (isDeleted) {
-      console.warn(`DataManager: Blocking re-creation of permanently deleted note ${note.id}`);
-      return note;
-    }
-
-    const processedContent = await this.extractMediaFromContent(note.content);
-    const now = Date.now();
-    
-    return await db.transaction('rw', [db.notes, db.deleted_notes, db.key_value_pairs], async () => {
-      const existing = await db.notes.get(note.id);
-      const isNew = !existing;
-
-      // Limit enforcement inside transaction
-      const notesCountInWorkspace = await db.notes.where('workspaceId').equals(wsId).count();
-      if (isNew && notesCountInWorkspace >= 10000) {
-        throw new Error('Workspace Note Limit Reached (Max 10,000)! Note creation blocked.');
-      }
-
-      if (isNew) {
-        let finalTitle = note.title;
-        if (!finalTitle || !finalTitle.trim()) {
-          finalTitle = 'Untitled';
-        }
-        let counter = 1;
-        
-        // Efficient title check
-        const findDuplicate = async (title: string) => {
-          return await db.notes
-            .where('workspaceId')
-            .equals(wsId)
-            .and(n => n.title.toLowerCase() === title.toLowerCase())
-            .first();
-        };
-
-        while (await findDuplicate(finalTitle)) {
-          finalTitle = `${note.title || 'Untitled'} (${counter})`;
-          counter++;
-        }
-        note.title = finalTitle;
-      }
-
-      const updatedNote = { 
-        ...note, 
-        content: processedContent, 
-        updatedAt: now,
-        createdAt: isNew ? now : (existing?.createdAt || now)
-      };
-
-      await db.notes.put(updatedNote);
-      
-      // Update Recent Activity History
-      HistoryManager.addNoteToHistory({
-        id: updatedNote.id,
-        title: updatedNote.title || 'Untitled',
-        emoji: updatedNote.emoji || ''
-      }).catch(() => {});
-
-      this.invalidateNotesCache(`save-note:${note.id}`);
-      scheduleIndexing(updatedNote);
-      notifySync({ type: 'UPDATE_NOTE', id: note.id });
-      window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
-
-      return updatedNote;
-    });
+    this.invalidateNotesCache(`save-note:${saved.id}`);
+    notifySync({ type: 'UPDATE_NOTE', id: saved.id });
+    return saved;
   },
 
   async checkDuplicateTitle(title: string, workspaceId?: string): Promise<string> {
-    let finalTitle = title;
-    let counter = 1;
-    
-    const wsId = workspaceId || await this.getActiveWorkspaceId();
-
-    const checkExists = async (t: string) => {
-      // Optimization (Bug 12): Constrain to workspace
-      const match = await db.notes
-        .where('workspaceId')
-        .equals(wsId)
-        .and(n => n.title.toLowerCase() === t.toLowerCase())
-        .first();
-      return !!match;
-    };
-
-    while (await checkExists(finalTitle)) {
-      finalTitle = `${title} (${counter})`;
-      counter++;
-    }
-    return finalTitle;
+    return NoteService.checkDuplicateTitle(title, workspaceId);
   },
 
   async duplicateNote(id: string): Promise<Note | null> {
-    const noteToDuplicate = await db.notes.get(id);
-    if (noteToDuplicate) {
-      const duplicatedNote: Note = {
-        ...noteToDuplicate,
-        id: `copy-${Date.now()}`,
-        title: `${noteToDuplicate.title} (Copy)`,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await db.notes.put(duplicatedNote);
+    const dup = await NoteService.duplicateNote(id);
+    if (dup) {
       this.invalidateNotesCache(`duplicate-note:${id}`);
-      return duplicatedNote;
     }
-    return null;
+    return dup;
   },
 
   async toggleFavorite(id: string): Promise<void> {
-    const note = await db.notes.get(id);
-    if (note) {
-      const isNowFavorite = !note.isFavorite;
-      let bookmarkFolderId = note.bookmarkFolderId;
-
-      if (isNowFavorite) {
-        // Find or create 'Favorites' folder
-        let favFolder = await db.bookmark_folders.where('name').equals('Favorites').first();
-        if (!favFolder) {
-          favFolder = await this.createBookmarkFolder('Favorites');
-        }
-        bookmarkFolderId = favFolder.id;
-      }
-
-      await db.notes.update(id, { 
-        isFavorite: isNowFavorite,
-        isBookmarked: isNowFavorite ? true : note.isBookmarked,
-        bookmarkFolderId: isNowFavorite ? bookmarkFolderId : note.bookmarkFolderId
-      });
-      this.invalidateNotesCache(`toggle-favorite:${id}`);
-    }
+    await NoteService.toggleFavorite(id);
+    this.invalidateNotesCache(`toggle-favorite:${id}`);
   },
 
   async getNotes(): Promise<Note[]> {
@@ -995,106 +316,33 @@ export const DataManager = {
   },
 
   async deleteNote(id: string): Promise<void> {
-    const now = Date.now();
-    await db.notes.update(id, { isTrashed: true, updatedAt: now });
+    await NoteService.deleteNote(id);
     this.invalidateNotesCache(`soft-delete:${id}`);
-    
-    // Garbage Collection: Remove local note backups efficiently
-    const prefix = `note_backup_${id}`;
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-            keysToRemove.push(key);
-        }
-    }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
-    
     notifySync({ type: 'DELETE_NOTE', id });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
   async deleteNotePermanent(id: string): Promise<void> {
-    // Use transaction for atomicity + cleanup
-    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs, db.deleted_notes], async () => {
-      await db.notes.delete(id);
-      await db.note_versions.where('noteId').equals(id).delete();
-      await db.deleted_notes.put({ id, deletedAt: Date.now() });
-
-      // Also clean this note from recent history
-      const hist = await db.key_value_pairs.get('recent_notes_history');
-      if (hist?.value) {
-        const updated = hist.value.filter((r: any) => r.id !== id);
-        await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
-      }
-    });
-
+    await NoteService.deleteNotePermanent(id);
     this.invalidateNotesCache(`permanent-delete:${id}`);
-    
-    // Garbage Collection: Local backups
-    const prefix = `note_backup_${id}`;
-    Object.keys(localStorage)
-      .filter(k => k.startsWith(prefix))
-      .forEach(k => localStorage.removeItem(k));
-    
     notifySync({ type: 'PERMANENT_DELETE_NOTE', id });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
   async bulkDeleteNotesPermanent(ids: string[]): Promise<void> {
-    await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs, db.deleted_notes], async () => {
-      await db.notes.bulkDelete(ids);
-      await db.note_versions.where('noteId').anyOf(ids).delete();
-      
-      const tombstones = ids.map(id => ({ id, deletedAt: Date.now() }));
-      await db.deleted_notes.bulkPut(tombstones);
-
-      // Clean history for all
-      const hist = await db.key_value_pairs.get('recent_notes_history');
-      if (hist?.value) {
-        const updated = hist.value.filter((r: any) => !ids.includes(r.id));
-        await db.key_value_pairs.put({ key: 'recent_notes_history', value: updated });
-      }
-    });
-
+    await NoteService.bulkDeleteNotesPermanent(ids);
     this.invalidateNotesCache(`bulk-permanent-delete:${ids.length} notes`);
-
-    // Collect all keys once for efficiency
-    const allKeys = Object.keys(localStorage);
-    for (const id of ids) {
-      const prefix = `note_backup_${id}`;
-      allKeys
-        .filter(k => k.startsWith(prefix))
-        .forEach(k => localStorage.removeItem(k));
-    }
-
     notifySync({ type: 'PERMANENT_DELETE_NOTES', ids });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
   async deleteNotes(ids: string[]): Promise<void> {
-    const now = Date.now();
-    await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
+    await NoteService.deleteNotes(ids);
     this.invalidateNotesCache(`bulk-soft-delete:${ids.length} notes`);
-    
-    const allKeys = Object.keys(localStorage);
-    for (const id of ids) {
-      const prefix = `note_backup_${id}`;
-      allKeys
-        .filter(k => k.startsWith(prefix))
-        .forEach(k => localStorage.removeItem(k));
-    }
-    
     notifySync({ type: 'DELETE_NOTES', ids });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
   async bulkTrashNotes(ids: string[]): Promise<void> {
-    const now = Date.now();
-    await db.notes.where('id').anyOf(ids).modify({ isTrashed: true, updatedAt: now });
+    await NoteService.bulkTrashNotes(ids);
     this.invalidateNotesCache(`bulk-trash:${ids.length} notes`);
     notifySync({ type: 'UPDATE_NOTES', ids });
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
   },
 
   async exportNote(note: Note): Promise<void> {
@@ -1124,109 +372,96 @@ export const DataManager = {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
-  
-  async replaceContent(idOrTitle: string, search: string, replacement: string): Promise<void> {
-    let note = await db.notes.get(idOrTitle);
-    if (!note) {
-      note = await db.notes.where('title').equalsIgnoreCase(idOrTitle).first();
-    }
 
-    if (note) {
-      note.content = note.content.replace(search, replacement);
-      note.updatedAt = Date.now();
-      await db.notes.put(note);
-      this.invalidateNotesCache(`replace-content:${idOrTitle}`);
-    }
+  async replaceContent(idOrTitle: string, search: string, replacement: string): Promise<void> {
+    await NoteService.replaceContent(idOrTitle, search, replacement);
+    this.invalidateNotesCache(`replace-content:${idOrTitle}`);
   },
 
   async searchNotes(query: string): Promise<Note[]> {
-    const notes = await this.getAllNotes();
-    if (!query) return notes;
+    return NoteService.searchNotes(query);
+  },
 
-    const lowerQuery = query.toLowerCase();
-    return notes.filter(n => 
-      n.title.toLowerCase().includes(lowerQuery) || 
-      n.content.toLowerCase().includes(lowerQuery)
-    );
+  // --- Bookmark Operations ---
+  async getBookmarkFolders(): Promise<BookmarkFolder[]> {
+    return NoteService.getBookmarkFolders();
+  },
+
+  async createBookmarkFolder(name: string, parentId?: string): Promise<BookmarkFolder> {
+    return NoteService.createBookmarkFolder(name, parentId);
+  },
+
+  async deleteBookmarkFolder(id: string): Promise<void> {
+    await NoteService.deleteBookmarkFolder(id);
+    this.invalidateNotesCache(`delete-bookmark-folder:${id}`);
+  },
+
+  async toggleLock(noteId: string): Promise<boolean> {
+    const newState = await NoteService.toggleLock(noteId);
+    this.invalidateNotesCache(`lock:${noteId}`);
+    return newState;
+  },
+
+  async addNoteToBookmark(noteId: string, folderId?: string): Promise<void> {
+    await NoteService.addNoteToBookmark(noteId, folderId);
+    this.invalidateNotesCache(`add-bookmark:${noteId}`);
+  },
+
+  async removeNoteFromBookmark(noteId: string): Promise<void> {
+    await NoteService.removeNoteFromBookmark(noteId);
+    this.invalidateNotesCache(`remove-bookmark:${noteId}`);
+  },
+
+  async wasPermanentlyDeleted(id: string): Promise<boolean> {
+    return NoteService.wasPermanentlyDeleted(id);
   },
 
   // --- Chat History Operations ---
-
   async getChatHistory(): Promise<ChatMessage[]> {
-    return await db.chat_history.toArray();
+    return AIServiceStorage.getChatHistory();
   },
 
   async saveChatMessage(message: ChatMessage): Promise<void> {
-    await db.chat_history.add(message);
+    await AIServiceStorage.saveChatMessage(message);
     syncChannel.postMessage({ type: 'UPDATE_CHAT' });
   },
 
   async clearChatHistory(): Promise<void> {
-    await db.chat_history.clear();
-    await db.key_value_pairs.delete('context_summary');
+    await AIServiceStorage.clearChatHistory();
     syncChannel.postMessage({ type: 'CLEAR_CHAT' });
   },
 
   // --- AI Task Operations ---
-
   async getTasks(): Promise<AITask[]> {
-    return await db.ai_tasks.toArray();
+    return AIServiceStorage.getTasks();
   },
 
   async saveTask(task: AITask): Promise<void> {
-    task.updatedAt = Date.now();
-    if (!task.createdAt) task.createdAt = Date.now();
-    await db.ai_tasks.put(task);
+    await AIServiceStorage.saveTask(task);
     syncChannel.postMessage({ type: 'UPDATE_TASKS' });
   },
 
   async deleteTask(id: string): Promise<void> {
-    await db.ai_tasks.delete(id);
+    await AIServiceStorage.deleteTask(id);
     syncChannel.postMessage({ type: 'DELETE_TASK', id });
   },
 
   async updateTaskPartStatus(taskId: string, partTitle: string, status: 'pending' | 'completed'): Promise<void> {
-    let task = await db.ai_tasks.get(taskId);
-    if (!task) {
-      task = await db.ai_tasks.where('title').equalsIgnoreCase(taskId).first();
-    }
-    
-    if (task) {
-      const partIndex = task.parts.findIndex(p => p.title.toLowerCase() === partTitle.toLowerCase());
-      
-      if (partIndex > -1) {
-        task.parts[partIndex].status = status;
-        const allDone = task.parts.every(p => p.status === 'completed');
-        task.status = allDone ? 'completed' : 'in-progress';
-        
-        task.updatedAt = Date.now();
-        await db.ai_tasks.put(task);
-        syncChannel.postMessage({ type: 'UPDATE_TASKS' });
-      }
-    }
+    await AIServiceStorage.updateTaskPartStatus(taskId, partTitle, status);
+    syncChannel.postMessage({ type: 'UPDATE_TASKS' });
   },
 
   // --- Context Summary Operations ---
-
   async getContextSummary(): Promise<ContextSummary | null> {
-    const record = await db.key_value_pairs.get('context_summary');
-    return record ? record.value as ContextSummary : null;
+    return AIServiceStorage.getContextSummary();
   },
 
   async saveContextSummary(summary: ContextSummary): Promise<void> {
-    await db.key_value_pairs.put({ key: 'context_summary', value: summary });
+    return AIServiceStorage.saveContextSummary(summary);
   },
 
   async deleteOldMessages(count: number): Promise<void> {
-    const all = await db.chat_history.toArray();
-    if (all.length > count) {
-      const toDeleteCount = all.length - count;
-      const idsToDelete = all.slice(0, toDeleteCount).map(c => c.id).filter((id): id is number => id !== undefined);
-      if (idsToDelete.length > 0) {
-        await db.chat_history.bulkDelete(idsToDelete);
-      }
-    }
-    
+    await AIServiceStorage.deleteOldMessages(count);
     syncChannel.postMessage({ type: 'UPDATE_CHAT' });
   },
 
@@ -1235,7 +470,7 @@ export const DataManager = {
     localSyncEmitter.addEventListener('sync', handler);
     return handler;
   },
-  
+
   offSync(handler: any) {
     if (handler) {
       localSyncEmitter.removeEventListener('sync', handler);
@@ -1246,126 +481,46 @@ export const DataManager = {
     notifySync({ type, ...data });
   },
 
-  // --- Storage & Media (RN AI 2.5) ---
-  async uploadMedia(file: File, _path: string): Promise<string> {
-    const id = await this.saveMedia(file);
-    return `media:${id}`;
+  // --- Storage & Media ---
+  async uploadMedia(file: File, path: string): Promise<string> {
+    return MediaService.uploadMedia(file, path);
   },
 
   async resolveMediaUrls(content: string): Promise<string> {
-    if (!content) return '';
-    
-    const blobIdRegex = /blob-id:([a-zA-Z0-9_-]+)/g;
-    let resolved = content;
-    const matches = Array.from(content.matchAll(blobIdRegex));
-    
-    for (const match of matches) {
-      const mediaId = match[1];
-      const blob = await this.getMedia(mediaId);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        activeObjectUrls.add(url);
-        objectUrlToMediaId.set(url, mediaId);
-        // Bug 17: Replace ALL occurrences of the blob-id with the object URL
-        resolved = resolved.split(match[0]).join(url);
-      }
-    }
-    
-    return resolved;
+    return MediaService.resolveMediaUrls(content);
   },
 
-  /**
-   * Revokes all active object URLs to free memory (Bug 10)
-   * Call this when navigating away from a note or on editor unmount.
-   */
-  revokeMediaUrls() {
-    activeObjectUrls.forEach(url => {
-      try {
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        console.error('Failed to revoke URL:', e);
-      }
-    });
-    activeObjectUrls.clear();
-    objectUrlToMediaId.clear(); // Clear mapping too
+  revokeMediaUrls(): void {
+    MediaService.revokeMediaUrls();
   },
 
   async extractMediaFromContent(content: string): Promise<string> {
-    if (!content) return '';
+    return MediaService.extractMediaFromContent(content);
+  },
 
-    // Bug 2: Convert active object URLs back to blob-id first
-    let processed = content;
-    objectUrlToMediaId.forEach((mediaId, url) => {
-      processed = processed.split(url).join(`blob-id:${mediaId}`);
-    });
+  async saveMedia(blob: Blob): Promise<string> {
+    return MediaService.saveMedia(blob);
+  },
 
-    if (!processed.includes('data:image/')) return processed;
-    
-    const base64Regex = /src="data:image\/([a-zA-Z]*);base64,([^"]*)"/g;
-    const matches = Array.from(processed.matchAll(base64Regex));
-    
-    for (const match of matches) {
-      const mimeType = `image/${match[1]}`;
-      const base64Data = match[2];
-      
-      try {
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mimeType });
-        
-        const mediaId = await this.saveMedia(blob);
-        // Bug 17: Replace ALL occurrences of base64
-        processed = processed.split(match[0]).join(`src="blob-id:${mediaId}"`);
-      } catch (e) {
-        console.error('Failed to extract media:', e);
-      }
-    }
-    
-    return processed;
+  async getMedia(id: string): Promise<Blob | null> {
+    return MediaService.getMedia(id);
+  },
+
+  async deleteMedia(id: string): Promise<void> {
+    return MediaService.deleteMedia(id);
   },
 
   // --- Version Control Operations ---
   async saveVersion(version: NoteVersion): Promise<void> {
-    const id = `v-${Date.now()}`;
-    await db.note_versions.put({ ...version, id, createdAt: Date.now() });
-    
-    const noteVersions = await db.note_versions.where('noteId').equals(version.noteId).sortBy('createdAt');
-    if (noteVersions.length > 10) {
-      const toRemoveCount = noteVersions.length - 10;
-      const idsToRemove = noteVersions.slice(0, toRemoveCount).map(v => v.id);
-      await db.note_versions.bulkDelete(idsToRemove);
-    }
+    return NoteService.saveVersion(version);
   },
 
   async getVersions(noteId: string): Promise<NoteVersion[]> {
-    return await db.note_versions.where('noteId').equals(noteId).reverse().sortBy('createdAt');
+    return NoteService.getVersions(noteId);
   },
 
   async deleteVersion(id: string): Promise<void> {
-    await db.note_versions.delete(id);
-  },
-
-  // --- Media/Large File Store ---
-  
-  async saveMedia(blob: Blob): Promise<string> {
-    const id = `media_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    // Reconstruct input blob as a clean, serializable, native Blob to avoid browser-specific File class storage issues
-    const cleanBlob = new Blob([blob], { type: blob.type });
-    await db.media.put({ id, blob: cleanBlob });
-    return id;
-  },
-
-  async getMedia(id: string): Promise<Blob | null> {
-    const record = await db.media.get(id);
-    return record ? record.blob : null;
-  },
-
-  async deleteMedia(id: string): Promise<void> {
-    await db.media.delete(id);
+    return NoteService.deleteVersion(id);
   },
 
   async createDemoData(): Promise<void> {
@@ -1390,16 +545,6 @@ export const DataManager = {
         updatedAt: Date.now() - 172800000,
         workspaceId: wsId,
         tags: ['meeting']
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'Deleted Note',
-        content: '<p>This note was deleted for testing purposes.</p>',
-        emoji: '',
-        createdAt: Date.now() - 500000,
-        updatedAt: Date.now(),
-        workspaceId: wsId,
-        isTrashed: true
       }
     ];
 
@@ -1407,7 +552,6 @@ export const DataManager = {
       await db.notes.bulkPut(demoNotes);
     });
     this.invalidateNotesCache('demo-data-seed');
-    this.triggerSync('NOTES_UPDATE');
   },
 
   // --- Garbage Collector Methods ---
@@ -1419,29 +563,12 @@ export const DataManager = {
     legacyCacheSize: number;
     searchIndexSize: number;
   }> {
-    // 1. Trashed notes
     const trashedNotes = await db.notes.filter(n => !!n.isTrashed).toArray();
     const trashedNotesCount = trashedNotes.length;
 
-    // 2. Unused Media Files
-    const allMedia = await db.media.toArray();
-    const allNotes = await db.notes.toArray();
-    const combinedContent = allNotes.map(n => n.content || '').join(' ');
-    
-    let unusedMediaCount = 0;
-    let unusedMediaSize = 0;
-    
-    for (const item of allMedia) {
-      if (!combinedContent.includes(item.id)) {
-        unusedMediaCount++;
-        unusedMediaSize += item.blob.size;
-      }
-    }
-
-    // 3. Outdated Versions
+    const { unusedMediaCount, unusedMediaSize } = await MediaService.getUnusedMediaStats();
     const outdatedVersionsCount = await db.note_versions.count();
 
-    // 4. Legacy localforage keys check
     let legacyCacheSize = 0;
     try {
       const lfKeys = await localforage.keys();
@@ -1457,16 +584,13 @@ export const DataManager = {
       console.error(e);
     }
 
-    // 5. Search Index (Deprecated)
-    const searchIndexSize = 0;
-
     return {
       trashedNotesCount,
       unusedMediaCount,
       unusedMediaSize,
       outdatedVersionsCount,
       legacyCacheSize,
-      searchIndexSize
+      searchIndexSize: 0
     };
   },
 
@@ -1477,40 +601,25 @@ export const DataManager = {
       await db.notes.bulkDelete(ids);
       await db.note_versions.where('noteId').anyOf(ids).delete();
       this.invalidateNotesCache('clean-trashed-notes');
-      this.resetStorageCache();
     }
     return ids.length;
   },
 
-  /**
-   * Comprehensive Storage Optimization per User Request.
-   * Purges extra data (cache, media, versions, chat) while preserving 
-   * critical notes, hierarchy (sub-pages), recent activity, and recycle bin.
-   */
   async optimizeStorage(): Promise<void> {
-    console.log('DataManager: Full Storage Optimization initiated...');
-    
     try {
-      // 1. Clean Unused Media (saves significant space)
-      await this.cleanUnusedMedia();
-      
-      // 2. Clean Outdated Note Versions (not the current ones)
-      await this.cleanOutdatedVersions();
-      
-      // 3. Clear Chat History & AI Context (extra data)
-      await this.clearChatHistory();
-      
-      // 4. Clean Legacy Cache (LocalForage duplicates)
-      await this.cleanLegacyCache();
-      
-      // 5. Clear huge internal backups that multiply storage size unexpectedly
-      await db.key_value_pairs.delete('internal_backups');
-      
-      // 6. Re-index search properly for speed (sync)
-      isFullyIndexed = false;
+      await MediaService.cleanUnusedMedia();
+      await db.note_versions.clear();
+      await AIServiceStorage.clearChatHistory();
 
-      this.resetStorageCache();
-      console.log('DataManager: Optimization successful.');
+      const lfKeys = await localforage.keys();
+      for (const key of lfKeys) {
+        if (!['auto_download_enabled', 'offline_download_completed', 'system_tags', 'recent_notes_history', 'user_name'].includes(key)) {
+          await localforage.removeItem(key);
+        }
+      }
+
+      await db.key_value_pairs.delete('internal_backups');
+      this.invalidateNotesCache('storage-optimization');
     } catch (e) {
       console.error('DataManager: Optimization failed', e);
       throw e;
@@ -1518,25 +627,9 @@ export const DataManager = {
   },
 
   async cleanUnusedMedia(): Promise<{ count: number; savedSize: number }> {
-    const allMedia = await db.media.toArray();
-    const allNotes = await db.notes.toArray();
-    const combinedContent = allNotes.map(n => n.content || '').join(' ');
-    
-    const idsToDelete: string[] = [];
-    let savedSize = 0;
-    
-    for (const item of allMedia) {
-      if (!combinedContent.includes(item.id)) {
-        idsToDelete.push(item.id);
-        savedSize += item.blob.size;
-      }
-    }
-    
-    if (idsToDelete.length > 0) {
-      await db.media.bulkDelete(idsToDelete);
-      this.resetStorageCache();
-    }
-    return { count: idsToDelete.length, savedSize };
+    const res = await MediaService.cleanUnusedMedia();
+    this.resetStorageCache();
+    return res;
   },
 
   async cleanOutdatedVersions(): Promise<number> {
@@ -1557,54 +650,28 @@ export const DataManager = {
     }
     await db.chat_history.clear();
     this.resetStorageCache();
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+    this.invalidateNotesCache('clean-legacy-cache');
     return count;
   },
 
-  async reindexAll(): Promise<void> {
-    isFullyIndexed = false;
-  },
+  async reindexAll(): Promise<void> {},
 
   async deleteAllData(): Promise<void> {
     try {
-      // 1. Safely clear all Dexie tables without closing/deleting database connections
       const tablesToClear = [
-        db.notes,
-        db.workspaces,
-        db.chat_history,
-        db.ai_tasks,
-        db.note_versions,
-        db.media,
-        db.key_value_pairs,
-        db.extension_projects,
-        db.bookmark_folders
+        db.notes, db.workspaces, db.chat_history, db.ai_tasks,
+        db.note_versions, db.media, db.key_value_pairs,
+        db.extension_projects, db.bookmark_folders, db.deleted_notes
       ];
-      
-      await Promise.all(tablesToClear.map(async (table) => {
-        try {
-          await table.clear();
-        } catch (err) {
-          console.warn(`DataManager: Failed to clear table ${table.name}`, err);
-        }
-      }));
 
-      try {
-        await iconsDb.icons.clear();
-      } catch (err) {
-        console.warn('DataManager: Failed to clear icons table', err);
-      }
-      
-      // 2. Clear localStorage
+      await Promise.all(tablesToClear.map(t => t.clear().catch(() => {})));
+      try { await iconsDb.icons.clear(); } catch {}
+
       localStorage.clear();
-      
-      // 3. Clear localforage
       await localforage.clear();
-      
-      // 4. Reload page to reset all states
       window.location.reload();
     } catch (e) {
-      console.error('DataManager: Critical failure deleting all data', e);
-      // Fallback: reload anyway to try and recover
+      console.error('DataManager: Failure deleting data', e);
       window.location.reload();
     }
   }

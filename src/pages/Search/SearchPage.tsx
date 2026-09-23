@@ -143,15 +143,21 @@ export default function SearchPage() {
   }, []);
 
 
+  const workerSyncedRef = useRef(false);
+  const latestRequestIdRef = useRef<number>(0);
+
   const performSearch = useCallback(async (currentQuery: string, currentTags: string[], currentAccurateMode: boolean) => {
+    if (currentQuery.trim() === '' && currentTags.length === 0) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+
     setIsSearching(true);
     const startTimeMain = performance.now();
 
-    // Gentle macro task break to ensure browser loader is fully rendered first
-    await new Promise(resolve => setTimeout(resolve, 380));
-
     try {
-      let notes = await DataManager.getAllNotes(true); // force to be absolutely sure
+      let notes = await DataManager.getAllNotes(false);
       notes = notes.filter(n => !n.isTrashed && !n.isLocked);
       const totalAvailable = notes.length;
 
@@ -165,24 +171,27 @@ export default function SearchPage() {
         return;
       }
 
-      if (currentQuery.trim() === '') {
-        setResults([]);
-        setIsSearching(false);
-        return;
-      }
+      const requestId = Date.now();
+      latestRequestIdRef.current = requestId;
 
-      // If worker is available, use it for truly non-blocking RST execution
       if (workerRef.current) {
-        const requestId = Date.now();
-        
+        // Only sync dataset once or when cache is invalidated
+        if (!workerSyncedRef.current) {
+          workerRef.current.postMessage({
+            type: 'SYNC',
+            notes,
+            requestId: requestId - 1
+          });
+          workerSyncedRef.current = true;
+        }
+
         if (activeListenerRef.current) {
           workerRef.current.removeEventListener('message', activeListenerRef.current);
           activeListenerRef.current = null;
         }
 
-        // Setup listener for this specific request
         const handleMessage = (e: MessageEvent) => {
-          if (e.data.requestId === requestId && e.data.type === 'SEARCH_RESULTS') {
+          if (e.data.requestId === latestRequestIdRef.current && e.data.type === 'SEARCH_RESULTS') {
             const { results: searchResults, timeMs } = e.data;
             const memKb = ((totalAvailable * 44 + currentQuery.length * 2) / 1024).toFixed(1);
             
@@ -205,14 +214,7 @@ export default function SearchPage() {
         activeListenerRef.current = handleMessage;
         workerRef.current.addEventListener('message', handleMessage);
 
-        // Sync first to ensure worker has latest data (optimized sync internally)
-        workerRef.current.postMessage({
-          type: 'SYNC',
-          notes,
-          requestId: requestId - 1
-        });
-
-        // Trigger the search
+        // Fast zero-copy query postMessage
         workerRef.current.postMessage({
           type: 'SEARCH',
           query: currentQuery,
@@ -220,7 +222,6 @@ export default function SearchPage() {
           requestId
         });
       } else {
-        // Fallback to main thread RST
         const searchResults = await searchWithRSTParallel(notes as any, currentQuery, currentAccurateMode);
         const endTime = performance.now();
         const timeMs = (endTime - startTimeMain).toFixed(2);
@@ -242,24 +243,24 @@ export default function SearchPage() {
     }
   }, []);
 
-  // STRONG: React to cache invalidations (e.g. permanent delete from RecycleBin while Search is open or in bg)
+  // STRONG: React to cache invalidations
   useEffect(() => {
-    const handleInvalidation = async (e?: any) => {
-      console.log('[SearchPage] Received notes-cache-invalidated or workspace change');
+    const handleInvalidation = async () => {
+      workerSyncedRef.current = false;
       if (workerRef.current) {
         try {
-          const fresh = await DataManager.getAllNotes(true); // force
+          const fresh = await DataManager.getAllNotes(true);
           const clean = fresh.filter((n: Note) => !n.isTrashed && !n.isLocked);
           workerRef.current.postMessage({
             type: 'SYNC',
             notes: clean,
             requestId: Date.now()
           });
+          workerSyncedRef.current = true;
         } catch (err) {
           console.error(err);
         }
       }
-      // Also re-run current search if there was a query
       if (query.trim()) {
         performSearch(query, selectedTags, isAccurateMode);
       }

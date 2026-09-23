@@ -1,5 +1,6 @@
 /**
- * Scorer.ts - World-Class BM25 & Bitwise Fuzzy Ranking Engine
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
@@ -56,6 +57,7 @@ export function calculateBM25(
   totalDocs: number,
   docsWithTerm: number
 ): number {
+  if (termFreq <= 0) return 0;
   const k1 = 1.2;
   const b = 0.75;
   
@@ -65,8 +67,16 @@ export function calculateBM25(
   return idf * tf;
 }
 
+/**
+ * Zero-regex term frequency calculator
+ */
 export function getTermFrequency(text: string, term: string): number {
-  if (!text.includes(term)) return 0;
-  const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-  return (text.match(regex) || []).length;
+  if (!text || !term) return 0;
+  let count = 0;
+  let pos = text.indexOf(term);
+  while (pos !== -1) {
+    count++;
+    pos = text.indexOf(term, pos + term.length);
+  }
+  return count;
 }

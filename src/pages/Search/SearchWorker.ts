@@ -3,23 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { searchWithRSTParallel, initializeRST } from './RSTSearch/RSTSearch';
+import { searchWithRST, searchWithRSTParallel, initializeRST } from './RSTSearch/RSTSearch';
 import { Note } from './RSTSearch/types';
-
-/**
- * World-Class Stateful RST Search Worker
- * 
- * Unlike standard workers, this stores the entire dataset in-memory inside 
- * the worker thread. The main UI thread only sends "SYNC" when data changes
- * and "SEARCH" for queries.
- */
 
 let localNotes: Note[] = [];
 
 self.onmessage = async (e: MessageEvent) => {
   const { type, notes, query, isAccurateMode, requestId } = e.data;
 
-  // 1. DATA SYNC - Only happens once or when a note is added/edited
   if (type === 'SYNC') {
     localNotes = notes || [];
     initializeRST(localNotes);
@@ -28,18 +19,19 @@ self.onmessage = async (e: MessageEvent) => {
   }
 
   if (type === 'INVALIDATE' || type === 'FORCE_REFRESH') {
-    localNotes = [];           // Force empty/stale
+    localNotes = [];
     self.postMessage({ type: 'INVALIDATE_COMPLETE', requestId });
     return;
   }
 
-  // 2. ACTUAL SEARCH - Zero-copy query handling
   if (type === 'SEARCH') {
     try {
       const startTime = performance.now();
       
-      // Execute the high-performance parallel chunked RST Core Scan
-      const results = await searchWithRSTParallel(localNotes, query, isAccurateMode);
+      // Fast single-pass execution using pre-built global index
+      const results = localNotes.length > 5000 
+        ? await searchWithRSTParallel(localNotes, query, isAccurateMode)
+        : searchWithRST(localNotes, query, isAccurateMode);
       
       const endTime = performance.now();
       const timeMs = (endTime - startTime).toFixed(2);

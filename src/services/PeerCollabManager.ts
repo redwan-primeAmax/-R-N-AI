@@ -3,7 +3,19 @@ import { Peer, DataConnection } from 'peerjs';
 import { EditorBlock, blocksToHtml } from '../utils/blockParser';
 import { DataManager } from './storage/DataManager';
 
-// Helper to apply string diff to Y.Text in-place for atomic keyboard-stroke synchronization
+function isCombiningCharOrLowSurrogate(str: string, index: number): boolean {
+  if (index < 0 || index >= str.length) return false;
+  const code = str.charCodeAt(index);
+  if (code >= 0xDC00 && code <= 0xDFFF) return true; // Low surrogate
+  if (code >= 0x0980 && code <= 0x09FF) {
+    if (code === 0x09CD || (code >= 0x09BE && code <= 0x09CC) || code === 0x09BC || code === 0x0981 || code === 0x0982 || code === 0x0983) {
+      return true; // Bengali combining vowels, nukta, virama
+    }
+  }
+  return false;
+}
+
+// Helper to apply string diff to Y.Text in-place for atomic keyboard-stroke synchronization (Unicode-safe)
 export function applyStringDiff(yText: Y.Text, newStr: string) {
   const oldStr = yText.toString();
   if (oldStr === newStr) return;
@@ -11,6 +23,11 @@ export function applyStringDiff(yText: Y.Text, newStr: string) {
   let start = 0;
   while (start < oldStr.length && start < newStr.length && oldStr[start] === newStr[start]) {
     start++;
+  }
+
+  // Ensure start boundary doesn't chop inside a surrogate pair or Bengali combining mark
+  while (start > 0 && (isCombiningCharOrLowSurrogate(oldStr, start) || isCombiningCharOrLowSurrogate(newStr, start))) {
+    start--;
   }
 
   let oldEnd = oldStr.length - 1;

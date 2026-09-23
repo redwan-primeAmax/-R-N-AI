@@ -34,7 +34,8 @@ export class NotionCloneDexieDB extends Dexie {
 
   constructor() {
     super('NotionCloneDexie');
-    this.version(1).stores({
+
+    const v1Stores = {
       notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt',
       workspaces: 'id, name, createdAt',
       chat_history: '++id, timestamp',
@@ -42,29 +43,38 @@ export class NotionCloneDexieDB extends Dexie {
       note_versions: 'id, noteId, createdAt',
       media: 'id',
       key_value_pairs: 'key'
-    });
-    this.version(2).stores({
+    };
+
+    const v2Stores = {
+      ...v1Stores,
       notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, [workspaceId+isTrashed]',
       extension_projects: 'id, workspaceId'
-    });
-    this.version(3).stores({
+    };
+
+    const v3Stores = {
+      ...v2Stores,
       bookmark_folders: 'id, name, parentId'
-    });
-    this.version(4).stores({
+    };
+
+    const v4Stores = {
+      ...v3Stores,
       deleted_notes: 'id, deletedAt'
-    });
-    this.version(5).stores({
-      notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, [workspaceId+isTrashed]',
-      workspaces: 'id, name, createdAt',
-      chat_history: '++id, timestamp',
-      ai_tasks: 'id, status, createdAt, updatedAt',
-      note_versions: 'id, noteId, createdAt',
-      media: 'id',
-      key_value_pairs: 'key',
-      extension_projects: 'id, workspaceId',
-      bookmark_folders: 'id, name, parentId',
-      deleted_notes: 'id, deletedAt'
-    });
+    };
+
+    const v5Stores = {
+      ...v4Stores
+    };
+
+    const v6Stores = {
+      ...v5Stores
+    };
+
+    this.version(1).stores(v1Stores);
+    this.version(2).stores(v2Stores);
+    this.version(3).stores(v3Stores);
+    this.version(4).stores(v4Stores);
+    this.version(5).stores(v5Stores);
+    this.version(6).stores(v6Stores);
   }
 }
 
