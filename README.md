@@ -29,4 +29,4 @@
 - **সিকিউর লোকাল স্টোরেজ:** IndexedDB এর মাধ্যমে সম্পূর্ণ ডেটা নিরাপদে ব্রাউজারে স্টোরেড থাকে।
 
 ---
-Developed with ❤️ by Redwan.
+Developed by Redwan❤️
