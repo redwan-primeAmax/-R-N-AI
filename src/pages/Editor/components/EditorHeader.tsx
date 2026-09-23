@@ -26,10 +26,16 @@ interface EditorHeaderProps {
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
   onBack,
+  workspaceName,
+  parentNote,
+  title,
+  activeTasksCount,
   onShowMenu,
+  onExportPDF,
   onStartCollab,
   isCollaborating = false,
   collabPeerCount = 0,
+  onNavigateToNote,
   editor
 }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -160,15 +166,48 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             exit={{ opacity: 0 }}
             className="flex items-center justify-between w-full h-full max-w-4xl mx-auto"
           >
-            <div className="flex items-center">
+            <div className="flex items-center min-w-0 flex-1 mr-2">
               <motion.button 
                 whileTap={{ scale: 0.9 }}
                 onClick={onBack} 
-                className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="p-1.5 -ml-1 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors rounded-full hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
                 title="Back"
+                aria-label="ফিরে যান"
               >
-                <ArrowLeft size={22} strokeWidth={2.5} />
+                <ArrowLeft size={20} strokeWidth={2.2} />
               </motion.button>
+
+              {/* Notion-style Breadcrumb Trail */}
+              <div className="flex items-center min-w-0 ml-1.5 overflow-hidden text-xs">
+                {workspaceName && (
+                  <div className="flex items-center shrink-0 max-w-[110px]">
+                    <span 
+                      onClick={onBack}
+                      className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 truncate cursor-pointer font-medium"
+                      title={workspaceName}
+                    >
+                      {workspaceName}
+                    </span>
+                    <ChevronRight size={12} className="text-gray-400/40 mx-1 shrink-0" />
+                  </div>
+                )}
+                {parentNote && (
+                  <div className="flex items-center shrink-0 max-w-[120px]">
+                    <button 
+                      onClick={() => onNavigateToNote?.(parentNote.id)}
+                      className="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white truncate font-medium transition-colors"
+                      title={parentNote.title || 'Parent Note'}
+                    >
+                      <span className="shrink-0">{parentNote.emoji || '📄'}</span>
+                      <span className="truncate">{parentNote.title || 'Untitled'}</span>
+                    </button>
+                    <ChevronRight size={12} className="text-gray-400/40 mx-1 shrink-0" />
+                  </div>
+                )}
+                <span className="font-semibold text-gray-800 dark:text-white/90 truncate min-w-0">
+                  {title || 'Untitled'}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

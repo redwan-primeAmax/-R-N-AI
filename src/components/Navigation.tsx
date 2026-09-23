@@ -6,14 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Sparkles, FileText, LayoutGrid } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { DataManager } from '../services/storage/DataManager';
 import { motion } from 'framer-motion';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../utils/cn';
 
 export default function Navigation() {
   const navigate = useNavigate();

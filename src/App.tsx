@@ -16,12 +16,7 @@ import AndroidStatusBar from './components/AndroidStatusBar';
 import { Modal } from './components/modals/Modal';
 import { UserNamePopup } from './components/modals/UserNamePopup';
 import { Loader2, Check, AlertCircle, X } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from './utils/cn';
 
 // Helper to retry lazy loading modules when dynamic import fails (e.g. on new PWA builds/deployments)
 function lazyWithRetry<T extends React.ComponentType<any>>(

@@ -8,12 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FocusTrap } from 'focus-trap-react';
 import { X } from 'lucide-react';
 import { DataManager } from '../../services/storage/DataManager';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../utils/cn';
 
 interface ModalProps {
   isOpen: boolean;

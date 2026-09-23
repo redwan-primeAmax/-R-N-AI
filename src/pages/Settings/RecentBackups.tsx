@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DataManager } from '../../services/storage/DataManager';
+import { formatSize } from '../../utils/formatSize';
 
 export default function RecentBackups() {
   const [backups, setBackups] = useState<any[]>([]);
@@ -60,14 +61,6 @@ export default function RecentBackups() {
     
     setStatus('success');
     setTimeout(() => setStatus('idle'), 2000);
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   return (

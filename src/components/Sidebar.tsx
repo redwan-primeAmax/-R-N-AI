@@ -18,12 +18,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from './modals/Modal';
 import { MoveToModal } from './modals/MoveToModal';
 import LoadingScreen from './LoadingScreen';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../utils/cn';
+import { formatSize } from '../utils/formatSize';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -42,7 +38,6 @@ export default function Sidebar({
 }: SidebarProps) {
   const navigate = useNavigate();
   const { id: activeNoteId } = useParams();
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [sidebarView, setSidebarView] = useState<'main' | 'tags' | 'subpages'>('main');
   const [tagInput, setTagInput] = useState('');
   const [systemTags, setSystemTags] = useState<string[]>([]);
@@ -81,29 +76,20 @@ export default function Sidebar({
   const [moveSearch, setMoveToSearch] = useState('');
 
   const loadData = useCallback(async () => {
-    const [usage, tagsRec, history, ws, activeId] = await Promise.all([
+    const [usage, tagsRec, history, ws, activeId, allNotes] = await Promise.all([
       DataManager.getStorageUsage(),
       db.key_value_pairs.get('system_tags'),
       HistoryManager.getRecentNotes(),
       DataManager.getWorkspaces(),
-      DataManager.getActiveWorkspaceId()
+      DataManager.getActiveWorkspaceId(),
+      DataManager.getAllNotes()
     ]);
     setStorageInfo(usage);
     setSystemTags(tagsRec ? tagsRec.value : []);
     setRecentNotes(history);
     setActiveWorkspace(ws.find(w => w.id === activeId) || null);
+    setNotes(allNotes.filter(n => !n.isTrashed));
   }, []);
-
-  // Performance Optimization: Load notes dynamically only when the MoveTo modal acts is active
-  useEffect(() => {
-    if (showMoveTo) {
-      DataManager.getAllNotes().then(allNotes => {
-        setNotes(allNotes.filter(n => !n.isTrashed));
-      }).catch(err => console.error(err));
-    } else {
-      setNotes([]);
-    }
-  }, [showMoveTo]);
 
   const saveTags = async (tags: string[]) => {
     setSystemTags(tags);
@@ -128,36 +114,42 @@ export default function Sidebar({
     setExpandedNodes(next);
   };
 
-  const renderNoteTreeItem = (note: Note, depth = 0) => {
-    const children = notes.filter(n => n.parentId === note.id);
+  const renderNoteTreeItem = (note: Note, depth = 0, visited = new Set<string>()): React.ReactNode => {
+    if (visited.has(note.id) || depth > 8) return null;
+    const nextVisited = new Set(visited).add(note.id);
+    const children = notes.filter(n => n.parentId === note.id && !n.isTrashed);
     const isExpanded = expandedNodes.has(note.id);
+    const isActive = activeNoteId === note.id;
 
     return (
       <div key={note.id} className="select-none">
         <div 
-          className="group flex items-center gap-2 py-3 px-2 rounded-2xl cursor-pointer transition-all hover:bg-white/5 text-white/80"
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          className={cn(
+            "group flex items-center gap-2 py-2 px-2.5 rounded-xl cursor-pointer transition-all hover:bg-white/[0.06] text-white/80",
+            isActive && "bg-amber-400/10 text-amber-300 font-semibold"
+          )}
+          style={{ paddingLeft: `${depth * 14 + 10}px` }}
           onClick={() => { navigate(`/editor/${note.id}`); onClose(); }}
         >
-          {children.length > 0 && (
+          {children.length > 0 ? (
             <button 
               onClick={(e) => toggleExpand(e, note.id)}
-              className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white"
+              aria-label="টগল সাব-পেজ"
             >
               <motion.div animate={{ rotate: isExpanded ? 90 : 0 }}>
-                <ChevronRight size={14} />
+                <ChevronRight size={13} />
               </motion.div>
             </button>
+          ) : (
+            <div className="w-5" />
           )}
-          {!children.length && <div className="w-6" />}
-          <div className="w-5 h-5 flex items-center justify-center text-white/20">
-            <FileText size={16} />
-          </div>
-          <span className="text-sm font-bold truncate flex-1">{note.title || 'Untitled'}</span>
+          <span className="text-base select-none shrink-0">{note.emoji || '📄'}</span>
+          <span className="text-[13px] truncate flex-1">{note.title || 'Untitled'}</span>
         </div>
         {isExpanded && children.length > 0 && (
-          <div className="border-l border-white/5 ml-4">
-            {children.map(child => renderNoteTreeItem(child, depth + 1))}
+          <div className="border-l border-white/[0.08] ml-4">
+            {children.map(child => renderNoteTreeItem(child, depth + 1, nextVisited))}
           </div>
         )}
       </div>
@@ -186,26 +178,8 @@ export default function Sidebar({
     };
   }, [loadData]);
 
-  // Remove unused notes list logic from sidebar
-  /*
-  const renderNoteItem = (note: Note, depth = 0) => { ... }
-  const rootNotes = notes.filter(n => !n.parentId && !n.isTrashed);
-  */
-
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
   const usagePercent = storageInfo ? Math.min(100, (storageInfo.used / (storageInfo.quota || 1)) * 100) : 0;
   const isFull = usagePercent > 90;
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('light-theme', false);
-  }, []);
 
   return (
     <>
@@ -273,38 +247,73 @@ export default function Sidebar({
               </div>
             </div>
 
-            {/* Menu List Section */}
-            <div className="flex-1 overflow-y-auto no-scrollbar px-3 mb-4 space-y-1">
-              {[
-                { icon: <FileText size={16} />, label: 'সমস্ত নোটস', path: '/main' },
-                { icon: <Search size={16} />, label: 'অনুসন্ধান ও ফিল্টার', path: '/search' },
-                { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
-                { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
-                { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
-                { icon: <LayoutGrid size={16} />, label: 'ইউটিলিটি ও টুলস', path: '/tools' },
-                { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },
-                { icon: <Trash2 size={16} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
-              ].map((item, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => { 
-                    if (item.path) { 
-                      handleNavigation(item.path); 
-                    }
-                  }}
-                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl transition-all duration-150 group active:scale-[0.98] hover:bg-white/[0.06] text-white/80 hover:text-white"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/[0.04] text-amber-400 border border-white/[0.06] group-hover:bg-amber-400/20 group-hover:border-amber-400/30 transition-all">
-                      {item.icon}
+            {/* Menu List & Page Tree Section */}
+            <div className="flex-1 overflow-y-auto no-scrollbar px-3 mb-4 space-y-4">
+              {/* Notion-style Page Tree */}
+              <div>
+                <div className="flex items-center justify-between px-3 py-1.5 mb-1 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                  <span>পেজসমূহ (Pages)</span>
+                  <button 
+                    onClick={() => {
+                      navigate('/editor/new');
+                      onClose();
+                    }}
+                    className="p-1 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-colors"
+                    title="নতুন পেজ"
+                    aria-label="নতুন পেজ"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  {notes.filter(n => !n.parentId && !n.isTrashed).length > 0 ? (
+                    notes
+                      .filter(n => !n.parentId && !n.isTrashed)
+                      .map(rootNote => renderNoteTreeItem(rootNote, 0))
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-white/30 italic">
+                      কোনো পেজ পাওয়া যায়নি
                     </div>
-                    <span className="text-[13px] font-semibold tracking-tight text-white/85 group-hover:text-white">
-                      {item.label}
-                    </span>
-                  </div>
-                  <ChevronRight size={14} className="text-white/20 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
-                </button>
-              ))}
+                  )}
+                </div>
+              </div>
+
+              {/* Navigation Sections */}
+              <div className="pt-2 border-t border-white/[0.06] space-y-1">
+                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                  অ্যাপ মেনু
+                </div>
+                {[
+                  { icon: <FileText size={16} />, label: 'সমস্ত নোটস', path: '/main' },
+                  { icon: <Search size={16} />, label: 'অনুসন্ধান ও ফিল্টার', path: '/search' },
+                  { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
+                  { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
+                  { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
+                  { icon: <LayoutGrid size={16} />, label: 'ইউটিলিটি ও টুলস', path: '/tools' },
+                  { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },
+                  { icon: <Trash2 size={16} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
+                ].map((item, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => { 
+                      if (item.path) { 
+                        handleNavigation(item.path); 
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-150 group active:scale-[0.98] hover:bg-white/[0.06] text-white/80 hover:text-white"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-amber-400 border border-white/[0.06] group-hover:bg-amber-400/20 group-hover:border-amber-400/30 transition-all">
+                        {item.icon}
+                      </div>
+                      <span className="text-[13px] font-medium tracking-tight text-white/85 group-hover:text-white">
+                        {item.label}
+                      </span>
+                    </div>
+                    <ChevronRight size={13} className="text-white/20 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Footer Notice */}

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
+import { cn } from '../../utils/cn';
 import { 
   ChevronLeft, 
   Copy, 
@@ -531,9 +532,5 @@ TASK: Update the existing content or create new sub-pages based on the requireme
     </div>
   );
 };
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
-}
 
 export default AIContentArchitect;

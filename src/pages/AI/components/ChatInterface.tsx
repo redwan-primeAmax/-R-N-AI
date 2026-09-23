@@ -10,13 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import DOMPurify from 'dompurify';
 import { DataManager, ChatMessage, Note, AITask, ContextSummary } from '../../../services/storage/DataManager';
-
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../../utils/cn';
 
 interface InterfaceProps {
   messages: ChatMessage[];

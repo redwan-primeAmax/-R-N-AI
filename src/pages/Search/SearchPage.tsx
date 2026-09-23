@@ -13,13 +13,8 @@ import FloatingHomeButton from '../../components/FloatingHomeButton';
 import { PageIcon } from '../../components/PageIcon';
 import { searchWithRST, searchWithRSTParallel } from './RSTSearch/RSTSearch';
 import localforage from 'localforage';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import Filter from './Filter';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../utils/cn';
 
 function highlightText(text: string, queryWords: string[]) {
   if (!text) return '';

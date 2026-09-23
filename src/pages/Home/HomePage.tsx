@@ -21,9 +21,11 @@ import { ActionMenu } from './components/ActionMenu';
 import { SelectionBar } from './components/SelectionBar';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import { JoinCollabModal } from '../../components/modals/JoinCollabModal';
+import { cn } from '../../utils/cn';
 
 export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -238,9 +240,40 @@ export default function HomePage() {
 
       <AnimatedDivider />
 
-      <div className="px-4">
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-12">
+      <div className="px-4 max-w-4xl mx-auto w-full">
+        {/* Section Header with Density Switcher */}
+        <div className="flex items-center justify-between pb-2 mb-2 px-1">
+          <span className="text-[12px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            পেজসমূহ ({notes.length})
+          </span>
+          <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg text-[11px]">
+            <button 
+              onClick={() => setDensity('comfortable')}
+              className={cn(
+                "px-2 py-0.5 rounded-md font-medium transition-all",
+                density === 'comfortable' 
+                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs" 
+                  : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+              )}
+            >
+              স্বাভাবিক
+            </button>
+            <button 
+              onClick={() => setDensity('compact')}
+              className={cn(
+                "px-2 py-0.5 rounded-md font-medium transition-all",
+                density === 'compact' 
+                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs" 
+                  : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+              )}
+            >
+              কমপ্যাক্ট
+            </button>
+          </div>
+        </div>
+
+        {/* Flat Single-Column Notion List */}
+        <div className="flex flex-col pb-24">
           {notes.length > 0 ? (
             <>
               {notes.slice(0, visibleCount).map(note => (
@@ -251,6 +284,7 @@ export default function HomePage() {
                   isSelected={selectedIds.includes(note.id)}
                   onClick={handleNoteClick}
                   onMoreClick={(n) => setSelectedNoteForMenu(n)}
+                  density={density}
                 />
               ))}
               
@@ -263,9 +297,9 @@ export default function HomePage() {
               )}
             </>
           ) : (
-            <div className="col-span-2 py-32 flex flex-col items-center justify-center text-white/5">
-              <FileText size={48} className="mb-4 opacity-10" />
-              <p className="font-bold italic text-sm">কোনো নোট পাওয়া যায়নি</p>
+            <div className="py-24 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-600">
+              <FileText size={44} className="mb-3 opacity-30" />
+              <p className="font-medium text-sm">কোনো নোট পাওয়া যায়নি</p>
             </div>
           )}
         </div>

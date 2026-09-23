@@ -18,12 +18,7 @@ import { IconChange } from '../../../components/icon/IconChange';
 import { PasswordTakeCare } from '../../Vault/PasswordTakeCare';
 import { MoveToBookmarkModal } from '../../../components/modals/MoveToBookmarkModal';
 import { ConfirmDialog } from '../../../components/modals/CustomDialogs';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../../utils/cn';
 
 interface ActionMenuProps {
   note: Note | null;

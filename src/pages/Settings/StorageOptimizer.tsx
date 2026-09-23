@@ -12,6 +12,7 @@ import localforage from 'localforage';
 import { DataManager } from '../../services/storage/DataManager';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import LoadingScreen from '../../components/LoadingScreen';
+import { formatSize } from '../../utils/formatSize';
 
 export default function StorageOptimizer() {
   const [activeTab, setActiveTab] = useState<'backup' | 'offline' | 'cleaner'>('cleaner');
@@ -70,14 +71,6 @@ export default function StorageOptimizer() {
       // Delay finishing loading for visual stability per user request
       setTimeout(() => setLoadingGarbage(false), 800);
     }
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   const usagePercent = storageInfo ? Math.min(100, (storageInfo.used / (storageInfo.quota || 1)) * 100) : 0;
