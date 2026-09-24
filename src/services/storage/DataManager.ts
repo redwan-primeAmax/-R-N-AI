@@ -13,7 +13,11 @@ import { MediaService } from './services/MediaService';
 import { BackupService } from './services/BackupService';
 import { SettingsService, encryptText, decryptText } from './services/SettingsService';
 import { AIServiceStorage } from './services/AIServiceStorage';
-import { AppStore } from './store';
+
+const AppStore = {
+  reloadWorkspaces: () => {},
+  reloadNotes: (_force?: boolean) => {}
+};
 
 import type { 
   Note, Workspace, NoteVersion, ChatMessage, 

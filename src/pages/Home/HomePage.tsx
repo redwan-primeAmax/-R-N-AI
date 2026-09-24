@@ -13,7 +13,6 @@ import { operationRunner } from '../../services/storage/OperationRunner';
 
 import LoadingScreen from '../../components/LoadingScreen';
 import Sidebar from '../../components/Sidebar';
-import AnimatedDivider from '../../components/AnimatedDivider';
 import { HomeHeader } from './components/HomeHeader';
 import { RecentNotes } from './components/RecentNotes';
 import { NoteCard } from './components/NoteCard';
