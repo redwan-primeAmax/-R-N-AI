@@ -43,6 +43,10 @@ interface EditorActionSheetProps {
   collaborators?: { id: string, name: string }[];
   onKickCollaborator?: (peerId: string) => void;
   blocks?: any[];
+  pageWidth?: 'default' | 'full';
+  onToggleWidth?: () => void;
+  fontScale?: 'default' | 'small' | 'large';
+  onToggleFontScale?: () => void;
 }
 
 export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
@@ -65,7 +69,11 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   collabRoomId = null,
   collaborators = [],
   onKickCollaborator,
-  blocks = []
+  blocks = [],
+  pageWidth,
+  onToggleWidth,
+  fontScale,
+  onToggleFontScale
 }) => {
   const navigate = useNavigate();
   const [showCollabSettings, setShowCollabSettings] = useState(false);
@@ -218,6 +226,25 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                     subtitle={() => readOnlyToggleAction.subtitle(isReadOnly)}
                     onClick={() => readOnlyToggleAction.onClick(onToggleReadOnly)} 
                   />
+                  {onToggleWidth && (
+                    <MenuAction 
+                      icon={Box}
+                      label={pageWidth === 'full' ? "স্বাভাবিক প্রস্থ (Normal Width)" : "পূর্ণ প্রস্থ (Full Width)"}
+                      subtitle={pageWidth === 'full' ? "Full Width Active" : "Normal Width Active"}
+                      onClick={onToggleWidth}
+                    />
+                  )}
+                  {onToggleFontScale && (
+                    <MenuAction 
+                      icon={FileText}
+                      label={
+                        fontScale === 'small' ? "ছোট ফন্ট (Small Text)" :
+                        fontScale === 'large' ? "বড় ফন্ট (Large Text)" : "স্বাভাবিক ফন্ট (Default Text)"
+                      }
+                      subtitle={`Font Size: ${fontScale || 'default'}`}
+                      onClick={onToggleFontScale}
+                    />
+                  )}
                   <MenuAction 
                     icon={copyContentAction.icon(isCopied)} 
                     label="Copy Content" 

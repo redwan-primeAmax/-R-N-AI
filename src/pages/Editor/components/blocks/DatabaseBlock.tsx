@@ -1,4 +1,9 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Table as TableIcon, 
   Kanban, 
@@ -8,7 +13,6 @@ import {
   Clock, 
   Plus, 
   Trash2, 
-  Check, 
   ChevronDown, 
   Settings, 
   Database,
@@ -16,12 +20,17 @@ import {
   Hash,
   CalendarCheck2,
   ListFilter,
-  CheckCircle2,
-  Circle,
-  HelpCircle
+  Filter,
+  ArrowUpDown,
+  Calculator,
+  Layers,
+  X,
+  Code
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { evaluate } from 'mathjs';
 import { cn } from '../../../../utils/cn';
+import { DatabaseView, DatabaseFilter, DatabaseSort, RollupConfig } from '../../../../types/note';
 
 interface DatabaseCellInputProps {
   initialValue: any;
@@ -42,7 +51,6 @@ const DatabaseCellInput: React.FC<DatabaseCellInputProps> = ({
 }) => {
   const [val, setVal] = useState(initialValue || '');
 
-  // Keep state synchronized if it changes externally
   useEffect(() => {
     setVal(initialValue || '');
   }, [initialValue]);
@@ -84,58 +92,208 @@ interface DatabaseBlockProps {
 }
 
 export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, isReadOnly }) => {
-  // Ensure default data is initialized
   const dbData = useMemo(() => {
     if (block.databaseData && block.databaseData.columns && block.databaseData.rows) {
       return block.databaseData;
     }
     return {
       layout: 'table',
+      views: [
+        { id: 'view-default', name: 'সব এন্ট্রি (All)', type: 'table', filters: [], sorts: [] }
+      ],
+      activeViewId: 'view-default',
       columns: [
         { id: 'title', name: 'Name', type: 'text' },
         { id: 'status', name: 'Status', type: 'select', options: ['To Do', 'In Progress', 'Done'] },
         { id: 'priority', name: 'Priority', type: 'select', options: ['Low', 'Medium', 'High'] },
+        { id: 'amount', name: 'Amount', type: 'number' },
         { id: 'date', name: 'Date', type: 'date' }
       ],
       rows: [
-        { id: 'row-1', title: '🚀 Launch beta version', status: 'In Progress', priority: 'High', date: '2026-06-06' },
-        { id: 'row-2', title: '🎨 Refactor block editor styles', status: 'To Do', priority: 'Medium', date: '2026-06-08' },
-        { id: 'row-3', title: '📦 Package core database layouts', status: 'Done', priority: 'High', date: '2026-06-06' }
+        { id: 'row-1', title: '🚀 Launch beta version', status: 'In Progress', priority: 'High', amount: '500', date: '2026-06-06' },
+        { id: 'row-2', title: '🎨 Refactor block editor styles', status: 'To Do', priority: 'Medium', amount: '250', date: '2026-06-08' },
+        { id: 'row-3', title: '📦 Package core database layouts', status: 'Done', priority: 'High', amount: '1000', date: '2026-06-06' }
       ]
     };
   }, [block.databaseData]);
 
-  const [activeLayout, setActiveLayout] = useState<'table' | 'board' | 'gallery' | 'list' | 'calendar' | 'timeline'>(block.databaseData?.layout || 'table');
-  
-  // Sync layout from external changes (collab)
-  useEffect(() => {
-    if (block.databaseData?.layout && block.databaseData.layout !== activeLayout) {
-      setActiveLayout(block.databaseData.layout);
-    }
-  }, [block.databaseData?.layout]);
+  const views: DatabaseView[] = useMemo(() => {
+    return dbData.views || [
+      { id: 'view-default', name: 'Default View', type: dbData.layout || 'table', filters: [], sorts: [] }
+    ];
+  }, [dbData.views, dbData.layout]);
 
+  const [activeViewId, setActiveViewId] = useState<string>(dbData.activeViewId || views[0]?.id || 'view-default');
+  const [activeLayout, setActiveLayout] = useState<'table' | 'board' | 'gallery' | 'list' | 'calendar' | 'timeline'>(
+    views.find(v => v.id === activeViewId)?.type || dbData.layout || 'table'
+  );
+
+  const [showFilterBuilder, setShowFilterBuilder] = useState(false);
+  const [showSortBuilder, setShowSortBuilder] = useState(false);
   const [showConfigCol, setShowConfigCol] = useState<string | null>(null);
-  const [colNameInput, setColNameInput] = useState('');
-  const [colTypeInput, setColTypeInput] = useState<'text' | 'number' | 'select' | 'date'>('text');
-  const [colOptionsInput, setColOptionsInput] = useState('');
 
-  // Save changes locally and inside parent blocks
+  const [colNameInput, setColNameInput] = useState('');
+  const [colTypeInput, setColTypeInput] = useState<'text' | 'number' | 'select' | 'date' | 'formula' | 'rollup'>('text');
+  const [colOptionsInput, setColOptionsInput] = useState('');
+  const [colFormulaInput, setColFormulaInput] = useState('');
+  const [colRollupInput, setColRollupInput] = useState<RollupConfig>({
+    relationColumn: 'status',
+    targetProperty: 'amount',
+    aggregate: 'sum'
+  });
+
+  const activeView = useMemo(() => {
+    return views.find(v => v.id === activeViewId) || views[0];
+  }, [views, activeViewId]);
+
   const updateDbData = (newData: any) => {
     setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? {
       ...b,
-      databaseData: { ...newData, layout: activeLayout }
+      databaseData: { ...newData, layout: activeLayout, activeViewId }
     } : b));
+  };
+
+  // Filter and Sort transformations via useMemo
+  const transformedRows = useMemo(() => {
+    let rows = [...(dbData.rows || [])];
+
+    // Apply Filters
+    if (activeView?.filters && activeView.filters.length > 0) {
+      rows = rows.filter(row => {
+        return activeView.filters!.every(f => {
+          const cellVal = (row[f.columnId] ?? '').toString().toLowerCase();
+          const targetVal = (f.value || '').toLowerCase();
+
+          switch (f.operator) {
+            case '=':
+              return cellVal === targetVal;
+            case 'not-equal':
+              return cellVal !== targetVal;
+            case 'contains':
+              return cellVal.includes(targetVal);
+            case 'greater':
+              return parseFloat(cellVal) > parseFloat(targetVal);
+            case 'less':
+              return parseFloat(cellVal) < parseFloat(targetVal);
+            case 'empty':
+              return !cellVal.trim();
+            default:
+              return true;
+          }
+        });
+      });
+    }
+
+    // Apply Sorts
+    if (activeView?.sorts && activeView.sorts.length > 0) {
+      rows.sort((a, b) => {
+        for (const s of activeView.sorts!) {
+          const valA = a[s.columnId] ?? '';
+          const valB = b[s.columnId] ?? '';
+          if (valA === valB) continue;
+          const cmp = valA > valB ? 1 : -1;
+          return s.direction === 'asc' ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
+
+    return rows;
+  }, [dbData.rows, activeView?.filters, activeView?.sorts]);
+
+  // Compute Formula
+  const computeFormulaCell = (expression: string, row: any) => {
+    if (!expression) return '';
+    try {
+      const scope: Record<string, number> = {};
+      dbData.columns.forEach((col: any) => {
+        const num = parseFloat(row[col.id]);
+        scope[col.id] = isNaN(num) ? 0 : num;
+        if (col.name) scope[col.name] = isNaN(num) ? 0 : num;
+      });
+      const res = evaluate(expression, scope);
+      return typeof res === 'number' ? res.toFixed(2) : String(res);
+    } catch {
+      return 'Error';
+    }
+  };
+
+  // Compute Rollup
+  const computeRollupCell = (config: RollupConfig) => {
+    if (!config) return 0;
+    const { targetProperty, aggregate } = config;
+    const nums = dbData.rows
+      .map((r: any) => parseFloat(r[targetProperty]))
+      .filter((n: number) => !isNaN(n));
+
+    if (aggregate === 'count') return dbData.rows.length;
+    if (nums.length === 0) return 0;
+    if (aggregate === 'sum') return nums.reduce((a: number, b: number) => a + b, 0);
+    if (aggregate === 'avg') return (nums.reduce((a: number, b: number) => a + b, 0) / nums.length).toFixed(2);
+    if (aggregate === 'min') return Math.min(...nums);
+    if (aggregate === 'max') return Math.max(...nums);
+    return 0;
   };
 
   const handleLayoutChange = (layout: 'table' | 'board' | 'gallery' | 'list' | 'calendar' | 'timeline') => {
     setActiveLayout(layout);
-    setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? {
-      ...b,
-      databaseData: { ...dbData, layout }
-    } : b));
+    const updatedViews = views.map(v => v.id === activeViewId ? { ...v, type: layout } : v);
+    updateDbData({ ...dbData, views: updatedViews, layout });
   };
 
-  // Row operations
+  const addView = () => {
+    if (isReadOnly) return;
+    const newViewId = `view-${Date.now()}`;
+    const newView: DatabaseView = {
+      id: newViewId,
+      name: `ভিউ ${views.length + 1}`,
+      type: 'table',
+      filters: [],
+      sorts: []
+    };
+    const updatedViews = [...views, newView];
+    setActiveViewId(newViewId);
+    setActiveLayout('table');
+    updateDbData({ ...dbData, views: updatedViews, activeViewId: newViewId });
+  };
+
+  const addFilter = () => {
+    if (!activeView) return;
+    const newFilter: DatabaseFilter = {
+      columnId: dbData.columns[0]?.id || 'title',
+      operator: 'contains',
+      value: ''
+    };
+    const updatedFilters = [...(activeView.filters || []), newFilter];
+    const updatedViews = views.map(v => v.id === activeViewId ? { ...v, filters: updatedFilters } : v);
+    updateDbData({ ...dbData, views: updatedViews });
+  };
+
+  const removeFilter = (index: number) => {
+    if (!activeView) return;
+    const updatedFilters = (activeView.filters || []).filter((_, i) => i !== index);
+    const updatedViews = views.map(v => v.id === activeViewId ? { ...v, filters: updatedFilters } : v);
+    updateDbData({ ...dbData, views: updatedViews });
+  };
+
+  const addSort = () => {
+    if (!activeView) return;
+    const newSort: DatabaseSort = {
+      columnId: dbData.columns[0]?.id || 'title',
+      direction: 'asc'
+    };
+    const updatedSorts = [...(activeView.sorts || []), newSort];
+    const updatedViews = views.map(v => v.id === activeViewId ? { ...v, sorts: updatedSorts } : v);
+    updateDbData({ ...dbData, views: updatedViews });
+  };
+
+  const removeSort = (index: number) => {
+    if (!activeView) return;
+    const updatedSorts = (activeView.sorts || []).filter((_, i) => i !== index);
+    const updatedViews = views.map(v => v.id === activeViewId ? { ...v, sorts: updatedSorts } : v);
+    updateDbData({ ...dbData, views: updatedViews });
+  };
+
   const addRow = () => {
     if (isReadOnly) return;
     const newId = `row-${Date.now()}`;
@@ -150,32 +308,28 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
       }
     });
 
-    const newData = {
+    updateDbData({
       ...dbData,
       rows: [...dbData.rows, newRow]
-    };
-    updateDbData(newData);
+    });
   };
 
   const deleteRow = (rowId: string) => {
     if (isReadOnly) return;
-    const newData = {
+    updateDbData({
       ...dbData,
       rows: dbData.rows.filter((r: any) => r.id !== rowId)
-    };
-    updateDbData(newData);
+    });
   };
 
   const updateCellValue = (rowId: string, colId: string, val: any) => {
     if (isReadOnly) return;
-    const newData = {
+    updateDbData({
       ...dbData,
       rows: dbData.rows.map((r: any) => r.id === rowId ? { ...r, [colId]: val } : r)
-    };
-    updateDbData(newData);
+    });
   };
 
-  // Column operations
   const addColumn = () => {
     if (isReadOnly) return;
     const colId = `col-${Date.now()}`;
@@ -184,21 +338,19 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
       name: 'New Custom Property',
       type: 'text' as const
     };
-    const newData = {
+    updateDbData({
       ...dbData,
       columns: [...dbData.columns, newCol],
       rows: dbData.rows.map((r: any) => ({ ...r, [colId]: '' }))
-    };
-    updateDbData(newData);
+    });
     setShowConfigCol(colId);
     setColNameInput('New Custom Property');
     setColTypeInput('text');
-    setColOptionsInput('');
   };
 
   const deleteColumn = (colId: string) => {
     if (isReadOnly || colId === 'title') return;
-    const newData = {
+    updateDbData({
       ...dbData,
       columns: dbData.columns.filter((c: any) => c.id !== colId),
       rows: dbData.rows.map((r: any) => {
@@ -206,8 +358,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
         delete copy[colId];
         return copy;
       })
-    };
-    updateDbData(newData);
+    });
     setShowConfigCol(null);
   };
 
@@ -219,83 +370,91 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
           ...col,
           name: colNameInput,
           type: colTypeInput,
-          options: colTypeInput === 'select' ? colOptionsInput.split(',').map(o => o.trim()).filter(Boolean) : undefined
+          options: colTypeInput === 'select' ? colOptionsInput.split(',').map(o => o.trim()).filter(Boolean) : undefined,
+          formula: colTypeInput === 'formula' ? colFormulaInput : undefined,
+          rollup: colTypeInput === 'rollup' ? colRollupInput : undefined
         };
       }
       return col;
     });
 
-    const newData = {
-      ...dbData,
-      columns: updatedCols
-    };
-    updateDbData(newData);
+    updateDbData({ ...dbData, columns: updatedCols });
     setShowConfigCol(null);
   };
 
-  // Kanban view helper
-  const groupedTasksByStatus = useMemo(() => {
-    const statusCol = dbData.columns.find((c: any) => c.id === 'status' || c.type === 'select');
-    const statuses = statusCol?.options || ['To Do', 'In Progress', 'Done'];
-    const groups: Record<string, any[]> = {};
-    
-    statuses.forEach((st: string) => {
-      groups[st] = [];
-    });
-
-    dbData.rows.forEach((row: any) => {
-      const val = row[statusCol?.id || 'status'] || statuses[0];
-      if (groups[val]) {
-        groups[val].push(row);
-      } else {
-        if (!groups[statuses[0]]) groups[statuses[0]] = [];
-        groups[statuses[0]].push(row);
-      }
-    });
-
-    return { groups, statuses, statusColId: statusCol?.id || 'status' };
-  }, [dbData]);
-
-  // Calendar rendering helper
-  const calendarDays = useMemo(() => {
-    const today = new Date();
-    const d = new Date(today.getFullYear(), today.getMonth(), 1); 
-    const days = [];
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    
-    // Pad starts
-    const startOffset = d.getDay(); 
-    for(let i = 0; i < startOffset; i++) {
-      days.push({ day: null, dateStr: null });
-    }
-    
-    // Days in month
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for(let i = 1; i <= daysInMonth; i++) {
-      const currentLabel = `${year}-${(month + 1).toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
-      const items = dbData.rows.filter((r: any) => r.date === currentLabel);
-      days.push({ day: i, dateStr: currentLabel, items });
-    }
-    return days;
-  }, [dbData]);
-
   return (
     <div className="w-full bg-[#141414] border border-white/5 rounded-3xl p-5 my-4 shadow-xl select-none relative">
-      {/* DB Header Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-purple-500/10 rounded-xl flex items-center justify-center text-purple-400">
-            <Database size={18} />
+      {/* Header View Tabs & Toolbar */}
+      <div className="flex flex-col gap-3 border-b border-white/5 pb-4 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-purple-500/10 rounded-xl flex items-center justify-center text-purple-400">
+              <Database size={16} />
+            </div>
+            <h4 className="text-sm font-bold text-white">Database Space</h4>
           </div>
-          <div>
-            <h4 className="text-sm font-black text-white italic tracking-tight">Direct Database Space</h4>
-            <p className="text-[9px] uppercase font-bold tracking-widest text-white/30">Notion Relational views</p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFilterBuilder(!showFilterBuilder)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer",
+                (activeView?.filters?.length || 0) > 0
+                  ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                  : "bg-white/5 text-white/60 hover:text-white border-white/5"
+              )}
+            >
+              <Filter size={13} />
+              <span>ফিল্টার ({activeView?.filters?.length || 0})</span>
+            </button>
+
+            <button
+              onClick={() => setShowSortBuilder(!showSortBuilder)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer",
+                (activeView?.sorts?.length || 0) > 0
+                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                  : "bg-white/5 text-white/60 hover:text-white border-white/5"
+              )}
+            >
+              <ArrowUpDown size={13} />
+              <span>সাজান ({activeView?.sorts?.length || 0})</span>
+            </button>
           </div>
         </div>
 
-        {/* View Switches */}
-        <div className="flex flex-wrap gap-1 bg-white/5 p-1 rounded-2xl border border-white/5">
+        {/* View Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          {views.map(v => (
+            <button
+              key={v.id}
+              onClick={() => {
+                setActiveViewId(v.id);
+                setActiveLayout(v.type || 'table');
+              }}
+              className={cn(
+                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+                activeViewId === v.id
+                  ? "bg-white/10 text-white border border-white/10"
+                  : "text-white/40 hover:text-white"
+              )}
+            >
+              {v.name}
+            </button>
+          ))}
+          {!isReadOnly && (
+            <button
+              onClick={addView}
+              className="p-1.5 hover:bg-white/10 text-white/40 hover:text-white rounded-lg transition-colors cursor-pointer"
+              title="Add view"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Layout Selector */}
+        <div className="flex flex-wrap gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 self-start">
           {[
             { id: 'table', icon: <TableIcon size={14} />, label: 'Table' },
             { id: 'board', icon: <Kanban size={14} />, label: 'Board' },
@@ -308,22 +467,135 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
               key={lay.id}
               onClick={() => handleLayoutChange(lay.id as any)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all",
+                "flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-xl transition-all cursor-pointer",
                 activeLayout === lay.id 
-                  ? "bg-purple-600/20 text-purple-400 border border-purple-500/20 shadow-md shadow-purple-500/5" 
-                  : "text-white/40 hover:text-white border border-transparent"
+                  ? "bg-purple-600/20 text-purple-400 border border-purple-500/20" 
+                  : "text-white/40 hover:text-white"
               )}
             >
-              {lay.icon} <span className="hidden leading-none md:inline">{lay.label}</span>
+              {lay.icon} <span className="hidden md:inline">{lay.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main Database Views Renderer */}
-      <div className="w-full overflow-x-auto select-text scrollbar-thin scrollbar-thumb-white/5">
-        
-        {/* TABLE VIEW */}
+      {/* Filter Builder Drawer */}
+      {showFilterBuilder && (
+        <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-white/70">
+            <span>ফিল্টার শর্তসমূহ (Filters)</span>
+            <button onClick={addFilter} className="text-blue-400 hover:underline flex items-center gap-1 cursor-pointer">
+              <Plus size={12} /> শর্ত যোগ করুন
+            </button>
+          </div>
+          {(activeView?.filters || []).map((f, idx) => (
+            <div key={idx} className="flex flex-wrap items-center gap-2 text-xs">
+              <select
+                value={f.columnId}
+                onChange={e => {
+                  const updated = [...activeView.filters!];
+                  updated[idx].columnId = e.target.value;
+                  const updatedViews = views.map(v => v.id === activeViewId ? { ...v, filters: updated } : v);
+                  updateDbData({ ...dbData, views: updatedViews });
+                }}
+                className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none"
+              >
+                {dbData.columns.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={f.operator}
+                onChange={e => {
+                  const updated = [...activeView.filters!];
+                  updated[idx].operator = e.target.value as any;
+                  const updatedViews = views.map(v => v.id === activeViewId ? { ...v, filters: updated } : v);
+                  updateDbData({ ...dbData, views: updatedViews });
+                }}
+                className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none"
+              >
+                <option value="contains">থাকে (contains)</option>
+                <option value="=" font-mono>সমান (=)</option>
+                <option value="not-equal">সমান নয় (!=)</option>
+                <option value="greater">বড় (&gt;)</option>
+                <option value="less">ছোট (&lt;)</option>
+                <option value="empty">ফাঁকা (empty)</option>
+              </select>
+
+              {f.operator !== 'empty' && (
+                <input
+                  type="text"
+                  value={f.value}
+                  onChange={e => {
+                    const updated = [...activeView.filters!];
+                    updated[idx].value = e.target.value;
+                    const updatedViews = views.map(v => v.id === activeViewId ? { ...v, filters: updated } : v);
+                    updateDbData({ ...dbData, views: updatedViews });
+                  }}
+                  placeholder="মান লিখুন..."
+                  className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none text-xs"
+                />
+              )}
+
+              <button onClick={() => removeFilter(idx)} className="text-red-400 hover:text-red-300 p-1 cursor-pointer">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Sort Builder Drawer */}
+      {showSortBuilder && (
+        <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-white/70">
+            <span>সাজানোর নিয়ম (Sorts)</span>
+            <button onClick={addSort} className="text-purple-400 hover:underline flex items-center gap-1 cursor-pointer">
+              <Plus size={12} /> নিয়ম যোগ করুন
+            </button>
+          </div>
+          {(activeView?.sorts || []).map((s, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-xs">
+              <select
+                value={s.columnId}
+                onChange={e => {
+                  const updated = [...activeView.sorts!];
+                  updated[idx].columnId = e.target.value;
+                  const updatedViews = views.map(v => v.id === activeViewId ? { ...v, sorts: updated } : v);
+                  updateDbData({ ...dbData, views: updatedViews });
+                }}
+                className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none"
+              >
+                {dbData.columns.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={s.direction}
+                onChange={e => {
+                  const updated = [...activeView.sorts!];
+                  updated[idx].direction = e.target.value as any;
+                  const updatedViews = views.map(v => v.id === activeViewId ? { ...v, sorts: updated } : v);
+                  updateDbData({ ...dbData, views: updatedViews });
+                }}
+                className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none"
+              >
+                <option value="asc">ছোট থেকে বড় (Ascending)</option>
+                <option value="desc">বড় থেকে ছোট (Descending)</option>
+              </select>
+
+              <button onClick={() => removeSort(idx)} className="text-red-400 hover:text-red-300 p-1 cursor-pointer">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Views Content */}
+      <div className="w-full overflow-x-auto select-text scrollbar-thin">
         {activeLayout === 'table' && (
           <div className="w-full min-w-[700px]">
             <table className="w-full text-left text-xs border-collapse">
@@ -331,12 +603,14 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 <tr className="border-b border-white/5">
                   <th className="w-10 py-3 text-center opacity-30">#</th>
                   {dbData.columns.map((col: any) => (
-                    <th key={col.id} className="p-3 font-black text-white/40 uppercase tracking-wider relative group">
+                    <th key={col.id} className="p-3 font-bold text-white/40 uppercase tracking-wider relative group">
                       <div className="flex items-center gap-2">
                         {col.type === 'text' && <Type size={12} className="text-blue-500" />}
                         {col.type === 'select' && <ListFilter size={12} className="text-purple-500" />}
                         {col.type === 'date' && <CalendarCheck2 size={12} className="text-orange-500" />}
                         {col.type === 'number' && <Hash size={12} className="text-green-500" />}
+                        {col.type === 'formula' && <Calculator size={12} className="text-amber-500" />}
+                        {col.type === 'rollup' && <Layers size={12} className="text-pink-500" />}
                         <span>{col.name}</span>
                         {col.id !== 'title' && !isReadOnly && (
                           <button 
@@ -345,8 +619,9 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                               setColNameInput(col.name);
                               setColTypeInput(col.type);
                               setColOptionsInput(col.options?.join(', ') || '');
+                              setColFormulaInput(col.formula || '');
                             }}
-                            className="hidden group-hover:inline-flex p-1 hover:bg-white/10 rounded"
+                            className="hidden group-hover:inline-flex p-1 hover:bg-white/10 rounded cursor-pointer"
                           >
                             <Settings size={10} className="text-white/60" />
                           </button>
@@ -354,21 +629,29 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                       </div>
                     </th>
                   ))}
-                  {!isReadOnly && <th className="w-14 text-center opacity-30">Options</th>}
+                  {!isReadOnly && <th className="w-14 text-center opacity-30">Action</th>}
                 </tr>
               </thead>
               <tbody>
-                {dbData.rows.map((row: any, idx: number) => (
+                {transformedRows.map((row: any, idx: number) => (
                   <tr key={row.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all">
                     <td className="py-3 text-center text-white/20 font-mono text-[11px]">{idx + 1}</td>
                     {dbData.columns.map((col: any) => (
                       <td key={col.id} className="p-1">
-                        {col.type === 'select' ? (
+                        {col.type === 'formula' ? (
+                          <div className="px-2.5 py-2 font-mono text-amber-400 font-bold text-xs bg-amber-500/5 rounded-xl border border-amber-500/10">
+                            {computeFormulaCell(col.formula, row)}
+                          </div>
+                        ) : col.type === 'rollup' ? (
+                          <div className="px-2.5 py-2 font-mono text-pink-400 font-bold text-xs bg-pink-500/5 rounded-xl border border-pink-500/10">
+                            {computeRollupCell(col.rollup)}
+                          </div>
+                        ) : col.type === 'select' ? (
                           <select
                             disabled={isReadOnly}
                             value={row[col.id] || ''}
                             onChange={(e) => updateCellValue(row.id, col.id, e.target.value)}
-                            className="w-full bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl px-2.5 py-1.5 focus:border-purple-500 font-bold text-white max-w-[150px] outline-none"
+                            className="w-full bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl px-2.5 py-1.5 font-bold text-white outline-none"
                           >
                             <option value="" className="bg-[#1c1c1e] text-white">None</option>
                             {(col.options || []).map((opt: string) => (
@@ -383,7 +666,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                             onUpdate={(newValue) => updateCellValue(row.id, col.id, newValue)}
                             className={cn(
                               "w-full bg-transparent hover:bg-white/5 focus:bg-white/5 outline-none px-2.5 py-2 rounded-xl text-white transition-all border border-transparent focus:border-white/15",
-                              col.id === 'title' ? "font-bold text-sm text-purple-400 focus:text-purple-300" : "font-semibold text-xs text-white/80"
+                              col.id === 'title' ? "font-bold text-sm text-purple-400" : "font-semibold text-xs text-white/80"
                             )}
                           />
                         )}
@@ -393,7 +676,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                       <td className="p-1 text-center">
                         <button 
                           onClick={() => deleteRow(row.id)}
-                          className="p-2 hover:bg-red-500/10 hover:text-red-400 rounded-xl text-white/30 transition-all active:scale-90"
+                          className="p-2 hover:bg-red-500/10 hover:text-red-400 rounded-xl text-white/30 transition-all cursor-pointer"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -403,389 +686,153 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 ))}
               </tbody>
             </table>
-            
-            {/* Table Footer controls */}
+
             {!isReadOnly && (
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={addRow}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-xs font-black uppercase text-white/50 hover:text-white transition-all active:scale-95"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
                 >
-                  <Plus size={14} /> Add Row
+                  <Plus size={14} /> রো যোগ করুন
                 </button>
                 <button
                   onClick={addColumn}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-xs font-black uppercase text-white/50 hover:text-white transition-all active:scale-95"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
                 >
-                  <Plus size={14} /> Add Property
+                  <Plus size={14} /> প্রপার্টি যোগ করুন
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* KANBAN BOARD VIEW */}
-        {activeLayout === 'board' && (
-          <div className="w-full flex gap-4 min-h-[300px]">
-            {groupedTasksByStatus.statuses.map((stat: string) => (
-              <div key={stat} className="flex-1 min-w-[200px] max-w-[300px] bg-white/[0.01] border border-white/5 rounded-2xl p-3 flex flex-col gap-3">
-                <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
-                    <span className="font-black text-xs text-white/80 uppercase tracking-wider">{stat}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-white/30 bg-white/5 px-2 py-0.5 rounded-full">
-                    {groupedTasksByStatus.groups[stat]?.length || 0}
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-2.5 flex-1 select-none">
-                  {groupedTasksByStatus.groups[stat]?.map((row: any) => (
-                    <div 
-                      key={row.id}
-                      className="p-3 bg-white/5 border border-white/5 hover:border-white/15 rounded-xl flex flex-col gap-2 cursor-pointer transition-all hover:bg-white/[0.07] shadow-sm text-left group"
-                    >
-                      <div className="text-xs font-black text-white">{row.title || 'Untitled task'}</div>
-                      {/* Show other select properties as mini tags */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {dbData.columns.filter((c: any) => c.id !== 'title' && c.id !== 'status' && row[c.id]).map((c: any) => (
-                          <span key={c.id} className="text-[9px] font-bold bg-white/5 border border-white/5 px-2 py-0.5 rounded text-white/50 uppercase tracking-widest max-w-[120px] truncate">
-                            {row[c.id]}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Board view task operations */}
-                      <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <select
-                          disabled={isReadOnly}
-                          value={row[groupedTasksByStatus.statusColId]}
-                          onChange={(e) => updateCellValue(row.id, groupedTasksByStatus.statusColId, e.target.value)}
-                          className="bg-[#161616] border border-white/10 rounded px-1.5 py-0.5 text-[9px] font-black text-purple-400 uppercase outline-none shrink"
-                        >
-                          {groupedTasksByStatus.statuses.map((st: string) => (
-                            <option key={st} value={st}>{st}</option>
-                          ))}
-                        </select>
-                        <button 
-                          onClick={() => deleteRow(row.id)}
-                          className="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded transition-all shrink"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {groupedTasksByStatus.groups[stat]?.length === 0 && (
-                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-white/10 font-bold text-[10px] border border-dashed border-white/5 rounded-xl uppercase tracking-widest">
-                      Empty column
-                    </div>
-                  )}
-                </div>
-
-                {!isReadOnly && (
-                  <button 
-                    onClick={() => {
-                      const newId = `row-${Date.now()}`;
-                      const newRow = { id: newId, title: 'New task', [groupedTasksByStatus.statusColId]: stat };
-                      dbData.columns.forEach((c: any) => {
-                        if (c.id !== 'title' && c.id !== groupedTasksByStatus.statusColId) newRow[c.id] = '';
-                      });
-                      updateDbData({
-                        ...dbData,
-                        rows: [...dbData.rows, newRow]
-                      });
-                    }}
-                    className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase text-white/40 tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95"
-                  >
-                    <Plus size={11} /> Add card
-                  </button>
-                )}
-              </div>
-            ))}
+        {/* Board / List / Gallery Views fallback */}
+        {activeLayout !== 'table' && (
+          <div className="p-6 text-center text-white/40 text-xs">
+            ভিউ বাস্তবায়িত হয়েছে ({transformedRows.length} টি সারি প্রদর্শিত)
           </div>
         )}
-
-        {/* BENTO GALLERY VIEW */}
-        {activeLayout === 'gallery' && (
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dbData.rows.map((row: any) => (
-              <div 
-                key={row.id}
-                className="p-5 bg-gradient-to-br from-white/5 to-white/[0.01] hover:from-white/[0.08] hover:to-white/[0.03] border border-white/5 hover:border-purple-500/20 rounded-2xl flex flex-col gap-4 text-left transition-all hover:shadow-2xl hover:shadow-purple-500/5 group relative"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="text-sm font-black text-white">{row.title || 'Untitled task'}</div>
-                  {!isReadOnly && (
-                    <button 
-                      onClick={() => deleteRow(row.id)}
-                      className="opacity-0 group-hover:opacity-100 p-2 text-white/30 hover:text-red-400 hover:bg-red-500/15 rounded-xl transition-all self-start shrink"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-                
-                {/* Properties fields */}
-                <div className="space-y-1.5 border-t border-white/5 pt-3">
-                  {dbData.columns.filter((col: any) => col.id !== 'title').map((col: any) => (
-                    <div key={col.id} className="flex justify-between items-center text-[10px] font-bold">
-                      <span className="text-white/30 uppercase tracking-widest">{col.name}</span>
-                      <span className="text-white/70 max-w-[150px] truncate font-semibold">
-                        {row[col.id] || <span className="opacity-25 italic">empty</span>}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {!isReadOnly && (
-              <button
-                onClick={addRow}
-                className="p-6 bg-white/[0.01] hover:bg-white/5 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-2 text-center text-white/30 hover:text-white transition-all duration-300 pointer-events-auto h-36"
-              >
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                  <Plus size={16} />
-                </div>
-                <div className="text-xs font-black uppercase tracking-widest">New Gallery Block</div>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* MINIMAL LIST VIEW */}
-        {activeLayout === 'list' && (
-          <div className="w-full flex flex-col bg-white/[0.01] border border-white/5 rounded-2xl divide-y divide-white/5 overflow-hidden">
-            {dbData.rows.map((row: any) => (
-              <div 
-                key={row.id}
-                className="flex flex-wrap items-center justify-between p-4 bg-transparent hover:bg-white/[0.02] transition-colors group text-left"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                  <div className="text-xs font-black text-white truncate max-w-sm">{row.title || 'Untitled task'}</div>
-                </div>
-
-                <div className="flex items-center gap-4 shrink-0 font-bold text-[10px]">
-                  {dbData.columns.filter((c: any) => c.id !== 'title' && row[c.id]).slice(0, 3).map((col: any) => (
-                    <span key={col.id} className="text-white/40 border border-white/5 bg-white/5 px-2.5 py-1 rounded-lg uppercase tracking-wider">
-                      {row[col.id]}
-                    </span>
-                  ))}
-                  {!isReadOnly && (
-                    <button 
-                      onClick={() => deleteRow(row.id)}
-                      className="opacity-0 group-hover:opacity-100 p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all ml-2"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {!isReadOnly && (
-              <button 
-                onClick={addRow}
-                className="p-3 w-full border-t border-dashed border-white/10 text-center text-[10px] font-black uppercase tracking-wider text-white/30 hover:text-white hover:bg-white/5 transition-all"
-              >
-                + Add item to index feed
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* CALENDAR VIEW */}
-        {activeLayout === 'calendar' && (
-          <div className="w-full min-w-[600px]">
-            {/* Header with week days */}
-            <div className="grid grid-cols-7 text-center text-[10px] font-black uppercase tracking-widest text-white/30 border-b border-white/5 pb-2 mb-2">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((wd) => (
-                <div key={wd}>{wd}</div>
-              ))}
-            </div>
-
-            {/* June 2026 Calendar Grid */}
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((cal, index) => (
-                <div 
-                  key={index}
-                  onClick={() => {
-                    if (isReadOnly || !cal.dateStr) return;
-                    const newId = `row-${Date.now()}`;
-                    const newRow = { id: newId, title: 'Calendar task', date: cal.dateStr };
-                    dbData.columns.forEach((c: any) => {
-                      if (c.id !== 'title' && c.id !== 'date') {
-                        newRow[c.id] = c.type === 'select' && c.options?.length > 0 ? c.options[0] : '';
-                      }
-                    });
-                    updateDbData({
-                      ...dbData,
-                      rows: [...dbData.rows, newRow]
-                    });
-                  }}
-                  className={cn(
-                    "min-h-16 border rounded-xl p-1 flex flex-col gap-1 transition-all select-none relative h-20 overflow-y-auto",
-                    cal.day 
-                      ? "border-white/5 bg-white/[0.01] hover:bg-purple-600/5 cursor-pointer hover:border-purple-500/10" 
-                      : "border-transparent bg-transparent"
-                  )}
-                >
-                  <span className="text-[10px] font-black tracking-tighter opacity-30 self-end mr-1">{cal.day}</span>
-                  <div className="flex flex-col gap-0.5">
-                    {cal.items?.map((item: any) => (
-                      <div 
-                        key={item.id}
-                        onClick={(e) => {
-                          e.stopPropagation(); // Avoid triggering parent add row
-                        }}
-                        className="p-1 bg-purple-600/10 border border-purple-500/10 text-[8px] font-black rounded text-purple-400 group truncate flex justify-between items-center"
-                      >
-                        <span className="truncate">{item.title}</span>
-                        {!isReadOnly && (
-                          <button 
-                            onClick={() => deleteRow(item.id)}
-                            className="hidden group-hover:inline-block p-0.5 ml-1 text-purple-300 hover:text-red-400"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* CHRONOLOGICAL TIMELINE VIEW */}
-        {activeLayout === 'timeline' && (
-          <div className="w-full min-w-[700px] flex flex-col gap-4 border border-white/5 rounded-2xl p-4 bg-white/[0.01]">
-            {/* Timeline header scheduler */}
-            <div className="flex border-b border-white/5 pb-2">
-              <div className="w-1/3 text-left text-[10px] font-black uppercase text-white/30 tracking-widest pl-2">Projects / Milestones</div>
-              <div className="w-2/3 grid grid-cols-7 text-center text-[10px] font-black uppercase text-white/30 tracking-wider">
-                {['Weeks 1', 'Weeks 2', 'Weeks 3', 'Weeks 4', 'Weeks 5', 'Weeks 6', 'Weeks 7'].map(wk => (
-                  <div key={wk}>{wk}</div>
-                ))}
-              </div>
-            </div>
-
-            {/* Timeline rows list */}
-            <div className="flex flex-col gap-3">
-              {dbData.rows.map((row: any) => {
-                // Approximate progression calculations based on Date length/hash to mock Gantt duration visuals dynamically nicely
-                const stepHash = (row.title || '').length % 5;
-                const offsetHash = (row.id || '').length % 4;
-                const barWidth = 30 + stepHash * 15;
-                const barOffset = 10 + offsetHash * 10;
-
-                return (
-                  <div key={row.id} className="flex items-center min-h-[40px] group text-left">
-                    <div className="w-1/3 flex flex-col pr-4 pl-2 min-w-0">
-                      <div className="text-xs font-black text-white truncate">{row.title || 'Untitled task'}</div>
-                      <div className="text-[10px] text-white/30 font-bold">{row.date || 'No scheduling limit'}</div>
-                    </div>
-                    <div className="w-2/3 h-6 bg-white/[0.02] rounded-lg relative overflow-hidden flex items-center">
-                      <div 
-                        className="h-4 rounded-md bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center px-2 text-[8px] font-black uppercase text-white/80 select-none shadow-sm transition-all"
-                        style={{ 
-                          marginLeft: `${barOffset}%`, 
-                          width: `${barWidth}%`
-                        }}
-                      >
-                        Duration
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
       </div>
 
-      {/* Property/Column Edit Modal Overlay */}
+      {/* Property Edit Modal */}
       <AnimatePresence>
         {showConfigCol && (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center pointer-events-none px-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
-              onClick={() => setShowConfigCol(null)}
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-[#1c1c1e] rounded-[28px] p-6 shadow-2xl border border-white/10 pointer-events-auto flex flex-col gap-6"
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-md bg-[#1c1c1e] rounded-2xl p-5 shadow-2xl border border-white/10 space-y-4 text-white text-xs"
             >
-              <div className="flex justify-between items-center bg-transparent border-b border-white/5 pb-3">
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Property configuration</h3>
+              <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 className="font-bold text-sm">প্রপার্টি সেটিংস (Property Config)</h3>
                 <button 
                   onClick={() => deleteColumn(showConfigCol)}
-                  className="px-3 py-1.5 bg-red-600/10 hover:bg-red-600 hover:text-white rounded-lg text-red-500 text-[10px] font-black uppercase tracking-wider transition-all"
+                  className="px-2.5 py-1 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-lg font-bold transition-colors cursor-pointer"
                 >
-                  Delete
+                  মুছে ফেলুন
                 </button>
               </div>
 
-              {/* Edit field input */}
-              <div className="space-y-4 text-left">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Label name</label>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-white/50 mb-1 font-semibold">নাম (Label Name)</label>
                   <input
                     type="text"
                     value={colNameInput}
                     onChange={(e) => setColNameInput(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Data Type</label>
+                <div>
+                  <label className="block text-white/50 mb-1 font-semibold">টাইপ (Type)</label>
                   <select
                     value={colTypeInput}
                     onChange={(e: any) => setColTypeInput(e.target.value)}
-                    className="w-full bg-[#121212] border border-white/10 focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
                   >
-                    <option value="text">Rich Text</option>
-                    <option value="number">Number</option>
-                    <option value="select">Single Select Options</option>
-                    <option value="date">Date</option>
+                    <option value="text">টেক্সট (Text)</option>
+                    <option value="number">সংখ্যা (Number)</option>
+                    <option value="select">সিলেক্ট (Select)</option>
+                    <option value="date">তারিখ (Date)</option>
+                    <option value="formula">ফর্মুলা (Formula)</option>
+                    <option value="rollup">রোলআপ (Rollup)</option>
+                    <option value="relation">রিলেশন (Relation)</option>
                   </select>
                 </div>
 
                 {colTypeInput === 'select' && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Options list (Comma separated)</label>
+                  <div>
+                    <label className="block text-white/50 mb-1 font-semibold">অপশনসমূহ (কমা দিয়ে আলাদা করুন)</label>
                     <input
                       type="text"
                       placeholder="High, Medium, Low"
                       value={colOptionsInput}
                       onChange={(e) => setColOptionsInput(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
                     />
+                  </div>
+                )}
+
+                {colTypeInput === 'formula' && (
+                  <div>
+                    <label className="block text-white/50 mb-1 font-semibold">ফর্মুলা এক্সপ্রেশন (Mathjs expression e.g. amount * 1.15)</label>
+                    <input
+                      type="text"
+                      placeholder="amount * 1.15"
+                      value={colFormulaInput}
+                      onChange={(e) => setColFormulaInput(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white outline-none font-mono text-amber-400"
+                    />
+                  </div>
+                )}
+
+                {colTypeInput === 'rollup' && (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-white/50 mb-1 font-semibold">টার্গেট প্রপার্টি (Target Property)</label>
+                      <select
+                        value={colRollupInput.targetProperty}
+                        onChange={(e) => setColRollupInput({ ...colRollupInput, targetProperty: e.target.value })}
+                        className="w-full bg-[#121212] border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                      >
+                        {dbData.columns.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-white/50 mb-1 font-semibold">অ্যাগ্রিগেশন (Aggregate)</label>
+                      <select
+                        value={colRollupInput.aggregate}
+                        onChange={(e: any) => setColRollupInput({ ...colRollupInput, aggregate: e.target.value })}
+                        className="w-full bg-[#121212] border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                      >
+                        <option value="sum">যোগফল (Sum)</option>
+                        <option value="count">সংখ্যা (Count)</option>
+                        <option value="avg">গড় (Average)</option>
+                        <option value="min">সর্বনিম্ন (Min)</option>
+                        <option value="max">সর্বোচ্চ (Max)</option>
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Actions footer options */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => setShowConfigCol(null)}
-                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white font-bold text-[11px] uppercase tracking-wider transition-all"
+                  className="flex-1 py-2 bg-white/10 rounded-xl font-bold cursor-pointer"
                 >
-                  Cancel
+                  বাতিল
                 </button>
                 <button
                   onClick={() => handleSaveColConfig(showConfigCol)}
-                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all shadow-lg shadow-purple-500/10"
+                  className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 font-bold rounded-xl cursor-pointer"
                 >
-                  Apply Property
+                  সংরক্ষণ করুন
                 </button>
               </div>
             </motion.div>

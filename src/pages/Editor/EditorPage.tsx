@@ -191,6 +191,23 @@ function EditorPage({ id }: { id: string | undefined }) {
     }
   };
 
+  const handleToggleWidth = async () => {
+    if (!note) return;
+    const nextWidth = note.pageWidth === 'full' ? 'default' : 'full';
+    const updated = { ...note, pageWidth: nextWidth as any };
+    setNote(updated);
+    await DataManager.saveNote(updated);
+  };
+
+  const handleToggleFontScale = async () => {
+    if (!note) return;
+    const currentScale = note.fontScale || 'default';
+    const nextScale = currentScale === 'default' ? 'small' : currentScale === 'small' ? 'large' : 'default';
+    const updated = { ...note, fontScale: nextScale as any };
+    setNote(updated);
+    await DataManager.saveNote(updated);
+  };
+
   const modalContextValue = {
     note,
     theme,
@@ -233,6 +250,10 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleKickCollaborator,
     handleLinkPageSelect,
     noteRef,
+    pageWidth: note?.pageWidth || 'default',
+    onToggleWidth: handleToggleWidth,
+    fontScale: note?.fontScale || 'default',
+    onToggleFontScale: handleToggleFontScale,
   };
 
   return (

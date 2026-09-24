@@ -5,11 +5,10 @@ import {
   Settings2, Settings, Sun, Moon, Layers, Plus, Sparkles,
   ChevronRight, FileText, ChevronDown, MoreHorizontal,
   Box, Download, Zap, Database, AlertCircle, FileDown, Users,
-  Boxes, Layout, ArrowLeft, History, Clock, Loader2, LayoutGrid, Monitor, Wrench
+  Boxes, Layout, ArrowLeft, History, Clock, Loader2, LayoutGrid, Monitor, Wrench, Share2
 } from 'lucide-react';
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
-import { WasmBridgeService } from '../wasm/WasmModule';
 import { db } from '../services/storage/DexieDB';
 import { globalCollabManager } from '../services/PeerCollabManager';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
@@ -271,18 +270,9 @@ export default function Sidebar({
                 </div>
                 <div className="space-y-1">
                   {(() => {
-                    const top3Recent = WasmBridgeService.getTop3RecentNotes(notes.map(n => ({
-                      id: n.id,
-                      title: n.title,
-                      workspaceId: n.workspaceId || 'default',
-                      parentId: n.parentId || '',
-                      tags: (n.tags || []).join(','),
-                      updatedAt: n.updatedAt,
-                      lastOpenedAt: n.lastOpenedAt || 0,
-                      isTrashed: !!n.isTrashed,
-                      isFavorite: !!n.isFavorite,
-                      isPinned: !!n.isPinned
-                    }))) as any[];
+                    const top3Recent = [...notes]
+                      .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
+                      .slice(0, 3);
 
                     if (top3Recent.length === 0) {
                       return (
@@ -292,8 +282,7 @@ export default function Sidebar({
                       );
                     }
 
-                    return top3Recent.map(noteMeta => {
-                      const note = notes.find(n => n.id === noteMeta.id) || noteMeta;
+                    return top3Recent.map(note => {
                       const isActive = activeNoteId === note.id;
                       return (
                         <div 
@@ -327,6 +316,27 @@ export default function Sidebar({
                 </div>
               </div>
 
+              {/* Favorites Section */}
+              {notes.filter(n => n.isFavorite).length > 0 && (
+                <div className="pt-2 border-t border-white/[0.06]">
+                  <div className="px-3 py-1.5 mb-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <span>★ পছন্দের নোটসমূহ</span>
+                  </div>
+                  <div className="space-y-1">
+                    {notes.filter(n => n.isFavorite).map(fNote => (
+                      <div
+                        key={fNote.id}
+                        onClick={() => { navigate(`/editor/${fNote.id}`); onClose(); }}
+                        className="flex items-center gap-2.5 py-2 px-3 rounded-xl cursor-pointer hover:bg-white/[0.06] text-white/80"
+                      >
+                        <span className="text-base shrink-0">{fNote.emoji || '📄'}</span>
+                        <span className="text-[13px] truncate font-medium flex-1">{fNote.title || 'শিরোনামহীন'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Navigation Sections */}
               <div className="pt-2 border-t border-white/[0.06] space-y-1">
                 <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/40">
@@ -337,6 +347,7 @@ export default function Sidebar({
                   { icon: <Search size={16} />, label: 'অনুসন্ধান ও ফিল্টার', path: '/search' },
                   { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
                   { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
+                  { icon: <Share2 size={16} />, label: 'গ্রাফ ভিউ (Graph View)', path: '/graph' },
                   { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
                   { icon: <Wrench size={16} />, label: 'টুলস সেকশন', path: '/external-ai-import' },
                   { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },

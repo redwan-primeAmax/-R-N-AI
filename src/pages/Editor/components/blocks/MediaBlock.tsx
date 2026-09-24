@@ -4,7 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Music, Video, FileText, Loader2, Pause, Play, Download } from 'lucide-react';
+import { 
+  Music, Video, FileText, Loader2, Pause, Play, Download, 
+  ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, Maximize2 
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../../utils/cn';
 import { operationRunner } from '../../../../services/storage/OperationRunner';
 import { DataManager } from '../../../../services/storage/DataManager';
@@ -24,6 +28,14 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Lightbox state
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Find all image blocks in current editor note
+  const imageBlocks = blocks.filter(b => b.mediaData?.type === 'image' && b.mediaData?.url);
 
   useEffect(() => {
     if (status === 'uploading' && id) {
@@ -53,7 +65,6 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
     
     if (url?.startsWith('media:')) {
       const mediaId = url.split('media:')[1];
-      
       const loadMedia = async () => {
         const blob = await DataManager.getMedia(mediaId);
         if (blob && active) {
@@ -73,6 +84,45 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
       }
     };
   }, [url]);
+
+  // Handle ESC key for Lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false);
+        setZoomScale(1);
+      }
+    };
+    if (isLightboxOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen]);
+
+  const openLightbox = () => {
+    const idx = imageBlocks.findIndex(b => b.id === block.id);
+    setCurrentImageIndex(idx !== -1 ? idx : 0);
+    setZoomScale(1);
+    setIsLightboxOpen(true);
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (imageBlocks.length > 0) {
+      const nextIdx = (currentImageIndex + 1) % imageBlocks.length;
+      setCurrentImageIndex(nextIdx);
+      setZoomScale(1);
+    }
+  };
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (imageBlocks.length > 0) {
+      const prevIdx = (currentImageIndex - 1 + imageBlocks.length) % imageBlocks.length;
+      setCurrentImageIndex(prevIdx);
+      setZoomScale(1);
+    }
+  };
 
   const formatTime = (time: number) => {
     const mins = Math.floor(time / 60);
@@ -106,13 +156,8 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise
-            .then(() => {
-              setIsPlaying(true);
-            })
-            .catch(error => {
-              console.error("Playback failed:", error);
-              setIsPlaying(false);
-            });
+            .then(() => setIsPlaying(true))
+            .catch(() => setIsPlaying(false));
         }
       }
     };
@@ -129,7 +174,7 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
         <audio ref={audioRef} src={resolvedUrl} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} className="hidden" />
         <button 
           onClick={togglePlay}
-          className="w-12 h-12 bg-blue-500 hover:bg-blue-400 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20 active:scale-90 transition-all text-white flex-shrink-0"
+          className="w-12 h-12 bg-blue-500 hover:bg-blue-400 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20 active:scale-90 transition-all text-white flex-shrink-0 cursor-pointer"
         >
           {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} className="ml-1" fill="currentColor" />}
         </button>
@@ -149,44 +194,62 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
     );
   }
 
+  const activeLightboxImage = imageBlocks[currentImageIndex]?.mediaData?.url || resolvedUrl;
+
   return (
     <div className="border border-white/5 rounded-2xl overflow-hidden bg-[#0a0a0a] shadow-xl group">
       {type === 'image' && (
         <div className={cn(
-          "relative group/img transition-all mx-auto",
+          "relative group/img transition-all mx-auto cursor-zoom-in",
           width === 'small' ? "max-w-[150px]" : width === 'medium' ? "max-w-md" : "w-full"
         )}>
-           <img src={resolvedUrl} referrerPolicy="no-referrer" className="w-full h-auto max-h-[60vh] object-contain rounded-lg" alt={fileName} />
+          <img 
+            onClick={openLightbox}
+            src={resolvedUrl} 
+            referrerPolicy="no-referrer" 
+            className="w-full h-auto max-h-[60vh] object-contain rounded-lg transition-transform hover:scale-[1.01]" 
+            alt={fileName} 
+          />
            
-           {/* Width Controls */}
-           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/10 z-10">
-              {[
-                { id: 'small', label: 'S' },
-                { id: 'medium', label: 'M' },
-                { id: 'full', label: 'F' }
-              ].map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    setBlocks((prev: EditorBlock[]) => prev.map(b => b.id === block.id ? {
-                      ...b,
-                      mediaData: { ...b.mediaData!, width: opt.id as any }
-                    } : b));
-                  }}
-                  className={cn(
-                    "w-7 h-7 flex items-center justify-center text-[10px] font-black rounded-lg transition-all",
-                    width === opt.id || (!width && opt.id === 'full') ? "bg-white text-black" : "text-white/60 hover:bg-white/10"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-           </div>
+          {/* Controls */}
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/10 z-10">
+            <button
+              onClick={openLightbox}
+              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer"
+              title="Fullscreen Lightbox"
+            >
+              <Maximize2 size={13} />
+            </button>
+            {[
+              { id: 'small', label: 'S' },
+              { id: 'medium', label: 'M' },
+              { id: 'full', label: 'F' }
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBlocks((prev: EditorBlock[]) => prev.map(b => b.id === block.id ? {
+                    ...b,
+                    mediaData: { ...b.mediaData!, width: opt.id as any }
+                  } : b));
+                }}
+                className={cn(
+                  "w-7 h-7 flex items-center justify-center text-[10px] font-black rounded-lg transition-all cursor-pointer",
+                  width === opt.id || (!width && opt.id === 'full') ? "bg-white text-black" : "text-white/60 hover:bg-white/10"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
+
       {type === 'video' && (
         <video src={resolvedUrl} controls className="w-full h-auto max-h-[60vh]" />
       )}
+
       {type === 'file' && (
         <div className="flex flex-col items-center justify-center py-12 px-6 bg-white/[0.02]">
            <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4">
@@ -196,15 +259,100 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
            <p className="text-[10px] font-black uppercase tracking-widest text-white/20">{fileSize || 'Unknown Size'}</p>
         </div>
       )}
+
       <div className="flex items-center justify-between w-full p-4 border-t border-white/5 bg-white/[0.01]">
         <div className="flex items-center gap-3 overflow-hidden">
-           {type === 'image' ? <FileText size={14} className="text-blue-400" /> : <FileText size={14} className="text-orange-400" />}
+           <FileText size={14} className="text-blue-400" />
            <span className="text-xs font-bold truncate opacity-40 text-left">{fileName}</span>
         </div>
-        <button onClick={() => window.open(resolvedUrl, '_blank')} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white">
+        <button onClick={() => window.open(resolvedUrl, '_blank')} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white cursor-pointer">
            <Download size={14} className="opacity-45" />
         </button>
       </div>
+
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {isLightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsLightboxOpen(false)}
+            className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            {/* Top Toolbar */}
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="absolute top-4 right-4 flex items-center gap-2 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/10 z-20"
+            >
+              <button
+                onClick={() => setZoomScale(z => Math.min(3, z + 0.25))}
+                className="p-2 text-white hover:bg-white/10 rounded-xl cursor-pointer"
+                title="Zoom In"
+              >
+                <ZoomIn size={18} />
+              </button>
+              <button
+                onClick={() => setZoomScale(z => Math.max(0.5, z - 0.25))}
+                className="p-2 text-white hover:bg-white/10 rounded-xl cursor-pointer"
+                title="Zoom Out"
+              >
+                <ZoomOut size={18} />
+              </button>
+              <a
+                href={activeLightboxImage}
+                download={fileName || 'image.png'}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 text-white hover:bg-white/10 rounded-xl cursor-pointer"
+                title="Download"
+              >
+                <Download size={18} />
+              </a>
+              <button
+                onClick={() => setIsLightboxOpen(false)}
+                className="p-2 text-white hover:bg-red-500/50 rounded-xl cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Navigation Arrows */}
+            {imageBlocks.length > 1 && (
+              <>
+                <button
+                  onClick={handlePrevImage}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-transform active:scale-95 z-20 cursor-pointer"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  onClick={handleNextImage}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-transform active:scale-95 z-20 cursor-pointer"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </>
+            )}
+
+            {/* Main Lightbox Image */}
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: zoomScale }}
+              transition={{ type: 'spring', damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-[90vw] max-h-[85vh] flex items-center justify-center overflow-auto"
+            >
+              <img
+                src={activeLightboxImage}
+                alt="Enlarged preview"
+                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl select-none"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

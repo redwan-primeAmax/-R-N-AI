@@ -50,6 +50,10 @@ export interface EditorModalContextType {
   handleKickCollaborator: (peerId: string) => void;
   handleLinkPageSelect: (targetNote: any) => void;
   noteRef: React.MutableRefObject<Note | null>;
+  pageWidth?: 'default' | 'full';
+  onToggleWidth?: () => void;
+  fontScale?: 'default' | 'small' | 'large';
+  onToggleFontScale?: () => void;
 }
 
 const EditorModalContext = createContext<EditorModalContextType | undefined>(undefined);

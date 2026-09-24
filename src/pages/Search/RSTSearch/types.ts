@@ -14,6 +14,7 @@ export interface SearchToken {
 export interface SearchResult {
   note: Note;
   score: number;
+  docIndex?: number;
 }
 
 export interface InvertedIndexEntry {

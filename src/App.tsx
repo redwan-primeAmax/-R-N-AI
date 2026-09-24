@@ -63,6 +63,7 @@ const SettingsPage = lazyWithRetry(() => import('./pages/Settings/SettingsPage')
 const BookmarkPage = lazyWithRetry(() => import('./pages/Bookmark/BookmarkPage'));
 const VaultPage = lazyWithRetry(() => import('./pages/Vault/Vault'));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
+const GraphView = lazyWithRetry(() => import('./pages/GraphView').then(m => ({ default: m.GraphView })));
 
 function LoadingFallback() {
   return (
@@ -303,6 +304,7 @@ function AppContent() {
     { path: "/ai", element: <Navigate to="/ai-auto" replace /> },
     { path: "/settings", element: <PageWrapper><SettingsPage /></PageWrapper> },
     { path: "/bookmarks", element: <PageWrapper><BookmarkPage /></PageWrapper> },
+    { path: "/graph", element: <PageWrapper><GraphView /></PageWrapper> },
     { path: "/vault", element: <PageWrapper><VaultPage /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AIConfiguration /></PageWrapper> },
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },

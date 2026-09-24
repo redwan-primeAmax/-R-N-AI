@@ -61,6 +61,10 @@ export const EditorModals: React.FC = () => {
     handleKickCollaborator,
     handleLinkPageSelect,
     noteRef,
+    pageWidth,
+    onToggleWidth,
+    fontScale,
+    onToggleFontScale,
   } = useEditorModal();
 
   const handleMoveToBookmark = async (folderId?: string) => {
@@ -120,6 +124,10 @@ export const EditorModals: React.FC = () => {
         collaborators={collaborators}
         onKickCollaborator={handleKickCollaborator}
         blocks={editor.blocks}
+        pageWidth={pageWidth}
+        onToggleWidth={onToggleWidth}
+        fontScale={fontScale}
+        onToggleFontScale={onToggleFontScale}
       />
 
       <MoveToBookmarkModal 

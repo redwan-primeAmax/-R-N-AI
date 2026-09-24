@@ -1,3 +1,38 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+export interface NoteSnapshot {
+  id: string;
+  timestamp: number;
+  content: string;
+}
+
+export interface NoteCommentReply {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface NoteComment {
+  id: string;
+  blockId?: string;
+  author: string;
+  text: string;
+  resolved: boolean;
+  createdAt: number;
+  replies?: NoteCommentReply[];
+}
+
+export interface ReminderItem {
+  id: string;
+  at: number;
+  message: string;
+  sent: boolean;
+}
+
 export interface Note {
   id: string;
   title: string;
@@ -25,12 +60,20 @@ export interface Note {
   theme?: string;
   isCollaborated?: boolean;
   collabRoomId?: string;
-  // Compatibility with older/other areas
   category?: string;
   wordCount?: number;
   subPages?: string[];
   color?: string;
   hasMedia?: boolean;
+
+  // New features
+  coverImage?: string;
+  coverPosition?: number; // 0-100
+  pageWidth?: 'default' | 'full';
+  fontScale?: 'default' | 'small' | 'large';
+  reminders?: ReminderItem[];
+  comments?: NoteComment[];
+  snapshots?: NoteSnapshot[];
 }
 
 export interface Workspace {
@@ -59,4 +102,37 @@ export interface BookmarkFolder {
   name: string;
   parentId?: string;
   createdAt: number;
+}
+
+// Database Block Extended Types
+export interface DatabaseFilter {
+  columnId: string;
+  operator: '=' | 'not-equal' | 'contains' | 'greater' | 'less' | 'empty';
+  value: string;
+}
+
+export interface DatabaseSort {
+  columnId: string;
+  direction: 'asc' | 'desc';
+}
+
+export interface DatabaseView {
+  id: string;
+  name: string;
+  type: 'table' | 'board' | 'list';
+  filters?: DatabaseFilter[];
+  sorts?: DatabaseSort[];
+  groupBy?: string;
+}
+
+export interface RollupConfig {
+  relationColumn: string;
+  targetProperty: string;
+  aggregate: 'count' | 'sum' | 'avg' | 'min' | 'max';
+}
+
+export interface DatabaseRelation {
+  fromColumn: string;
+  toDatabaseId: string;
+  toColumn: string;
 }
