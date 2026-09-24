@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
+import EmojiPicker, { Theme, EmojiClickData, EmojiStyle } from 'emoji-picker-react';
 
 interface IconChangeProps {
   isOpen: boolean;
@@ -65,7 +65,8 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
                   theme={Theme.DARK}
                   width="100%"
                   height="100%"
-                  lazyLoadEmojis={true}
+                  lazyLoadEmojis={false}
+                  emojiStyle={EmojiStyle.NATIVE}
                   onEmojiClick={handleEmojiClick}
                   searchPlaceholder="ইমোজি খুঁজুন..."
                   previewConfig={{

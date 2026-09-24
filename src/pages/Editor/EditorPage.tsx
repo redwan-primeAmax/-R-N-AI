@@ -7,7 +7,6 @@ import { useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import CustomBlockEditor from './components/CustomBlockEditor';
-import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { X } from 'lucide-react';
 
 import { IconChange } from '../../components/icon/IconChange';

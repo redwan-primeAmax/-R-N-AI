@@ -14,7 +14,7 @@ export const PageIcon = ({ emoji, className = "text-xl", fallback = '📄', id }
   }
   
   const trimmed = emoji.trim();
-  if (trimmed.startsWith('<svg') || (Symbol.iterator in Object(trimmed) && trimmed.includes('<svg'))) {
+  if (trimmed.startsWith('<svg') || trimmed.includes('<svg ')) {
     const cleanSvg = cleanRootSvgAttributes(trimmed);
     return (
       <span 
@@ -25,5 +25,5 @@ export const PageIcon = ({ emoji, className = "text-xl", fallback = '📄', id }
     );
   }
   
-  return <span id={id} className={`${className} leading-none flex items-center justify-center p-1`}>{emoji}</span>;
+  return <span id={id} className={`${className} leading-none flex items-center justify-center`}>{emoji}</span>;
 };

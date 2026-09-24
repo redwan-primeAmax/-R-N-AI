@@ -17,6 +17,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from './modals/Modal';
 import { MoveToModal } from './modals/MoveToModal';
+import { PageIcon } from './PageIcon';
 import LoadingScreen from './LoadingScreen';
 import { cn } from '../utils/cn';
 import { formatSize } from '../utils/formatSize';
@@ -144,7 +145,7 @@ export default function Sidebar({
           ) : (
             <div className="w-5" />
           )}
-          <span className="text-base select-none shrink-0">{note.emoji || '📄'}</span>
+          <PageIcon emoji={note.emoji} className="text-base shrink-0" />
           <span className="text-[13px] truncate flex-1">{note.title || 'Untitled'}</span>
         </div>
         {isExpanded && children.length > 0 && (
@@ -294,7 +295,7 @@ export default function Sidebar({
                             onClick={() => { navigate(`/editor/${note.id}`); onClose(); }}
                             className="flex items-center gap-2.5 flex-1 min-w-0"
                           >
-                            <span className="text-base shrink-0">{note.emoji || '📄'}</span>
+                            <PageIcon emoji={note.emoji} className="text-base shrink-0" />
                             <span className="text-[13px] truncate font-medium">{note.title || 'শিরোনামহীন'}</span>
                           </div>
                           <button
@@ -327,7 +328,7 @@ export default function Sidebar({
                         onClick={() => { navigate(`/editor/${fNote.id}`); onClose(); }}
                         className="flex items-center gap-2.5 py-2 px-3 rounded-xl cursor-pointer hover:bg-white/[0.06] text-white/80"
                       >
-                        <span className="text-base shrink-0">{fNote.emoji || '📄'}</span>
+                        <PageIcon emoji={fNote.emoji} className="text-base shrink-0" />
                         <span className="text-[13px] truncate font-medium flex-1">{fNote.title || 'শিরোনামহীন'}</span>
                       </div>
                     ))}

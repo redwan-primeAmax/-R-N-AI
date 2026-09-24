@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MoreVertical, Search, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { PublishIcon } from '../svg/PublishIcon';
+import { PageIcon } from '../../../components/PageIcon';
 
 interface EditorHeaderProps {
   onBack: () => void;
@@ -202,7 +203,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                       className="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white truncate font-medium transition-colors"
                       title={parentNote.title || 'Parent Note'}
                     >
-                      <span className="shrink-0">{parentNote.emoji || '📄'}</span>
+                      <PageIcon emoji={parentNote.emoji} className="shrink-0 text-sm" />
                       <span className="truncate">{parentNote.title || 'Untitled'}</span>
                     </button>
                     <ChevronRight size={12} className="text-gray-400/40 mx-1 shrink-0" />
