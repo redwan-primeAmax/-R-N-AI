@@ -2,10 +2,6 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { WasmBridgeService } from './wasm/WasmModule';
-
-// Initialize C++ WebAssembly Engine
-WasmBridgeService.init();
 
 // Polyfill for HTML5 Drag and Drop on mobile/touch devices
 import { polyfill } from 'mobile-drag-drop';

@@ -4,7 +4,6 @@
  */
 
 import { DataManager } from '../../services/storage/DataManager';
-import { WasmBridgeService } from '../../wasm/WasmModule';
 
 export const PasswordTakeCare = {
   getMasterPassword: async (): Promise<string | null> => {
@@ -16,10 +15,16 @@ export const PasswordTakeCare = {
     const master = await PasswordTakeCare.getMasterPassword();
     if (!master) return false;
     
-    // Use C++ WebAssembly crypto verification if hashed, or direct match
     if (master.includes('$')) {
       const [salt, hash] = master.split('$');
-      return WasmBridgeService.verifyPassword(password, hash, salt);
+      const combined = password + salt;
+      let calculated = 0;
+      for (let i = 0; i < combined.length; i++) {
+        const char = combined.charCodeAt(i);
+        calculated = ((calculated << 5) - calculated) + char;
+        calculated |= 0;
+      }
+      return Math.abs(calculated).toString(16) === hash;
     }
     
     return master === password;
@@ -28,9 +33,19 @@ export const PasswordTakeCare = {
   setMasterPassword: async (password: string): Promise<void> => {
     const user = await DataManager.getUser();
     if (user) {
-      // Hash password using C++ WebAssembly crypto vault engine with 16-char salt
-      const salt = WasmBridgeService.generateSalt();
-      const hash = WasmBridgeService.hashPassword(password, salt);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let salt = '';
+      for (let i = 0; i < 16; i++) {
+        salt += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const combined = password + salt;
+      let hashVal = 0;
+      for (let i = 0; i < combined.length; i++) {
+        const char = combined.charCodeAt(i);
+        hashVal = ((hashVal << 5) - hashVal) + char;
+        hashVal |= 0;
+      }
+      const hash = Math.abs(hashVal).toString(16);
       const secureMaster = `${salt}$${hash}`;
       await DataManager.updateUser({ ...user, masterPassword: secureMaster });
     }
