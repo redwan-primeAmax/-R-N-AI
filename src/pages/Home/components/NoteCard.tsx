@@ -50,9 +50,9 @@ export const NoteCard = React.memo<NoteCardProps>(({
 }) => {
   const isGrid = mode === 'grid';
   const previewText = React.useMemo(() => {
-    if (!note.description) return '';
-    return truncateGraphemes(note.description, isGrid ? 90 : 60);
-  }, [note.description, isGrid]);
+    const plain = note.content ? note.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    return truncateGraphemes(plain, isGrid ? 90 : 60);
+  }, [note.content, isGrid]);
 
   const timeLabel = React.useMemo(() => {
     return formatRelativeTime(note.updatedAt);

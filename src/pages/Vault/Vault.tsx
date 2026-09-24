@@ -92,7 +92,7 @@ export default function Vault() {
 
   const filteredNotes = lockedNotes.filter(n => 
     n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (n.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (n.content || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading && hasPasswordSet === null) {
@@ -272,7 +272,7 @@ export default function Vault() {
                   </div>
 
                   <p className="text-xs text-white/40 leading-relaxed line-clamp-3 mb-8 flex-1 italic">
-                    {note.description || 'কোন বিবরণী নেই...'}
+                    {note.content ? note.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) + '...' : 'কোন বিবরণী নেই...'}
                   </p>
 
                   <div className="flex flex-col gap-3">

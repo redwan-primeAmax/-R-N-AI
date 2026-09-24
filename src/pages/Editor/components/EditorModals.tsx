@@ -63,8 +63,6 @@ export const EditorModals: React.FC = () => {
     noteRef,
     pageWidth,
     onToggleWidth,
-    fontScale,
-    onToggleFontScale,
   } = useEditorModal();
 
   const handleMoveToBookmark = async (folderId?: string) => {
@@ -126,8 +124,6 @@ export const EditorModals: React.FC = () => {
         blocks={editor.blocks}
         pageWidth={pageWidth}
         onToggleWidth={onToggleWidth}
-        fontScale={fontScale}
-        onToggleFontScale={onToggleFontScale}
       />
 
       <MoveToBookmarkModal 

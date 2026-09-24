@@ -14,13 +14,11 @@ interface UseCollaborationParams {
   editor: any;
   title: string;
   emoji: string;
-  description: string;
   theme: string;
   currentSubPages: Note[];
   setNote: (note: Note) => void;
   setTitle: (title: string) => void;
   setEmoji: (emoji: string) => void;
-  setDescription: (desc: string) => void;
   setTheme: (theme: string) => void;
   setCurrentSubPages: (subs: Note[]) => void;
   setNotification: (notif: { message: string; type: 'info' | 'success' | 'error' } | null) => void;
@@ -28,7 +26,6 @@ interface UseCollaborationParams {
   navigate: any;
   titleRef: React.MutableRefObject<string>;
   emojiRef: React.MutableRefObject<string>;
-  descriptionRef: React.MutableRefObject<string>;
   themeRef: React.MutableRefObject<string>;
   noteRef: React.MutableRefObject<Note | null>;
 }
@@ -39,13 +36,11 @@ export function useCollaboration({
   editor,
   title,
   emoji,
-  description,
   theme,
   currentSubPages,
   setNote,
   setTitle,
   setEmoji,
-  setDescription,
   setTheme,
   setCurrentSubPages,
   setNotification,
@@ -53,7 +48,6 @@ export function useCollaboration({
   navigate,
   titleRef,
   emojiRef,
-  descriptionRef,
   themeRef,
   noteRef,
 }: UseCollaborationParams) {
@@ -78,7 +72,6 @@ export function useCollaboration({
             blocks: editor.blocks,
             title,
             emoji,
-            description,
             theme,
             noteId: id,
             parentId: note?.parentId,
@@ -188,10 +181,6 @@ export function useCollaboration({
             setEmoji(syncedState.emoji);
             emojiRef.current = syncedState.emoji;
           }
-          if (syncedState.description !== descriptionRef.current) {
-            setDescription(syncedState.description);
-            descriptionRef.current = syncedState.description;
-          }
           if (syncedState.theme !== themeRef.current) {
             setTheme(syncedState.theme);
             themeRef.current = syncedState.theme;
@@ -242,7 +231,6 @@ export function useCollaboration({
             ...note,
             title: syncedState.title,
             emoji: syncedState.emoji,
-            description: syncedState.description,
             theme: syncedState.theme,
             content: updatedBlocksHtml,
             updatedAt: Date.now(),
@@ -269,7 +257,6 @@ export function useCollaboration({
         blocks: editor.blocks,
         title,
         emoji,
-        description,
         theme,
         noteId: id,
         parentId: note?.parentId,
@@ -290,7 +277,6 @@ export function useCollaboration({
       const isIdentical =
         lastSynced.title === title &&
         lastSynced.emoji === emoji &&
-        lastSynced.description === description &&
         lastSynced.theme === theme &&
         JSON.stringify(lastSynced.blocks) === JSON.stringify(editor.blocks);
 
@@ -305,14 +291,13 @@ export function useCollaboration({
         blocks: editor.blocks,
         title,
         emoji,
-        description,
         theme,
         noteId: id,
         parentId: note?.parentId,
         subPages: currentSubPages,
       });
     }
-  }, [editor.blocks, title, emoji, description, theme, collabRoom, id, note?.parentId, currentSubPages]);
+  }, [editor.blocks, title, emoji, theme, collabRoom, id, note?.parentId, currentSubPages]);
 
   const handleStartCollab = async (options?: { password?: string; memberLimit?: number }) => {
     if (collabRoom && !options) {
@@ -349,7 +334,6 @@ export function useCollaboration({
         blocks: editor.blocks,
         title,
         emoji,
-        description,
         theme,
         noteId: id,
         parentId: note?.parentId,

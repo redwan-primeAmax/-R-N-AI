@@ -21,7 +21,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   const [note, setNote] = useState<Note | null>(null);
   const [title, setTitle] = useState('');
   const [emoji, setEmoji] = useState('📄');
-  const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [theme, setTheme] = useState<string>('default');
   const [isSaving, setIsSaving] = useState(false);
@@ -56,13 +55,11 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   const noteRef = useRef<Note | null>(null);
   const titleRef = useRef(title);
   const emojiRef = useRef(emoji);
-  const descriptionRef = useRef(description);
   const tagsRef = useRef(tags);
   const themeRef = useRef(theme);
 
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => { emojiRef.current = emoji; }, [emoji]);
-  useEffect(() => { descriptionRef.current = description; }, [description]);
   useEffect(() => { tagsRef.current = tags; }, [tags]);
   useEffect(() => { themeRef.current = theme; }, [theme]);
   const backupTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -111,11 +108,10 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       const isContentDiff = content !== lastSavedContentRef.current;
       const isTitleDiff = titleRef.current !== currentNote.title;
       const isEmojiDiff = emojiRef.current !== currentNote.emoji;
-      const isDescDiff = descriptionRef.current !== (currentNote.description || '');
       const isThemeDiff = themeRef.current !== (currentNote.theme || 'default');
       const isTagsDiff = JSON.stringify(tagsRef.current) !== JSON.stringify(currentNote.tags || []);
       
-      const hasChanges = isContentDiff || isTitleDiff || isEmojiDiff || isDescDiff || isThemeDiff || isTagsDiff;
+      const hasChanges = isContentDiff || isTitleDiff || isEmojiDiff || isThemeDiff || isTagsDiff;
 
       if (hasChanges) {
         const updatedTitle = titleRef.current || 'শিরোনামহীন';
@@ -127,7 +123,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
             title: updatedTitle,
             content,
             emoji: updatedEmoji,
-            description: descriptionRef.current,
             tags: tagsRef.current,
             theme: themeRef.current
           });
@@ -205,20 +200,23 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       blocks,
       title: titleRef.current,
       emoji: emojiRef.current,
-      description: descriptionRef.current,
       tags: tagsRef.current,
       theme: themeRef.current,
       timestamp: Date.now()
     };
     
-    DataManager.encryptValue(JSON.stringify(draftData)).then((encrypted) => {
+    const timer = setTimeout(() => {
       try {
-        localStorage.setItem(`note_draft_${id}`, encrypted);
+        const plain = JSON.stringify(draftData);
+        if (plain.length > 500000) return; // Skip if too large
+        localStorage.setItem(`note_draft_${id}`, plain);
       } catch (e) {
         console.warn('LocalStorage draft write error:', e);
       }
-    }).catch(console.error);
-  }, [blocks, title, emoji, description, tags, theme, id]);
+    }, 5000); // 5s debounce
+
+    return () => clearTimeout(timer);
+  }, [blocks, title, emoji, tags, theme, id]);
 
   // Instant hot-save on tab close / tab hide / unload (Diamond Road security logic)
   useEffect(() => {
@@ -231,7 +229,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
           content !== lastSavedContentRef.current || 
           titleRef.current !== noteRef.current?.title ||
           emojiRef.current !== noteRef.current?.emoji ||
-          descriptionRef.current !== noteRef.current?.description ||
           themeRef.current !== noteRef.current?.theme ||
           JSON.stringify(tagsRef.current) !== JSON.stringify(noteRef.current?.tags);
 
@@ -245,7 +242,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
             title: updatedTitle,
             content,
             emoji: updatedEmoji,
-            description: descriptionRef.current,
             tags: tagsRef.current,
             theme: themeRef.current
           }).then(() => {
@@ -279,7 +275,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
           content !== lastSavedContentRef.current || 
           titleRef.current !== noteRef.current?.title ||
           emojiRef.current !== noteRef.current?.emoji ||
-          descriptionRef.current !== noteRef.current?.description ||
           themeRef.current !== noteRef.current?.theme ||
           JSON.stringify(tagsRef.current) !== JSON.stringify(noteRef.current?.tags);
 
@@ -293,7 +288,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
             title: updatedTitle,
             content,
             emoji: updatedEmoji,
-            description: descriptionRef.current,
             tags: tagsRef.current,
             theme: themeRef.current
           }).then(() => {
@@ -327,7 +321,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
       let titleVal = fetchedNote.title;
       let emojiVal = fetchedNote.emoji;
-      let descVal = fetchedNote.description || '';
       let tagsVal = fetchedNote.tags || [];
       let themeVal = fetchedNote.theme || 'default';
       let contentVal = fetchedNote.content;
@@ -357,7 +350,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
             if (draftHtml !== fetchedNote.content) {
               titleVal = draft.title || fetchedNote.title;
               emojiVal = draft.emoji || fetchedNote.emoji;
-              descVal = draft.description || fetchedNote.description || '';
               tagsVal = draft.tags || fetchedNote.tags || [];
               themeVal = draft.theme || fetchedNote.theme || 'default';
               contentVal = draftHtml;
@@ -374,7 +366,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
       setTitle(titleVal);
       setEmoji(emojiVal);
-      setDescription(descVal);
       setTags(tagsVal);
       setTheme(themeVal);
       
@@ -417,7 +408,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         id: noteId,
         title: 'Connecting to collaboration...',
         emoji: '🔄',
-        description: 'Synchronizing with host...',
         content: '<p>Getting document real-time data from peer host...</p>',
         theme: 'default',
         createdAt: Date.now(),
@@ -431,7 +421,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       setNote(tempNote);
       setTitle(tempNote.title);
       setEmoji(tempNote.emoji);
-      setDescription(tempNote.description || '');
       setTags(tempNote.tags || []);
       setTheme(tempNote.theme || 'default');
       setBlocks(htmlToBlocks(tempNote.content));
@@ -451,7 +440,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       if (!force && content === lastSavedContentRef.current && 
           titleRef.current === noteRef.current.title &&
           emojiRef.current === noteRef.current.emoji &&
-          descriptionRef.current === noteRef.current.description &&
           themeRef.current === noteRef.current.theme &&
           JSON.stringify(tagsRef.current) === JSON.stringify(noteRef.current.tags)) {
         return;
@@ -469,7 +457,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
           title: updatedTitle, 
           content, 
           emoji: updatedEmoji,
-          description: descriptionRef.current,
           tags: tagsRef.current,
           theme: themeRef.current
         });
@@ -542,11 +529,11 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   };
 
   return {
-    editor, note, setNote, title, setTitle, emoji, setEmoji, description, setDescription, 
+    editor, note, setNote, title, setTitle, emoji, setEmoji,
     tags, setTags, theme, setTheme, isSaving, saveError,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages, isListening,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, startListening, stopListening, loadNote, isDeletingRef, 
-    titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef
+    titleRef, emojiRef, noteRef, themeRef, blocksRef
   };
 }

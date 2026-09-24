@@ -64,7 +64,7 @@ const BookmarkPage = lazyWithRetry(() => import('./pages/Bookmark/BookmarkPage')
 const VaultPage = lazyWithRetry(() => import('./pages/Vault/Vault'));
 const OfflinePage = lazyWithRetry(() => import('./pages/Offline/OfflinePage').then(m => ({ default: m.OfflinePage })));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
-const GraphView = lazyWithRetry(() => import('./pages/GraphView').then(m => ({ default: m.GraphView })));
+const ToolsPage = lazyWithRetry(() => import('./pages/Tools/ToolsPage'));
 
 function LoadingFallback() {
   return (
@@ -81,10 +81,9 @@ function LoadingFallback() {
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.1, ease: "linear" }}
+      exit={{ opacity: 1 }}
       className="w-full"
     >
       {children}
@@ -106,7 +105,9 @@ function AppContent() {
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isWorkspacePage = location.pathname === '/workspaces' || location.pathname === '/workspace';
-  const isHideBottomNav = isEditorPage || isWorkspacePage;
+  const isAIPage = location.pathname.startsWith('/ai-auto') || location.pathname.startsWith('/manual-control');
+  const isToolsPage = location.pathname === '/tools' || location.pathname === '/bookmarks' || location.pathname === '/vault';
+  const isHideBottomNav = isEditorPage || isWorkspacePage || isAIPage || isToolsPage;
   const [userName, setUserName] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -310,8 +311,8 @@ function AppContent() {
     { path: "/ai", element: <Navigate to="/ai-auto" replace /> },
     { path: "/settings", element: <PageWrapper><SettingsPage /></PageWrapper> },
     { path: "/bookmarks", element: <PageWrapper><BookmarkPage /></PageWrapper> },
-    { path: "/graph", element: <PageWrapper><GraphView /></PageWrapper> },
     { path: "/vault", element: <PageWrapper><VaultPage /></PageWrapper> },
+    { path: "/tools", element: <PageWrapper><ToolsPage /></PageWrapper> },
     { path: "/ai/settings", element: <PageWrapper><AIConfiguration /></PageWrapper> },
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },

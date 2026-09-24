@@ -17,7 +17,6 @@ interface UseEditorHandlersParams {
   editor: any;
   title: string;
   emoji: string;
-  description: string;
   theme: string;
   tags: string[];
   currentSubPages: Note[];
@@ -25,7 +24,6 @@ interface UseEditorHandlersParams {
   setNote: (note: Note) => void;
   setTitle: (title: string) => void;
   setEmoji: (emoji: string) => void;
-  setDescription: (desc: string) => void;
   setTags: (tags: string[]) => void;
   setTheme: (theme: string) => void;
   setNotification: (notif: { message: string; type: 'info' | 'success' | 'error' } | null) => void;
@@ -34,7 +32,6 @@ interface UseEditorHandlersParams {
   saveNote: (content: string, urgent?: boolean) => void;
   titleRef: React.MutableRefObject<string>;
   emojiRef: React.MutableRefObject<string>;
-  descriptionRef: React.MutableRefObject<string>;
   noteRef: React.MutableRefObject<Note | null>;
   themeRef: React.MutableRefObject<string>;
   blocksRef: React.MutableRefObject<any[]>;
@@ -48,7 +45,6 @@ export function useEditorHandlers({
   editor,
   title,
   emoji,
-  description,
   theme,
   tags,
   currentSubPages,
@@ -56,7 +52,6 @@ export function useEditorHandlers({
   setNote,
   setTitle,
   setEmoji,
-  setDescription,
   setTags,
   setTheme,
   setNotification,
@@ -65,7 +60,6 @@ export function useEditorHandlers({
   saveNote,
   titleRef,
   emojiRef,
-  descriptionRef,
   noteRef,
   themeRef,
   blocksRef,
@@ -174,16 +168,6 @@ export function useEditorHandlers({
     saveDebounceRef.current = setTimeout(() => {
       saveNote(editor.getHTML());
     }, 1000);
-  };
-
-  const updateDescription = (newDesc: string) => {
-    setDescription(newDesc);
-    descriptionRef.current = newDesc;
-    
-    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
-    saveDebounceRef.current = setTimeout(() => {
-      saveNote(editor.getHTML());
-    }, 1500);
   };
 
   const updateEmoji = (newEmoji: string) => {
@@ -343,7 +327,6 @@ export function useEditorHandlers({
     handleLinkPageSelect,
     handleBack,
     updateTitle,
-    updateDescription,
     updateEmoji,
     handleDelete,
     handleCopy,

@@ -24,7 +24,9 @@ import { cn } from '../../utils/cn';
 
 export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'layer'>('layer');
+  const [viewMode, setViewMode] = useState<'grid' | 'layer'>(() => {
+    return (localStorage.getItem('home_view_mode') as 'grid' | 'layer') || 'layer';
+  });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -240,7 +242,10 @@ export default function HomePage() {
           </span>
           <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-1 rounded-xl text-[11px]">
             <button 
-              onClick={() => setViewMode('grid')}
+              onClick={() => {
+                setViewMode('grid');
+                localStorage.setItem('home_view_mode', 'grid');
+              }}
               className={cn(
                 "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
                 viewMode === 'grid' 
@@ -253,7 +258,10 @@ export default function HomePage() {
               <span>Grid</span>
             </button>
             <button 
-              onClick={() => setViewMode('layer')}
+              onClick={() => {
+                setViewMode('layer');
+                localStorage.setItem('home_view_mode', 'layer');
+              }}
               className={cn(
                 "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
                 viewMode === 'layer' 

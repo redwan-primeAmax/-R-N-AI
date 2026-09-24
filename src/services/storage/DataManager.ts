@@ -27,8 +27,9 @@ import type {
 export type { Note, Workspace, NoteVersion, ChatMessage, AITask, ContextSummary, AISettings, UserPreferences, BookmarkFolder };
 
 // Trigger background migration seamlessly on load
-runMigrationFromLocalForage().then(() => {
+runMigrationFromLocalForage().then(async () => {
   console.log('DataManager: Dexie migration completed.');
+  await DataManager.runAutoCleanup().catch(console.error);
 }).catch(err => {
   console.error('DataManager: Dexie migration error:', err);
 });
@@ -171,6 +172,60 @@ export const DataManager = {
   },
 
   // --- Notes Operations ---
+  async runAutoCleanup() {
+    try {
+      console.log('DataManager: Running auto-cleanup...');
+      
+      // 1. Purge tombstones older than 30 days
+      const cutoff30Days = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      await db.deleted_notes.where('deletedAt').below(cutoff30Days).delete();
+
+      // 2. Purge note_versions older than 60 days
+      const cutoff60Days = Date.now() - 60 * 24 * 60 * 60 * 1000;
+      await db.note_versions.where('createdAt').below(cutoff60Days).delete();
+
+      // 3. Keep only 3 internal backups
+      const backupsRecord = await db.key_value_pairs.get('internal_backups');
+      if (backupsRecord?.value?.length > 3) {
+        await db.key_value_pairs.put({ 
+          key: 'internal_backups', 
+          value: backupsRecord.value.slice(0, 3) 
+        });
+      }
+
+      // 4. Purge chat history beyond last 100 messages
+      const allChat = await db.chat_history.toArray();
+      if (allChat.length > 100) {
+        const idsToDelete = allChat.slice(0, allChat.length - 100).map(c => c.id).filter((id): id is number => typeof id === 'number');
+        await db.chat_history.bulkDelete(idsToDelete);
+      }
+
+      // 5. Delete orphan note drafts from localStorage
+      const allNotes = await db.notes.toArray();
+      const liveIds = new Set(allNotes.map(n => n.id));
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('note_draft_')) {
+          const noteId = key.replace('note_draft_', '');
+          if (!liveIds.has(noteId)) {
+            localStorage.removeItem(key);
+            i--; // Adjust index after removal
+          }
+        }
+      }
+
+      // 6. Delete legacy localforage data (safe after migration confirmed)
+      const migrated = await db.key_value_pairs.get('LF_MIGRATION_COMPLETE_V2');
+      if (migrated?.value === true) {
+        await localforage.clear();
+      }
+
+      console.log('DataManager: Auto-cleanup finished.');
+    } catch (e) {
+      console.error('DataManager: Auto-cleanup error:', e);
+    }
+  },
+
   async getAllNotes(forceRefresh: boolean = false): Promise<Note[]> {
     return NoteService.getAllNotes(forceRefresh);
   },
@@ -328,6 +383,12 @@ export const DataManager = {
     await NoteService.deleteNote(id);
     this.invalidateNotesCache(`soft-delete:${id}`);
     notifySync({ type: 'DELETE_NOTE', id });
+  },
+
+  async restoreNote(id: string): Promise<void> {
+    await NoteService.restoreNote(id);
+    this.invalidateNotesCache(`restore-note:${id}`);
+    notifySync({ type: 'RESTORE_NOTE', id });
   },
 
   async deleteNotePermanent(id: string): Promise<void> {

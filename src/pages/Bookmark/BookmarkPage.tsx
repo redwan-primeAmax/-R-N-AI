@@ -188,7 +188,7 @@ export default function BookmarkPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-[15px] truncate">{note.title || 'শিরোনামহীন চিন্তা'}</h3>
                     <p className="text-[11px] text-white/20 font-medium truncate mt-0.5">
-                      {note.description || 'কোনো বর্ণনা নেই'}
+                      {note.content ? note.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) : 'কোনো বর্ণনা নেই'}
                     </p>
                   </div>
                   <button 

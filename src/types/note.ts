@@ -55,7 +55,6 @@ export interface Note {
   mediaRefs?: { localId: string; type: string }[];
   lastSyncedAt?: number;
   lastOpenedAt?: number;
-  description?: string;
   tags?: string[];
   theme?: string;
   isCollaborated?: boolean;
@@ -70,7 +69,6 @@ export interface Note {
   coverImage?: string;
   coverPosition?: number; // 0-100
   pageWidth?: 'default' | 'full';
-  fontScale?: 'default' | 'small' | 'large';
   reminders?: ReminderItem[];
   comments?: NoteComment[];
   snapshots?: NoteSnapshot[];

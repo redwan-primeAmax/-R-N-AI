@@ -8,6 +8,7 @@ import { Copy, ChevronDown, Check } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { EditorBlock } from '../../../../utils/blockParser';
 import { cn } from '../../../../utils/cn';
+// @ts-ignore
 import languagesText from '../../data/languages.txt?raw';
 
 interface CodeBlockProps {

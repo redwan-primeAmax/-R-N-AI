@@ -48,7 +48,6 @@ export function applyStringDiff(yText: Y.Text, newStr: string) {
 export interface CollabMeta {
   title: string;
   emoji: string;
-  description: string;
   theme: string;
 }
 
@@ -175,7 +174,6 @@ export class PeerCollabManager {
             ...existing,
             title: state.title,
             emoji: state.emoji,
-            description: state.description,
             theme: state.theme,
             content: contentHtml,
             updatedAt: Date.now()
@@ -201,14 +199,13 @@ export class PeerCollabManager {
 
   public getReactState(noteId?: string) {
     const id = noteId || this.activeNoteId;
-    if (!id) return { title: '', emoji: '📝', description: '', theme: 'default', blocks: [], noteId: '', parentId: '', syncedSubPages: [] };
+    if (!id) return { title: '', emoji: '📝', theme: 'default', blocks: [], noteId: '', parentId: '', syncedSubPages: [] };
     
     const session = this.getSession(id);
 
     const metaMap = session.yDoc.getMap<string>('metadata');
     const title = metaMap.get('title') || '';
     const emoji = metaMap.get('emoji') || '📝';
-    const description = metaMap.get('description') || '';
     const theme = metaMap.get('theme') || 'default';
     const parentId = metaMap.get('parentId') || '';
 
@@ -246,7 +243,7 @@ export class PeerCollabManager {
     const subpagesArray = session.yDoc.getArray<any>('subpages-list');
     syncedSubPages = subpagesArray.toArray();
 
-    return { title, emoji, description, theme, blocks, noteId: id, parentId, syncedSubPages };
+    return { title, emoji, theme, blocks, noteId: id, parentId, syncedSubPages };
   }
 
   public triggerReactCallback(noteId?: string) {
@@ -261,7 +258,6 @@ export class PeerCollabManager {
     blocks: EditorBlock[];
     title: string;
     emoji: string;
-    description: string;
     theme: string;
     noteId?: string;
     parentId?: string;
@@ -278,7 +274,6 @@ export class PeerCollabManager {
       const metaMap = session.yDoc.getMap<string>('metadata');
       if (metaMap.get('title') !== data.title) metaMap.set('title', data.title);
       if (metaMap.get('emoji') !== data.emoji) metaMap.set('emoji', data.emoji);
-      if (metaMap.get('description') !== data.description) metaMap.set('description', data.description);
       if (metaMap.get('theme') !== data.theme) metaMap.set('theme', data.theme);
       if (metaMap.get('noteId') !== noteId) metaMap.set('noteId', noteId);
       if (data.parentId && metaMap.get('parentId') !== data.parentId) metaMap.set('parentId', data.parentId);
@@ -289,7 +284,6 @@ export class PeerCollabManager {
           id: sub.id,
           title: sub.title || '',
           emoji: sub.emoji || '📄',
-          description: sub.description || '',
           theme: sub.theme || 'default',
           parentId: sub.parentId || noteId,
           workspaceId: sub.workspaceId || 'default',

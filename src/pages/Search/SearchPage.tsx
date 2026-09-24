@@ -9,7 +9,6 @@ import { Search as SearchIcon, X, ChevronRight, Hash, Tag as TagIcon } from 'luc
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { db } from '../../services/storage/DexieDB';
 import { motion, AnimatePresence } from 'framer-motion';
-import FloatingHomeButton from '../../components/FloatingHomeButton';
 import { PageIcon } from '../../components/PageIcon';
 import { searchWithRST, searchWithRSTParallel } from './RSTSearch/RSTSearch';
 import localforage from 'localforage';
@@ -690,9 +689,6 @@ export default function SearchPage() {
         </div>
       </div>
       
-      {/* Floating back home action button */}
-      <FloatingHomeButton />
-
       {/* Filter dialog popup */}
       <Filter
         isOpen={isFilterOpen}

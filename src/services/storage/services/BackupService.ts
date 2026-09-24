@@ -56,7 +56,7 @@ export const BackupService = {
       size: new Blob([data]).size
     };
 
-    const updatedBackups = [newBackup, ...backups].slice(0, 10);
+    const updatedBackups = [newBackup, ...backups].slice(0, 3);
     await db.key_value_pairs.put({ key: 'internal_backups', value: updatedBackups });
   },
 

@@ -106,7 +106,6 @@ export function JoinCollabModal({ isOpen, onClose }: JoinCollabModalProps) {
               id: noteId,
               title: syncedData.title || 'P2P Synced Note',
               emoji: syncedData.emoji || '📝',
-              description: syncedData.description || 'Synced via PeerJS',
               content: blocksHtml,
               theme: syncedData.theme || 'default',
               createdAt: Date.now(),

@@ -52,8 +52,6 @@ export interface EditorModalContextType {
   noteRef: React.MutableRefObject<Note | null>;
   pageWidth?: 'default' | 'full';
   onToggleWidth?: () => void;
-  fontScale?: 'default' | 'small' | 'large';
-  onToggleFontScale?: () => void;
 }
 
 const EditorModalContext = createContext<EditorModalContextType | undefined>(undefined);

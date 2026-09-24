@@ -36,7 +36,6 @@ Return a single JSON ARRAY of objects. Even for single-page topics, return an ar
   {
     "tempId": "unique-slug-0", 
     "title": "Title (Clean, Max 30 chars, Elegant Bengali)",
-    "description": "Powerful 1-line summary in Bengali (max 80 chars)",
     "content": "Rich, multi-layered HTML structure with high-value density",
     "emoji": "Vibrant emoji icon (REQUIRED for main page)"
   }
@@ -179,7 +178,6 @@ const AIContentArchitect: React.FC = () => {
 EXISTING CONTEXT:
 ---
 MAIN PAGE TITLE: ${note.title}
-DESCRIPTION: ${note.description || "None"}
 MAIN CONTENT: ${note.content}
 ${subPagesContext ? `\nSUB-PAGES CONTEXT:${subPagesContext}` : ""}
 ---
@@ -253,7 +251,6 @@ TASK: Update the existing content or create new sub-pages based on the requireme
             await DataManager.saveNote({
               ...existingNote,
               title: data.title,
-              description: data.description || existingNote.description,
               content: finalContent,
               emoji: data.emoji !== undefined ? data.emoji : existingNote.emoji,
               updatedAt: Date.now()
@@ -263,7 +260,6 @@ TASK: Update the existing content or create new sub-pages based on the requireme
           await DataManager.saveNote({
             id: data.realId,
             title: data.title,
-            description: data.description || '',
             content: finalContent,
             emoji: data.emoji || (currentParent ? '' : '📄'),
             parentId: currentParent,
@@ -468,7 +464,6 @@ TASK: Update the existing content or create new sub-pages based on the requireme
                             <span className="text-5xl shrink-0 leading-none">{data.emoji || '📄'}</span>
                             <div className="min-w-0">
                                <h1 className="text-3xl font-black text-white leading-tight mb-2 uppercase">{data.title || 'Untitled'}</h1>
-                               <p className="text-sm text-white/40 font-black italic">{data.description || 'No description provided.'}</p>
                             </div>
                           </div>
                           <div className="prose prose-invert prose-sm max-w-none text-white/70 preview-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.content) }} />

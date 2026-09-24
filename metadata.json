@@ -1,6 +1,6 @@
 {
-  "name": "Note App with Tools",
-  "description": "একটি আধুনিক নোট অ্যাপ যেখানে আপনি আপনার কাস্টম টুলগুলো (ZIP) আপলোড করে ব্যবহার করতে পারেন।",
+  "name": "Diamond Road Notes",
+  "description": "একটি আধুনিক, দ্রুত এবং সুরক্ষিত নোট অ্যাপ যেখানে আপনি আপনার চিন্তাগুলো গুছিয়ে রাখতে পারেন।",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

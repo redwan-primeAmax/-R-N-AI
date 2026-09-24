@@ -135,7 +135,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
             initial={{ y: "100%" }} 
             animate={{ y: 0 }} 
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            transition={{ type: "tween", ease: "easeOut", duration: 0.2 }}
             className="relative w-full bg-[#121213] rounded-t-[40px] border-t border-white/[0.05] shadow-[0_-20px_60px_rgba(0,0,0,0.8)] overflow-hidden max-h-[90vh] flex flex-col pt-2"
           >
             <div className="w-10 h-1 bg-white/10 rounded-full mx-auto my-5 shrink-0" />
@@ -194,7 +194,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col space-y-2">
-                  <div className="grid grid-cols-2 gap-3 mb-2">
+                   <div className="grid grid-cols-2 gap-3 mb-2">
                      <button 
                         onClick={() => setViewMode('subpages')}
                         className="p-5 bg-blue-500/10 border border-blue-500/20 rounded-3xl flex flex-col items-center gap-2 hover:bg-blue-500/20 transition-all"
@@ -203,7 +203,10 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                         <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Sub Pages</span>
                      </button>
                      <button 
-                        onClick={() => tagAction.onClick(onTag)}
+                        onClick={() => {
+                          onClose();
+                          tagAction.onClick(onTag);
+                        }}
                         className="p-5 bg-purple-500/10 border border-purple-500/20 rounded-3xl flex flex-col items-center gap-2 hover:bg-purple-500/20 transition-all"
                      >
                         <Check size={24} className="text-purple-400" />
@@ -215,7 +218,13 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                     icon={shareCollabAction.icon} 
                     label="Share Live Host" 
                     subtitle={() => shareCollabAction.subtitle(isCollabActive)}
-                    onClick={() => setShowCollabSettings(!showCollabSettings)} 
+                    onClick={() => {
+                      if (!isCollabActive && onStartCollab) {
+                        onStartCollab();
+                      } else {
+                        setShowCollabSettings(!showCollabSettings);
+                      }
+                    }} 
                   />
 
                   {/* Collaboration UI handled here same as before */}
@@ -232,17 +241,6 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                       label={pageWidth === 'full' ? "স্বাভাবিক প্রস্থ (Normal Width)" : "পূর্ণ প্রস্থ (Full Width)"}
                       subtitle={pageWidth === 'full' ? "Full Width Active" : "Normal Width Active"}
                       onClick={onToggleWidth}
-                    />
-                  )}
-                  {onToggleFontScale && (
-                    <MenuAction 
-                      icon={FileText}
-                      label={
-                        fontScale === 'small' ? "ছোট ফন্ট (Small Text)" :
-                        fontScale === 'large' ? "বড় ফন্ট (Large Text)" : "স্বাভাবিক ফন্ট (Default Text)"
-                      }
-                      subtitle={`Font Size: ${fontScale || 'default'}`}
-                      onClick={onToggleFontScale}
                     />
                   )}
                   <MenuAction 

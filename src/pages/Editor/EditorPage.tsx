@@ -40,20 +40,20 @@ function EditorPage({ id }: { id: string | undefined }) {
   const blocksRefs = useRef<Record<string, HTMLElement>>({});
 
   const {
-    editor, note, setNote, title, setTitle, emoji, setEmoji, description, setDescription, 
+    editor, note, setNote, title, setTitle, emoji, setEmoji,
     tags, setTags, theme, setTheme, isSaving, saveError,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
-    saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef, isDeletingRef
+    saveNote, titleRef, emojiRef, noteRef, themeRef, blocksRef, isDeletingRef
   } = useEditorState(id, blocksRefs as any);
 
   // Collaboration P2P Setup
   const {
     collabRoom, activePeers, collaborators, handleStartCollab, handleKickCollaborator
   } = useCollaboration({
-    id, note, editor, title, emoji, description, theme, currentSubPages,
-    setNote, setTitle, setEmoji, setDescription, setTheme, setCurrentSubPages, setNotification,
-    location, navigate, titleRef, emojiRef, descriptionRef, themeRef, noteRef
+    id, note, editor, title, emoji, theme, currentSubPages,
+    setNote, setTitle, setEmoji, setTheme, setCurrentSubPages, setNotification,
+    location, navigate, titleRef, emojiRef, themeRef, noteRef
   });
 
   // Editor Actions & Component Handlers Setup
@@ -73,13 +73,13 @@ function EditorPage({ id }: { id: string | undefined }) {
     isUploading, setIsUploading,
     showPageEmojiPicker, setShowPageEmojiPicker,
     handleLinkPageSelect, handleBack,
-    updateTitle, updateDescription, updateEmoji,
+    updateTitle, updateEmoji,
     handleDelete, handleCopy, handleLock,
     handleTagSaveSubmit, handleThemeSelect, handleAddSubPage
   } = useEditorHandlers({
-    id, note, editor, title, emoji, description, theme, tags, currentSubPages, collabRoom,
-    setNote, setTitle, setEmoji, setDescription, setTags, setTheme, setNotification,
-    setIsReadOnly, isReadOnly, saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef,
+    id, note, editor, title, emoji, theme, tags, currentSubPages, collabRoom,
+    setNote, setTitle, setEmoji, setTags, setTheme, setNotification,
+    setIsReadOnly, isReadOnly, saveNote, titleRef, emojiRef, noteRef, themeRef, blocksRef,
     handleStartCollab, isDeletingRef
   });
 
@@ -146,18 +146,27 @@ function EditorPage({ id }: { id: string | undefined }) {
         title: title,
         content: editor.blocks.map(b => b.content).join('\n'), // Simple plain text fallback or full state
         blocks: editor.blocks,
-        description: description,
         tags: tags,
         emoji: emoji
       };
     }
-  }, [note, title, editor.blocks, description, tags, emoji]);
+  }, [note, title, editor.blocks, tags, emoji]);
 
   useEffect(() => {
     return () => {
       delete (window as any)._currentNoteState;
     };
   }, []);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+  }, [title]);
 
   if (!editor || !note) {
     return <LoadingScreen />;
@@ -194,15 +203,6 @@ function EditorPage({ id }: { id: string | undefined }) {
     if (!note) return;
     const nextWidth = note.pageWidth === 'full' ? 'default' : 'full';
     const updated = { ...note, pageWidth: nextWidth as any };
-    setNote(updated);
-    await DataManager.saveNote(updated);
-  };
-
-  const handleToggleFontScale = async () => {
-    if (!note) return;
-    const currentScale = note.fontScale || 'default';
-    const nextScale = currentScale === 'default' ? 'small' : currentScale === 'small' ? 'large' : 'default';
-    const updated = { ...note, fontScale: nextScale as any };
     setNote(updated);
     await DataManager.saveNote(updated);
   };
@@ -250,9 +250,7 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleLinkPageSelect,
     noteRef,
     pageWidth: note?.pageWidth || 'default',
-    onToggleWidth: handleToggleWidth,
-    fontScale: note?.fontScale || 'default',
-    onToggleFontScale: handleToggleFontScale,
+    onToggleWidth: handleToggleWidth
   };
 
   return (
@@ -309,6 +307,7 @@ function EditorPage({ id }: { id: string | undefined }) {
               </div>
 
               <textarea
+                ref={textareaRef}
                 autoFocus
                 value={title}
                 onFocus={() => setIsTitleFocused(true)}
@@ -317,19 +316,8 @@ function EditorPage({ id }: { id: string | undefined }) {
                 placeholder="শিরোনামহীন"
                 rows={1}
                 className={cn(
-                  "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors",
+                  "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors overflow-hidden",
                   isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
-                )}
-              />
-
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => updateDescription(e.target.value)}
-                placeholder="পৃষ্ঠার বিবরণী লিখুন (Write page description...)"
-                className={cn(
-                  "w-full bg-transparent text-sm font-medium focus:outline-none border-none outline-none ring-0 focus:ring-0 shadow-none -mt-2 placeholder:opacity-30",
-                  isLight ? "text-gray-500 placeholder:text-gray-400" : "text-white/60 placeholder:text-white/40"
                 )}
               />
             </div>

@@ -204,6 +204,14 @@ export const NoteService = {
     keysToRemove.forEach(k => localStorage.removeItem(k));
   },
 
+  async restoreNote(id: string): Promise<void> {
+    const note = await db.notes.get(id);
+    if (note) {
+      await db.notes.update(id, { isTrashed: false, updatedAt: Date.now() });
+      this.invalidateCache();
+    }
+  },
+
   async deleteNotePermanent(id: string): Promise<void> {
     await db.transaction('rw', [db.notes, db.note_versions, db.key_value_pairs, db.deleted_notes], async () => {
       await db.notes.delete(id);

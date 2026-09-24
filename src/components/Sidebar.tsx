@@ -342,13 +342,10 @@ export default function Sidebar({
                   অ্যাপ মেনু
                 </div>
                 {[
-                  { icon: <FileText size={16} />, label: 'সমস্ত নোটস', path: '/main' },
-                  { icon: <Search size={16} />, label: 'অনুসন্ধান ও ফিল্টার', path: '/search' },
                   { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
                   { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
-                  { icon: <Share2 size={16} />, label: 'গ্রাফ ভিউ (Graph View)', path: '/graph' },
                   { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
-                  { icon: <Wrench size={16} />, label: 'টুলস সেকশন', path: '/external-ai-import' },
+                  { icon: <Wrench size={16} />, label: 'টুলস সেকশন', path: '/tools' },
                   { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },
                   { icon: <Trash2 size={16} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
                 ].map((item, idx) => (
