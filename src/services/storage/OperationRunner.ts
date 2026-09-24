@@ -64,12 +64,18 @@ class OperationRunner {
   }
 
   async runUpload(file: File, noteId: string, workspaceId: string, existingTaskId?: string): Promise<string> {
-    const taskId = existingTaskId || this.addTask({
-      id: crypto.randomUUID(),
-      title: `Uploading ${file.name}`,
-      description: `Note: ${noteId}`,
-      type: 'upload'
-    });
+    const taskId = existingTaskId || crypto.randomUUID();
+    
+    // Ensure the task is registered in the list so listeners can track it
+    const existingTask = this.tasks.find(t => t.id === taskId);
+    if (!existingTask) {
+      this.addTask({
+        id: taskId,
+        title: `Uploading ${file.name}`,
+        description: `Note: ${noteId}`,
+        type: 'upload'
+      });
+    }
 
     this.updateTask(taskId, { status: 'running' });
 

@@ -56,7 +56,18 @@ export async function uploadAndInsertMedia({
     }).run();
 
     // Run background operation to load and write blob to MediaStore
-    await operationRunner.runUpload(file, noteId, workspaceId, fileId);
+    const url = await operationRunner.runUpload(file, noteId, workspaceId, fileId);
+
+    // PERSISTENCE FIX: Explicitly update the block in the editor state
+    // This ensures the URL is saved to the note content even if the block's own subscriber is missed
+    if (editor.setBlocks) {
+      editor.setBlocks((prev: any[]) => prev.map(b => 
+        (b.type === 'media' && b.mediaData?.id === fileId) ? {
+          ...b,
+          mediaData: { ...b.mediaData, status: 'completed', url }
+        } : b
+      ));
+    }
 
     if (onComplete) {
       onComplete();
