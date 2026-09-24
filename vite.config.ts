@@ -85,7 +85,9 @@ export default defineConfig(({mode}) => {
         }
       })
     ],
-    define: {},
+    define: {
+      __BUILD_HASH__: JSON.stringify(crypto.randomUUID().slice(0, 8)),
+    },
     build: {
       outDir: 'dist',
       assetsDir: 'assets',

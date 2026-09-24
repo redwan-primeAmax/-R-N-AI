@@ -208,7 +208,7 @@ export function useEditorHandlers({
     try {
       const currentNote = noteRef.current || note!;
       if (currentNote) {
-        // Force immediate navigation to prevent state updates on this page
+        // Force immediate navigation
         navigate('/', { replace: true });
         
         // Background delete
@@ -216,6 +216,24 @@ export function useEditorHandlers({
         
         // Clean up drafts
         localStorage.removeItem(`note_draft_${currentNote.id}`);
+
+        // Problem 18: Undo Delete
+        window.dispatchEvent(new CustomEvent('app-notification', {
+          detail: {
+            message: `"${currentNote.title}" রিসাইকেল বিনে পাঠানো হয়েছে।`,
+            type: 'info',
+            duration: 8000,
+            action: {
+              label: 'ফিরিয়ে আনুন (Undo)',
+              onClick: async () => {
+                await DataManager.restoreNote(currentNote.id);
+                window.dispatchEvent(new CustomEvent('app-notification', {
+                  detail: { message: 'নোটটি সফলভাবে পুনরুদ্ধার করা হয়েছে।', type: 'success' }
+                }));
+              }
+            }
+          }
+        }));
       }
     } catch (err) {
       console.error('Delete failed:', err);

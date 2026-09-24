@@ -74,6 +74,9 @@ const CUSTOM_EXTENSION = '.redwan';
 export const encrypt = encryptText;
 export const decrypt = decryptText;
 
+let lastStorageWarningTime = 0;
+const STORAGE_WARNING_COOLDOWN = 60000; // 1 minute cooldown
+
 export const DataManager = {
   getClientId: () => clientId,
   
@@ -279,11 +282,13 @@ export const DataManager = {
 
   async saveNote(note: Note): Promise<Note> {
     const usage = await this.getStorageUsage();
-    if (usage.used > usage.quota * 0.9) {
+    const now = Date.now();
+    if (usage.used > usage.quota * 0.9 && (now - lastStorageWarningTime > STORAGE_WARNING_COOLDOWN)) {
       const msg = usage.used > usage.quota * 0.98 
         ? "সঞ্চয়স্থান প্রায় পূর্ণ! দয়া করে কিছু ডাটা ডিলিট করুন অথবা ক্লাউড সংযোগ করুন।"
         : "সঞ্চয়স্থান পূর্ণ হতে চলেছে।";
       window.dispatchEvent(new CustomEvent('storage-warning', { detail: { message: msg, severity: usage.used > usage.quota * 0.98 ? 'error' : 'warning' } }));
+      lastStorageWarningTime = now;
     }
 
     const saved = await NoteService.saveNote(note);

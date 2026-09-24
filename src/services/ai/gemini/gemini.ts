@@ -93,6 +93,8 @@ export class GeminiService extends AIService {
     });
 
     const isUsingProxy = !userApiKey;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout for AI (Requirement 16)
 
     let response;
     try {
@@ -100,6 +102,7 @@ export class GeminiService extends AIService {
         response = await fetch(`/api/ai/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             model,
             contents,
@@ -110,6 +113,7 @@ export class GeminiService extends AIService {
         response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${userApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             contents,
             systemInstruction: {
@@ -120,7 +124,12 @@ export class GeminiService extends AIService {
         });
       }
     } catch (networkErr: any) {
+      if (networkErr.name === 'AbortError') {
+        throw new Error(`AI Request Timeout: AI সার্ভার রেসপন্স করতে দেরি করছে। পরে আবার চেষ্টা করুন। (টাইমআউট এরর)`);
+      }
       throw new Error(`Connection Error: ${networkErr.message || "Failed to reach Gemini. Please check your internet connection."} (কানেকশন এরর: ইন্টারনেট কানেকশন চেক করুন)`);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!response.ok) {

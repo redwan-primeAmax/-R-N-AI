@@ -174,3 +174,10 @@ export const MediaService = {
     return { count: idsToDelete.length, savedSize };
   }
 };
+
+// Global cleanup on exit to prevent leaks (Problem 9)
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    MediaService.revokeMediaUrls();
+  });
+}

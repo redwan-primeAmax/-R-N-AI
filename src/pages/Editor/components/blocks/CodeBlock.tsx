@@ -15,7 +15,7 @@ interface CodeBlockProps {
   isReadOnly: boolean;
   setFocusedId: (id: string | null) => void;
   editor: any;
-  handleBlockChange: (id: string, content: string) => void;
+  handleBlockChange: (id: string, content: string, immediate?: boolean) => void;
   setBlocks?: React.Dispatch<React.SetStateAction<EditorBlock[]>>;
 }
 
@@ -53,7 +53,7 @@ export const CodeBlock = ({
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
     const rawHTML = e.currentTarget.innerHTML;
     localValRef.current = rawHTML;
-    handleBlockChange(block.id, rawHTML);
+    handleBlockChange(block.id, rawHTML, true);
   };
 
   const currentLang = (block.language || 'CSS').toUpperCase();
@@ -123,7 +123,7 @@ export const CodeBlock = ({
         onBlur={(e: any) => {
           setFocusedId(null);
           if (editor.setActiveBlockId) editor.setActiveBlockId(null);
-          handleBlockChange(block.id, e.currentTarget.innerHTML);
+          handleBlockChange(block.id, e.currentTarget.innerHTML, false);
         }}
         className="w-full bg-transparent p-6 font-mono text-[13px] leading-relaxed text-white border-none outline-none focus:outline-none min-h-[140px] whitespace-pre-wrap selection:bg-blue-500/30"
         data-placeholder="// Paste your code block here..."

@@ -101,6 +101,14 @@ export class PeerCollabManager {
   private getSession(noteId: string): SessionData {
     let session = this.sessions.get(noteId);
     if (!session) {
+      // Problem 7: Prevent unbounded growth by limiting sessions
+      if (this.sessions.size >= 10) {
+        const oldestId = Array.from(this.sessions.keys())[0];
+        if (oldestId !== this.activeNoteId) {
+           this.disconnect(oldestId);
+        }
+      }
+
       const yDoc = new Y.Doc();
       session = {
         noteId,

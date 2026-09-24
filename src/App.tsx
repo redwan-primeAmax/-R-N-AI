@@ -62,6 +62,7 @@ const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups
 const SettingsPage = lazyWithRetry(() => import('./pages/Settings/SettingsPage'));
 const BookmarkPage = lazyWithRetry(() => import('./pages/Bookmark/BookmarkPage'));
 const VaultPage = lazyWithRetry(() => import('./pages/Vault/Vault'));
+const OfflinePage = lazyWithRetry(() => import('./pages/Offline/OfflinePage').then(m => ({ default: m.OfflinePage })));
 const WorkspacePage = lazyWithRetry(() => import('./pages/Workspace/WorkspacePage'));
 const GraphView = lazyWithRetry(() => import('./pages/GraphView').then(m => ({ default: m.GraphView })));
 
@@ -111,7 +112,11 @@ function AppContent() {
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; severity: 'warning' | 'error' | 'success' } | null>(null);
+  const [notification, setNotification] = useState<{ 
+    message: string; 
+    severity: 'warning' | 'error' | 'success' | 'info'; 
+    action?: { label: string; onClick: () => void } 
+  } | null>(null);
   const [isOverLimit, setIsOverLimit] = useState(false);
   const [hasDismissedLimitWarning, setHasDismissedLimitWarning] = useState(false);
 
@@ -194,10 +199,11 @@ function AppContent() {
     const handleAppNotification = (e: any) => {
       setNotification({
         message: e.detail.message,
-        severity: e.detail.type === 'success' ? 'success' : 'warning'
+        severity: e.detail.type || 'info',
+        action: e.detail.action
       });
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => setNotification(null), 4000);
+      timer = setTimeout(() => setNotification(null), e.detail.duration || 5000);
     };
     window.addEventListener('storage-warning', handleStorageWarning);
     window.addEventListener('app-notification', handleAppNotification);
@@ -292,7 +298,7 @@ function AppContent() {
     { path: "/recycle-bin", element: <PageWrapper><RecycleBin /></PageWrapper> },
     { path: "/network-shield", element: <PageWrapper><NetworkShield /></PageWrapper> },
     { path: "/cloud-archive", element: <PageWrapper><AppCloudArchive /></PageWrapper> },
-    { path: "/offline", element: <Navigate to="/storage-optimizer" replace /> },
+    { path: "/offline", element: <PageWrapper><OfflinePage /></PageWrapper> },
     { path: "/backup", element: <Navigate to="/storage-optimizer" replace /> },
     { path: "/data-management", element: <Navigate to="/storage-optimizer" replace /> },
     { path: "/storage-optimizer", element: <PageWrapper><StorageOptimizer /></PageWrapper> },
@@ -412,10 +418,23 @@ function AppContent() {
               <div className="shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <AlertCircle size={20} />
               </div>
-              <div className="flex-1">
-                <p className="font-bold text-sm leading-tight">{notification.message}</p>
-                <p className="text-[10px] mt-1 opacity-60">সঞ্চয়স্থান পূর্ণ হলে ডাটা হারিয়ে যেতে পারে।</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm leading-tight truncate">{notification.message}</p>
+                {notification.severity === 'warning' && (
+                  <p className="text-[10px] mt-1 opacity-60">সঞ্চয়স্থান পূর্ণ হলে ডাটা হারিয়ে যেতে পারে।</p>
+                )}
               </div>
+              {notification.action && (
+                <button 
+                  onClick={() => {
+                    notification.action?.onClick();
+                    setNotification(null);
+                  }}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all active:scale-95 whitespace-nowrap"
+                >
+                  {notification.action.label}
+                </button>
+              )}
               <button 
                 onClick={() => setNotification(null)}
                 className="p-2 hover:bg-black/10 rounded-full transition-colors"

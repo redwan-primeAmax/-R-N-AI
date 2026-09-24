@@ -399,22 +399,17 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
   const blockRefs = blocksRefs || defaultBlockRefs;
   const lastActionRef = useRef<string>('');
 
-  const handleBlockChange = (id: string, newContent: string) => {
+  const handleBlockChange = (id: string, newContent: string, immediate: boolean = false) => {
     if (!setBlocks) return;
-    
-    // ==========================================
-    // SECURE WEB WORKER & SANITIZATION GATEWAY
-    // Input streams are ran through DOMPurify inside this gatekeeper.
-    // To prevent mainthread lockouts or CPU/DOM flooding crashes from malicious input payloads,
-    // this parsing/validation stream can be offloaded to a designated Web Worker.
-    // Example:
-    //   const sanitizerWorker = new Worker(new URL('./secure-sanitizer.worker.ts', import.meta.url));
-    //   sanitizerWorker.postMessage({ id, content: newContent, type: ... });
-    // ==========================================
     
     setBlocks((prev: EditorBlock[]) => {
       const blockToChange = prev.find((b: EditorBlock) => b.id === id);
-      const cleaned = cleanBlockHTML(newContent, blockToChange?.type || 'paragraph');
+      
+      // Problem 5: Selective cleaning. 
+      // If immediate (e.g. on every keystroke), we skip heavy DOM sanitization.
+      // Heavy sanitization is reserved for onBlur or Paste (handled elsewhere).
+      const cleaned = immediate ? newContent : cleanBlockHTML(newContent, blockToChange?.type || 'paragraph');
+      
       if (blockToChange && blockToChange.type === 'synced' && blockToChange.syncedBlockId) {
         const sid = blockToChange.syncedBlockId;
         return prev.map((b: EditorBlock) => (b.id === id || (b.type === 'synced' && b.syncedBlockId === sid)) ? { ...b, content: cleaned } : b);
@@ -692,23 +687,24 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
         const indentStyle = { paddingLeft: `${(block.indent || 0) * 28}px` };
 
         return (
-          <MemoizedBlockRow
-            key={block.id}
-            block={block}
-            idx={idx}
-            blocks={blocks}
-            setBlocks={setBlocks}
-            isReadOnly={isReadOnly}
-            blockRefs={blockRefs}
-            handleKeyDown={handleKeyDown}
-            setFocusedId={setFocusedId}
-            editor={editor}
-            handleBlockChange={handleBlockChange}
-            hasIndent={hasIndent}
-            indentStyle={indentStyle}
-            currentHiddenIndent={currentHiddenIndent}
-            searchTerm={editor.searchTerm}
-          />
+          <ErrorBoundary key={block.id}>
+            <MemoizedBlockRow
+              block={block}
+              idx={idx}
+              blocks={blocks}
+              setBlocks={setBlocks}
+              isReadOnly={isReadOnly}
+              blockRefs={blockRefs}
+              handleKeyDown={handleKeyDown}
+              setFocusedId={setFocusedId}
+              editor={editor}
+              handleBlockChange={handleBlockChange}
+              hasIndent={hasIndent}
+              indentStyle={indentStyle}
+              currentHiddenIndent={currentHiddenIndent}
+              searchTerm={editor.searchTerm}
+            />
+          </ErrorBoundary>
         );
       })}
 

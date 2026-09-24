@@ -42,7 +42,7 @@ function EditorPage({ id }: { id: string | undefined }) {
 
   const {
     editor, note, setNote, title, setTitle, emoji, setEmoji, description, setDescription, 
-    tags, setTags, theme, setTheme,
+    tags, setTags, theme, setTheme, isSaving, saveError,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, titleRef, emojiRef, descriptionRef, noteRef, themeRef, blocksRef, isDeletingRef
@@ -273,6 +273,8 @@ function EditorPage({ id }: { id: string | undefined }) {
           collabPeerCount={activePeers}
           onStartCollab={handleStartCollab}
           editor={editor}
+          isSaving={isSaving}
+          saveError={saveError}
           onNavigateToNote={(noteId) => {
             const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
             navigate(`/editor/${noteId}${collabParam}`);

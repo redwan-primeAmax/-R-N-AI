@@ -132,41 +132,55 @@ export function cleanBlockHTML(html: string, blockType: string): string {
   return body.innerHTML;
 }
 
-// Convert HTML String to Blocks
+// Convert HTML String to Blocks (Safe Iterative Version)
 export function htmlToBlocks(html: string): EditorBlock[] {
-  if (!html) {
-    return [{ id: crypto.randomUUID(), type: 'paragraph', content: '' }];
-  }
+  try {
+    if (!html) {
+      return [{ id: crypto.randomUUID(), type: 'paragraph', content: '' }];
+    }
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const body = doc.body;
-  const blocks: EditorBlock[] = [];
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const body = doc.body;
+    const blocks: EditorBlock[] = [];
 
-  const addBlock = (type: EditorBlock['type'], content: string, extra: Partial<EditorBlock> = {}) => {
-    const cleanedContent = cleanBlockHTML(content, type);
-    // Detection for indent from CSS or data-attributes
-    let indent = 0;
-    if (extra.indent !== undefined) indent = extra.indent;
+    const addBlock = (type: EditorBlock['type'], content: string, extra: Partial<EditorBlock> = {}) => {
+      try {
+        const cleanedContent = cleanBlockHTML(content, type);
+        let indent = 0;
+        if (extra.indent !== undefined) indent = extra.indent;
 
-    blocks.push({
-      id: crypto.randomUUID(),
-      type,
-      content: cleanedContent,
-      indent,
-      ...extra
-    });
-  };
+        blocks.push({
+          id: crypto.randomUUID(),
+          type,
+          content: cleanedContent,
+          indent,
+          ...extra
+        });
+      } catch (e) {
+        console.error('Error adding individual block during parse:', e);
+      }
+    };
 
-  const children = Array.from(body.children);
-  if (children.length === 0 && body.innerHTML) {
-    addBlock('paragraph', body.innerHTML);
-    return blocks;
-  }
+    const children = Array.from(body.children);
+    if (children.length === 0 && body.innerHTML) {
+      addBlock('paragraph', body.innerHTML);
+      return blocks;
+    }
 
-  children.forEach((child) => {
-    const tagName = child.tagName.toLowerCase();
-    const dataType = child.getAttribute('data-type');
+    // Safety limit for number of blocks to prevent DOM/Memory flooding
+    const MAX_BLOCKS = 5000;
+    let processedCount = 0;
+
+    for (const child of children) {
+      if (processedCount >= MAX_BLOCKS) {
+        console.warn('htmlToBlocks: Maximum block limit reached, truncating rest of content.');
+        break;
+      }
+      processedCount++;
+
+      const tagName = child.tagName.toLowerCase();
+      const dataType = child.getAttribute('data-type');
 
     if (child.classList.contains('toggle-list') || dataType === 'toggle') {
       const isExpanded = child.getAttribute('data-expanded') === 'true';
@@ -329,9 +343,17 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     } else {
       addBlock('paragraph', child.innerHTML || child.textContent || '');
     }
-  });
+  }
 
-  return blocks;
+    return blocks.length > 0 ? blocks : [{ id: crypto.randomUUID(), type: 'paragraph', content: '' }];
+  } catch (err) {
+    console.error('CRITICAL: htmlToBlocks failed', err);
+    // Return safe fallback for corrupted notes (Requirement 14)
+    return [
+      { id: 'recovery-msg', type: 'callout', content: 'ত্রুটি: এই নোটটির কিছু অংশ লোড করা যায়নি। তবে আপনার ডাটা সুরক্ষিত আছে।', emoji: '⚠️' },
+      { id: crypto.randomUUID(), type: 'paragraph', content: html.substring(0, 5000) }
+    ];
+  }
 }
 
 // Convert Blocks back to HTML String

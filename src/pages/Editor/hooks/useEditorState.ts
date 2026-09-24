@@ -26,6 +26,8 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   const [theme, setTheme] = useState<string>('default');
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTasksCount, setActiveTasksCount] = useState(0);
   const [workspaceName, setWorkspaceName] = useState('Workspace');
   const [parentNote, setParentNote] = useState<Note | null>(null);
@@ -72,12 +74,15 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   // History state for UI update
   const [historyPointer, setHistoryPointer] = useState(0);
   const historyRef = useRef<EditorBlock[][]>([[]]);
+  const lastHistoryPushRef = useRef<number>(0);
   
   useEffect(() => {
     // Push history item if blocks change and we're not currently undoing/redoing
-    // We debounce this to capture data every 3 seconds to reduce main thread load
+    // We debounce this to capture data every 5 seconds to reduce main thread load (Bug 9/Problem 8)
+    const now = Date.now();
+    if (now - lastHistoryPushRef.current < 5000) return;
+
     const lastHistory = historyRef.current[historyPointer];
-    // Deep equality check is expensive, using a lighter check for rapid skipping
     if (blocks.length !== lastHistory?.length || JSON.stringify(blocks) !== JSON.stringify(lastHistory)) {
       const timer = setTimeout(() => {
         // truncate future history
@@ -87,7 +92,8 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         if (newHistory.length > 50) newHistory.shift();
         historyRef.current = newHistory;
         setHistoryPointer(newHistory.length - 1);
-      }, 3000); // Increased debounce to 3000ms (Bug 9)
+        lastHistoryPushRef.current = Date.now();
+      }, 5000); 
       return () => clearTimeout(timer);
     }
   }, [blocks, historyPointer]);
@@ -436,7 +442,10 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
   const saveNote = useCallback(async (content: string, force: boolean = false) => {
     if (noteRef.current) {
-      if (isSavingRef.current && !force) return;
+      if (isSavingRef.current && !force) {
+        pendingSaveRef.current = content;
+        return;
+      }
       
       // Dirty check
       if (!force && content === lastSavedContentRef.current && 
@@ -450,6 +459,8 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
       isSavingRef.current = true;
       setIsSaving(true);
+      setSaveError(null);
+
       try {
         const updatedTitle = titleRef.current || 'শিরোনামহীন';
         const updatedEmoji = emojiRef.current || '📝';
@@ -469,13 +480,20 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         // Immediate robust cleanup of all temporary buffers
         await db.key_value_pairs.delete(BACKUP_KEY);
         if (id) localStorage.removeItem(`note_draft_${id}`);
+        setSaveError(null);
       } catch (err) {
         console.error('Save failed:', err);
+        setSaveError('সংরক্ষণ করতে ব্যর্থ হয়েছে। ইন্টাররেট সংযোগ চেক করুন।');
       } finally {
-        setTimeout(() => {
-          isSavingRef.current = false;
-          setIsSaving(false);
-        }, 300);
+        isSavingRef.current = false;
+        setIsSaving(false);
+        
+        // Handle pending save if content changed during save
+        if (pendingSaveRef.current !== null) {
+          const nextContent = pendingSaveRef.current;
+          pendingSaveRef.current = null;
+          saveNote(nextContent);
+        }
       }
     }
   }, [BACKUP_KEY, id]);
@@ -525,7 +543,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
   return {
     editor, note, setNote, title, setTitle, emoji, setEmoji, description, setDescription, 
-    tags, setTags, theme, setTheme, isSaving, 
+    tags, setTags, theme, setTheme, isSaving, saveError,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages, isListening,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, startListening, stopListening, loadNote, isDeletingRef, 

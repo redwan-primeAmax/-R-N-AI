@@ -46,6 +46,9 @@ export const executeAICommands = async (text: string) => {
           workspaceId
         };
         await DataManager.saveNote(newNote);
+        window.dispatchEvent(new CustomEvent('app-notification', { 
+          detail: { message: `AI: নতুন পেজ তৈরি করা হয়েছে "${title}"`, type: 'success' } 
+        }));
         console.log(`[AICommandExecutor] Executed create_page for ID: ${id}`);
       }
     }
@@ -58,44 +61,53 @@ export const executeAICommands = async (text: string) => {
       const title = extractNestedTag('title', pageXml);
 
       const id = rawId.replace(/[^a-z0-9-_]/gi, '_');
-      if (id) {
-        const existing = await DataManager.getNoteById(id);
-        if (existing) {
-          if (content) existing.content = content;
-          if (title) existing.title = title;
-          existing.updatedAt = Date.now();
-          await DataManager.saveNote(existing);
-          console.log(`[AICommandExecutor] Executed update_page for ID: ${id}`);
-        }
+    if (id) {
+      const existing = await DataManager.getNoteById(id);
+      if (existing) {
+        if (content) existing.content = content;
+        if (title) existing.title = title;
+        existing.updatedAt = Date.now();
+        await DataManager.saveNote(existing);
+        window.dispatchEvent(new CustomEvent('app-notification', { 
+          detail: { message: `AI: আপডেটেড পেজ "${existing.title}"`, type: 'success' } 
+        }));
+        console.log(`[AICommandExecutor] Executed update_page for ID: ${id}`);
       }
     }
-
-    // 3. Create Task Commands
-    const createTasks = extractTag('create_task', text);
-    for (const taskXml of createTasks) {
-      const title = extractNestedTag('title', taskXml) || 'New Task';
-      const description = extractNestedTag('description', taskXml) || '';
-      const rawId = extractNestedTag('id', taskXml);
-      
-      const id = rawId.replace(/[^a-z0-9-_]/gi, '_') || crypto.randomUUID();
-
-      const existingTasks = await DataManager.getTasks();
-      const existing = existingTasks.find(t => t.id === id);
-      if (!existing) {
-        const newTask: AITask = {
-          id,
-          title,
-          description,
-          status: 'pending',
-          parts: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        };
-        await DataManager.saveTask(newTask);
-        console.log(`[AICommandExecutor] Executed create_task for ID: ${id}`);
-      }
-    }
-  } catch (err) {
-    console.error('[AICommandExecutor] Failed to parse/execute AI tags:', err);
   }
+
+  // 3. Create Task Commands
+  const createTasks = extractTag('create_task', text);
+  for (const taskXml of createTasks) {
+    const title = extractNestedTag('title', taskXml) || 'New Task';
+    const description = extractNestedTag('description', taskXml) || '';
+    const rawId = extractNestedTag('id', taskXml);
+    
+    const id = rawId.replace(/[^a-z0-9-_]/gi, '_') || crypto.randomUUID();
+
+    const existingTasks = await DataManager.getTasks();
+    const existing = existingTasks.find(t => t.id === id);
+    if (!existing) {
+      const newTask: AITask = {
+        id,
+        title,
+        description,
+        status: 'pending',
+        parts: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      await DataManager.saveTask(newTask);
+      window.dispatchEvent(new CustomEvent('app-notification', { 
+        detail: { message: `AI: নতুন টাস্ক তৈরি করা হয়েছে "${title}"`, type: 'success' } 
+      }));
+      console.log(`[AICommandExecutor] Executed create_task for ID: ${id}`);
+    }
+  }
+} catch (err) {
+  console.error('[AICommandExecutor] Failed to parse/execute AI tags:', err);
+  window.dispatchEvent(new CustomEvent('app-notification', { 
+    detail: { message: `AI: কমান্ড কার্যকর করতে সমস্যা হয়েছে।`, type: 'error' } 
+  }));
+}
 };

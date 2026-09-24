@@ -16,7 +16,7 @@ interface EditableBlockProps {
   handleKeyDown: (e: React.KeyboardEvent, block: EditorBlock, idx: number) => void;
   setFocusedId: (id: string | null) => void;
   editor: any;
-  handleBlockChange: (id: string, content: string) => void;
+  handleBlockChange: (id: string, content: string, immediate?: boolean) => void;
   searchTerm?: string;
 }
 
@@ -57,7 +57,7 @@ export const EditableBlock = ({
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
     const rawHTML = e.currentTarget.innerHTML;
     localValRef.current = rawHTML;
-    handleBlockChange(block.id, rawHTML);
+    handleBlockChange(block.id, rawHTML, true);
   };
 
   return (
@@ -79,7 +79,7 @@ export const EditableBlock = ({
       onBlur={(e: any) => {
         setFocusedId(null);
         if (editor.setActiveBlockId) editor.setActiveBlockId(null);
-        handleBlockChange(block.id, e.currentTarget.innerHTML);
+        handleBlockChange(block.id, e.currentTarget.innerHTML, false);
       }}
       className={cn(
         "flex-1 text-left min-h-[30px] font-sans focus:outline-none placeholder:opacity-20 max-w-full overflow-hidden break-words",

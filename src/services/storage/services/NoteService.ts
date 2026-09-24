@@ -106,17 +106,17 @@ export const NoteService = {
     }
     const wsId = note.workspaceId;
 
-    // Tombstone protection
-    const isDeleted = await this.wasPermanentlyDeleted(note.id);
-    if (isDeleted) {
-      console.warn(`NoteService: Blocking re-creation of permanently deleted note ${note.id}`);
-      return note;
-    }
-
     const processedContent = await MediaService.extractMediaFromContent(note.content);
     const now = Date.now();
 
     return await db.transaction('rw', [db.notes, db.deleted_notes, db.key_value_pairs], async () => {
+      // Tombstone protection (moved inside transaction)
+      const isDeleted = await db.deleted_notes.get(note.id);
+      if (isDeleted) {
+        console.warn(`NoteService: Blocking re-creation of permanently deleted note ${note.id}`);
+        return note;
+      }
+
       const existing = await db.notes.get(note.id);
       const isNew = !existing;
 

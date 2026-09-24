@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, X, AlertCircle } from 'lucide-react';
 
-const APP_VERSION = '1.0.5'; // Increment this to notify users
+const APP_VERSION = `1.0.5-${__BUILD_HASH__}`; // Problem 15: Use build hash for precise versioning
 
 const VersionControl: React.FC = () => {
   const [showUpdate, setShowUpdate] = useState(false);

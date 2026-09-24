@@ -158,7 +158,6 @@ export default function Sidebar({
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000);
     
     // Listen for sync events
     const handleSyncEvent = () => loadData();
@@ -169,7 +168,6 @@ export default function Sidebar({
     window.addEventListener('notes-cache-invalidated', handleSyncEvent);
     
     return () => {
-      clearInterval(interval);
       window.removeEventListener('sync', handleSyncEvent);
       window.removeEventListener('notes-updated', handleSyncEvent);
       window.removeEventListener('history-updated', handleSyncEvent);

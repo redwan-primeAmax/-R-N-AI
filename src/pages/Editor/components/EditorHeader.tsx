@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, MoreVertical, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Search, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { PublishIcon } from '../svg/PublishIcon';
 
@@ -22,6 +22,8 @@ interface EditorHeaderProps {
   onNavigateToNote?: (noteId: string) => void;
   onStartCollab?: () => void;
   editor?: any;
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
@@ -36,7 +38,9 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   isCollaborating = false,
   collabPeerCount = 0,
   onNavigateToNote,
-  editor
+  editor,
+  isSaving = false,
+  saveError = null
 }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -211,6 +215,16 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+               {saveError ? (
+                 <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-[10px] font-bold animate-pulse border border-red-500/20">
+                   <AlertCircle size={12} /> সংরক্ষণ ব্যর্থ
+                 </div>
+               ) : isSaving ? (
+                 <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-500 rounded-full text-[10px] font-bold border border-blue-500/20">
+                   <RefreshCw size={12} className="animate-spin" /> সংরক্ষিত হচ্ছে...
+                 </div>
+               ) : null}
+
                <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={onStartCollab}
