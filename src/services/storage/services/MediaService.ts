@@ -79,6 +79,15 @@ export const MediaService = {
   async extractMediaFromContent(content: string): Promise<string> {
     if (!content) return '';
 
+    // ⚡ Fast bail-out: if no data URIs or blob URLs, skip entirely
+    if (!content.includes('data:image/') && 
+        !content.includes('data:video/') && 
+        !content.includes('data:audio/') &&
+        !content.includes('blob-id:') &&
+        objectUrlToMediaId.size === 0) {
+      return content;
+    }
+
     let processed = content;
     if (objectUrlToMediaId.size > 0) {
       objectUrlToMediaId.forEach((mediaId, url) => {

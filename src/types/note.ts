@@ -72,6 +72,7 @@ export interface Note {
   reminders?: ReminderItem[];
   comments?: NoteComment[];
   snapshots?: NoteSnapshot[];
+  __forceOverwrite?: boolean; // internal safeguard flag
 }
 
 export interface Workspace {

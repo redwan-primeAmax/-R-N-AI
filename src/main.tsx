@@ -14,8 +14,10 @@ polyfill({
   }
 });
 
+const Root = import.meta.env.DEV ? StrictMode : ({ children }: any) => <>{children}</>;
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  <Root>
     <App />
-  </StrictMode>,
+  </Root>,
 );

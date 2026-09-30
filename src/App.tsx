@@ -172,6 +172,8 @@ function AppContent() {
 
   useEffect(() => {
     let timer: any = null;
+    let lastNotifTime = 0;
+
     const handleStorageWarning = (e: any) => {
       setNotification(e.detail);
       if (timer) clearTimeout(timer);
@@ -179,6 +181,10 @@ function AppContent() {
       timer = setTimeout(() => setNotification(null), 5000);
     };
     const handleAppNotification = (e: any) => {
+      const now = Date.now();
+      if (now - lastNotifTime < 500) return;
+      lastNotifTime = now;
+
       setNotification({
         message: e.detail.message,
         severity: e.detail.type || 'info',

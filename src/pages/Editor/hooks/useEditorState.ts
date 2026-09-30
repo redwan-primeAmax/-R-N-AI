@@ -208,7 +208,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     }, 5000); // 5s debounce
   }, [blocks, id]);
 
-  // Asynchronous secure hot-backup of current draft state to localStorage (immediate & immune to exit data loss)
+  // Asynchronous secure hot-backup of current draft state to Dexie (immediate & immune to exit data loss)
   useEffect(() => {
     if (!id || blocks.length === 0) return;
     
@@ -218,15 +218,24 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       emoji: emojiRef.current,
       tags: tagsRef.current,
       theme: themeRef.current,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      blockCount: blocks.length,
+      contentSize: blocks.reduce((sum, b) => sum + (b.content?.length || 0), 0)
     };
     
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       try {
-        db.key_value_pairs.put({ 
+        const draftRecord = await db.key_value_pairs.get(`note_draft_${id}`);
+        if (draftRecord?.value?.contentSize && 
+            draftData.contentSize < draftRecord.value.contentSize * 0.6) {
+          console.warn('[Draft] Blocked shrink-write of draft');
+          return;
+        }
+
+        await db.key_value_pairs.put({ 
           key: `note_draft_${id}`, 
           value: draftData 
-        }).catch(e => console.warn('Dexie draft write error:', e));
+        });
       } catch (e) {
         console.warn('Draft write error:', e);
       }
@@ -334,6 +343,32 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     const urlCollabId = searchParams.get('collab');
 
     if (fetchedNote) {
+      // ⚡ Defer raw backup — DON'T await, DON'T block render
+      if (fetchedNote.content && fetchedNote.content.length > 100_000) {
+        const backupKey = `raw_html_backup_${noteId}`;
+        const scheduleBackup = () => {
+          db.key_value_pairs.get(backupKey).then(existing => {
+            const existingTs = existing?.value?.timestamp || 0;
+            if (Date.now() - existingTs < 5 * 60 * 1000) return;
+
+            db.key_value_pairs.put({
+              key: backupKey,
+              value: {
+                html: fetchedNote.content,
+                timestamp: Date.now(),
+                size: fetchedNote.content.length
+              }
+            }).catch(() => {});
+          }).catch(() => {});
+        };
+
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(scheduleBackup, { timeout: 3000 });
+        } else {
+          setTimeout(scheduleBackup, 2000);
+        }
+      }
+
       setNote(fetchedNote);
 
       let titleVal = fetchedNote.title;
@@ -384,8 +419,24 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       const resolvedContent = await DataManager.resolveMediaUrls(content);
       lastSavedContentRef.current = resolvedContent;
       
-      // Load blocks state
-      const initialBlocks = htmlToBlocks(resolvedContent);
+      // Load blocks state with safety fallback
+      let initialBlocks: EditorBlock[] = [];
+      try {
+        initialBlocks = htmlToBlocks(resolvedContent);
+      } catch (parseError) {
+        console.error('Note parse failed, restoring from raw HTML:', parseError);
+        initialBlocks = [{
+          id: crypto.randomUUID(),
+          type: 'paragraph',
+          content: resolvedContent
+        }];
+        
+        setNotification({
+          message: 'বড় নোট সঠিকভাবে লোড হয়নি, সেফ মোডে ওপেন করা হচ্ছে।',
+          type: 'error'
+        });
+        setTimeout(() => setNotification(null), 4000);
+      }
       setBlocks(initialBlocks);
 
       const workspaces = await DataManager.getWorkspaces();

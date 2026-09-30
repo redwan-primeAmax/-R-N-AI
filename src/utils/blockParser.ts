@@ -46,11 +46,27 @@ export interface EditorBlock {
   };
 }
 
+// ⚡ Singleton DOMParser — reuse across all block sanitization calls
+const sharedParser = new DOMParser();
+const DANGEROUS_PATTERN = /<script|javascript:|on\w+\s*=|onerror|onload|onclick/i;
+
 // Helper to clean up HTML from unnecessary tags, forcing tag mappings and nesting rules
 export function cleanBlockHTML(html: string, blockType: string): string {
   if (!html) return '';
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+
+  // ⚡ FAST PATH: 95% of blocks have no dangerous content — skip full parse
+  if (!DANGEROUS_PATTERN.test(html)) {
+    if (blockType === 'h1' || blockType === 'h2' || blockType === 'h3') {
+      if (/<(h[1-3]|p)[^>]*>[\s\S]*?<(h[1-3]|p)/i.test(html)) {
+        return flattenNestedHeadingsString(html);
+      }
+      return html;
+    }
+    return html;
+  }
+
+  // SLOW PATH: dangerous content detected — full DOM parse required
+  const doc = sharedParser.parseFromString(html, 'text/html');
   const body = doc.body;
 
   // Rule: A heading cannot contain another heading. Flatten any nested heading tags inside headings or paragraphs.
@@ -58,7 +74,7 @@ export function cleanBlockHTML(html: string, blockType: string): string {
     const nestedHeadings = body.querySelectorAll('h1, h2, h3, p');
     nestedHeadings.forEach(h => {
       const parent = h.parentNode;
-      if (parent && parent !== body) { // Fix bug 19: Only flatten nested descendants
+      if (parent && parent !== body) {
         const docFrag = doc.createDocumentFragment();
         while (h.firstChild) {
           docFrag.appendChild(h.firstChild);
@@ -133,6 +149,26 @@ export function cleanBlockHTML(html: string, blockType: string): string {
   return body.innerHTML;
 }
 
+// Fast string-based heading flattening (no DOM parse)
+function flattenNestedHeadingsString(html: string): string {
+  let result = html;
+  const tagRegex = /<\/?(?:h[1-3]|p)[^>]*>/gi;
+  let depth = 0;
+  result = result.replace(tagRegex, (match) => {
+    const isClosing = match.startsWith('</');
+    if (!isClosing) {
+      depth++;
+      if (depth === 1) return match;
+      return '';
+    } else {
+      depth--;
+      if (depth === 0) return match;
+      return '';
+    }
+  });
+  return result;
+}
+
 // Convert HTML String to Blocks (Safe Iterative Version)
 export function htmlToBlocks(html: string): EditorBlock[] {
   try {
@@ -182,13 +218,15 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     }
 
     // Safety limit for number of blocks to prevent DOM/Memory flooding
-    const MAX_BLOCKS = 5000;
+    const MAX_BLOCKS = 50000;
     let processedCount = 0;
 
     for (const child of children) {
       if (processedCount >= MAX_BLOCKS) {
-        console.warn('htmlToBlocks: Maximum block limit reached, truncating rest of content.');
-        break;
+        throw new Error(
+          `Note too large: ${children.length} blocks exceeds safe limit of ${MAX_BLOCKS}. ` +
+          `Please split this note into smaller ones.`
+        );
       }
       processedCount++;
 

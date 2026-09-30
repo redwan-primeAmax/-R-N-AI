@@ -125,6 +125,33 @@ export const NoteService = {
       const existing = await db.notes.get(note.id);
       const isNew = !existing;
 
+      // 🚨 DATA-LOSS GUARD
+      if (!isNew && existing.content && note.content) {
+        const oldSize = existing.content.length;
+        const newSize = note.content.length;
+        const shrinkRatio = newSize / oldSize;
+
+        if (oldSize > 100_000 && shrinkRatio < 0.6 && !note.__forceOverwrite) {
+          console.warn(
+            `[NoteService] Blocked shrink-save: ${oldSize} → ${newSize} bytes`
+          );
+
+          if (!(window as any).__shrinkGuardWarned) {
+            (window as any).__shrinkGuardWarned = true;
+            window.dispatchEvent(new CustomEvent('app-notification', {
+              detail: {
+                message: '⚠️ সেভ ব্লক হয়েছে — কনটেন্ট হঠাৎ ছোট হয়ে গেছে',
+                type: 'warning',
+                duration: 4000
+              }
+            }));
+            setTimeout(() => { (window as any).__shrinkGuardWarned = false; }, 5000);
+          }
+
+          return existing;
+        }
+      }
+
       const config = await SettingsService.getSystemConfig();
       const maxLimit = config?.noteLimitPerWorkspace || 10000;
 
