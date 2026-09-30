@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isBengali } from '../../../utils/bengali';
+
 export class AudioProcessor {
   private static synthesis = typeof window !== 'undefined' ? window.speechSynthesis : null;
 
@@ -30,7 +32,7 @@ export class AudioProcessor {
       utterance.voice = voices[options.voiceIndex];
     } else if (voices.length > 0) {
       // Find language of the text. If any Bengali characters, find a Bengali voice
-      const hasBengali = /[\u0980-\u09FF]/.test(text);
+      const hasBengali = isBengali(text);
       if (hasBengali) {
         const bnVoice = voices.find(v => v.lang.startsWith('bn'));
         if (bnVoice) {

@@ -170,37 +170,6 @@ function EditorPage({ id }: { id: string | undefined }) {
     }
   }, [title]);
 
-  if (!editor || !note) {
-    return <LoadingScreen />;
-  }
-
-  if (note.isLocked && !isUnlocked) {
-    return (
-      <EditorLockScreen
-        note={note}
-        isLight={isLight}
-        setIsUnlocked={setIsUnlocked}
-        navigate={navigate}
-        notification={notification}
-        setNotification={setNotification}
-      />
-    );
-  }
-
-  const focusLastBlockOnVoidClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && !isReadOnly) {
-      const blockId = editor.blocks[editor.blocks.length - 1]?.id;
-      if (blockId) {
-        // High Performance Ref focus without triggering layout reflow via document.getElementById
-        const el = blocksRefs.current[blockId];
-        if (el) {
-          el.focus();
-          editor.setActiveBlockId(blockId);
-        }
-      }
-    }
-  };
-
   const handleToggleWidth = async () => {
     if (!note) return;
     const nextWidth = note.pageWidth === 'full' ? 'default' : 'full';
@@ -268,6 +237,37 @@ function EditorPage({ id }: { id: string | undefined }) {
   const anyModalOpen = showActionSheet || showBlockMenu || showThemeSelector || 
                        showDeleteConfirm || showLockPrompt || showTagPrompt || 
                        showExportModal || showBookmarkModal || showLinkPanel;
+
+  if (!editor || !note) {
+    return <LoadingScreen />;
+  }
+
+  if (note.isLocked && !isUnlocked) {
+    return (
+      <EditorLockScreen
+        note={note}
+        isLight={isLight}
+        setIsUnlocked={setIsUnlocked}
+        navigate={navigate}
+        notification={notification}
+        setNotification={setNotification}
+      />
+    );
+  }
+
+  const focusLastBlockOnVoidClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && !isReadOnly) {
+      const blockId = editor.blocks[editor.blocks.length - 1]?.id;
+      if (blockId) {
+        // High Performance Ref focus without triggering layout reflow via document.getElementById
+        const el = blocksRefs.current[blockId];
+        if (el) {
+          el.focus();
+          editor.setActiveBlockId(blockId);
+        }
+      }
+    }
+  };
 
   return (
     <EditorModalProvider value={modalContextValue}>

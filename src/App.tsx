@@ -17,6 +17,7 @@ import { Modal } from './components/modals/Modal';
 import { UserNamePopup } from './components/modals/UserNamePopup';
 import { Loader2, Check, AlertCircle, X } from 'lucide-react';
 import { cn } from './utils/cn';
+import { useNoteLimit } from './hooks/useNoteLimit';
 
 // Helper to retry lazy loading modules when dynamic import fails (e.g. on new PWA builds/deployments)
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -118,28 +119,8 @@ function AppContent() {
     severity: 'warning' | 'error' | 'success' | 'info'; 
     action?: { label: string; onClick: () => void } 
   } | null>(null);
-  const [isOverLimit, setIsOverLimit] = useState(false);
+  const { isOverLimit } = useNoteLimit();
   const [hasDismissedLimitWarning, setHasDismissedLimitWarning] = useState(false);
-
-  useEffect(() => {
-    const checkLimit = async () => {
-      try {
-        const activeId = await DataManager.getActiveWorkspaceId();
-        const counts = await DataManager.getNoteCountForWorkspaces();
-        const count = counts[activeId] || 0;
-        setIsOverLimit(count >= 10000);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    checkLimit();
-
-    window.addEventListener('workspace-notes-changed', checkLimit);
-    return () => {
-      window.removeEventListener('workspace-notes-changed', checkLimit);
-    };
-  }, []);
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -336,10 +317,10 @@ function AppContent() {
     <ScrollToTopOnRouteChange />
     <div className={`min-h-screen font-sans ${isLight ? 'light-theme' : 'bg-[var(--bg-main)] text-white'} ${isHideBottomNav ? '' : 'pb-32'} transition-colors duration-300`}>
       <AndroidStatusBar />
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
         {isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning && (
-          <Modal id="limit-warning-modal" isOpen={true} onClose={() => setHasDismissedLimitWarning(true)} title="একটি সতর্কতা (Note Limit Reached)">
+          <Modal key="limit-warning-modal" id="limit-warning-modal" isOpen={true} onClose={() => setHasDismissedLimitWarning(true)} title="একটি সতর্কতা (Note Limit Reached)">
             <div className="flex flex-col items-center text-center p-6 gap-6 relative">
               <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center animate-bounce">
                 <AlertCircle size={32} />
@@ -363,6 +344,7 @@ function AppContent() {
         )}
         {isOffline && (
         <motion.div 
+          key="offline-banner"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="fixed top-0 left-0 right-0 z-[9999] bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.2em] py-1.5 text-center flex items-center justify-center gap-2"
@@ -374,6 +356,7 @@ function AppContent() {
 
       {deferredPrompt && !showPopup && !hasDismissedInstallPrompt && !isStandalone && (
         <motion.div
+          key="install-prompt"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: -20 }}
           className="fixed bottom-24 left-4 right-4 z-[9999] p-4 bg-blue-600 rounded-3xl shadow-2xl flex items-center justify-between gap-3"
@@ -403,45 +386,48 @@ function AppContent() {
 
       {notification && (
           <motion.div
+            key="app-notification"
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 20 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-0 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-[400px]"
+            className="fixed top-0 left-1/2 z-[1000] pointer-events-none"
           >
-            <div className={cn(
-              "px-6 py-4 rounded-2xl border shadow-2xl flex items-center gap-4",
-              notification.severity === 'error' 
-                ? "bg-red-500/90 text-white border-red-400 backdrop-blur-xl" 
-                : notification.severity === 'success'
-                  ? "bg-emerald-600/95 text-white border-emerald-500 backdrop-blur-xl"
-                  : "bg-yellow-500/90 text-black border-yellow-400 backdrop-blur-xl"
-            )}>
-              <div className="shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <AlertCircle size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm leading-tight truncate">{notification.message}</p>
-                {notification.severity === 'warning' && (
-                  <p className="text-[10px] mt-1 opacity-60">সঞ্চয়স্থান পূর্ণ হলে ডাটা হারিয়ে যেতে পারে।</p>
+            <div className="-translate-x-1/2 w-[90vw] max-w-[400px] pointer-events-auto">
+              <div className={cn(
+                "px-6 py-4 rounded-2xl border shadow-2xl flex items-center gap-4",
+                notification.severity === 'error' 
+                  ? "bg-red-500/90 text-white border-red-400 backdrop-blur-xl" 
+                  : notification.severity === 'success'
+                    ? "bg-emerald-600/95 text-white border-emerald-500 backdrop-blur-xl"
+                    : "bg-yellow-500/90 text-black border-yellow-400 backdrop-blur-xl"
+              )}>
+                <div className="shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <AlertCircle size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm leading-tight truncate">{notification.message}</p>
+                  {notification.severity === 'warning' && (
+                    <p className="text-[10px] mt-1 opacity-60">সঞ্চয়স্থান পূর্ণ হলে ডাটা হারিয়ে যেতে পারে।</p>
+                  )}
+                </div>
+                {notification.action && (
+                  <button 
+                    onClick={() => {
+                      notification.action?.onClick();
+                      setNotification(null);
+                    }}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all active:scale-95 whitespace-nowrap"
+                  >
+                    {notification.action.label}
+                  </button>
                 )}
-              </div>
-              {notification.action && (
                 <button 
-                  onClick={() => {
-                    notification.action?.onClick();
-                    setNotification(null);
-                  }}
-                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all active:scale-95 whitespace-nowrap"
+                  onClick={() => setNotification(null)}
+                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
                 >
-                  {notification.action.label}
+                  <X size={16} />
                 </button>
-              )}
-              <button 
-                onClick={() => setNotification(null)}
-                className="p-2 hover:bg-black/10 rounded-full transition-colors"
-              >
-                <X size={16} />
-              </button>
+              </div>
             </div>
           </motion.div>
         )}

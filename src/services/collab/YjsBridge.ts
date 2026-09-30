@@ -6,6 +6,7 @@
 import * as Y from 'yjs';
 import { EditorBlock } from '../../utils/blockParser';
 import { SyncSnapshot, SubPageSnapshot } from './types';
+import { isBengaliBoundary } from '../../utils/bengali';
 
 export class YjsBridge {
   private doc: Y.Doc;
@@ -92,11 +93,20 @@ export class YjsBridge {
       // 3. Sync blocks order and data
       const nextOrder = snap.blocks.map(b => b.id);
       const currentOrder = this.order.toArray();
-
-      // Simple order sync: delete all and re-insert if different
-      if (JSON.stringify(currentOrder) !== JSON.stringify(nextOrder)) {
-        this.order.delete(0, this.order.length);
-        this.order.push(nextOrder);
+      
+      // Optimized stable reconciliation for Y.Array
+      let i = 0;
+      while (i < nextOrder.length && i < this.order.length) {
+        if (nextOrder[i] !== this.order.get(i)) {
+          this.order.delete(i, 1);
+          this.order.insert(i, [nextOrder[i]]);
+        }
+        i++;
+      }
+      if (i < nextOrder.length) {
+        this.order.push(nextOrder.slice(i));
+      } else if (i < this.order.length) {
+        this.order.delete(i, this.order.length - i);
       }
 
       // Sync individual blocks
@@ -198,15 +208,7 @@ export class YjsBridge {
   }
 
   private isUnsafeBoundary(charCode: number): boolean {
-    // Low surrogates (0xDC00–0xDFFF)
-    if (charCode >= 0xDC00 && charCode <= 0xDFFF) return true;
-    // Bengali virama
-    if (charCode === 0x09CD) return true;
-    // Bengali matras (0x09BE–0x09CC)
-    if (charCode >= 0x09BE && charCode <= 0x09CC) return true;
-    // Bengali Nukta, Chandrabindu, Anusvara, Visarga
-    if (charCode === 0x09BC || charCode === 0x0981 || charCode === 0x0982 || charCode === 0x0983) return true;
-    return false;
+    return isBengaliBoundary(charCode);
   }
 
   public getDocUpdate(): Uint8Array {

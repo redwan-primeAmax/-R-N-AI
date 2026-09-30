@@ -22,6 +22,8 @@ interface ModalProps {
   className?: string;
 }
 
+let cachedReducedMotion: boolean | null = null;
+
 export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({ 
   isOpen, 
   onClose, 
@@ -33,13 +35,15 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
   position = 'center',
   className
 }, ref) => {
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(cachedReducedMotion ?? false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => containerRef.current!);
 
   useEffect(() => {
+    if (cachedReducedMotion !== null) return;
     DataManager.getUserPreferences().then(prefs => {
+      cachedReducedMotion = prefs.reducedMotion;
       setReducedMotion(prefs.reducedMotion);
     });
   }, [isOpen]);

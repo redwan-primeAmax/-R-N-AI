@@ -116,10 +116,20 @@ export function useEditorHandlers({
   }, [theme]);
 
   useEffect(() => {
+    const listeners: Record<string, Function[]> = {};
     (window as any).editorEvents = {
       emit: (event: string, data?: any) => {
         if (event === 'createSubPage') setSubPageMode('create');
         if (event === 'attachSubPage') setSubPageMode('attach');
+        listeners[event]?.forEach(fn => fn(data));
+      },
+      on: (event: string, fn: Function) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(fn);
+      },
+      off: (event: string, fn: Function) => {
+        if (!listeners[event]) return;
+        listeners[event] = listeners[event].filter(f => f !== fn);
       }
     };
     return () => { delete (window as any).editorEvents; };

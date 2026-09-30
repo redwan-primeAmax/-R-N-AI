@@ -129,6 +129,7 @@ export function cleanBlockHTML(html: string, blockType: string): string {
     }
   });
 
+  // Normalize whitespace: trim but keep internal structure
   return body.innerHTML;
 }
 
@@ -144,6 +145,18 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     const body = doc.body;
     const blocks: EditorBlock[] = [];
 
+    const getIndentFromElement = (el: Element): number => {
+      const dataIndent = el.getAttribute('data-indent');
+      if (dataIndent) return parseInt(dataIndent, 10) || 0;
+
+      const style = el.getAttribute('style') || '';
+      const marginMatch = style.match(/margin-left:\s*(\d+)px/);
+      if (marginMatch) {
+        return Math.round(parseInt(marginMatch[1], 10) / 24);
+      }
+      return 0;
+    };
+
     const addBlock = (type: EditorBlock['type'], content: string, extra: Partial<EditorBlock> = {}) => {
       try {
         const cleanedContent = cleanBlockHTML(content, type);
@@ -151,7 +164,7 @@ export function htmlToBlocks(html: string): EditorBlock[] {
         if (extra.indent !== undefined) indent = extra.indent;
 
         blocks.push({
-          id: crypto.randomUUID(),
+          id: extra.id || crypto.randomUUID(),
           type,
           content: cleanedContent,
           indent,
@@ -181,10 +194,12 @@ export function htmlToBlocks(html: string): EditorBlock[] {
 
       const tagName = child.tagName.toLowerCase();
       const dataType = child.getAttribute('data-type');
+      const id = child.getAttribute('data-id') || undefined;
+      const indent = getIndentFromElement(child);
 
     if (child.classList.contains('toggle-list') || dataType === 'toggle') {
       const isExpanded = child.getAttribute('data-expanded') === 'true';
-      addBlock('toggle', child.innerHTML, { isExpanded });
+      addBlock('toggle', child.innerHTML, { id, indent, isExpanded });
     } else if (child.classList.contains('bookmark-block') || dataType === 'bookmark') {
       const url = child.getAttribute('data-url') || '';
       const status = child.getAttribute('data-status') || 'empty';
@@ -194,7 +209,7 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       } catch (e) {
         title = child.getAttribute('data-title') || '';
       }
-      addBlock('bookmark', '', { meta: { url, status, title } });
+      addBlock('bookmark', '', { id, indent, meta: { url, status, title } });
     } else if (child.classList.contains('audio-generator-block') || dataType === 'audio_generator') {
       let text = '';
       try {
@@ -209,7 +224,7 @@ export function htmlToBlocks(html: string): EditorBlock[] {
         title = child.getAttribute('data-title') || '';
       }
       const status = child.getAttribute('data-status') || 'idle';
-      addBlock('audio_generator', '', { meta: { text, status, title } });
+      addBlock('audio_generator', '', { id, indent, meta: { text, status, title } });
     } else if (child.classList.contains('column-block') || dataType === 'column') {
       let col1Content = '';
       let col2Content = '';
@@ -223,24 +238,24 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       } catch (e) {
         col2Content = child.getAttribute('data-col2') || '';
       }
-      addBlock('column', '', { col1Content, col2Content });
+      addBlock('column', '', { id, indent, col1Content, col2Content });
     } else if (child.classList.contains('page-link-block') || dataType === 'page_link') {
       const subPageId = child.getAttribute('data-subpageid') || '';
-      addBlock('page_link', child.innerHTML, { subPageId });
+      addBlock('page_link', child.innerHTML, { id, indent, subPageId });
     } else if (child.classList.contains('toc-block') || dataType === 'toc') {
-      addBlock('toc', '');
+      addBlock('toc', '', { id, indent });
     } else if (child.classList.contains('synced-block') || dataType === 'synced') {
       const syncedBlockId = child.getAttribute('data-synced-id') || '';
-      addBlock('synced', child.innerHTML, { syncedBlockId });
+      addBlock('synced', child.innerHTML, { id, indent, syncedBlockId });
     } else if (child.classList.contains('toggle-h1-block') || dataType === 'toggle_h1') {
       const isExpanded = child.getAttribute('data-expanded') === 'true';
-      addBlock('toggle_h1', child.innerHTML, { isExpanded });
+      addBlock('toggle_h1', child.innerHTML, { id, indent, isExpanded });
     } else if (child.classList.contains('toggle-h2-block') || dataType === 'toggle_h2') {
       const isExpanded = child.getAttribute('data-expanded') === 'true';
-      addBlock('toggle_h2', child.innerHTML, { isExpanded });
+      addBlock('toggle_h2', child.innerHTML, { id, indent, isExpanded });
     } else if (child.classList.contains('toggle-h3-block') || dataType === 'toggle_h3') {
       const isExpanded = child.getAttribute('data-expanded') === 'true';
-      addBlock('toggle_h3', child.innerHTML, { isExpanded });
+      addBlock('toggle_h3', child.innerHTML, { id, indent, isExpanded });
     } else if (child.classList.contains('database-block') || dataType === 'database') {
       let databaseData: any;
       try {
@@ -248,13 +263,13 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       } catch (e) {
         databaseData = undefined;
       }
-      addBlock('database', '', { databaseData });
+      addBlock('database', '', { id, indent, databaseData });
     } else if (child.classList.contains('embed-block') || dataType === 'embed') {
       const provider = (child.getAttribute('data-provider') as any) || 'custom';
       const url = child.getAttribute('data-url') || '';
-      addBlock('embed', '', { embedData: { provider, url } });
+      addBlock('embed', '', { id, indent, embedData: { provider, url } });
     } else if (child.classList.contains('table-view-block') || dataType === 'table_view') {
-      addBlock('table_view', '');
+      addBlock('table_view', '', { id, indent });
     } else if (child.classList.contains('extension-block') || (dataType && !['bookmark', 'audio_generator', 'column', 'page_link', 'toc', 'synced', 'toggle_h1', 'toggle_h2', 'toggle_h3', 'database', 'embed', 'table_view', 'callout', 'sandbox', 'media', 'taskList', 'paragraph', 'h1', 'h2', 'h3', 'bullet', 'ordered', 'todo', 'code', 'quote', 'hr', 'table'].includes(dataType))) {
       const extType = dataType || (child.classList.contains('extension-block') ? child.getAttribute('data-type') : null);
       if (extType) {
@@ -265,24 +280,29 @@ export function htmlToBlocks(html: string): EditorBlock[] {
             meta = JSON.parse(decodeURIComponent(metaAttr));
           } catch (e) {}
         }
-        addBlock(extType, child.innerHTML, { meta });
+        addBlock(extType, child.innerHTML, { id, indent, meta });
       }
     } else if (tagName === 'h1' || child.classList.contains('h1')) {
-      addBlock('h1', child.innerHTML);
+      addBlock('h1', child.innerHTML, { id, indent });
     } else if (tagName === 'h2' || child.classList.contains('h2')) {
-      addBlock('h2', child.innerHTML);
+      addBlock('h2', child.innerHTML, { id, indent });
     } else if (tagName === 'h3' || child.classList.contains('h3')) {
-      addBlock('h3', child.innerHTML);
+      addBlock('h3', child.innerHTML, { id, indent });
     } else if (tagName === 'blockquote') {
-      addBlock('quote', child.innerHTML);
+      addBlock('quote', child.innerHTML, { id, indent });
     } else if (tagName === 'hr') {
-      addBlock('hr', '');
+      addBlock('hr', '', { id, indent });
     } else if (tagName === 'p') {
-      addBlock('paragraph', child.innerHTML);
+      addBlock('paragraph', child.innerHTML, { id, indent });
     } else if (tagName === 'ul' || tagName === 'ol') {
       const isTaskList = child.classList.contains('task-list') || child.getAttribute('data-type') === 'taskList';
+      const listIndent = indent; // Parent list's indent
       const items = Array.from(child.children);
       items.forEach((li) => {
+        const itemId = li.getAttribute('data-id') || undefined;
+        const itemIndentAttr = li.getAttribute('data-indent');
+        const itemIndent = itemIndentAttr ? parseInt(itemIndentAttr, 10) : listIndent;
+        
         const hasCheckbox = li.querySelector('input[type="checkbox"]') !== null;
         if (tagName === 'ul' && (isTaskList || hasCheckbox || li.hasAttribute('data-checked') || li.classList.contains('task-item-modern'))) {
           const checked = li.getAttribute('data-checked') === 'true' || 
@@ -300,30 +320,31 @@ export function htmlToBlocks(html: string): EditorBlock[] {
             if (cb) cb.remove();
             textContent = tempDiv.innerHTML.trim();
           }
-          addBlock('todo', textContent, { checked: !!checked });
+          addBlock('todo', textContent, { id: itemId, indent: itemIndent, checked: !!checked });
         } else {
-          addBlock(tagName === 'ul' ? 'bullet' : 'ordered', li.innerHTML);
+          addBlock(tagName === 'ul' ? 'bullet' : 'ordered', li.innerHTML, { id: itemId, indent: itemIndent });
         }
       });
     } else if (tagName === 'pre') {
       const code = child.querySelector('code');
       const text = code ? code.innerHTML : child.innerHTML;
       const lang = code?.getAttribute('class')?.replace('language-', '') || 'javascript';
-      addBlock('code', text, { language: lang });
+      addBlock('code', text, { id, indent, language: lang });
     } else if (child.classList.contains('callout') || child.getAttribute('data-type') === 'callout') {
       const emoji = child.getAttribute('data-emoji') || '💡';
-      addBlock('callout', child.innerHTML, { emoji });
+      addBlock('callout', child.innerHTML, { id, indent, emoji });
     } else if (child.classList.contains('sandbox-block') || child.getAttribute('data-type') === 'sandbox') {
-      addBlock('sandbox', child.innerHTML);
+      addBlock('sandbox', child.innerHTML, { id, indent });
     } else if (child.classList.contains('media-block') || child.getAttribute('data-type') === 'media' || child.classList.contains('media-upload-block')) {
-      const id = child.getAttribute('data-id') || crypto.randomUUID();
+      const mediaId = child.getAttribute('data-id') || crypto.randomUUID();
       const type = (child.getAttribute('data-media-type') as any) || 'image';
       const fileName = child.getAttribute('data-name') || '';
       const fileSize = child.getAttribute('data-size') || '';
       const status = (child.getAttribute('data-status') as any) || 'completed';
       const url = child.getAttribute('data-url') || '';
       addBlock('media', '', {
-        mediaData: { id, type, fileName, fileSize, status, url }
+        id, indent,
+        mediaData: { id: mediaId, type, fileName, fileSize, status, url }
       });
     } else if (tagName === 'table') {
       const rows: string[][] = [];
@@ -337,11 +358,12 @@ export function htmlToBlocks(html: string): EditorBlock[] {
         rows.push(rowCells);
       });
       addBlock('table', '', { 
+        id, indent,
         tableData: rows.length ? rows : [["", "", ""], ["", "", ""], ["", "", ""]],
         withHeaderRow: child.querySelector('th') !== null
       });
     } else {
-      addBlock('paragraph', child.innerHTML || child.textContent || '');
+      addBlock('paragraph', child.innerHTML || child.textContent || '', { id, indent });
     }
   }
 
@@ -381,15 +403,16 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
 
   blocks.forEach((block) => {
     const indent = block.indent || 0;
+    const commonAttrs = `data-id="${block.id}" data-indent="${indent}"`;
 
     if (block.type === 'ordered') {
       closeActiveLists('ordered');
       if (!activeOrderedList || activeOrderedList.indent !== indent) {
         if (activeOrderedList) { html += '</ol>'; }
-        html += `<ol data-type="ordered" style="margin-left: ${indent * 24}px">`;
+        html += `<ol data-type="ordered" data-indent="${indent}" style="margin-left: ${indent * 24}px">`;
         activeOrderedList = { indent };
       }
-      html += `<li>${block.content || ''}</li>`;
+      html += `<li data-id="${block.id}" data-indent="${indent}">${block.content || ''}</li>`;
       return;
     }
 
@@ -397,10 +420,10 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
       closeActiveLists('bullet');
       if (!activeBulletList || activeBulletList.indent !== indent) {
         if (activeBulletList) { html += '</ul>'; }
-        html += `<ul data-type="bullet" style="margin-left: ${indent * 24}px">`;
+        html += `<ul data-type="bullet" data-indent="${indent}" style="margin-left: ${indent * 24}px">`;
         activeBulletList = { indent };
       }
-      html += `<li>${block.content || ''}</li>`;
+      html += `<li data-id="${block.id}" data-indent="${indent}">${block.content || ''}</li>`;
       return;
     }
 
@@ -408,10 +431,10 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
       closeActiveLists('todo');
       if (!activeTodoList || activeTodoList.indent !== indent) {
         if (activeTodoList) { html += '</ul>'; }
-        html += `<ul data-type="taskList" style="margin-left: ${indent * 24}px">`;
+        html += `<ul data-type="taskList" data-indent="${indent}" style="margin-left: ${indent * 24}px">`;
         activeTodoList = { indent };
       }
-      html += `<li class="${block.checked ? 'checked task-item-modern' : 'task-item-modern'}" data-checked="${block.checked ? 'true' : 'false'}"><input type="checkbox" ${block.checked ? 'checked' : ''} disabled><label>${block.content || ''}</label></li>`;
+      html += `<li class="${block.checked ? 'checked task-item-modern' : 'task-item-modern'}" data-checked="${block.checked ? 'true' : 'false'}" data-id="${block.id}" data-indent="${indent}"><input type="checkbox" ${block.checked ? 'checked' : ''} disabled><label>${block.content || ''}</label></li>`;
       return;
     }
 
@@ -420,82 +443,82 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
 
     switch (block.type) {
       case 'toc':
-        html += `<div class="toc-block" data-type="toc" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="toc-block" data-type="toc" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'synced':
-        html += `<div class="synced-block" data-type="synced" data-synced-id="${block.syncedBlockId || ''}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="synced-block" data-type="synced" data-synced-id="${block.syncedBlockId || ''}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h1':
-        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h2':
-        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h3':
-        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded ? 'true' : 'false'}" style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'database': {
         const dbJson = encodeURIComponent(JSON.stringify(block.databaseData || {}));
-        html += `<div class="database-block" data-type="database" data-database="${dbJson}" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="database-block" data-type="database" data-database="${dbJson}" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       }
       case 'embed':
-        html += `<div class="embed-block" data-type="embed" data-provider="${block.embedData?.provider || 'custom'}" data-url="${block.embedData?.url || ''}" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="embed-block" data-type="embed" data-provider="${block.embedData?.provider || 'custom'}" data-url="${block.embedData?.url || ''}" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'table_view':
-        html += `<div class="table-view-block" data-type="table_view" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="table-view-block" data-type="table_view" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'bookmark':
-        html += `<div class="bookmark-block" data-type="bookmark" data-url="${block.meta?.url || ''}" data-status="${block.meta?.status || 'empty'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="bookmark-block" data-type="bookmark" data-url="${block.meta?.url || ''}" data-status="${block.meta?.status || 'empty'}" data-title="${encodeURIComponent(block.meta?.title || '')}" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'audio_generator':
-        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" data-title="${encodeURIComponent(block.meta?.title || '')}" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="audio-generator-block" data-type="audio_generator" data-text="${encodeURIComponent(block.meta?.text || '')}" data-status="${block.meta?.status || 'idle'}" data-title="${encodeURIComponent(block.meta?.title || '')}" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'column':
-        html += `<div class="column-block" data-type="column" data-col1="${encodeURIComponent(block.col1Content || '')}" data-col2="${encodeURIComponent(block.col2Content || '')}" style="margin-left: ${indent * 24}px"></div>`;
+        html += `<div class="column-block" data-type="column" data-col1="${encodeURIComponent(block.col1Content || '')}" data-col2="${encodeURIComponent(block.col2Content || '')}" ${commonAttrs} style="margin-left: ${indent * 24}px"></div>`;
         break;
       case 'page_link':
-        html += `<div class="page-link-block" data-type="page_link" data-subpageid="${block.subPageId || ''}" style="margin-left: ${indent * 24}px">${block.content || ''}</div>`;
+        html += `<div class="page-link-block" data-type="page_link" data-subpageid="${block.subPageId || ''}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content || ''}</div>`;
         break;
       case 'paragraph':
-        html += `<p style="margin-left: ${indent * 24}px">${block.content}</p>`;
+        html += `<p ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</p>`;
         break;
       case 'h1':
-        html += `<h1 style="margin-left: ${indent * 24}px">${block.content}</h1>`;
+        html += `<h1 ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</h1>`;
         break;
       case 'h2':
-        html += `<h2 style="margin-left: ${indent * 24}px">${block.content}</h2>`;
+        html += `<h2 ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</h2>`;
         break;
       case 'h3':
-        html += `<h3 style="margin-left: ${indent * 24}px">${block.content}</h3>`;
+        html += `<h3 ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</h3>`;
         break;
       case 'quote':
-        html += `<blockquote style="margin-left: ${indent * 24}px">${block.content}</blockquote>`;
+        html += `<blockquote ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</blockquote>`;
         break;
       case 'hr':
-        html += `<hr style="margin-left: ${indent * 24}px" />`;
+        html += `<hr ${commonAttrs} style="margin-left: ${indent * 24}px" />`;
         break;
       case 'toggle':
-        html += `<div class="toggle-list" data-type="toggle" style="margin-left: ${indent * 24}px" data-expanded="${block.isExpanded ? 'true' : 'false'}">${block.content}</div>`;
+        html += `<div class="toggle-list" data-type="toggle" ${commonAttrs} style="margin-left: ${indent * 24}px" data-expanded="${block.isExpanded ? 'true' : 'false'}">${block.content}</div>`;
         break;
       case 'code':
-        html += `<pre style="margin-left: ${indent * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
+        html += `<pre ${commonAttrs} style="margin-left: ${indent * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
         break;
       case 'callout':
-        html += `<div class="callout" data-type="callout" data-emoji="${block.emoji || '💡'}">${block.content}</div>`;
+        html += `<div class="callout" data-type="callout" data-emoji="${block.emoji || '💡'}" ${commonAttrs}>${block.content}</div>`;
         break;
       case 'sandbox':
-        html += `<div class="sandbox-block" data-type="sandbox">${block.content}</div>`;
+        html += `<div class="sandbox-block" data-type="sandbox" ${commonAttrs}>${block.content}</div>`;
         break;
       case 'media':
         if (block.mediaData) {
-          const { id, type, fileName, fileSize, status, url } = block.mediaData;
-          html += `<div class="media-block" data-type="media" data-id="${id}" data-media-type="${type}" data-name="${fileName}" data-size="${fileSize}" data-status="${status}" data-url="${url || ''}"></div>`;
+          const { id: mediaId, type, fileName, fileSize, status, url } = block.mediaData;
+          html += `<div class="media-block" data-type="media" data-id="${mediaId}" data-media-type="${type}" data-name="${fileName}" data-size="${fileSize}" data-status="${status}" data-url="${url || ''}" ${commonAttrs}></div>`;
         }
         break;
       case 'table':
         if (block.tableData) {
-          html += `<table><tbody>`;
+          html += `<table ${commonAttrs}><tbody>`;
           block.tableData.forEach((row, rIdx) => {
             html += `<tr>`;
             row.forEach((cell) => {
@@ -514,7 +537,7 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         {
           // Extension block serialization
           const metaStr = block.meta ? encodeURIComponent(JSON.stringify(block.meta)) : '';
-          html += `<div class="extension-block" data-type="${block.type}" data-meta="${metaStr}" style="margin-left: ${indent * 24}px">${block.content || ''}</div>`;
+          html += `<div class="extension-block" data-type="${block.type}" data-meta="${metaStr}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content || ''}</div>`;
           break;
         }
     }

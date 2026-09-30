@@ -4,6 +4,7 @@
  */
 
 import { normalizeText, stripHtml } from './StorageBuffer';
+import { BENGALI_REGEX } from '../../../../utils/bengali';
 
 const segmenter = typeof Intl !== 'undefined' && (Intl as any).Segmenter 
   ? new (Intl as any).Segmenter(['bn', 'en'], { granularity: 'word' })
@@ -25,7 +26,7 @@ export function getPhoneticKey(word: string): string {
   let result = '';
 
   // 1. Detect Bengali character range \u0980-\u09FF
-  if (/[\u0980-\u09FF]/.test(normalized)) {
+  if (BENGALI_REGEX.test(normalized)) {
     let key = normalized;
     key = key.replace(/[শষ]/g, 'স');
     key = key.replace(/[ড়ঢ়]/g, 'র');

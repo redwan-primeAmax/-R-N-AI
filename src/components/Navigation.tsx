@@ -10,30 +10,12 @@ import { DataManager } from '../services/storage/DataManager';
 import { motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 
+import { useNoteLimit } from '../hooks/useNoteLimit';
+
 export default function Navigation() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isOverLimit, setIsOverLimit] = useState(false);
-
-  useEffect(() => {
-    const checkLimit = async () => {
-      try {
-        const activeId = await DataManager.getActiveWorkspaceId();
-        const counts = await DataManager.getNoteCountForWorkspaces();
-        const count = counts[activeId] || 0;
-        setIsOverLimit(count >= 10000);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    checkLimit();
-
-    window.addEventListener('workspace-notes-changed', checkLimit);
-    return () => {
-      window.removeEventListener('workspace-notes-changed', checkLimit);
-    };
-  }, []);
+  const { isOverLimit } = useNoteLimit();
 
   const createQuickNote = async () => {
     try {
