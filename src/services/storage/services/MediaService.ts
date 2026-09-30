@@ -31,35 +31,41 @@ export const MediaService = {
   },
 
   async resolveMediaUrls(content: string): Promise<string> {
-    if (!content) return '';
+    if (!content || !content.includes('blob-id:')) return content;
 
     const blobIdRegex = /blob-id:([a-zA-Z0-9_-]+)/g;
-    let resolved = content;
     const matches = Array.from(content.matchAll(blobIdRegex));
+    if (matches.length === 0) return content;
 
-    for (const match of matches) {
-      const mediaId = match[1];
-      const blob = await this.getMedia(mediaId);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        activeObjectUrls.add(url);
-        objectUrlToMediaId.set(url, mediaId);
-        resolved = resolved.split(match[0]).join(url);
-      }
-    }
+    let resolved = content;
+    const uniqueIds = Array.from(new Set(matches.map(m => m[1])));
+    
+    // Batch fetch media to reduce DB roundtrips
+    const mediaItems = await db.media.where('id').anyOf(uniqueIds).toArray();
+    const idToUrlMap = new Map<string, string>();
 
-    return resolved;
+    mediaItems.forEach(item => {
+      const url = URL.createObjectURL(item.blob);
+      activeObjectUrls.add(url);
+      objectUrlToMediaId.set(url, item.id);
+      idToUrlMap.set(item.id, url);
+    });
+
+    return content.replace(blobIdRegex, (match, id) => {
+      return idToUrlMap.get(id) || match;
+    });
   },
 
   /**
    * Revokes all active object URLs to prevent memory leaks
    */
   revokeMediaUrls(): void {
+    if (activeObjectUrls.size === 0) return;
     activeObjectUrls.forEach(url => {
       try {
         URL.revokeObjectURL(url);
       } catch (e) {
-        console.error('MediaService: Failed to revoke URL:', e);
+        // Ignore errors for already revoked URLs
       }
     });
     activeObjectUrls.clear();
@@ -74,17 +80,21 @@ export const MediaService = {
     if (!content) return '';
 
     let processed = content;
-    objectUrlToMediaId.forEach((mediaId, url) => {
-      processed = processed.split(url).join(`blob-id:${mediaId}`);
-    });
+    if (objectUrlToMediaId.size > 0) {
+      objectUrlToMediaId.forEach((mediaId, url) => {
+        if (processed.includes(url)) {
+          processed = processed.split(url).join(`blob-id:${mediaId}`);
+        }
+      });
+    }
 
     if (!processed.includes('data:image/') && !processed.includes('data:video/') && !processed.includes('data:audio/')) {
       return processed;
     }
 
-    // Match image, video, audio data URIs safely
     const dataUriRegex = /src="data:(image|video|audio)\/([a-zA-Z0-9\+\-]+);base64,([^"]*)"/g;
     const matches = Array.from(processed.matchAll(dataUriRegex));
+    if (matches.length === 0) return processed;
 
     for (const match of matches) {
       const category = match[1];
@@ -93,16 +103,10 @@ export const MediaService = {
       const base64Data = match[3];
 
       try {
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mimeType });
-
+        // Optimized base64 to blob conversion
+        const blob = await fetch(`data:${mimeType};base64,${base64Data}`).then(res => res.blob());
         const mediaId = await this.saveMedia(blob);
-        processed = processed.split(match[0]).join(`src="blob-id:${mediaId}"`);
+        processed = processed.replace(match[0], `src="blob-id:${mediaId}"`);
       } catch (e) {
         console.error('MediaService: Failed to extract media:', e);
       }

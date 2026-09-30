@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import CustomBlockEditor from './components/CustomBlockEditor';
@@ -25,6 +25,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import { EditorModalProvider } from './context/EditorModalContext';
 
 import { DataManager } from '../../services/storage/DataManager';
+import { collabManager } from '../../services/collab';
 import { cn } from '../../utils/cn';
 
 export default function EditorPageWrapper() {
@@ -49,11 +50,12 @@ function EditorPage({ id }: { id: string | undefined }) {
 
   // Collaboration P2P Setup
   const {
-    collabRoom, activePeers, collaborators, handleStartCollab, handleKickCollaborator
+    collabRoom, activePeers, collaborators, sessionRole, connectionState,
+    handleStartCollab, handleKickCollaborator, handleDisconnect
   } = useCollaboration({
-    id, note, editor, title, emoji, theme, currentSubPages,
-    setNote, setTitle, setEmoji, setTheme, setCurrentSubPages, setNotification,
-    location, navigate, titleRef, emojiRef, themeRef, noteRef
+    id, note, editor, title, emoji, theme,
+    setNote, setTitle, setEmoji, setTheme, setNotification,
+    location, navigate
   });
 
   // Editor Actions & Component Handlers Setup
@@ -207,13 +209,15 @@ function EditorPage({ id }: { id: string | undefined }) {
     await DataManager.saveNote(updated);
   };
 
-  const modalContextValue = {
+  const modalContextValue = useMemo(() => ({
     note,
     theme,
     editor,
     collabRoom,
     activePeers,
     collaborators,
+    sessionRole,
+    connectionState,
     currentSubPages,
     showActionSheet,
     setShowActionSheet,
@@ -247,11 +251,23 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleAddSubPage,
     handleStartCollab,
     handleKickCollaborator,
+    handleDisconnect,
     handleLinkPageSelect,
     noteRef,
     pageWidth: note?.pageWidth || 'default',
     onToggleWidth: handleToggleWidth
-  };
+  }), [
+    note, theme, editor, collabRoom, activePeers, collaborators, sessionRole, connectionState, currentSubPages,
+    showActionSheet, showBlockMenu, showThemeSelector, subPageMode, showDeleteConfirm,
+    showLockPrompt, showTagPrompt, showExportModal, showBookmarkModal, showLinkPanel,
+    isUploading, isReadOnly, handleCopy, handleLock, handleDelete, handleTagSaveSubmit,
+    handleThemeSelect, handleAddSubPage, handleStartCollab, handleKickCollaborator, handleDisconnect,
+    handleLinkPageSelect, noteRef
+  ]);
+
+  const anyModalOpen = showActionSheet || showBlockMenu || showThemeSelector || 
+                       showDeleteConfirm || showLockPrompt || showTagPrompt || 
+                       showExportModal || showBookmarkModal || showLinkPanel;
 
   return (
     <EditorModalProvider value={modalContextValue}>
@@ -266,9 +282,10 @@ function EditorPage({ id }: { id: string | undefined }) {
           title={title}
           activeTasksCount={activeTasksCount}
           onShowMenu={() => setShowActionSheet(true)}
-          isCollaborating={!!collabRoom}
+          sessionRole={sessionRole}
+          connectionState={connectionState}
           collabPeerCount={activePeers}
-          onStartCollab={handleStartCollab}
+          onStartCollab={() => setShowActionSheet(true)}
           editor={editor}
           isSaving={isSaving}
           saveError={saveError}
@@ -310,7 +327,10 @@ function EditorPage({ id }: { id: string | undefined }) {
                 ref={textareaRef}
                 autoFocus
                 value={title}
-                onFocus={() => setIsTitleFocused(true)}
+                onFocus={() => {
+                  setIsTitleFocused(true);
+                  if (id) collabManager.updateCursor(id, 'title');
+                }}
                 onBlur={() => setIsTitleFocused(false)}
                 onChange={(e) => updateTitle(e.target.value)}
                 placeholder="শিরোনামহীন"
@@ -331,6 +351,8 @@ function EditorPage({ id }: { id: string | undefined }) {
               <CustomBlockEditor 
                 editor={editor} 
                 blocksRefs={blocksRefs}
+                noteId={id}
+                collaborators={collaborators}
                 className={cn(
                   "prose max-w-none focus:outline-none pb-20 w-full",
                   !isLight && "prose-invert",
@@ -349,7 +371,7 @@ function EditorPage({ id }: { id: string | undefined }) {
           isTitleFocused={isTitleFocused}
         />
 
-        <EditorModals />
+        {anyModalOpen && <EditorModals />}
 
         {notification && (
           <motion.div initial={{ y: -50 }} animate={{ y: 20 }} exit={{ y: -50 }} className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-full bg-white text-black text-xs font-black uppercase">

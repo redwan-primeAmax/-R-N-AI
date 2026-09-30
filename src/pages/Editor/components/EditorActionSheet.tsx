@@ -5,10 +5,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, ChevronRight, Plus, Box, Check, ClipboardCopy, Trash2, Bookmark } from 'lucide-react';
+import { FileText, ChevronRight, Plus, Box, Check, ClipboardCopy, Trash2, Bookmark, Zap, Users, X } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { cn } from '../../../utils/cn';
 import { useNavigate } from 'react-router-dom';
+import { collabManager, Collaborator } from '../../../services/collab';
+import { CollaboratorList } from './CollaboratorList';
 
 // Import our modular action definitions
 import { subPagesNavigation } from '../actions/SubPagesNavigation';
@@ -38,10 +40,12 @@ interface EditorActionSheetProps {
   subPages: Note[];
   onAddSubPage: () => void;
   onStartCollab?: (options?: { password?: string, memberLimit?: number }) => void;
-  isCollabActive?: boolean;
-  collabRoomId?: string | null;
-  collaborators?: { id: string, name: string }[];
+  collabRoom?: string | null;
+  activePeers?: number;
+  collaborators?: Collaborator[];
+  sessionRole?: 'idle' | 'host' | 'guest';
   onKickCollaborator?: (peerId: string) => void;
+  onDisconnect?: () => void;
   blocks?: any[];
   pageWidth?: 'default' | 'full';
   onToggleWidth?: () => void;
@@ -65,10 +69,12 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   subPages,
   onAddSubPage,
   onStartCollab,
-  isCollabActive = false,
-  collabRoomId = null,
+  collabRoom = null,
+  activePeers = 0,
   collaborators = [],
+  sessionRole = 'idle',
   onKickCollaborator,
+  onDisconnect,
   blocks = [],
   pageWidth,
   onToggleWidth,
@@ -171,7 +177,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                         <button 
                           key={sub.id}
                           onClick={() => {
-                            const collabParam = collabRoomId ? `?collab=${collabRoomId}` : '';
+                            const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
                             navigate(`/editor/${sub.id}${collabParam}`);
                             onClose();
                           }}
@@ -214,18 +220,86 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                      </button>
                   </div>
 
-                  <MenuAction 
-                    icon={shareCollabAction.icon} 
-                    label="Share Live Host" 
-                    subtitle={() => shareCollabAction.subtitle(isCollabActive)}
-                    onClick={() => {
-                      if (!isCollabActive && onStartCollab) {
-                        onStartCollab();
-                      } else {
-                        setShowCollabSettings(!showCollabSettings);
-                      }
-                    }} 
-                  />
+                  {/* COLLABORATION SECTION */}
+                  <div className="space-y-4 pt-2 mb-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/30">Live Collaboration</h3>
+                      {sessionRole !== 'idle' && (
+                        <div className="flex items-center gap-1.5 bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-500/20">
+                          <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                          Live
+                        </div>
+                      )}
+                    </div>
+
+                    {sessionRole === 'idle' ? (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          (window as any).editorEvents?.emit('openCollabSetup');
+                        }}
+                        className="w-full flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-[24px] group transition-all text-left"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                            <Zap size={20} />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-bold text-white group-hover:text-amber-500 transition-colors">Start Live Session</div>
+                            <div className="text-[10px] text-white/40 font-medium">Invite others to edit in real-time</div>
+                          </div>
+                        </div>
+                        <ChevronRight size={18} className="text-white/20 group-hover:text-white transition-colors" />
+                      </button>
+                    ) : (
+                      <div className="bg-white/[0.02] border border-white/5 rounded-[28px] overflow-hidden">
+                        <div className="p-5 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
+                                <Users size={18} />
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-white">Active Session</div>
+                                <div className="text-[10px] text-white/40 font-medium">{activePeers} member{activePeers !== 1 ? 's' : ''} connected</div>
+                              </div>
+                            </div>
+                            
+                            {collabRoom && (
+                              <button
+                                onClick={() => {
+                                  const shareUrl = `${window.location.origin}${window.location.pathname}?collab=${collabRoom}`;
+                                  navigator.clipboard.writeText(shareUrl);
+                                  (window as any).editorEvents?.emit('notification', { message: 'Invite link copied!', type: 'success' });
+                                }}
+                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all border border-white/5"
+                              >
+                                Copy Link
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="h-px bg-white/5" />
+
+                          <CollaboratorList 
+                            collaborators={collaborators} 
+                            isHost={sessionRole === 'host'} 
+                            onKick={(pid) => onKickCollaborator?.(pid)}
+                          />
+
+                          <button
+                            onClick={() => {
+                              onClose();
+                              onDisconnect?.();
+                            }}
+                            className="w-full py-3.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border border-red-500/20"
+                          >
+                            {sessionRole === 'host' ? 'Stop Live Session' : 'Leave Session'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Collaboration UI handled here same as before */}
                   {/* Internal Actions */}

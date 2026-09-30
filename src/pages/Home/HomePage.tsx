@@ -19,7 +19,6 @@ import { NoteCard } from './components/NoteCard';
 import { ActionMenu } from './components/ActionMenu';
 import { SelectionBar } from './components/SelectionBar';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
-import { JoinCollabModal } from '../../components/modals/JoinCollabModal';
 import { cn } from '../../utils/cn';
 
 export default function HomePage() {
@@ -32,7 +31,6 @@ export default function HomePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [showJoinCollabModal, setShowJoinCollabModal] = useState(false);
   const [activeTasksCount, setActiveTasksCount] = useState(0);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,42 +45,13 @@ export default function HomePage() {
   const navigate = useNavigate();
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || workspaces[0];
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const activeWsId = await DataManager.getActiveWorkspaceId();
-      const allNotes = await DataManager.getAllNotes();
-      setCurrentWorkspaceId(activeWsId);
-
-      const workspaceNotes = allNotes.filter(n => (n.workspaceId === activeWsId || (activeWsId === 'default' && !n.workspaceId)));
-      
-      const filtered = workspaceNotes.filter((n: Note) => 
-        !n.isTrashed && 
-        !n.isLocked && 
-        !n.parentId && 
-        !n.bookmarkFolderId // Hide if moved to a bookmark folder
-      );
-      
-      setNotes(filtered.sort((a: Note, b: Note) => b.updatedAt - a.updatedAt));
-
-      setVisibleCount(10); // Reset visible slice size on data loads to 10 for high-performance lazy loading
-      
-      const ws = await DataManager.getWorkspaces();
-      setWorkspaces(ws);
-
-      const recentHistory = await HistoryManager.getRecentNotes();
-      setHistoryNotes(recentHistory);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 12;
 
   // Scroll position listener for ScrollToTop button
   useEffect(() => {
     const handleScroll = () => {
-      // Threshold: Header (~80px) + RecentNotes (~200px) + 3 cards (~450px) = ~730px
       if (window.scrollY > 450) {
         setShowScrollTop(true);
       } else {
@@ -101,17 +70,52 @@ export default function HomePage() {
     });
   };
 
+  const loadData = useCallback(async (isInitial = true) => {
+    if (isInitial) {
+      setIsLoading(true);
+      setPage(0);
+    }
+    
+    try {
+      const activeWsId = await DataManager.getActiveWorkspaceId();
+      setCurrentWorkspaceId(activeWsId);
+      
+      const currentPage = isInitial ? 0 : page + 1;
+      const { notes: fetchedNotes, hasMore: moreAvailable } = await DataManager.getNotesPaginated(currentPage, PAGE_SIZE);
+      
+      if (isInitial) {
+        setNotes(fetchedNotes);
+      } else {
+        setNotes(prev => [...prev, ...fetchedNotes]);
+        setPage(currentPage);
+      }
+      
+      setHasMore(moreAvailable);
+      setVisibleCount(10); 
+      
+      const ws = await DataManager.getWorkspaces();
+      setWorkspaces(ws);
+
+      const recentHistory = await HistoryManager.getRecentNotes();
+      setHistoryNotes(recentHistory);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (isInitial) setIsLoading(false);
+    }
+  }, [page]);
+
   // Performance-optimised Intersection Observer to dynamically stream note cards only as needed
   useEffect(() => {
-    if (!observerTarget.current) return;
+    if (!observerTarget.current || !hasMore) return;
     
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        setVisibleCount(prev => Math.min(prev + 10, notes.length));
+      if (entries[0].isIntersecting && !isLoading) {
+        loadData(false);
       }
     }, {
       threshold: 0.1,
-      rootMargin: '200px' // Fetch ahead to make scrolling completely imperceptible and butter smooth
+      rootMargin: '200px' 
     });
     
     const currentSentinel = observerTarget.current;
@@ -122,11 +126,11 @@ export default function HomePage() {
         observer.unobserve(currentSentinel);
       }
     };
-  }, [notes.length]);
+  }, [hasMore, isLoading, loadData]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(true);
+  }, []); // Only once on mount
 
   useEffect(() => {
     const unsub = operationRunner.subscribe(() => {
@@ -219,12 +223,6 @@ export default function HomePage() {
         onClose={() => setShowSidebar(false)}
         onOpenTrash={() => navigate('/recycle-bin')}
         onOpenSettings={() => navigate('/settings')}
-        onJoinCollabClick={() => setShowJoinCollabModal(true)}
-      />
-
-      <JoinCollabModal 
-        isOpen={showJoinCollabModal}
-        onClose={() => setShowJoinCollabModal(false)}
       />
 
       <HomeHeader 

@@ -56,6 +56,9 @@ Use these EXACT tags for data manipulation. Never just talk about it.
 
 End every message with [COMPLETION: X%].`;
 
+// Simple AI Response Cache (Problem 10 optimization)
+const aiResponseCache = new Map<string, string>();
+
 export class GeminiService extends AIService {
   name = 'gemini';
 
@@ -64,6 +67,12 @@ export class GeminiService extends AIService {
     const finalSystemPrompt = systemPrompt || GEMINI_SYSTEM_PROMPT;
     const userApiKey = settings.apiKeys.gemini;
     const model = settings.selectedModels.gemini || 'gemini-1.5-flash';
+
+    // Cache key based on model, prompt and history length
+    const cacheKey = `${model}:${prompt}:${history.length}:${attachedNotes.length}`;
+    if (aiResponseCache.has(cacheKey) && !onToken) {
+      return aiResponseCache.get(cacheKey)!;
+    }
 
     // 1. Prepare contents array with full history and attached notes (Bug 9)
     const contents: any[] = [];
@@ -165,9 +174,19 @@ export class GeminiService extends AIService {
     } finally {
       reader.releaseLock();
     }
+    
+    // Cache the response
+    aiResponseCache.set(cacheKey, fullResponse);
+    if (aiResponseCache.size > 50) {
+      const firstKey = aiResponseCache.keys().next().value;
+      if (firstKey) aiResponseCache.delete(firstKey);
+    }
+
     return fullResponse;
   }
 }
+
+let lastSendTime = 0;
 
 /**
  * Gemini Specific Chat Logic
@@ -175,7 +194,6 @@ export class GeminiService extends AIService {
 export const handleGeminiSendMessage = async (
   input: string,
   messages: ChatMessage[],
-  contextSummary: ContextSummary | null,
   setters: any,
   attachedNotes: Note[] = []
 ) => {
@@ -183,6 +201,10 @@ export const handleGeminiSendMessage = async (
     setIsLoading, setAiStatus, setAiReason, setMessages, 
     setStreamingMessage, setInput, loadHistory, loadNotes, loadTasks 
   } = setters;
+
+  const now = Date.now();
+  if (now - lastSendTime < 1000) return; // 1s debounce
+  lastSendTime = now;
 
   if (!input.trim() && attachedNotes.length === 0) return;
 

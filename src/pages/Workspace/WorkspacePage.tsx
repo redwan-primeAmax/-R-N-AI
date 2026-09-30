@@ -3,11 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { 
   ArrowLeft, Plus, Edit2, Trash2, Check, X, 
-  Layout, Loader2, MoreHorizontal, Home, Users 
+  Layout, Loader2, MoreHorizontal, Home
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DataManager } from '../../services/storage/DataManager';
-import { globalCollabManager } from '../../services/PeerCollabManager';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import { Workspace } from '../../types';
 

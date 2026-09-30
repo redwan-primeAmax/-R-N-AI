@@ -92,7 +92,19 @@ export default defineConfig(({mode}) => {
       outDir: 'dist',
       assetsDir: 'assets',
       emptyOutDir: true,
-      sourcemap: true,
+      sourcemap: false,
+      target: 'es2020',
+      cssCodeSplit: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+            motion: ['framer-motion'],
+            icons: ['lucide-react'],
+          }
+        }
+      }
     },
     resolve: {
       alias: {

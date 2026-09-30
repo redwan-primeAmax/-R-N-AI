@@ -35,7 +35,7 @@ interface UseEditorHandlersParams {
   noteRef: React.MutableRefObject<Note | null>;
   themeRef: React.MutableRefObject<string>;
   blocksRef: React.MutableRefObject<any[]>;
-  handleStartCollab: (options?: { password?: string; memberLimit?: number }) => Promise<void>;
+  handleStartCollab: (options?: { password?: string; memberLimit?: number }) => void;
   isDeletingRef?: React.MutableRefObject<boolean>;
 }
 

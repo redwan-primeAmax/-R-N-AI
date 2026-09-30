@@ -10,7 +10,7 @@ import {
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
 import { db } from '../services/storage/DexieDB';
-import { globalCollabManager } from '../services/PeerCollabManager';
+import { collabManager } from '../services/collab';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
 import { HistoryManager, RecentNote } from '../services/storage/HistoryManager';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -27,15 +27,13 @@ interface SidebarProps {
   onClose: () => void;
   onOpenTrash: () => void;
   onOpenSettings: () => void;
-  onJoinCollabClick: () => void;
 }
 
 export default function Sidebar({ 
   isOpen, 
   onClose, 
   onOpenTrash, 
-  onOpenSettings,
-  onJoinCollabClick
+  onOpenSettings
 }: SidebarProps) {
   const navigate = useNavigate();
   const { id: activeNoteId } = useParams();
@@ -158,10 +156,14 @@ export default function Sidebar({
   };
 
   useEffect(() => {
-    loadData();
+    if (isOpen) {
+      loadData();
+    }
     
     // Listen for sync events
-    const handleSyncEvent = () => loadData();
+    const handleSyncEvent = () => {
+      if (isOpen) loadData();
+    };
     window.addEventListener('sync', handleSyncEvent);
     window.addEventListener('notes-updated', handleSyncEvent);
     window.addEventListener('history-updated', handleSyncEvent);
@@ -175,7 +177,7 @@ export default function Sidebar({
       window.removeEventListener('workspace-notes-changed', handleSyncEvent);
       window.removeEventListener('notes-cache-invalidated', handleSyncEvent);
     };
-  }, [loadData]);
+  }, [loadData, isOpen]);
 
   const usagePercent = storageInfo ? Math.min(100, (storageInfo.used / (storageInfo.quota || 1)) * 100) : 0;
   const isFull = usagePercent > 90;

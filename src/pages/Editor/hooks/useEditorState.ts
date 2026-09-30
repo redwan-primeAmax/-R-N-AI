@@ -142,14 +142,23 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       setSearchIndex(0);
       return;
     }
-    const results: any[] = [];
-    blocks.forEach((block, bIdx) => {
-      if (block.content.toLowerCase().includes(searchTerm.toLowerCase())) {
-        results.push({ blockId: block.id, blockIdx: bIdx });
-      }
-    });
-    setSearchResults(results);
-    setSearchIndex(0);
+
+    const timer = setTimeout(() => {
+      const results: any[] = [];
+      const lowerSearch = searchTerm.toLowerCase();
+      
+      blocks.forEach((block, bIdx) => {
+        // Optimized check: textContent is faster if we had it, but we have HTML content.
+        // We do a simple case-insensitive include.
+        if (block.content.toLowerCase().includes(lowerSearch)) {
+          results.push({ blockId: block.id, blockIdx: bIdx });
+        }
+      });
+      setSearchResults(results);
+      setSearchIndex(0);
+    }, 500); // 500ms debounce for search results update during typing
+    
+    return () => clearTimeout(timer);
   }, [searchTerm, blocks]);
 
   // Create Tiptap compat-shim controller via modular hook
@@ -168,7 +177,8 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     historyRef,
     historyPointer,
     setHistoryPointer,
-    blocksRefs
+    blocksRefs,
+    blocksRef
   });
 
   // Trigger search transaction events
@@ -182,14 +192,20 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     
     if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
     backupTimerRef.current = setTimeout(() => {
-      const content = blocksToHtml(blocks);
-      
-      if (content === lastSavedContentRef.current) return;
-      
-      if (id) db.key_value_pairs.put({ key: BACKUP_KEY, value: content }).catch(console.error);
-      
-      saveNote(content);
-    }, 2000); // 2s debounce is highly efficient
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          const content = blocksToHtml(blocks);
+          if (content === lastSavedContentRef.current) return;
+          if (id) db.key_value_pairs.put({ key: BACKUP_KEY, value: content }).catch(console.error);
+          saveNote(content);
+        });
+      } else {
+        const content = blocksToHtml(blocks);
+        if (content === lastSavedContentRef.current) return;
+        if (id) db.key_value_pairs.put({ key: BACKUP_KEY, value: content }).catch(console.error);
+        saveNote(content);
+      }
+    }, 5000); // 5s debounce
   }, [blocks, id]);
 
   // Asynchronous secure hot-backup of current draft state to localStorage (immediate & immune to exit data loss)
@@ -207,13 +223,14 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     
     const timer = setTimeout(() => {
       try {
-        const plain = JSON.stringify(draftData);
-        if (plain.length > 500000) return; // Skip if too large
-        localStorage.setItem(`note_draft_${id}`, plain);
+        db.key_value_pairs.put({ 
+          key: `note_draft_${id}`, 
+          value: draftData 
+        }).catch(e => console.warn('Dexie draft write error:', e));
       } catch (e) {
-        console.warn('LocalStorage draft write error:', e);
+        console.warn('Draft write error:', e);
       }
-    }, 5000); // 5s debounce
+    }, 10000); // 10s debounce for draft to avoid disk spam
 
     return () => clearTimeout(timer);
   }, [blocks, title, emoji, tags, theme, id]);
@@ -246,7 +263,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
             theme: themeRef.current
           }).then(() => {
             lastSavedContentRef.current = content;
-            localStorage.removeItem(`note_draft_${id}`);
+            db.key_value_pairs.delete(`note_draft_${id}`).catch(() => {});
           }).catch(err => console.error('Emergency save failed:', err));
         }
       }
@@ -291,7 +308,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
             tags: tagsRef.current,
             theme: themeRef.current
           }).then(() => {
-            if (id) localStorage.removeItem(`note_draft_${id}`);
+            if (id) db.key_value_pairs.delete(`note_draft_${id}`).catch(() => {});
           }).catch(err => console.error('Auto-save on unmount failed:', err));
         }
       }
@@ -325,24 +342,12 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       let themeVal = fetchedNote.theme || 'default';
       let contentVal = fetchedNote.content;
 
-      // Hot draft recovery check (Diamond Road Data Integrity validation)
-      const rawDraftStr = localStorage.getItem(`note_draft_${noteId}`);
-      let draftStr = '';
-      if (rawDraftStr) {
-        if (rawDraftStr.startsWith('{')) {
-          draftStr = rawDraftStr;
-        } else {
-          try {
-            draftStr = await DataManager.decryptValue(rawDraftStr);
-          } catch (e) {
-            console.error('Failed to decrypt hot draft:', e);
-          }
-        }
-      }
+      // Hot draft recovery check (Dexie-based for performance)
+      const draftRecord = await db.key_value_pairs.get(`note_draft_${noteId}`);
       let draftRestored = false;
-      if (draftStr) {
+      if (draftRecord && draftRecord.value) {
         try {
-          const draft = JSON.parse(draftStr);
+          const draft = draftRecord.value;
           // Only restore if draft is strictly newer AND content differs to avoid false positives
           const isNewer = draft && draft.timestamp > (fetchedNote.updatedAt || 0) + 1000;
           if (isNewer && draft.blocks && draft.blocks.length > 0) {
@@ -356,7 +361,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
               draftRestored = true;
             } else {
               // Draft matches disk exactly, just silent cleanup
-              if (noteId) localStorage.removeItem(`note_draft_${noteId}`);
+              await db.key_value_pairs.delete(`note_draft_${noteId}`);
             }
           }
         } catch (e) {
@@ -387,8 +392,12 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       const ws = workspaces.find(w => w.id === (fetchedNote.workspaceId || 'default'));
       if (ws) setWorkspaceName(ws.name);
 
-      const allNotes = await DataManager.getAllNotes();
-      setCurrentSubPages(allNotes.filter(n => n.parentId === fetchedNote.id && !n.isTrashed && n.id !== fetchedNote.id));
+      // Optimized subpage loading: Query Dexie directly for subpages
+      const subPages = await db.notes
+        .where('parentId').equals(fetchedNote.id)
+        .and(n => !n.isTrashed && n.id !== fetchedNote.id)
+        .toArray();
+      setCurrentSubPages(subPages);
 
       if (fetchedNote.parentId) {
         DataManager.getNoteById(fetchedNote.parentId).then(setParentNote);
@@ -466,7 +475,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         
         // Immediate robust cleanup of all temporary buffers
         await db.key_value_pairs.delete(BACKUP_KEY);
-        if (id) localStorage.removeItem(`note_draft_${id}`);
+        if (id) await db.key_value_pairs.delete(`note_draft_${id}`);
         setSaveError(null);
       } catch (err) {
         console.error('Save failed:', err);

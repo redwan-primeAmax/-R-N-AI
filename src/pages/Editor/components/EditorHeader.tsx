@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MoreVertical, Search, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { PublishIcon } from '../svg/PublishIcon';
 import { PageIcon } from '../../../components/PageIcon';
+import { cn } from '../../../utils/cn';
 
 interface EditorHeaderProps {
   onBack: () => void;
@@ -18,7 +19,8 @@ interface EditorHeaderProps {
   activeTasksCount: number;
   onShowMenu: () => void;
   onExportPDF?: () => void;
-  isCollaborating?: boolean;
+  sessionRole?: 'idle' | 'host' | 'guest';
+  connectionState?: string;
   collabPeerCount?: number;
   onNavigateToNote?: (noteId: string) => void;
   onStartCollab?: () => void;
@@ -36,7 +38,8 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   onShowMenu,
   onExportPDF,
   onStartCollab,
-  isCollaborating = false,
+  sessionRole = 'idle',
+  connectionState = 'idle',
   collabPeerCount = 0,
   onNavigateToNote,
   editor,
@@ -92,13 +95,23 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     }, 50);
   };
 
+  const debouncedSetSearch = useMemo(() => {
+    let timeout: any;
+    return (val: string) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        if ((editor.commands as any)?.setSearchTerm) {
+          (editor.commands as any).setSearchTerm(val);
+          scrollToCurrentResult();
+        }
+      }, 300);
+    };
+  }, [editor]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
-    if ((editor.commands as any)?.setSearchTerm) {
-      (editor.commands as any).setSearchTerm(val);
-      scrollToCurrentResult();
-    }
+    debouncedSetSearch(val);
   };
 
   const handleNext = () => {
@@ -229,14 +242,21 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={onStartCollab}
-                className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all flex items-center gap-1.5"
+                className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all flex items-center gap-2 relative group"
                 title="Collaborate / Publish"
                >
-                 <PublishIcon size={22} />
-                 {isCollaborating && (
-                   <span className="text-[10px] font-black bg-blue-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                     {collabPeerCount}
-                   </span>
+                 <PublishIcon size={22} className={cn(sessionRole !== 'idle' ? "text-green-500" : "")} />
+                 
+                 {sessionRole !== 'idle' && (
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shrink-0",
+                      connectionState === 'connected' ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                    )}>
+                      <span className={cn("w-1 h-1 rounded-full", connectionState === 'connected' ? "bg-green-500 animate-pulse" : "bg-amber-500")} />
+                      <span className="hidden sm:inline">
+                        {connectionState === 'connected' ? (sessionRole === 'host' ? `Live · ${collabPeerCount}` : 'Joined') : connectionState === 'reconnecting' ? 'Reconnecting...' : 'Connecting...'}
+                      </span>
+                    </div>
                  )}
                </motion.button>
                

@@ -27,6 +27,8 @@ import { TocBlockRenderer } from '../renderers/TocBlockRenderer';
 import { ColumnBlockRenderer } from '../renderers/ColumnBlockRenderer';
 import { CalloutBlockRenderer } from '../renderers/CalloutBlockRenderer';
 
+import { collabManager, Collaborator } from '../../../services/collab';
+
 const LegacyBlockFallback: React.FC<{ block: EditorBlock }> = ({ block }) => {
   return (
     <div className="my-2 p-4 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col gap-2 group/legacy transition-all hover:bg-white/[0.04]">
@@ -57,7 +59,33 @@ interface CustomBlockEditorProps {
   editor: any; // our custom controller object
   className?: string;
   blocksRefs?: React.MutableRefObject<Record<string, any>>;
+  noteId?: string;
+  collaborators?: Collaborator[];
 }
+
+const RemoteCursors: React.FC<{ blockId: string; collaborators: Collaborator[] }> = ({ blockId, collaborators }) => {
+  const activeCollaborators = collaborators.filter(c => c.cursorBlockId === blockId);
+  if (activeCollaborators.length === 0) return null;
+
+  return (
+    <div className="absolute -top-6 left-0 flex flex-wrap gap-1 z-[60] pointer-events-none">
+      {activeCollaborators.map(c => (
+        <div 
+          key={c.id} 
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-xl animate-in fade-in slide-in-from-bottom-2"
+          style={{ 
+            backgroundColor: `${c.color}20`, 
+            color: c.color,
+            borderColor: `${c.color}40`
+          }}
+        >
+          <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
+          {c.name}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // Add this before CustomBlockEditor component definition
 const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isReadOnly: boolean }> = ({ subPageId, defaultTitle, isReadOnly }) => {
@@ -116,7 +144,9 @@ const MemoizedBlockRow = React.memo(({
   hasIndent,
   indentStyle,
   currentHiddenIndent,
-  searchTerm
+  searchTerm,
+  noteId,
+  collaborators = []
 }: any) => {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
@@ -130,6 +160,8 @@ const MemoizedBlockRow = React.memo(({
       className="flex flex-col group relative max-w-full overflow-hidden"
       style={indentStyle}
     >
+      <RemoteCursors blockId={block.id} collaborators={collaborators} />
+      
       {/* Visual connecting line for nested items */}
       {hasIndent && (
         <div 
@@ -388,9 +420,16 @@ const MemoizedBlockRow = React.memo(({
          prev.isReadOnly === next.isReadOnly;
 });
 
-export default function CustomBlockEditor({ editor, className, blocksRefs }: CustomBlockEditorProps) {
+export default function CustomBlockEditor({ editor, className, blocksRefs, noteId, collaborators = [] }: CustomBlockEditorProps) {
   const navigate = useNavigate();
   const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (noteId && focusedId) {
+      collabManager.updateCursor(noteId, focusedId);
+    }
+  }, [noteId, focusedId]);
+
   const blocks = editor?.blocks || [];
   const setBlocks = editor?.setBlocks;
   const isReadOnly = editor?.isReadOnly;
@@ -404,17 +443,22 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
     
     setBlocks((prev: EditorBlock[]) => {
       const blockToChange = prev.find((b: EditorBlock) => b.id === id);
+      if (!blockToChange) return prev;
       
-      // Problem 5: Selective cleaning. 
-      // If immediate (e.g. on every keystroke), we skip heavy DOM sanitization.
-      // Heavy sanitization is reserved for onBlur or Paste (handled elsewhere).
-      const cleaned = immediate ? newContent : cleanBlockHTML(newContent, blockToChange?.type || 'paragraph');
+      const cleaned = immediate ? newContent : cleanBlockHTML(newContent, blockToChange.type || 'paragraph');
       
-      if (blockToChange && blockToChange.type === 'synced' && blockToChange.syncedBlockId) {
+      // Optimization: Only run expensive map if it's a synced block
+      if (blockToChange.type === 'synced' && blockToChange.syncedBlockId) {
         const sid = blockToChange.syncedBlockId;
         return prev.map((b: EditorBlock) => (b.id === id || (b.type === 'synced' && b.syncedBlockId === sid)) ? { ...b, content: cleaned } : b);
       }
-      return prev.map((b: EditorBlock) => b.id === id ? { ...b, content: cleaned } : b);
+      
+      // Fast path for normal blocks
+      const idx = prev.findIndex(b => b.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = { ...blockToChange, content: cleaned };
+      return next;
     });
   };
 
@@ -703,6 +747,8 @@ export default function CustomBlockEditor({ editor, className, blocksRefs }: Cus
               indentStyle={indentStyle}
               currentHiddenIndent={currentHiddenIndent}
               searchTerm={editor.searchTerm}
+              noteId={noteId}
+              collaborators={collaborators}
             />
           </ErrorBoundary>
         );

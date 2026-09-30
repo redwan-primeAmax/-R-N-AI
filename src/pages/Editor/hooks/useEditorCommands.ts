@@ -51,6 +51,7 @@ interface EditorCommandsProps {
   historyPointer?: number;
   setHistoryPointer?: (p: number) => void;
   blocksRefs?: React.MutableRefObject<Record<string, HTMLElement>>;
+  blocksRef: React.MutableRefObject<EditorBlock[]>;
 }
 
 export function useEditorCommands({
@@ -68,7 +69,8 @@ export function useEditorCommands({
   historyRef,
   historyPointer,
   setHistoryPointer,
-  blocksRefs
+  blocksRefs,
+  blocksRef
 }: EditorCommandsProps) {
   
   // Custom in-memory event hub listeners registry to avoid window event pollution/clashes
@@ -292,7 +294,7 @@ export function useEditorCommands({
         return focusChain;
       },
       insertBlock: (type: string) => {
-        const { blocks: nextBlocks, newId } = insertBlock(blocks, type, activeBlockId);
+        const { blocks: nextBlocks, newId } = insertBlock(blocksRef.current, type, activeBlockId);
         setBlocks(nextBlocks);
         
         // Wait for render and focus/scroll
@@ -309,17 +311,17 @@ export function useEditorCommands({
     };
 
     return {
-      blocks,
+      get blocks() { return blocksRef.current; },
       setBlocks,
       activeBlockId,
       setActiveBlockId,
       isReadOnly,
       isDestroyed: false,
       
-      getHTML: () => blocksToHtml(blocks),
+      getHTML: () => blocksToHtml(blocksRef.current),
 
       isActive: (type: string, attrs?: any) => {
-        const activeBlock = blocks.find(b => b.id === activeBlockId);
+        const activeBlock = blocksRef.current.find(b => b.id === activeBlockId);
         
         if (type === 'bold') return document.queryCommandState?.('bold') || false;
         if (type === 'italic') return document.queryCommandState?.('italic') || false;
@@ -381,7 +383,8 @@ export function useEditorCommands({
       }
     }
   };
-}, [blocks, activeBlockId, isReadOnly, searchResults, searchIndex, setBlocks, setSearchTerm, setSearchIndex, setForceRefreshState, historyRef, historyPointer, setHistoryPointer]);
+}, [activeBlockId, isReadOnly, searchResults, searchIndex, setBlocks, setSearchTerm, setSearchIndex, setForceRefreshState, historyRef, historyPointer, setHistoryPointer, blocksRef]);
+
 
   return editor;
 }

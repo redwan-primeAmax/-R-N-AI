@@ -35,15 +35,20 @@ export const NoteService = {
     const currentWorkspaceId = await WorkspaceService.getActiveWorkspaceId();
     const start = page * pageSize;
 
-    const paginatedNotes = await db.notes
+    // Enhanced pagination with primary filters (no trash, no subpages, no bookmarks)
+    const baseQuery = db.notes
       .where('workspaceId')
       .equals(currentWorkspaceId)
+      .and(n => !n.isTrashed && !n.parentId && !n.bookmarkFolderId);
+
+    const paginatedNotes = await baseQuery
       .reverse()
       .offset(start)
       .limit(pageSize)
       .toArray();
 
-    const totalNotes = await db.notes.where('workspaceId').equals(currentWorkspaceId).count();
+    const totalNotes = await baseQuery.count();
+    
     return {
       notes: paginatedNotes,
       hasMore: start + pageSize < totalNotes

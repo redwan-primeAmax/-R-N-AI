@@ -234,13 +234,26 @@ export const DataManager = {
     NoteService.invalidateCache();
     this.resetStorageCache();
 
-    try {
+    // Debounce search index invalidation to prevent performance hits on every save
+    if (reason !== 'demo-data-seed' && !reason.startsWith('broadcast:')) {
+      const rstTimerKey = 'rst_invalidation_timer';
+      if ((window as any)[rstTimerKey]) clearTimeout((window as any)[rstTimerKey]);
+      
+      (window as any)[rstTimerKey] = setTimeout(() => {
+        import('../../pages/Search/RSTSearch/RSTSearch').then(mod => {
+          if (mod && typeof mod.invalidateRST === 'function') {
+            mod.invalidateRST();
+          }
+        }).catch(() => {});
+      }, 5000); // 5s debounce for normal edits
+    } else if (reason === 'demo-data-seed' || reason === 'import-all-data' || reason === 'storage-optimization') {
+      // Immediate invalidation for bulk changes
       import('../../pages/Search/RSTSearch/RSTSearch').then(mod => {
         if (mod && typeof mod.invalidateRST === 'function') {
           mod.invalidateRST();
         }
       }).catch(() => {});
-    } catch {}
+    }
 
     if (!reason.startsWith('broadcast:')) {
       notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason });

@@ -13,6 +13,8 @@ export interface EditorModalContextType {
   collabRoom: string | null;
   activePeers: number;
   collaborators: any[];
+  sessionRole: 'idle' | 'host' | 'guest';
+  connectionState: string;
   currentSubPages: Note[];
 
   showActionSheet: boolean;
@@ -46,8 +48,9 @@ export interface EditorModalContextType {
   handleTagSaveSubmit: (tags: string[]) => void;
   handleThemeSelect: (themeId: string) => void;
   handleAddSubPage: () => void;
-  handleStartCollab: () => void;
+  handleStartCollab: (opts?: { password?: string; memberLimit?: number }) => void;
   handleKickCollaborator: (peerId: string) => void;
+  handleDisconnect: () => void;
   handleLinkPageSelect: (targetNote: any) => void;
   noteRef: React.MutableRefObject<Note | null>;
   pageWidth?: 'default' | 'full';
