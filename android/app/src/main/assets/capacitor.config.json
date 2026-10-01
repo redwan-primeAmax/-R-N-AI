@@ -1,0 +1,6 @@
+{
+	"appId": "com.diamondroadnotes.app",
+	"appName": "Diamond Road Notes",
+	"webDir": "dist",
+	"bundledWebRuntime": false
+}
