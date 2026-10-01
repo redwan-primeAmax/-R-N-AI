@@ -64,7 +64,29 @@ export default defineConfig(({mode}) => {
               urlPattern: ({request}) => request.destination === 'document' || request.mode === 'navigate',
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'html-cache'
+                cacheName: 'html-cache',
+                expiration: {
+                  maxEntries: 5,
+                  maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
+                }
+              }
+            },
+            {
+              urlPattern: ({request}) => request.destination === 'style' || request.destination === 'script' || request.destination === 'worker',
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'static-resources',
+              }
+            },
+            {
+              urlPattern: ({request}) => request.destination === 'image',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'image-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                }
               }
             },
             {
@@ -95,13 +117,26 @@ export default defineConfig(({mode}) => {
       sourcemap: false,
       target: 'es2020',
       cssCodeSplit: true,
+      minify: 'esbuild', // Faster and good enough, using terser requires extra dependency
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
-          manualChunks: {
-            react: ['react', 'react-dom'],
-            router: ['react-router-dom'],
-            motion: ['framer-motion'],
-            icons: ['lucide-react'],
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+                return 'vendor-core';
+              }
+              if (id.includes('framer-motion')) {
+                return 'vendor-motion';
+              }
+              if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+              }
+              if (id.includes('dexie') || id.includes('localforage')) {
+                return 'vendor-storage';
+              }
+              return 'vendor-others';
+            }
           }
         }
       }

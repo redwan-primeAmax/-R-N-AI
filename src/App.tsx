@@ -223,8 +223,8 @@ function AppContent() {
       } catch (err) {
         console.error('App: Bootstrap failed', err);
       } finally {
-        // Add a slight artificial delay for smoother entrance if it's too fast
-        setTimeout(() => setIsInitializing(false), 500);
+        // Reduced artificial delay for better performance on mobile
+        setTimeout(() => setIsInitializing(false), 50);
       }
     };
 
