@@ -51,9 +51,18 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     cachedAccessToken = credential.accessToken;
     sessionStorage.setItem('gd_token', cachedAccessToken);
     return { user: result.user, accessToken: cachedAccessToken };
-  } catch (err) {
+  } catch (err: any) {
     console.error('Google Sign In failed:', err);
-    throw err;
+    if (err?.code === 'auth/unauthorized-domain') {
+      throw new Error(
+        `বর্তমান ডোমেইন (${window.location.hostname}) Firebase এ অনুমোদিত নয়। Firebase Console > Authentication > Settings > Authorized Domains-এ '${window.location.hostname}' ডোমেইনটি যোগ করুন।`
+      );
+    } else if (err?.code === 'auth/popup-blocked') {
+      throw new Error('ব্রাউজারে পপ-আপ উইন্ডো ব্লক করা আছে। অনুগ্রহ করে পপ-আপ অনুমতি দিয়ে আবার চেষ্টা করুন।');
+    } else if (err?.code === 'auth/popup-closed-by-user') {
+      throw new Error('সাইন-ইন পপ-আপ উইন্ডোটি সময়মতো শেষ করার আগেই বন্ধ করা হয়েছে।');
+    }
+    throw new Error(err?.message || 'গুগল সাইন-ইন করতে ব্যর্থ হয়েছে।');
   } finally {
     isSigningIn = false;
   }
