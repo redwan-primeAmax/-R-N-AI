@@ -19,11 +19,7 @@ interface EditorHeaderProps {
   activeTasksCount: number;
   onShowMenu: () => void;
   onExportPDF?: () => void;
-  sessionRole?: 'idle' | 'host' | 'guest';
-  connectionState?: string;
-  collabPeerCount?: number;
   onNavigateToNote?: (noteId: string) => void;
-  onStartCollab?: () => void;
   editor?: any;
   isSaving?: boolean;
   saveError?: string | null;
@@ -37,10 +33,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   activeTasksCount,
   onShowMenu,
   onExportPDF,
-  onStartCollab,
-  sessionRole = 'idle',
-  connectionState = 'idle',
-  collabPeerCount = 0,
   onNavigateToNote,
   editor,
   isSaving = false,
@@ -133,49 +125,54 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex items-center justify-between gap-2 w-full h-full max-w-4xl mx-auto"
+            className="flex items-center justify-between gap-2 w-full h-full max-w-4xl mx-auto overflow-hidden"
           >
-            <div className="flex-1 flex items-center bg-gray-500/10 rounded-full px-4 h-10 border border-gray-500/20 focus-within:border-blue-500/50 transition-colors">
-              <Search size={16} className="text-gray-400 mr-2 flex-shrink-0" />
-              <input 
-                autoFocus
-                type="text" 
-                placeholder="খুঁজুন..." 
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="flex-1 bg-transparent border-none outline-none text-gray-900 dark:text-white text-sm placeholder:text-gray-400"
-              />
-              {searchState.results > 0 && (
-                <span className="text-[10px] text-gray-400 font-mono ml-2 whitespace-nowrap">
-                  {searchState.currentIndex} / {searchState.results}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onClick={handlePrev}
-                disabled={searchState.results === 0}
-                className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all active:scale-90 text-gray-500 hover:bg-gray-500/10 disabled:opacity-20 disabled:grayscale"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={searchState.results === 0}
-                className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all active:scale-90 text-gray-500 hover:bg-gray-500/10 disabled:opacity-20 disabled:grayscale"
-              >
-                <ChevronRight size={18} />
-              </button>
-              <div className="w-[1px] h-4 bg-gray-300 mx-1 flex-shrink-0" />
-              <button
-                onClick={() => setIsSearchActive(false)}
-                className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all active:scale-90 text-gray-500 hover:bg-gray-500/10"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </motion.div>
+            <div className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar min-w-0 pr-1">
+                <div className="flex-1 min-w-[140px] flex items-center bg-gray-500/10 rounded-full px-4 h-10 border border-gray-500/20 focus-within:border-blue-500/50 transition-colors">
+                  <Search size={16} className="text-gray-400 mr-2 flex-shrink-0" />
+                  <input 
+                    autoFocus
+                    type="text" 
+                    placeholder="খুঁজুন..." 
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="flex-1 bg-transparent border-none outline-none text-gray-900 dark:text-white text-sm placeholder:text-gray-400 min-w-[80px]"
+                  />
+                  {searchState.results > 0 && (
+                    <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest ml-2 whitespace-nowrap bg-black/5 dark:bg-white/5 px-2 py-1 rounded-md">
+                      {searchState.currentIndex} / {searchState.results}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-1 flex-shrink-0 bg-gray-500/5 rounded-full p-1 border border-gray-500/10">
+                  <button
+                    onClick={handlePrev}
+                    disabled={searchState.results === 0}
+                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all active:scale-90 text-gray-500 hover:bg-gray-500/10 disabled:opacity-10"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={searchState.results === 0}
+                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all active:scale-90 text-gray-500 hover:bg-gray-500/10 disabled:opacity-10"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 ml-1">
+                <div className="w-[1px] h-6 bg-gray-300 dark:bg-white/10 mx-1 flex-shrink-0" />
+                <button
+                  onClick={() => setIsSearchActive(false)}
+                  className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-2xl transition-all active:scale-90 bg-red-500/10 text-red-500 border border-red-500/10 hover:bg-red-500/20 shadow-lg shadow-red-500/5"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </motion.div>
         ) : (
           <motion.div 
             key="actions"
@@ -239,27 +236,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                  </div>
                ) : null}
 
-               <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={onStartCollab}
-                className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all flex items-center gap-2 relative group"
-                title="Collaborate / Publish"
-               >
-                 <PublishIcon size={22} className={cn(sessionRole !== 'idle' ? "text-green-500" : "")} />
-                 
-                 {sessionRole !== 'idle' && (
-                    <div className={cn(
-                      "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shrink-0",
-                      connectionState === 'connected' ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                    )}>
-                      <span className={cn("w-1 h-1 rounded-full", connectionState === 'connected' ? "bg-green-500 animate-pulse" : "bg-amber-500")} />
-                      <span className="hidden sm:inline">
-                        {connectionState === 'connected' ? (sessionRole === 'host' ? `Live · ${collabPeerCount}` : 'Joined') : connectionState === 'reconnecting' ? 'Reconnecting...' : 'Connecting...'}
-                      </span>
-                    </div>
-                 )}
-               </motion.button>
-               
                <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsSearchActive(true)}

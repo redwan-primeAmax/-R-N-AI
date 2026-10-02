@@ -139,16 +139,7 @@ export default function RecycleBin() {
           <div className="flex flex-col items-center justify-center h-[60vh] opacity-20">
             <Trash2 size={80} className="mb-6" />
             <h2 className="text-xl font-bold italic">বক্সটি খালি!</h2>
-            <p className="text-sm mb-8">মুছে ফেলা নোটগুলো এখানে জমা হবে</p>
-            <button 
-              onClick={async () => {
-                await DataManager.createDemoData();
-                loadTrashed();
-              }}
-              className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all opacity-100"
-            >
-              টেস্ট ডেটা যোগ করুন
-            </button>
+            <p className="text-sm">মুছে ফেলা নোটগুলো এখানে জমা হবে</p>
           </div>
         ) : (
           <div className="space-y-8">

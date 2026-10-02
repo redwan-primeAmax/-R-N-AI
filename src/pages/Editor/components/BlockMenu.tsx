@@ -26,12 +26,10 @@ import { tableBlockConfig } from '../blocks-config/TableBlockConfig';
 import { createSubPageBlock } from '../blocks-config/CreateSubPageBlock';
 import { attachPageBlock } from '../blocks-config/AttachPageBlock';
 import { tocBlock } from '../blocks-config/TocBlock';
-import { syncedBlock } from '../blocks-config/SyncedBlock';
 import { toggleHeadingOneBlock } from '../blocks-config/ToggleHeadingOneBlock';
 import { toggleHeadingTwoBlock } from '../blocks-config/ToggleHeadingTwoBlock';
 import { toggleHeadingThreeBlock } from '../blocks-config/ToggleHeadingThreeBlock';
 import { databaseBlockConfig } from '../blocks-config/DatabaseBlockConfig';
-import { embedBlockConfig } from '../blocks-config/EmbedBlockConfig';
 
 import { Palette, Box } from 'lucide-react';
 
@@ -95,12 +93,10 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
     createSubPageBlock,
     attachPageBlock,
     tocBlock,
-    syncedBlock,
     toggleHeadingOneBlock,
     toggleHeadingTwoBlock,
     toggleHeadingThreeBlock,
-    databaseBlockConfig,
-    embedBlockConfig
+    databaseBlockConfig
   ];
 
   return (
@@ -119,12 +115,14 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
             animate={{ y: 0 }} 
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-white/10 rounded-t-[32px] p-6 z-[251] shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar"
+            className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-white/10 rounded-t-[32px] p-4 z-[251] shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar"
           >
             <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
             <div className="mb-6">
-              <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Basic Blocks</h3>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="flex justify-end pr-6 mb-2">
+                <h3 className="text-[9px] font-black text-white/15 uppercase tracking-[0.3em]">Basic Blocks</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-0.5">
                 {blockConfigs.map((block, idx) => {
                   const Icon = block.icon;
                   return (
@@ -137,14 +135,14 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
                         e.preventDefault();
                       }}
                       onClick={() => { block.action(editor); onClose(); }}
-                      className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
+                      className="flex items-center gap-3 py-2.5 px-2 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
                     >
-                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-white/40 group-hover:text-blue-400 group-hover:bg-blue-400/10 transition-colors">
-                        <Icon size={20} className={block.iconClass} />
+                      <div className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center text-white/30 group-hover:text-blue-400 group-hover:bg-blue-400/10 transition-colors shrink-0">
+                        <Icon size={16} className={block.iconClass} />
                       </div>
-                      <div className="text-left">
-                        <div className="font-bold text-[15px] text-white/80">{block.label}</div>
-                        <div className="text-[11px] text-white/30 font-medium">{block.description}</div>
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="font-bold text-[13px] text-white/70 group-hover:text-white transition-colors truncate">{block.label}</div>
+                        <div className="text-[9px] text-white/20 font-medium truncate">{block.description}</div>
                       </div>
                     </button>
                   );
@@ -153,8 +151,10 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
             </div>
 
             <div className="mb-8">
-               <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Advance</h3>
-               <div className="grid grid-cols-1 gap-2">
+               <div className="flex justify-end pr-6 mb-2">
+                 <h3 className="text-[9px] font-black text-white/15 uppercase tracking-[0.3em]">Advance</h3>
+               </div>
+               <div className="grid grid-cols-1 gap-0.5">
                  <button
                     onMouseDown={(e) => {
                       e.preventDefault();
@@ -163,14 +163,14 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
                       e.preventDefault();
                     }}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
+                    className="flex items-center gap-3 py-2.5 px-2 hover:bg-white/5 rounded-2xl transition-all active:scale-[0.98] group"
                   >
-                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-white/40 group-hover:text-purple-400 group-hover:bg-purple-400/10 transition-colors">
-                      <ImageIcon size={20} />
+                    <div className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center text-white/30 group-hover:text-purple-400 group-hover:bg-purple-400/10 transition-colors shrink-0">
+                      <ImageIcon size={16} />
                     </div>
-                    <div className="text-left">
-                      <div className="font-bold text-[15px] text-white/80">Image, Video or File</div>
-                      <div className="text-[11px] text-white/30 font-medium">Upload media content.</div>
+                    <div className="text-left flex-1 min-w-0">
+                      <div className="font-bold text-[13px] text-white/70 group-hover:text-white transition-colors truncate">Image, Video or File</div>
+                      <div className="text-[9px] text-white/20 font-medium truncate">Upload media content.</div>
                     </div>
                   </button>
 

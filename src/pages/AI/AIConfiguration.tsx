@@ -8,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
-  Settings, 
   Key, 
   Check, 
   AlertCircle, 
@@ -20,56 +19,29 @@ import {
   X,
   MessageSquare,
   Globe,
-  Flame
+  Flame,
+  Plus,
+  Trash2
 } from 'lucide-react';
-import { VaultModal } from '../../components/modals/VaultModal';
-import { DataManager, AISettings, UserPreferences } from '../../services/storage/DataManager';
-import { LocalService } from '../../services/ai/local/local';
-import { InputDialog, ConfirmDialog } from '../../components/modals/CustomDialogs';
+import { DataManager, AISettings } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
-import appIDList from '../../constants/appIDList.json';
-import localforage from 'localforage';
 
 const AIConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [draftSettings, setDraftSettings] = useState<AISettings | null>(null);
   const [prevSettings, setPrevSettings] = useState<AISettings | null>(null);
-  const [preferences, setPreferences] = useState<UserPreferences>({ reducedMotion: false, theme: 'dark' });
-  const [draftPreferences, setDraftPreferences] = useState<UserPreferences | null>(null);
   const [showExitWarning, setShowExitWarning] = useState(false);
-  const [showVaultModal, setShowVaultModal] = useState(false);
-  const [showVaultAuthPrompt, setShowVaultAuthPrompt] = useState(false);
-  const [customIDs, setCustomIDs] = useState<{id: string, name: string}[]>([]);
   const [isRevealed, setIsRevealed] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [modelFile, setModelFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [modelStatus, setModelStatus] = useState<'empty' | 'loaded' | 'error'>('empty');
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; showUndo?: boolean } | null>(null);
-  const [showCustomIDPrompt, setShowCustomIDPrompt] = useState(false);
-  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   
-  useEffect(() => {
-    // Check if model exists in storage
-    localforage.getItem('local_model_binary').then(data => {
-      if (data) setModelStatus('loaded');
-    });
-  }, []);
-  
-  const isSettingsDirty = settings && draftSettings && JSON.stringify(settings) !== JSON.stringify(draftSettings);
-  const isPrefsDirty = preferences && draftPreferences && JSON.stringify(preferences) !== JSON.stringify(draftPreferences);
-  const isDirty = !!(isSettingsDirty || isPrefsDirty);
+  const isDirty = settings && draftSettings && JSON.stringify(settings) !== JSON.stringify(draftSettings);
   
   useEffect(() => {
     DataManager.getAISettings().then(s => {
       setSettings(s);
       setDraftSettings(JSON.parse(JSON.stringify(s)));
-      if (s.customAppIDs) setCustomIDs(s.customAppIDs);
-    });
-    DataManager.getUserPreferences().then(prefs => {
-      setPreferences(prefs);
-      setDraftPreferences(JSON.parse(JSON.stringify(prefs)));
     });
   }, []);
 
@@ -90,19 +62,17 @@ const AIConfigurationPage: React.FC = () => {
       setShowExitWarning(true);
       return;
     }
-    navigate('/main');
+    navigate('/settings');
   };
 
   const handleConfirmExit = () => {
     setShowExitWarning(false);
-    navigate('/main');
+    navigate('/settings');
   };
 
   const handleCancelEdit = () => {
-    if (!settings || !preferences) return;
+    if (!settings) return;
     setDraftSettings(JSON.parse(JSON.stringify(settings)));
-    setDraftPreferences(JSON.parse(JSON.stringify(preferences)));
-    setCustomIDs(settings.customAppIDs || []);
     setStatus({ type: 'info', message: 'পরিবর্তন বাতিল করা হয়েছে।' });
   };
 
@@ -113,7 +83,6 @@ const AIConfigurationPage: React.FC = () => {
       await DataManager.saveAISettings(prevSettings);
       setSettings(prevSettings);
       setDraftSettings(JSON.parse(JSON.stringify(prevSettings)));
-      setCustomIDs(prevSettings.customAppIDs || []);
       setStatus({ type: 'success', message: 'আগের অবস্থায় ফিরে যাওয়া হয়েছে।' });
     } catch (err: any) {
       setStatus({ type: 'error', message: 'ত্রুটি: ' + err.message });
@@ -126,41 +95,29 @@ const AIConfigurationPage: React.FC = () => {
     if (!draftSettings) return;
     const updated = { ...draftSettings, ...newSettings };
     setDraftSettings(updated);
-    
-    // Clear error status when making changes
-    if (status?.type === 'error') {
-      setStatus(null);
-    }
-  };
-
-  const validateSettings = (): string | null => {
-    if (!draftSettings) return 'No settings loaded';
-    return null;
+    if (status?.type === 'error') setStatus(null);
   };
 
   const handleManualSave = async () => {
-    if (!draftSettings || !settings || !draftPreferences) return;
+    if (!draftSettings || !settings) return;
     
-    const error = validateSettings();
-    if (error) {
-      setStatus({ type: 'error', message: error });
-      return;
-    }
+    // Clean up restricted fields before saving to ensure strict AI-only configuration
+    const cleanedSettings: AISettings = {
+      ...draftSettings,
+      dataCheckingEnabled: false,
+      retrySettings: { enabled: false, errorCodes: '' },
+      selectedAppID: 'standard',
+      customAppIDs: []
+    };
 
     setIsSaving(true);
     setStatus({ type: 'info', message: 'সেটিংস সেভ হচ্ছে...' });
     try {
       setPrevSettings(JSON.parse(JSON.stringify(settings)));
-      
-      // Save both settings and preferences
-      await Promise.all([
-        DataManager.saveAISettings(draftSettings),
-        DataManager.saveUserPreferences(draftPreferences)
-      ]);
-      
-      setSettings(JSON.parse(JSON.stringify(draftSettings)));
-      setPreferences(JSON.parse(JSON.stringify(draftPreferences)));
-      
+      await DataManager.saveAISettings(cleanedSettings);
+      const savedCopy = JSON.parse(JSON.stringify(cleanedSettings));
+      setSettings(savedCopy);
+      setDraftSettings(savedCopy);
       setStatus({ 
         type: 'success', 
         message: 'সেটিংস সফলভাবে সেভ হয়েছে।',
@@ -173,28 +130,6 @@ const AIConfigurationPage: React.FC = () => {
     }
   };
 
-  const handleSelectAppID = (id: string) => {
-    updateDraft({ selectedAppID: id });
-  };
-
-  const handleAddCustomID = (id: string) => {
-    if (!id || !draftSettings) return;
-    const name = `Custom: ${id.slice(0, 8)}...`;
-    const newList = [...customIDs, { id, name }];
-    setCustomIDs(newList);
-    updateDraft({ customAppIDs: newList, selectedAppID: id });
-  };
-
-  const handleDeleteCustomID = (id: string) => {
-    if (!draftSettings) return;
-    const newList = customIDs.filter(c => c.id !== id);
-    setCustomIDs(newList);
-    updateDraft({ 
-      customAppIDs: newList, 
-      selectedAppID: draftSettings.selectedAppID === id ? 'threat-all' : draftSettings.selectedAppID 
-    });
-  };
-
   const handleUpdateAPIKey = (provider: string, key: string) => {
     if (!draftSettings) return;
     updateDraft({
@@ -202,59 +137,9 @@ const AIConfigurationPage: React.FC = () => {
     });
   };
 
-  const handleUpdateModel = (provider: string, model: string) => {
-    if (!draftSettings) return;
-    updateDraft({
-      models: { ...draftSettings.models, [provider]: model },
-      selectedModels: { ...draftSettings.selectedModels, [provider]: model }
-    });
-  };
-
   const handleSelectProvider = (p: string) => {
     if (!draftSettings) return;
     updateDraft({ selectedProvider: p as any, enabledProviders: [p] });
-  };
-
-  const handleOpenVaultClick = () => {
-    const pwd = draftPreferences?.defaultPassword?.trim();
-    if (!pwd) {
-      setStatus({ type: 'error', message: 'ভল্ট দেখার আগে দয়া করে একটি পাসওয়ার্ড কনফিগার করুন।' });
-      return;
-    }
-    setShowVaultAuthPrompt(true);
-  };
-
-  const handleConfirmVaultAuth = (pwdInput: string) => {
-    const actualPwd = draftPreferences?.defaultPassword?.trim();
-    if (pwdInput === actualPwd) {
-      setShowVaultAuthPrompt(false);
-      setShowVaultModal(true);
-    } else {
-      setStatus({ type: 'error', message: 'ভল্ট পাসওয়ার্ড মিলছে না! আবার চেষ্টা করুন।' });
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.zip')) {
-      setStatus({ type: 'error', message: 'দয়া করে একটি .zip ফাইল আপলোড করুন।' });
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const localService = new LocalService();
-      await localService.loadModelFromZip(file);
-      setModelStatus('loaded');
-      setStatus({ type: 'success', message: 'লোকাল মডেল সফলভাবে লোড হয়েছে!' });
-    } catch (err: any) {
-      setModelStatus('error');
-      setStatus({ type: 'error', message: 'মডেল লোড করতে ব্যর্থ: ' + err.message });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   if (!draftSettings) return null;
@@ -267,37 +152,20 @@ const AIConfigurationPage: React.FC = () => {
       <header className="px-6 py-8 border-b border-white/5 flex items-center justify-between sticky top-0 bg-[#050505]/60 backdrop-blur-3xl z-[100]">
         <div className="flex items-center gap-6">
           <button 
-            onClick={() => navigate('/settings')} 
+            onClick={handleBack} 
             className="group p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-white active:scale-90 border border-white/5 flex items-center justify-center"
           >
             <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
           </button>
           <div className="space-y-0.5">
             <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">
-              AI <span className="text-blue-500">ইঞ্জিন</span> সেটিংস
+              এআই <span className="text-blue-500">কনফিগারেশন</span>
             </h1>
             <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em]">Neural Processing Hub</p>
           </div>
         </div>
         
-        {isDirty ? (
-          <div className="flex items-center gap-3">
-             <button 
-               onClick={handleCancelEdit}
-               className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
-             >
-               বাতিল
-             </button>
-             <button 
-               onClick={handleManualSave}
-               disabled={isSaving}
-               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95 flex items-center gap-2"
-             >
-               {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-               সেভ করুন
-             </button>
-          </div>
-        ) : (
+        {!isDirty && (
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
             <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
             <span className="text-[10px] font-black uppercase tracking-widest text-white/40 leading-none">Synched</span>
@@ -363,8 +231,7 @@ const AIConfigurationPage: React.FC = () => {
             className="group"
           >
             <div className="p-8 md:p-12 bg-white/[0.03] border border-white/5 rounded-[3rem] space-y-10 relative overflow-hidden">
-               {/* Decorative Gradient */}
-               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
                 <div className="flex items-center gap-5">
                   <div className="w-14 h-14 bg-blue-500/10 rounded-[1.25rem] flex items-center justify-center border border-blue-500/20 text-blue-400">
@@ -376,7 +243,7 @@ const AIConfigurationPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-6">
                   {/* API Key Input */}
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Access Secret Key</label>
@@ -400,19 +267,60 @@ const AIConfigurationPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Model Selector */}
-                  <div className="space-y-2">
-                     <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Deployment Model</label>
-                     <div className="relative group/input overflow-hidden rounded-[1.5rem] border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50 focus-within:bg-blue-500/5">
-                        <div className="flex items-center gap-3 px-5 py-4">
-                          <Settings size={16} className="text-white/20 group-focus-within/input:text-blue-400 transition-colors" />
-                          <input 
-                            type="text"
-                            value={draftSettings.models[draftSettings.selectedProvider] || ''}
-                            onChange={(e) => handleUpdateModel(draftSettings.selectedProvider, e.target.value)}
-                            placeholder="যেমন: gemini-1.5-flash"
-                            className="flex-1 bg-transparent text-sm font-bold outline-none placeholder:text-white/10"
-                          />
+                  {/* Multi-Model Configuration */}
+                  <div className="space-y-4">
+                     <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Configured Models</label>
+                     <div className="space-y-2">
+                        {(draftSettings.providerModels[draftSettings.selectedProvider] || []).map((model, mIdx) => (
+                          <div key={mIdx} className="flex items-center gap-2 group/model">
+                             <div className="flex-1 bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm font-bold text-white/80">
+                                {model}
+                             </div>
+                             <button 
+                                onClick={() => {
+                                  const provider = draftSettings.selectedProvider;
+                                  const newList = (draftSettings.providerModels[provider] || []).filter((_, i) => i !== mIdx);
+                                  updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
+                                }}
+                                className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all opacity-0 group-hover/model:opacity-100 active:scale-90"
+                             >
+                                <Trash2 size={16} />
+                             </button>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                           <input 
+                             type="text"
+                             id="new-model-input"
+                             placeholder="Add model name..."
+                             className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500 outline-none transition-all"
+                             onKeyDown={(e) => {
+                               if (e.key === 'Enter') {
+                                 const val = (e.target as HTMLInputElement).value.trim();
+                                 if (val) {
+                                    const provider = draftSettings.selectedProvider;
+                                    const newList = [...(draftSettings.providerModels[provider] || []), val];
+                                    updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
+                                    (e.target as HTMLInputElement).value = '';
+                                 }
+                               }
+                             }}
+                           />
+                           <button 
+                             onClick={() => {
+                               const input = document.getElementById('new-model-input') as HTMLInputElement;
+                               const val = input.value.trim();
+                               if (val) {
+                                  const provider = draftSettings.selectedProvider;
+                                  const newList = [...(draftSettings.providerModels[provider] || []), val];
+                                  updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
+                                  input.value = '';
+                               }
+                             }}
+                             className="px-4 bg-blue-600 hover:bg-blue-500 rounded-xl transition-all active:scale-90"
+                           >
+                             <Plus size={18} />
+                           </button>
                         </div>
                      </div>
                   </div>
@@ -442,31 +350,32 @@ const AIConfigurationPage: React.FC = () => {
           </motion.section>
         </AnimatePresence>
 
-        <footer className="pt-8 text-center space-y-8 pb-32">
-          <button
-            onClick={handleManualSave}
-            disabled={isSaving || !isDirty}
-            className={`w-full py-5 font-bold rounded-[2rem] flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${
-              isDirty 
-                ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20" 
-                : "bg-white/5 text-white/20 cursor-default"
-            }`}
-            aria-label="সেটিংস সংরক্ষণ"
-            id="save-settings-button"
-          >
-            {isSaving ? <RefreshCw className="animate-spin" size={20} /> : <Check size={20} />}
-            <span>{isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সংরক্ষণ করুন'}</span>
-          </button>
-
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/10">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">v2.8 Stable Built</span>
-            </div>
-            <p className="text-xs text-white/20 px-12 leading-relaxed">
-              আপনার সব ডেটা এবং কীগুলো ব্রাউজারের ইনডেক্স-ডিবিতে (IndexedDB) লোকালভাবে থাকে। রেডওয়ান অ্যাসিস্ট্যান্ট কখনোই আপনার ক্রেডিটেন্সিয়ার বাইরের কোনো সার্ভারে পাঠায় না।
-            </p>
+        <footer className="pt-12 text-center space-y-10 pb-40 border-t border-white/5">
+          <div className="flex gap-3 h-16 max-w-lg mx-auto">
+            <button
+              onClick={handleManualSave}
+              disabled={isSaving || !isDirty}
+              className={`flex-[3] font-black uppercase tracking-[0.2em] text-[11px] rounded-3xl flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${
+                isDirty 
+                  ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20" 
+                  : "bg-white/5 text-white/20 cursor-default"
+              }`}
+            >
+              {isSaving ? <RefreshCw className="animate-spin" size={18} /> : <Check size={18} strokeWidth={3} />}
+              <span>{isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সেভ করুন'}</span>
+            </button>
+            <button 
+              onClick={handleBack}
+              className="flex-1 bg-white/5 hover:bg-white/10 text-white/40 border border-white/5 rounded-3xl flex items-center justify-center active:scale-90 transition-all"
+              aria-label="Close"
+            >
+              <X size={24} />
+            </button>
           </div>
+
+          <p className="text-xs text-white/20 px-12 leading-relaxed font-medium">
+            আপনার সব ডেটা এবং কীগুলো ব্রাউজারের ইনডেক্স-ডিবিতে (IndexedDB) লোকালভাবে থাকে। রেডওয়ান অ্যাসিস্ট্যান্ট কখনোই আপনার ক্রেডিটেন্সিয়ার বাইরের কোনো সার্ভারে পাঠায় না।
+          </p>
         </footer>
 
         {/* Status Toast with Undo */}
@@ -524,41 +433,6 @@ const AIConfigurationPage: React.FC = () => {
           )}
         </AnimatePresence>
       </main>
-      <VaultModal 
-        isOpen={showVaultModal} 
-        onClose={() => setShowVaultModal(false)}
-      />
-
-      <InputDialog 
-        isOpen={showVaultAuthPrompt}
-        onClose={() => setShowVaultAuthPrompt(false)}
-        onConfirm={handleConfirmVaultAuth}
-        title="ভল্ট পাসওয়ার্ড"
-        placeholder="ভল্ট অ্যাক্সেস করতে ডিফল্ট পাসওয়ার্ডটি লিখুন..."
-        type="password"
-        confirmText="অ্যাক্সেস করুন"
-      />
-
-      <InputDialog 
-        isOpen={showCustomIDPrompt} 
-        onClose={() => setShowCustomIDPrompt(false)} 
-        onConfirm={handleAddCustomID} 
-        title="Custom App ID" 
-        placeholder="আপনার পার্সোনাল অ্যাপ আইডি দিন..." 
-      />
-
-      <ConfirmDialog 
-        isOpen={showRestartConfirm}
-        onClose={() => setShowRestartConfirm(false)}
-        onConfirm={async () => {
-          await DataManager.saveUserName('');
-          window.location.reload();
-        }}
-        title="রিস্টার্ট কনফার্মেশন"
-        message="প্রাথমিক সেটআপ পুনরায় শুরু করতে চান? এটি আপনার নাম মুছে ফেলবে (নোটগুলো থাকবে)।"
-        confirmText="হ্যাঁ, রিস্টার্ট"
-        cancelText="না"
-      />
     </div>
   );
 };

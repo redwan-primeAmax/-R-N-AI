@@ -182,7 +182,6 @@ export const SettingsService = {
     const record = await db.key_value_pairs.get('ai_settings');
     const settings = record ? record.value as AISettings : null;
     const defaultSettings: AISettings = {
-      controlMode: 'auto',
       selectedProvider: 'gemini',
       selectedModels: {
         gemini: 'gemini-1.5-flash',
@@ -197,11 +196,11 @@ export const SettingsService = {
       retrySettings: { enabled: false, errorCodes: '' },
       selectedAppID: 'threat-all',
       customAppIDs: [],
-      models: {
-        gemini: 'gemini-1.5-flash',
-        openrouter: '',
-        fireworks: 'accounts/fireworks/models/deepseek-v3p1',
-        local: ''
+      providerModels: {
+        gemini: [],
+        openrouter: [],
+        fireworks: [],
+        local: []
       },
       systemPrompt: 'আপনি একজন দক্ষ ব্যক্তিগত সহকারী। আপনি ব্যবহারকারীকে নিখুঁত এবং স্মার্ট উত্তর দিতে সাহায্য করেন।'
     };
@@ -236,7 +235,7 @@ export const SettingsService = {
       retrySettings: settings.retrySettings || defaultSettings.retrySettings,
       selectedAppID: settings.selectedAppID || defaultSettings.selectedAppID,
       customAppIDs: settings.customAppIDs || defaultSettings.customAppIDs,
-      models: settings.models || defaultSettings.models,
+      providerModels: settings.providerModels || defaultSettings.providerModels,
       systemPrompt: settings.systemPrompt || defaultSettings.systemPrompt
     };
 

@@ -15,24 +15,15 @@ import { ThemeSelectorModal } from '../../../components/modals/ThemeSelectorModa
 import { NoteExportModal } from '../../../components/modals/NoteExportModal';
 import { MoveToBookmarkModal } from '../../../components/modals/MoveToBookmarkModal';
 import LoadingScreen from '../../../components/LoadingScreen';
-import { CollabSetupModal } from './CollabSetupModal';
-import { CollabStatusBar } from './CollabStatusBar';
-import { CollabErrorScreen } from './CollabErrorScreen';
 import { useEditorModal } from '../context/EditorModalContext';
 import { DataManager } from '../../../services/storage/DataManager';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 export const EditorModals: React.FC = () => {
-  const [showCollabSetup, setShowCollabSetup] = useState(false);
   const {
     note,
     theme,
     editor,
-    collabRoom,
-    activePeers,
-    collaborators,
-    sessionRole,
-    connectionState,
     currentSubPages,
     showActionSheet,
     setShowActionSheet,
@@ -64,26 +55,14 @@ export const EditorModals: React.FC = () => {
     handleTagSaveSubmit,
     handleThemeSelect,
     handleAddSubPage,
-    handleStartCollab,
-    handleKickCollaborator,
-    handleDisconnect,
     handleLinkPageSelect,
     noteRef,
-    pageWidth,
-    onToggleWidth,
   } = useEditorModal();
-
-  useEffect(() => {
-    const handleOpenCollabSetup = () => setShowCollabSetup(true);
-    (window as any).editorEvents?.on('openCollabSetup', handleOpenCollabSetup);
-    return () => (window as any).editorEvents?.off('openCollabSetup', handleOpenCollabSetup);
-  }, []);
 
   const handleMoveToBookmark = async (folderId?: string) => {
     if (!note) return;
     await DataManager.addNoteToBookmark(note.id, folderId);
     setShowBookmarkModal(false);
-    // Notify or redirect? The user said "if moved, hide from main screen", so we stay here or redirect to bookmarks
   };
 
   return (
@@ -130,28 +109,8 @@ export const EditorModals: React.FC = () => {
         onTheme={() => { setShowActionSheet(false); setShowThemeSelector(true); }}
         subPages={currentSubPages}
         onAddSubPage={handleAddSubPage}
-        onStartCollab={handleStartCollab}
-        collabRoom={collabRoom}
-        activePeers={activePeers}
-        collaborators={collaborators}
-        sessionRole={sessionRole}
-        onKickCollaborator={handleKickCollaborator}
-        onDisconnect={handleDisconnect}
         blocks={editor.blocks}
-        pageWidth={pageWidth}
-        onToggleWidth={onToggleWidth}
       />
-
-      <CollabSetupModal 
-        isOpen={showCollabSetup}
-        onClose={() => setShowCollabSetup(false)}
-        onStart={(opts) => {
-          handleStartCollab(opts);
-          setShowCollabSetup(false);
-        }}
-      />
-
-      <CollabStatusBar state={connectionState as any} />
 
       <MoveToBookmarkModal 
         isOpen={showBookmarkModal}

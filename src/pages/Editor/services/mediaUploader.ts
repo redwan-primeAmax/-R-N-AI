@@ -46,13 +46,16 @@ export async function uploadAndInsertMedia({
   }
 
   try {
+    const localPreviewUrl = type === 'image' ? URL.createObjectURL(file) : '';
+
     // Insert the media block first in editing blocks
     (editor.chain().focus() as any).setMedia({ 
       id: fileId,
       type,
       fileName: file.name,
       fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-      status: 'uploading'
+      status: 'uploading',
+      url: localPreviewUrl
     }).run();
 
     // Run background operation to load and write blob to MediaStore
@@ -67,6 +70,11 @@ export async function uploadAndInsertMedia({
           mediaData: { ...b.mediaData, status: 'completed', url }
         } : b
       ));
+    }
+
+    // Clean up local preview URL if we created one
+    if (localPreviewUrl && !url) {
+       URL.revokeObjectURL(localPreviewUrl);
     }
 
     if (onComplete) {

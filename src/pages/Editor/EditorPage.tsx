@@ -13,7 +13,6 @@ import { IconChange } from '../../components/icon/IconChange';
 import { PageIcon } from '../../components/PageIcon';
 
 import { useEditorState } from './hooks/useEditorState';
-import { useCollaboration } from './hooks/useCollaboration';
 import { usePdfExport } from './hooks/usePdfExport';
 import { useEditorHandlers } from './hooks/useEditorHandlers';
 
@@ -25,7 +24,6 @@ import LoadingScreen from '../../components/LoadingScreen';
 import { EditorModalProvider } from './context/EditorModalContext';
 
 import { DataManager } from '../../services/storage/DataManager';
-import { collabManager } from '../../services/collab';
 import { cn } from '../../utils/cn';
 
 export default function EditorPageWrapper() {
@@ -48,16 +46,6 @@ function EditorPage({ id }: { id: string | undefined }) {
     saveNote, titleRef, emojiRef, noteRef, themeRef, blocksRef, isDeletingRef
   } = useEditorState(id, blocksRefs as any);
 
-  // Collaboration P2P Setup
-  const {
-    collabRoom, activePeers, collaborators, sessionRole, connectionState,
-    handleStartCollab, handleKickCollaborator, handleDisconnect
-  } = useCollaboration({
-    id, note, editor, title, emoji, theme,
-    setNote, setTitle, setEmoji, setTheme, setNotification,
-    location, navigate
-  });
-
   // Editor Actions & Component Handlers Setup
   const {
     showActionSheet, setShowActionSheet,
@@ -79,45 +67,19 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleDelete, handleCopy, handleLock,
     handleTagSaveSubmit, handleThemeSelect, handleAddSubPage
   } = useEditorHandlers({
-    id, note, editor, title, emoji, theme, tags, currentSubPages, collabRoom,
+    id, note, editor, title, emoji, theme, tags, currentSubPages,
     setNote, setTitle, setEmoji, setTags, setTheme, setNotification,
     setIsReadOnly, isReadOnly, saveNote, titleRef, emojiRef, noteRef, themeRef, blocksRef,
-    handleStartCollab, isDeletingRef
+    isDeletingRef
   });
 
   // Additional event sync & listening setup with throttling guard to prevent DOM flooding
   useEffect(() => {
-    let lastNotifTime = 0;
-    const NOTIF_THROTTLE_MS = 500;
-    let isUnmounted = false;
-
-    const handleCollabNotif = (e: Event) => {
-      if (isUnmounted) return;
-      const now = Date.now();
-      if (now - lastNotifTime < NOTIF_THROTTLE_MS) {
-        console.warn('Blocked duplicate collab-notif to prevent DOM flooding');
-        return;
-      }
-      lastNotifTime = now;
-
-      const customEvent = e as CustomEvent;
-      if (customEvent && customEvent.detail) {
-        setNotification({ message: customEvent.detail.message, type: customEvent.detail.type });
-        const timer = setTimeout(() => {
-          if (!isUnmounted) setNotification(null);
-        }, 3500);
-        return () => clearTimeout(timer);
-      }
-    };
-    window.addEventListener('collab-notif', handleCollabNotif);
-    
     return () => {
-      isUnmounted = true;
-      window.removeEventListener('collab-notif', handleCollabNotif);
       // Bug 10 Cleanup: Revoke all object URLs when leaving the editor
       DataManager.revokeMediaUrls();
     };
-  }, [setNotification]);
+  }, []);
 
   // Handle Editor Commands from Extensions
   useEffect(() => {
@@ -182,11 +144,6 @@ function EditorPage({ id }: { id: string | undefined }) {
     note,
     theme,
     editor,
-    collabRoom,
-    activePeers,
-    collaborators,
-    sessionRole,
-    connectionState,
     currentSubPages,
     showActionSheet,
     setShowActionSheet,
@@ -218,19 +175,14 @@ function EditorPage({ id }: { id: string | undefined }) {
     handleTagSaveSubmit,
     handleThemeSelect,
     handleAddSubPage,
-    handleStartCollab,
-    handleKickCollaborator,
-    handleDisconnect,
     handleLinkPageSelect,
-    noteRef,
-    pageWidth: note?.pageWidth || 'default',
-    onToggleWidth: handleToggleWidth
+    noteRef
   }), [
-    note, theme, editor, collabRoom, activePeers, collaborators, sessionRole, connectionState, currentSubPages,
+    note, theme, editor, currentSubPages,
     showActionSheet, showBlockMenu, showThemeSelector, subPageMode, showDeleteConfirm,
     showLockPrompt, showTagPrompt, showExportModal, showBookmarkModal, showLinkPanel,
     isUploading, isReadOnly, handleCopy, handleLock, handleDelete, handleTagSaveSubmit,
-    handleThemeSelect, handleAddSubPage, handleStartCollab, handleKickCollaborator, handleDisconnect,
+    handleThemeSelect, handleAddSubPage,
     handleLinkPageSelect, noteRef
   ]);
 
@@ -278,16 +230,11 @@ function EditorPage({ id }: { id: string | undefined }) {
           title={title}
           activeTasksCount={activeTasksCount}
           onShowMenu={() => setShowActionSheet(true)}
-          sessionRole={sessionRole}
-          connectionState={connectionState}
-          collabPeerCount={activePeers}
-          onStartCollab={() => setShowActionSheet(true)}
           editor={editor}
           isSaving={isSaving}
           saveError={saveError}
           onNavigateToNote={(noteId) => {
-            const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
-            navigate(`/editor/${noteId}${collabParam}`);
+            navigate(`/editor/${noteId}`);
           }}
         />
 
@@ -337,7 +284,6 @@ function EditorPage({ id }: { id: string | undefined }) {
                     value={title}
                     onFocus={() => {
                       setIsTitleFocused(true);
-                      if (id) collabManager.updateCursor(id, 'title');
                     }}
                     onBlur={() => setIsTitleFocused(false)}
                     onChange={(e) => updateTitle(e.target.value)}
@@ -360,7 +306,6 @@ function EditorPage({ id }: { id: string | undefined }) {
                     editor={editor} 
                     blocksRefs={blocksRefs}
                     noteId={id}
-                    collaborators={collaborators}
                     className={cn(
                       "prose max-w-none focus:outline-none pb-20 w-full",
                       !isLight && "prose-invert",

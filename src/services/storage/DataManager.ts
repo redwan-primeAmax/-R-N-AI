@@ -124,26 +124,34 @@ export const DataManager = {
   },
 
   // --- Workspace Operations ---
-  async getWorkspaces(): Promise<Workspace[]> {
-    return WorkspaceService.getWorkspaces();
+  async getWorkspaces(forceRefresh?: boolean): Promise<Workspace[]> {
+    return WorkspaceService.getWorkspaces(forceRefresh);
   },
 
-  async getActiveWorkspaceId(): Promise<string> {
-    return WorkspaceService.getActiveWorkspaceId();
+  async getWorkspaceById(id: string): Promise<Workspace | null> {
+    return WorkspaceService.getWorkspaceById(id);
+  },
+
+  async getActiveWorkspaceId(forceRefresh?: boolean): Promise<string> {
+    return WorkspaceService.getActiveWorkspaceId(forceRefresh);
+  },
+
+  async getActiveWorkspace(): Promise<Workspace> {
+    return WorkspaceService.getActiveWorkspace();
   },
 
   async setActiveWorkspaceId(id: string): Promise<void> {
     await WorkspaceService.setActiveWorkspaceId(id);
     this.invalidateNotesCache(`switch-workspace:${id}`);
-    window.dispatchEvent(new CustomEvent('workspace-notes-changed'));
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
   },
 
-  async getSystemConfig(): Promise<any> {
-    return SettingsService.getSystemConfig();
-  },
-
-  async saveSystemConfig(config: any): Promise<void> {
-    await SettingsService.saveSystemConfig(config);
+  async createWorkspace(name: string, logoSvg?: string, description?: string, icon?: string): Promise<Workspace> {
+    const ws = await WorkspaceService.createWorkspace(name, logoSvg, description, icon);
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
+    return ws;
   },
 
   async saveWorkspace(workspace: Workspace): Promise<void> {
@@ -152,14 +160,43 @@ export const DataManager = {
     AppStore.reloadWorkspaces();
   },
 
+  async renameWorkspace(id: string, newName: string): Promise<void> {
+    await WorkspaceService.renameWorkspace(id, newName);
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
+  },
+
+  async updateWorkspaceLogo(id: string, logoSvg: string): Promise<void> {
+    await WorkspaceService.updateWorkspaceLogo(id, logoSvg);
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
+  },
+
   async deleteWorkspace(id: string): Promise<void> {
     await WorkspaceService.deleteWorkspace(id);
     this.invalidateNotesCache(`delete-workspace:${id}`);
+    notifySync({ type: 'SYNC_COMPLETE' });
     AppStore.reloadWorkspaces();
   },
 
   async getNoteCountForWorkspaces(): Promise<Record<string, number>> {
     return WorkspaceService.getNoteCountForWorkspaces();
+  },
+
+  async getWorkspaceStats(id: string) {
+    return WorkspaceService.getWorkspaceStats(id);
+  },
+
+  async checkWorkspaceLimit(id: string, maxLimit?: number) {
+    return WorkspaceService.checkWorkspaceLimit(id, maxLimit);
+  },
+
+  async duplicateWorkspace(id: string, newName?: string): Promise<Workspace> {
+    const ws = await WorkspaceService.duplicateWorkspace(id, newName);
+    this.invalidateNotesCache(`duplicate-workspace:${id}`);
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
+    return ws;
   },
 
   // --- AI Settings Operations ---
@@ -606,74 +643,57 @@ export const DataManager = {
     return NoteService.deleteVersion(id);
   },
 
-  async createDemoData(): Promise<void> {
-    const wsId = await this.getActiveWorkspaceId();
-    const demoNotes: Note[] = [
-      {
-        id: crypto.randomUUID(),
-        title: 'Project Alpha',
-        content: '<p>Initial brainstorm for project alpha.</p>',
-        emoji: '',
-        createdAt: Date.now() - 86400000,
-        updatedAt: Date.now() - 86400000,
-        workspaceId: wsId,
-        tags: ['strategy', 'demo']
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'Meeting Notes',
-        content: '<p>Discussed the quarterly goals.</p>',
-        emoji: '',
-        createdAt: Date.now() - 172800000,
-        updatedAt: Date.now() - 172800000,
-        workspaceId: wsId,
-        tags: ['meeting']
-      }
-    ];
-
-    await db.transaction('rw', db.notes, async () => {
-      await db.notes.bulkPut(demoNotes);
-    });
-    this.invalidateNotesCache('demo-data-seed');
-  },
-
   // --- Garbage Collector Methods ---
   async getGarbageStats(): Promise<{
-    trashedNotesCount: number;
-    unusedMediaCount: number;
-    unusedMediaSize: number;
-    outdatedVersionsCount: number;
-    legacyCacheSize: number;
-    searchIndexSize: number;
+    notesCount: number;
+    notesSize: number;
+    mediaCount: number;
+    mediaSize: number;
+    versionsCount: number;
+    versionsSize: number;
+    chatCount: number;
+    chatSize: number;
+    systemSize: number;
   }> {
-    const trashedNotes = await db.notes.filter(n => !!n.isTrashed).toArray();
-    const trashedNotesCount = trashedNotes.length;
+    const allNotes = await db.notes.toArray();
+    const notesCount = allNotes.length;
+    const notesSize = new Blob([JSON.stringify(allNotes)]).size;
 
     const { unusedMediaCount, unusedMediaSize } = await MediaService.getUnusedMediaStats();
-    const outdatedVersionsCount = await db.note_versions.count();
+    // Assuming unused media is what we want to monitor or all media
+    const allMedia = await db.media.toArray();
+    const mediaCount = allMedia.length;
+    const mediaSize = allMedia.reduce((acc, m) => acc + (m.blob?.size || 0), 0);
 
-    let legacyCacheSize = 0;
+    const allVersions = await db.note_versions.toArray();
+    const versionsCount = allVersions.length;
+    const versionsSize = new Blob([JSON.stringify(allVersions)]).size;
+
+    const allChat = await db.chat_history.toArray();
+    const chatCount = allChat.length;
+    const chatSize = new Blob([JSON.stringify(allChat)]).size;
+
+    let systemSize = 0;
     try {
       const lfKeys = await localforage.keys();
       for (const key of lfKeys) {
-        if (!['auto_download_enabled', 'offline_download_completed', 'system_tags', 'recent_notes_history', 'user_name'].includes(key)) {
-          const item = await localforage.getItem(key);
-          if (item) {
-            legacyCacheSize += new Blob([JSON.stringify(item)]).size;
-          }
-        }
+        const item = await localforage.getItem(key);
+        if (item) systemSize += new Blob([JSON.stringify(item)]).size;
       }
     } catch (e) {
       console.error(e);
     }
 
     return {
-      trashedNotesCount,
-      unusedMediaCount,
-      unusedMediaSize,
-      outdatedVersionsCount,
-      legacyCacheSize,
-      searchIndexSize: 0
+      notesCount,
+      notesSize,
+      mediaCount,
+      mediaSize,
+      versionsCount,
+      versionsSize,
+      chatCount,
+      chatSize,
+      systemSize
     };
   },
 
@@ -686,27 +706,6 @@ export const DataManager = {
       this.invalidateNotesCache('clean-trashed-notes');
     }
     return ids.length;
-  },
-
-  async optimizeStorage(): Promise<void> {
-    try {
-      await MediaService.cleanUnusedMedia();
-      await db.note_versions.clear();
-      await AIServiceStorage.clearChatHistory();
-
-      const lfKeys = await localforage.keys();
-      for (const key of lfKeys) {
-        if (!['auto_download_enabled', 'offline_download_completed', 'system_tags', 'recent_notes_history', 'user_name'].includes(key)) {
-          await localforage.removeItem(key);
-        }
-      }
-
-      await db.key_value_pairs.delete('internal_backups');
-      this.invalidateNotesCache('storage-optimization');
-    } catch (e) {
-      console.error('DataManager: Optimization failed', e);
-      throw e;
-    }
   },
 
   async cleanUnusedMedia(): Promise<{ count: number; savedSize: number }> {

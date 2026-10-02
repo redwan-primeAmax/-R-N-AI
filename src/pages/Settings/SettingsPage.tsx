@@ -19,7 +19,9 @@ import {
   Zap,
   AlertTriangle,
   Settings,
-  ShieldAlert
+  ShieldAlert,
+  Check,
+  X
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { DataManager } from '../../services/storage/DataManager';
@@ -79,7 +81,7 @@ const SettingsPage: React.FC = () => {
         {
           icon: Cpu,
           title: "এআই কনফিগারেশন",
-          description: "এপিআই কী, মডেল এবং ব্যাকগ্রাউন্ড অটোমেশন কন্ট্রোল সেটআপ করুন।",
+          description: "এপিআই কী এবং মডেল কন্ট্রোল সেটআপ করুন।",
           path: "/ai/settings",
           iconColor: "text-purple-400"
         }
@@ -90,9 +92,9 @@ const SettingsPage: React.FC = () => {
       tiles: [
         {
           icon: HardDrive,
-          title: "স্টোরেজ অপ্টিমাইজার",
-          description: "মিডিয়া ফাইল ক্লিনআপ এবং ডাটা ব্যাকআপ করার উন্নত ফিচারসমূহ।",
-          path: "/storage-optimizer",
+          title: "ডেটা মনিটর",
+          description: "স্টোরেজ ব্যবহার এবং ব্যাকআপ কন্ট্রোল চেক করুন।",
+          path: "/data-monitor",
           iconColor: "text-orange-400"
         },
         {
@@ -117,35 +119,12 @@ const SettingsPage: React.FC = () => {
           iconColor: "text-red-400"
         }
       ]
-    },
-    {
-      label: "পার্সোনালাইজেশন",
-      tiles: [
-        {
-          icon: Palette,
-          title: "ইন্টারফেস সেটিংস",
-          description: "থিম, এনিমেশন এবং ভিজ্যুয়াল পছন্দসমূহ পরিবর্তন করুন।",
-          path: "/ai/settings",
-          iconColor: "text-pink-400"
-        },
-        {
-          icon: User,
-          title: "ইউজার প্রোফাইল",
-          description: "আপনার নাম এবং অ্যাপের বেসিক প্রোফাইল সেটআপ আপডেট করুন।",
-          path: "/ai/settings",
-          iconColor: "text-indigo-400"
-        }
-      ]
     }
   ];
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col font-sans overflow-x-hidden">
-      {/* Background Decor */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] pointer-events-none -translate-y-1/2" />
-      <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-600/5 blur-[100px] pointer-events-none translate-y-1/2" />
-
-      <header className="px-6 py-8 md:px-12 flex items-center justify-between sticky top-0 bg-[#0d0d0d]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
+    <div className="h-screen bg-[#0d0d0d] text-white flex flex-col font-sans overflow-hidden fixed inset-0">
+      <header className="px-6 py-6 md:px-12 flex items-center justify-between shrink-0 bg-[#0d0d0d]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
         <div className="flex items-center gap-6">
           <button 
             onClick={() => navigate('/main')} 
@@ -156,16 +135,16 @@ const SettingsPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
                <Zap size={12} className="text-purple-400 fill-purple-400" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Configuration</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">System Settings</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">
+            <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">
               মেইন <span className="text-purple-500">সেটিংস</span>
             </h1>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full space-y-20 pb-32">
+      <main className="flex-1 overflow-y-auto p-6 md:p-12 max-w-7xl mx-auto w-full space-y-16 pb-12">
         {sections.map((section) => (
           <div key={section.label} className="space-y-8">
             <div className="flex items-center gap-4 px-2">
@@ -211,14 +190,6 @@ const SettingsPage: React.FC = () => {
             </div>
         </div>
       </main>
-
-      <footer className="px-6 py-12 border-t border-white/5 bg-white/[0.02] flex flex-col items-center gap-4">
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/5">
-          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">System Version 3.5.0 Stable</span>
-        </div>
-        <p className="text-[10px] text-white/10 font-bold uppercase tracking-widest">Designed for Professional Optimization</p>
-      </footer>
 
       {/* Confirmation Dialogs */}
       <ConfirmDialog

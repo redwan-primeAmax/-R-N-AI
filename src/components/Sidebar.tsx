@@ -10,7 +10,6 @@ import {
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
 import { db } from '../services/storage/DexieDB';
-import { collabManager } from '../services/collab';
 import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
 import { HistoryManager, RecentNote } from '../services/storage/HistoryManager';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -344,7 +343,7 @@ export default function Sidebar({
                   অ্যাপ মেনু
                 </div>
                 {[
-                  { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
+                  { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-chat' },
                   { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
                   { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
                   { icon: <Wrench size={16} />, label: 'টুলস সেকশন', path: '/tools' },
@@ -376,7 +375,6 @@ export default function Sidebar({
 
             {/* Footer Notice */}
             <div className="p-8 text-center">
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/10">Diamond Road v1.0</p>
             </div>
           </motion.div>
           </>

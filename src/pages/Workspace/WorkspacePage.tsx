@@ -1,141 +1,49 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { 
-  ArrowLeft, Plus, Edit2, Trash2, Check, X, 
-  Layout, Loader2, MoreHorizontal, Home
+  Plus, Edit2, Trash2, Check, X, 
+  Layout, MoreHorizontal, Home
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { DataManager } from '../../services/storage/DataManager';
-import { ConfirmDialog } from '../../components/modals/CustomDialogs';
-import { Workspace } from '../../types';
 
+import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import { WorkspaceLogoModal } from '../../components/modals/WorkspaceLogoModal';
 import LoadingScreen from '../../components/LoadingScreen';
 import { Modal } from '../../components/modals/Modal';
+import { useWorkspaceLogic } from './useWorkspaceLogic';
 
 export default function WorkspacePage() {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
-  const [workspaceNoteCounts, setWorkspaceNoteCounts] = useState<Record<string, number>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = useState('');
-  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(null);
-  const [editName, setEditName] = useState('');
-  const [isSwitching, setIsSwitching] = useState(false);
-  const [workspaceToDelete, setWorkspaceToDelete] = useState<string | null>(null);
-  const [workspaceForLogo, setWorkspaceForLogo] = useState<Workspace | null>(null);
-  const [workspaceSettingsModal, setWorkspaceSettingsModal] = useState<Workspace | null>(null);
-  const [showLimitNoticeModal, setShowLimitNoticeModal] = useState(false);
-
-  useEffect(() => {
-    const hasSeenNotice = localStorage.getItem('seen_workspace_limit_notice');
-    if (!hasSeenNotice) {
-      setShowLimitNoticeModal(true);
-    }
-  }, []);
-
-  const handleDismissLimitNotice = () => {
-    localStorage.setItem('seen_workspace_limit_notice', 'true');
-    setShowLimitNoticeModal(false);
-  };
-
-  const navigate = useNavigate();
-  const location = useLocation();
-  const origin = location.state?.from || 'direct';
-
-  const animationVariants = useMemo(() => ({
-    header: {
-      top: { initial: { y: '-100%' }, animate: { y: 0 } },
-      bottom: { initial: { y: '100%' }, animate: { y: 0 } }
-    },
-    sidebar: {
-      topLeft: { initial: { x: '-100%', y: '-100%' }, animate: { x: 0, y: 0 } },
-      bottomRight: { initial: { x: '100%', y: '100%' }, animate: { x: 0, y: 0 } }
-    }
-  }), []);
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const ws = await DataManager.getWorkspaces();
-      const activeId = await DataManager.getActiveWorkspaceId();
-      const counts = await DataManager.getNoteCountForWorkspaces();
-      setWorkspaceNoteCounts(counts || {});
-      setWorkspaces(ws);
-      setActiveWorkspaceId(activeId);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-    window.addEventListener('workspace-notes-changed', loadData);
-    return () => {
-      window.removeEventListener('workspace-notes-changed', loadData);
-    };
-  }, [loadData]);
-
-  const handleCreate = async () => {
-    if (!newWorkspaceName.trim()) return;
-    
-    const newWs: Workspace = {
-      id: crypto.randomUUID(),
-      name: newWorkspaceName.trim(),
-      createdAt: Date.now()
-    };
-    
-    await DataManager.saveWorkspace(newWs);
-    setNewWorkspaceName('');
-    setIsCreating(false);
-    
-    // Switch to new workspace immediately/automatically
-    await handleSwitch(newWs.id);
-  };
-
-  const handleRename = async () => {
-    if (!editingWorkspace || !editName.trim()) return;
-    
-    const updated = { ...editingWorkspace, name: editName.trim() };
-    await DataManager.saveWorkspace(updated);
-    setEditingWorkspace(null);
-    loadData();
-  };
-
-  const handleDelete = async () => {
-    if (!workspaceToDelete) return;
-
-    await DataManager.deleteWorkspace(workspaceToDelete);
-    if (activeWorkspaceId === workspaceToDelete) {
-      await DataManager.setActiveWorkspaceId('default');
-    }
-    setWorkspaceToDelete(null);
-    loadData();
-  };
-
-  const handleSwitch = async (id: string) => {
-    setIsSwitching(true);
-    // User requested: "লোড না হওয়া পর্যন্ত স্ক্রিনে কিছু দেখানো যাবে না (Loading State)"
-    await new Promise(resolve => setTimeout(resolve, 800)); // Artificial delay for smoother transition
-    await DataManager.setActiveWorkspaceId(id);
-    setActiveWorkspaceId(id);
-    setIsSwitching(false);
-    
-    // Switch should always go to home page
-    navigate('/main');
-  };
-
-  const handleUpdateLogo = async (svg: string) => {
-    if (!workspaceForLogo) return;
-    const updated = { ...workspaceForLogo, logoSvg: svg };
-    await DataManager.saveWorkspace(updated);
-    setWorkspaceForLogo(null);
-    loadData();
-  };
+  const {
+    workspaces,
+    activeWorkspaceId,
+    workspaceNoteCounts,
+    isLoading,
+    isCreating,
+    newWorkspaceName,
+    editingWorkspace,
+    editName,
+    isSwitching,
+    workspaceToDelete,
+    workspaceForLogo,
+    workspaceSettingsModal,
+    showLimitNoticeModal,
+    origin,
+    animationVariants,
+    setIsCreating,
+    setNewWorkspaceName,
+    setEditingWorkspace,
+    setEditName,
+    setWorkspaceToDelete,
+    setWorkspaceForLogo,
+    setWorkspaceSettingsModal,
+    handleDismissLimitNotice,
+    handleCreate,
+    handleRename,
+    handleDelete,
+    handleSwitch,
+    handleUpdateLogo,
+    navigate
+  } = useWorkspaceLogic();
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-main)] overflow-hidden antialiased">

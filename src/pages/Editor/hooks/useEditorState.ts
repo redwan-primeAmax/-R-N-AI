@@ -337,10 +337,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       await savePreviousNoteIfNeeded(noteRef.current.id);
     }
     const fetchedNote = await DataManager.getNoteById(noteId);
-    
-    // Check if we are joining a collaborative session via URL
-    const searchParams = new URLSearchParams(location.search);
-    const urlCollabId = searchParams.get('collab');
 
     if (fetchedNote) {
       // ⚡ Defer raw backup — DON'T await, DON'T block render
@@ -460,34 +456,10 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         setNotification({ message: 'অসংরক্ষিত ড্রাফট উদ্ধার করা হয়েছে (Unsaved draft restored!)', type: 'info' });
         setTimeout(() => setNotification(null), 3000);
       }
-    } else if (urlCollabId) {
-      // Create a temporary/placeholder note locally so the editor does not redirect,
-      // and let the in-flight Yjs real-time updates overwrite and save it automatically as soon as it syncs.
-      const activeWorkspaceId = (await DataManager.getActiveWorkspaceId()) || 'default-workspace';
-      const tempNote: Note = {
-        id: noteId,
-        title: 'Connecting to collaboration...',
-        emoji: '🔄',
-        content: '<p>Getting document real-time data from peer host...</p>',
-        theme: 'default',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        isTrashed: false,
-        workspaceId: activeWorkspaceId
-      };
-      
-      await DataManager.saveNote(tempNote);
-      
-      setNote(tempNote);
-      setTitle(tempNote.title);
-      setEmoji(tempNote.emoji);
-      setTags(tempNote.tags || []);
-      setTheme(tempNote.theme || 'default');
-      setBlocks(htmlToBlocks(tempNote.content));
     } else {
       navigate('/');
     }
-  }, [id, navigate, BACKUP_KEY, location.search]);
+  }, [id, navigate, BACKUP_KEY]);
 
   const saveNote = useCallback(async (content: string, force: boolean = false) => {
     if (noteRef.current) {

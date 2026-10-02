@@ -30,7 +30,6 @@ export interface ContextSummary {
 }
 
 export interface AISettings {
-  controlMode: 'auto' | 'manual';
   selectedProvider: 'gemini' | 'openrouter' | 'fireworks' | 'local';
   selectedModels: {
     gemini: string;
@@ -53,12 +52,11 @@ export interface AISettings {
   };
   selectedAppID?: string;
   customAppIDs?: { id: string; name: string }[];
-  models: {
-    gemini: string;
-    openrouter: string;
-    fireworks: string;
-    local: string;
-    [key: string]: string;
+  providerModels: {
+    gemini: string[];
+    openrouter: string[];
+    fireworks: string[];
+    local: string[];
   };
   systemPrompt?: string;
 }

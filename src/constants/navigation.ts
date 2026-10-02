@@ -11,7 +11,7 @@ export const MAIN_NAV_ITEMS = [
 ] as const;
 
 export const SIDEBAR_MENU_ITEMS = [
-  { icon: Sparkles, label: 'AI সহকারী ও চ্যাট', path: '/ai-auto' },
+  { icon: Sparkles, label: 'AI সহকারী ও চ্যাট', path: '/ai-chat' },
   { icon: Bookmark, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
   { icon: Lock, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
   { icon: Wrench, label: 'টুলস সেকশন', path: '/tools' },

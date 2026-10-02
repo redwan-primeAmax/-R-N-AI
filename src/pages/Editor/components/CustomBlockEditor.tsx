@@ -28,8 +28,6 @@ import { TocBlockRenderer } from '../renderers/TocBlockRenderer';
 import { ColumnBlockRenderer } from '../renderers/ColumnBlockRenderer';
 import { CalloutBlockRenderer } from '../renderers/CalloutBlockRenderer';
 
-import { collabManager, Collaborator } from '../../../services/collab';
-
 const LegacyBlockFallback: React.FC<{ block: EditorBlock }> = ({ block }) => {
   return (
     <div className="my-2 p-4 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col gap-2 group/legacy transition-all hover:bg-white/[0.04]">
@@ -61,32 +59,7 @@ interface CustomBlockEditorProps {
   className?: string;
   blocksRefs?: React.MutableRefObject<Record<string, any>>;
   noteId?: string;
-  collaborators?: Collaborator[];
 }
-
-const RemoteCursors: React.FC<{ blockId: string; collaborators: Collaborator[] }> = ({ blockId, collaborators }) => {
-  const activeCollaborators = collaborators.filter(c => c.cursorBlockId === blockId);
-  if (activeCollaborators.length === 0) return null;
-
-  return (
-    <div className="absolute -top-6 left-0 flex flex-wrap gap-1 z-[60] pointer-events-none">
-      {activeCollaborators.map(c => (
-        <div 
-          key={c.id} 
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-xl animate-in fade-in slide-in-from-bottom-2"
-          style={{ 
-            backgroundColor: `${c.color}20`, 
-            color: c.color,
-            borderColor: `${c.color}40`
-          }}
-        >
-          <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
-          {c.name}
-        </div>
-      ))}
-    </div>
-  );
-};
 
 // Add this before CustomBlockEditor component definition
 const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isReadOnly: boolean }> = ({ subPageId, defaultTitle, isReadOnly }) => {
@@ -146,8 +119,7 @@ const MemoizedBlockRow = React.memo(({
   indentStyle,
   currentHiddenIndent,
   searchTerm,
-  noteId,
-  collaborators = []
+  noteId
 }: any) => {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
@@ -161,8 +133,6 @@ const MemoizedBlockRow = React.memo(({
       className="flex flex-col group relative max-w-full overflow-hidden"
       style={indentStyle}
     >
-      <RemoteCursors blockId={block.id} collaborators={collaborators} />
-      
       {/* Visual connecting line for nested items */}
       {hasIndent && (
         <div 
@@ -321,23 +291,6 @@ const MemoizedBlockRow = React.memo(({
         <AudioGeneratorBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
       ) : block.type === 'toc' ? (
         <TocBlockRenderer blocks={blocks} />
-      ) : block.type === 'synced' ? (
-        <div className="flex-1 flex flex-col p-4 bg-orange-500/[0.01] hover:bg-orange-500/[0.02] border border-orange-550/20 hover:border-orange-550/40 rounded-2xl text-left relative group/sync">
-          <div className="absolute right-3 top-3 bg-orange-600/10 text-orange-400 border border-orange-550/20 rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider opacity-30 group-hover/sync:opacity-100 transition-opacity select-none flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
-            Synced Block
-          </div>
-          <EditableBlock
-            block={block}
-            idx={idx}
-            isReadOnly={isReadOnly}
-            blockRefs={blockRefs}
-            handleKeyDown={handleKeyDown}
-            setFocusedId={setFocusedId}
-            editor={editor}
-            handleBlockChange={handleBlockChange}
-          />
-        </div>
       ) : ['toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) ? (
         <div className="flex-1 flex flex-col bg-transparent text-left">
           <div className="flex items-center gap-2 group/toggle">
@@ -421,15 +374,9 @@ const MemoizedBlockRow = React.memo(({
          prev.isReadOnly === next.isReadOnly;
 });
 
-export default function CustomBlockEditor({ editor, className, blocksRefs, noteId, collaborators = [] }: CustomBlockEditorProps) {
+export default function CustomBlockEditor({ editor, className, blocksRefs, noteId }: CustomBlockEditorProps) {
   const navigate = useNavigate();
   const [focusedId, setFocusedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (noteId && focusedId) {
-      collabManager.updateCursor(noteId, focusedId);
-    }
-  }, [noteId, focusedId]);
 
   const blocks = editor?.blocks || [];
   const setBlocks = editor?.setBlocks;
@@ -447,12 +394,6 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
       if (!blockToChange) return prev;
       
       const cleaned = immediate ? newContent : cleanBlockHTML(newContent, blockToChange.type || 'paragraph');
-      
-      // Optimization: Only run expensive map if it's a synced block
-      if (blockToChange.type === 'synced' && blockToChange.syncedBlockId) {
-        const sid = blockToChange.syncedBlockId;
-        return prev.map((b: EditorBlock) => (b.id === id || (b.type === 'synced' && b.syncedBlockId === sid)) ? { ...b, content: cleaned } : b);
-      }
       
       // Fast path for normal blocks
       const idx = prev.findIndex(b => b.id === id);
@@ -590,7 +531,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
           e.preventDefault();
           const prevBlock = blocks[idx - 1];
           // We can only merge if the previous block is editable
-          if (['paragraph', 'h1', 'h2', 'h3', 'quote', 'todo', 'bullet', 'ordered', 'callout', 'synced'].includes(prevBlock.type)) {
+          if (['paragraph', 'h1', 'h2', 'h3', 'quote', 'todo', 'bullet', 'ordered', 'callout'].includes(prevBlock.type)) {
             const currentContent = target.innerHTML;
             const prevContent = prevBlock.content;
             
@@ -738,7 +679,6 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
                   currentHiddenIndent={null}
                   searchTerm={editor.searchTerm}
                   noteId={noteId}
-                  collaborators={collaborators}
                 />
               </ErrorBoundary>
             );
@@ -792,7 +732,6 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
               currentHiddenIndent={currentHiddenIndent}
               searchTerm={editor.searchTerm}
               noteId={noteId}
-              collaborators={collaborators}
             />
           </ErrorBoundary>
         );

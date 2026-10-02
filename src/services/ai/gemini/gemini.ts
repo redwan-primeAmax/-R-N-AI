@@ -240,7 +240,20 @@ export const handleGeminiSendMessage = async (
     setAiStatus('idle');
   } catch (err: any) {
     setAiStatus('error');
-    setAiReason(err.message || 'Gemini Error');
+    const errorMsg = err.message || 'Gemini Error';
+    setAiReason(errorMsg);
+    
+    const errorChatMessage: ChatMessage = { 
+      role: 'model', 
+      text: `❌ Error: ${errorMsg}`, 
+      timestamp: Date.now(),
+      debugInfo: {
+        fullPrompt: input,
+        systemPrompt: '',
+      }
+    };
+    setMessages((prev: ChatMessage[]) => [...prev, errorChatMessage]);
+    await DataManager.saveChatMessage(errorChatMessage);
   } finally {
     setIsLoading(false);
     loadHistory(); loadNotes(); loadTasks();

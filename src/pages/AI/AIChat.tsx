@@ -10,7 +10,7 @@ import {
   ArrowLeft, Sparkles, Send, Copy, Check, 
   Trash2, ChevronDown, Paperclip, X
 } from 'lucide-react';
-import { DataManager, ChatMessage, Note } from '../../services/storage/DataManager';
+import { DataManager, ChatMessage, Note, AISettings } from '../../services/storage/DataManager';
 import { handleGeminiSendMessage } from '../../services/ai/gemini/gemini';
 import { cn } from '../../utils/cn';
 
@@ -26,7 +26,8 @@ const ModelPicker: React.FC<{
   selectedModel: string;
   onSelect: (model: string) => void;
   anchorRect: DOMRect | null;
-}> = ({ isOpen, onClose, selectedModel, onSelect, anchorRect }) => {
+  models: string[];
+}> = ({ isOpen, onClose, selectedModel, onSelect, anchorRect, models }) => {
   if (!anchorRect) return null;
 
   return (
@@ -57,7 +58,9 @@ const ModelPicker: React.FC<{
             className="w-56 bg-[#22211F] border border-[#363430] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-1.5 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {['Claude 3.5 Sonnet', 'Claude 3 Opus', 'Claude 3 Haiku'].map((model) => (
+            {models.length === 0 ? (
+              <div className="px-3 py-2 text-[10px] text-white/30 font-bold uppercase tracking-widest text-center">No models configured</div>
+            ) : models.map((model) => (
               <button
                 key={model}
                 onClick={() => {
@@ -71,7 +74,7 @@ const ModelPicker: React.FC<{
                     : "text-[#ECEBE6]/80 hover:bg-[#2B2A27] hover:text-[#ECEBE6]"
                 )}
               >
-                <span>{model}</span>
+                <span className="truncate">{model}</span>
                 {selectedModel === model && <Check size={14} strokeWidth={3} />}
               </button>
             ))}
@@ -79,6 +82,85 @@ const ModelPicker: React.FC<{
         </>
       )}
     </AnimatePresence>
+  );
+};
+
+const ChatMessageItem: React.FC<{
+  msg: ChatMessage;
+  idx: number;
+  onCopy: (idx: number, text: string) => void;
+  copiedIdx: number | null;
+}> = ({ msg, idx, onCopy, copiedIdx }) => {
+  const [isErrorExpanded, setIsErrorExpanded] = useState(false);
+  const isError = msg.text.toLowerCase().includes('error') || msg.text.toLowerCase().includes('failed');
+
+  return (
+    <div
+      className={cn(
+        "flex gap-4 p-5 rounded-[24px] transition-all border border-transparent group",
+        msg.role === 'user' 
+          ? "bg-[#22211F] ml-auto max-w-[90%] sm:max-w-[80%] border-[#363430] shadow-sm" 
+          : "bg-transparent max-w-full hover:bg-white/[0.02]"
+      )}
+    >
+      <div className="shrink-0 pt-0.5">
+        {msg.role === 'user' ? (
+          <div className="w-8 h-8 bg-[#363430] text-[#ECEBE6] rounded-xl flex items-center justify-center font-black text-xs border border-white/5">
+            U
+          </div>
+        ) : (
+          <div className={cn(
+            "w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shadow-lg",
+            isError ? "bg-red-500 text-white shadow-red-500/20" : "bg-[#D97757] text-black shadow-[#D97757]/20 border border-[#c56647]"
+          )}>
+            C
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-3 min-w-0">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#9B9990]">
+            {msg.role === 'user' ? 'You' : 'Assistant'}
+          </span>
+          <button
+            onClick={() => onCopy(idx, msg.text)}
+            className="text-[#9B9990] hover:text-[#ECEBE6] transition-colors p-1.5 bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
+          >
+            {copiedIdx === idx ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          </button>
+        </div>
+
+        <div className={cn(
+          "text-[15px] leading-relaxed whitespace-pre-wrap font-medium",
+          msg.role === 'user' ? "text-[#ECEBE6]/90" : isError ? "text-red-400 cursor-pointer" : "text-[#ECEBE6]/90"
+        )}
+          onClick={isError ? () => setIsErrorExpanded(!isErrorExpanded) : undefined}
+        >
+          {msg.text}
+          
+          {isError && isErrorExpanded && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-[11px] font-bold text-red-300 uppercase tracking-widest">Full Error Trace</p>
+              <code className="block text-[10px] bg-black/40 p-3 rounded-xl overflow-x-auto text-red-200/60 font-mono">
+                {msg.debugInfo?.fullPrompt || msg.text}
+              </code>
+              <button 
+                onClick={() => onCopy(idx, msg.debugInfo?.fullPrompt || msg.text)}
+                className="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+              >
+                Copy Full Error
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -91,24 +173,35 @@ export default function AIChat() {
   const [aiReason, setAiReason] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [selectedModel, setSelectedModel] = useState('Claude 3.5 Sonnet');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showNoteSelector, setShowNoteSelector] = useState(false);
   const [selectedNotes, setSelectedNotes] = useState<Note[]>([]);
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadData = useCallback(async () => {
-    const [history, allNotes] = await Promise.all([
+    const [history, allNotes, settings] = await Promise.all([
       DataManager.getChatHistory(),
-      DataManager.getAllNotes()
+      DataManager.getAllNotes(),
+      DataManager.getAISettings()
     ]);
     setMessages(history);
     setNotes(allNotes.filter(n => !n.isTrashed));
+    setAiSettings(settings);
+    
+    const provider = settings.selectedProvider;
+    const models = settings.providerModels?.[provider] || [];
+    setAvailableModels(models);
+    
+    const currentModel = settings.selectedModels[provider] || models[0] || '';
+    setSelectedModel(currentModel);
   }, []);
 
   useEffect(() => {
@@ -130,6 +223,20 @@ export default function AIChat() {
     const trimmed = input.trim();
     if (!trimmed && selectedNotes.length === 0) return;
     if (isLoading) return;
+
+    if (!aiSettings || (!aiSettings.apiKeys[aiSettings.selectedProvider] && aiSettings.selectedProvider !== 'gemini')) {
+      const errorMsg = `⚠️ এপিআই কী সেটআপ করা নেই!
+
+আপনার নির্বাচন করা সার্ভিস (${aiSettings?.selectedProvider.toUpperCase()}) ব্যবহার করতে একটি এপিআই কী প্রয়োজন।
+
+কিভাবে ঠিক করবেন:
+১. 'Settings' এ যান।
+২. 'AI Configuration' সিলেক্ট করুন।
+৩. আপনার API Key প্রদান করে সেভ করুন।`;
+      const msg: ChatMessage = { role: 'model', text: errorMsg, timestamp: Date.now() };
+      setMessages(prev => [...prev, { role: 'user', text: input, timestamp: Date.now() }, msg]);
+      return;
+    }
 
     await handleGeminiSendMessage(
       input,
@@ -178,6 +285,20 @@ export default function AIChat() {
     );
   };
 
+  const handleSelectModel = async (model: string) => {
+    if (!aiSettings) return;
+    setSelectedModel(model);
+    const updated = {
+      ...aiSettings,
+      selectedModels: {
+        ...aiSettings.selectedModels,
+        [aiSettings.selectedProvider]: model
+      }
+    };
+    await DataManager.saveAISettings(updated);
+    setAiSettings(updated);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#181816] text-[#ECEBE6] font-sans selection:bg-[#D97757]/30 overflow-hidden">
       {/* Note Selector Modal */}
@@ -198,7 +319,7 @@ export default function AIChat() {
               className="relative w-full max-w-md bg-[#22211F] border border-[#363430] rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[70vh]"
             >
               <div className="p-6 border-b border-[#363430] flex items-center justify-between">
-                <h3 className="text-lg font-black text-[#ECEBE6]">Select Context Notes</h3>
+                <h3 className="text-lg font-black text-[#ECEBE6]">নোট সিলেক্ট করুন</h3>
                 <button 
                   onClick={() => setShowNoteSelector(false)}
                   className="p-2 hover:bg-[#363430] rounded-full transition-colors"
@@ -208,7 +329,7 @@ export default function AIChat() {
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
                 {notes.length === 0 ? (
-                  <p className="text-center py-8 text-[#9B9990] text-sm">No notes available.</p>
+                  <p className="text-center py-8 text-[#9B9990] text-sm">কোনো নোট পাওয়া যায়নি।</p>
                 ) : (
                   notes.map(note => {
                     const isSelected = selectedNotes.find(n => n.id === note.id);
@@ -227,7 +348,7 @@ export default function AIChat() {
                           {note.emoji || '📝'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm truncate">{note.title || 'Untitled Note'}</p>
+                          <p className="font-bold text-sm truncate">{note.title || 'শিরোনামহীন'}</p>
                           <p className="text-[10px] opacity-40 uppercase font-black tracking-widest mt-0.5">Updated recently</p>
                         </div>
                         {isSelected && <Check size={18} strokeWidth={3} />}
@@ -241,7 +362,7 @@ export default function AIChat() {
                   onClick={() => setShowNoteSelector(false)}
                   className="w-full py-4 bg-[#D97757] hover:bg-[#c56647] text-black font-black rounded-2xl transition-all active:scale-95 shadow-xl shadow-[#D97757]/20"
                 >
-                  Done ({selectedNotes.length} selected)
+                  সম্পন্ন করুন ({selectedNotes.length}টি নির্বাচিত)
                 </button>
               </div>
             </motion.div>
@@ -269,7 +390,7 @@ export default function AIChat() {
               )}
             >
               <div className="w-2 h-2 rounded-full bg-[#D97757] shadow-[0_0_8px_rgba(217,119,87,0.5)]" />
-              <span>{selectedModel}</span>
+              <span>{selectedModel || 'Select Model'}</span>
               <ChevronDown size={14} className={cn("text-[#9B9990] transition-transform duration-200", showModelPicker && "rotate-180")} />
             </button>
 
@@ -277,8 +398,9 @@ export default function AIChat() {
               isOpen={showModelPicker}
               onClose={() => setShowModelPicker(false)}
               selectedModel={selectedModel}
-              onSelect={setSelectedModel}
+              onSelect={handleSelectModel}
               anchorRect={pickerAnchor}
+              models={availableModels}
             />
           </div>
         </div>
@@ -326,46 +448,23 @@ export default function AIChat() {
           </div>
         ) : (
           messages.map((msg, idx) => (
-            <div
+            <ChatMessageItem 
               key={idx}
-              className={cn(
-                "flex gap-4 p-5 rounded-[24px] transition-all border border-transparent",
-                msg.role === 'user' 
-                  ? "bg-[#22211F] ml-auto max-w-[90%] sm:max-w-[80%] border-[#363430] shadow-sm" 
-                  : "bg-transparent max-w-full hover:bg-white/[0.02]"
-              )}
-            >
-              <div className="shrink-0 pt-0.5">
-                {msg.role === 'user' ? (
-                  <div className="w-8 h-8 bg-[#363430] text-[#ECEBE6] rounded-xl flex items-center justify-center font-black text-xs border border-white/5">
-                    U
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 bg-[#D97757] text-black rounded-xl flex items-center justify-center font-black text-xs shadow-lg shadow-[#D97757]/20 border border-[#c56647]">
-                    C
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 space-y-3 min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#9B9990]">
-                    {msg.role === 'user' ? 'You' : 'Assistant'}
-                  </span>
-                  <button
-                    onClick={() => handleCopy(idx, msg.text)}
-                    className="text-[#9B9990] hover:text-[#ECEBE6] transition-colors p-1.5 bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  >
-                    {copiedIdx === idx ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                  </button>
-                </div>
-
-                <div className="text-[15px] leading-relaxed text-[#ECEBE6]/90 whitespace-pre-wrap font-medium">
-                  {msg.text}
-                </div>
-              </div>
-            </div>
+              msg={msg}
+              idx={idx}
+              onCopy={handleCopy}
+              copiedIdx={copiedIdx}
+            />
           ))
+        )}
+
+        {streamingMessage && (
+          <ChatMessageItem 
+            msg={{ role: 'model', text: streamingMessage, timestamp: Date.now() }}
+            idx={-1}
+            onCopy={() => {}}
+            copiedIdx={null}
+          />
         )}
 
         {isLoading && (

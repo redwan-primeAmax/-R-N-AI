@@ -56,9 +56,8 @@ const AIConfiguration = lazyWithRetry(() => import('./pages/AI/AIConfiguration')
 const AIContentArchitect = lazyWithRetry(() => import('./pages/AI/AIContentArchitect'));
 const BrowseTemplates = lazyWithRetry(() => import('./pages/Templates/BrowseTemplates'));
 const RecycleBin = lazyWithRetry(() => import('./pages/Trash/RecycleBin'));
-const NetworkShield = lazyWithRetry(() => import('./pages/Settings/NetworkShield'));
 const AppCloudArchive = lazyWithRetry(() => import('./pages/Settings/AppCloudArchive'));
-const StorageOptimizer = lazyWithRetry(() => import('./pages/Settings/StorageOptimizer'));
+const DataMonitor = lazyWithRetry(() => import('./pages/Settings/DataMonitor'));
 const RecentBackups = lazyWithRetry(() => import('./pages/Settings/RecentBackups'));
 const SettingsPage = lazyWithRetry(() => import('./pages/Settings/SettingsPage'));
 const BookmarkPage = lazyWithRetry(() => import('./pages/Bookmark/BookmarkPage'));
@@ -106,7 +105,7 @@ function AppContent() {
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
   const isWorkspacePage = location.pathname === '/workspaces' || location.pathname === '/workspace';
-  const isAIPage = location.pathname.startsWith('/ai-auto') || location.pathname.startsWith('/manual-control');
+  const isAIPage = location.pathname.startsWith('/ai-chat');
   const isToolsPage = location.pathname === '/tools' || location.pathname === '/bookmarks' || location.pathname === '/vault';
   const isHideBottomNav = isEditorPage || isWorkspacePage || isAIPage || isToolsPage;
   const [userName, setUserName] = useState<string | null>(null);
@@ -132,6 +131,16 @@ function AppContent() {
     window.matchMedia('(display-mode: standalone)').matches || 
     (window.navigator as any).standalone === true
   );
+
+  // Fix: App Startup Navigation State
+  useEffect(() => {
+    // Explicitly force 'Main Page' on cold boot if no specific path is requested
+    // This solves the issue where app redirects to /tools on restart
+    const hash = window.location.hash;
+    if (hash === '#/' || hash === '' || !hash) {
+      navigate('/main', { replace: true });
+    }
+  }, []);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -216,6 +225,23 @@ function AppContent() {
           setShowPopup(true);
         }
 
+        // Step 2: Auto Offline Initialization (Problem 12 / Task 3)
+        if ('caches' in window && navigator.onLine) {
+          const runAutoCache = async () => {
+            try {
+              const cache = await caches.open('rn-ai-offline-v1');
+              const vitalAssets = ['/', '/index.html', '/manifest.webmanifest'];
+              // Silent pre-cache of vital entry points
+              vitalAssets.forEach(asset => {
+                fetch(asset, { cache: 'no-cache' }).then(res => {
+                   if (res.ok) cache.put(asset, res);
+                }).catch(() => {});
+              });
+            } catch (e) {}
+          };
+          runAutoCache();
+        }
+
         // Step 3: Theme initialization
         const prefs = await DataManager.getUserPreferences();
         setTheme(prefs.theme || 'dark');
@@ -284,18 +310,19 @@ function AppContent() {
     { path: "/search", element: <PageWrapper><SearchPage /></PageWrapper> },
     { path: "/workspaces", element: <PageWrapper><WorkspacePage /></PageWrapper> },
     { path: "/recycle-bin", element: <PageWrapper><RecycleBin /></PageWrapper> },
-    { path: "/network-shield", element: <PageWrapper><NetworkShield /></PageWrapper> },
     { path: "/cloud-archive", element: <PageWrapper><AppCloudArchive /></PageWrapper> },
     { path: "/offline", element: <PageWrapper><OfflinePage /></PageWrapper> },
-    { path: "/backup", element: <Navigate to="/storage-optimizer" replace /> },
-    { path: "/data-management", element: <Navigate to="/storage-optimizer" replace /> },
-    { path: "/storage-optimizer", element: <PageWrapper><StorageOptimizer /></PageWrapper> },
+    { path: "/backup", element: <Navigate to="/data-monitor" replace /> },
+    { path: "/data-management", element: <Navigate to="/data-monitor" replace /> },
+    { path: "/storage-optimizer", element: <Navigate to="/data-monitor" replace /> },
+    { path: "/data-monitor", element: <PageWrapper><DataMonitor /></PageWrapper> },
     { path: "/recent-backups", element: <PageWrapper><RecentBackups /></PageWrapper> },
     { path: "/editor/:id", element: <PageWrapper><EditorPage /></PageWrapper> },
-    { path: "/ai-auto", element: <PageWrapper><AIChat /></PageWrapper> },
-    { path: "/manual-control", element: <PageWrapper><AIChat /></PageWrapper> },
-    { path: "/manual-control/*", element: <PageWrapper><AIChat /></PageWrapper> },
-    { path: "/ai", element: <Navigate to="/ai-auto" replace /> },
+    { path: "/ai-chat", element: <PageWrapper><AIChat /></PageWrapper> },
+    { path: "/ai", element: <Navigate to="/ai-chat" replace /> },
+    { path: "/ai-auto", element: <Navigate to="/ai-chat" replace /> },
+    { path: "/manual-control", element: <Navigate to="/ai-chat" replace /> },
+    { path: "/manual-control/*", element: <Navigate to="/ai-chat" replace /> },
     { path: "/settings", element: <PageWrapper><SettingsPage /></PageWrapper> },
     { path: "/bookmarks", element: <PageWrapper><BookmarkPage /></PageWrapper> },
     { path: "/vault", element: <PageWrapper><VaultPage /></PageWrapper> },

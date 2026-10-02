@@ -67,7 +67,23 @@ export default function BrowseTemplates() {
   , [activeCategory]);
 
   const handleUseTemplate = useCallback(async (template: Template) => {
-    const content = template.content || `<h1>${template.title}</h1><p>এখানে আপনার ${template.title.toLowerCase()} শুরু করুন...</p>`;
+    let content = template.content || `<h1>${template.title}</h1><p>এখানে আপনার ${template.title.toLowerCase()} শুরু করুন...</p>`;
+
+    // Professional Template Parsing: Replace [Tags] with real values or clean placeholders
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    
+    content = content
+      .replace(/\[Date\]/g, dateStr)
+      .replace(/\[Title\]/g, template.title)
+      .replace(/\[Name\]/g, 'User')
+      .replace(/\[Count\]/g, '0')
+      .replace(/\[Type\]/g, 'General')
+      .replace(/\[Names\]/g, 'Participants')
+      .replace(/\[Topic\]/g, 'New Topic')
+      .replace(/\[Description\]/g, 'Description goes here...')
+      .replace(/\[Text\]/g, '...')
+      .replace(/\[Emoji\]/g, '✨');
 
     const newNote: Note = {
       id: `note-${Date.now()}`,

@@ -171,11 +171,6 @@ export const NoteCard = React.memo<NoteCardProps>(({
             {note.isLocked && (
               <Lock size={12} className="text-amber-500 dark:text-amber-400 shrink-0" />
             )}
-            {note.isCollaborated && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
-                <Radio size={8} className="animate-pulse" /> Live
-              </span>
-            )}
           </div>
 
           {/* Secondary Row: relative time, preview, neutral tag pills */}

@@ -132,16 +132,35 @@ export const MediaBlock = ({ block, blocks, setBlocks }: MediaBlockProps) => {
 
   if (status === 'uploading') {
     return (
-      <div className="media-upload-block group relative flex items-center gap-4 bg-white/[0.02] border border-white/10 rounded-2xl p-4 overflow-hidden">
-        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center animate-pulse">
-          {type === 'audio' ? <Music className="text-blue-500" /> : type === 'video' ? <Video className="text-purple-500" /> : <FileText className="text-orange-500" />}
-        </div>
-        <div className="flex-1 text-left min-w-0">
-          <p className="text-sm font-black truncate text-white/80 mb-0.5">{fileName || 'Uploading file...'}</p>
-          <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{fileSize || '...'} • {progress}% Uploaded</p>
-        </div>
-        <Loader2 size={20} className="animate-spin text-blue-500/40" />
-        <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+      <div className="media-upload-block group relative bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden min-h-[100px]">
+        {type === 'image' && resolvedUrl ? (
+          <div className="relative w-full">
+            <img 
+              src={resolvedUrl} 
+              className="w-full h-auto max-h-[40vh] object-contain opacity-40 blur-[2px]" 
+              alt="Uploading..." 
+            />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/20">
+               <div className="relative w-12 h-12 flex items-center justify-center">
+                  <Loader2 size={24} className="animate-spin text-blue-500" />
+                  <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white/80">{progress}%</span>
+               </div>
+               <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Uploading {fileName}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 p-4">
+            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center animate-pulse">
+              {type === 'audio' ? <Music className="text-blue-500" /> : type === 'video' ? <Video className="text-purple-500" /> : <FileText className="text-orange-500" />}
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-sm font-black truncate text-white/80 mb-0.5">{fileName || 'Uploading file...'}</p>
+              <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{fileSize || '...'} • {progress}% Uploaded</p>
+            </div>
+            <Loader2 size={20} className="animate-spin text-blue-500/40" />
+          </div>
+        )}
+        <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 z-20" style={{ width: `${progress}%` }} />
       </div>
     );
   }

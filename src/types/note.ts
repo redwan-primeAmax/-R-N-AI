@@ -50,15 +50,11 @@ export interface Note {
   isBookmarked?: boolean;
   bookmarkFolderId?: string;
   password?: string;
-  publishedCode?: string;
-  lastPublishedContent?: string;
   mediaRefs?: { localId: string; type: string }[];
   lastSyncedAt?: number;
   lastOpenedAt?: number;
   tags?: string[];
   theme?: string;
-  isCollaborated?: boolean;
-  collabRoomId?: string;
   category?: string;
   wordCount?: number;
   subPages?: string[];

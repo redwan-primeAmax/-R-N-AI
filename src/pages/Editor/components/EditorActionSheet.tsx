@@ -5,23 +5,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, ChevronRight, Plus, Box, Check, ClipboardCopy, Trash2, Bookmark, Zap, Users, X } from 'lucide-react';
+import { FileText, ChevronRight, Plus, Box, Tag, Bookmark } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { cn } from '../../../utils/cn';
 import { useNavigate } from 'react-router-dom';
-import { collabManager, Collaborator } from '../../../services/collab';
-import { CollaboratorList } from './CollaboratorList';
 
 // Import our modular action definitions
-import { subPagesNavigation } from '../actions/SubPagesNavigation';
-import { shareCollabAction } from '../actions/ShareCollabAction';
 import { readOnlyToggleAction } from '../actions/ReadOnlyToggleAction';
 import { tagAction } from '../actions/TagAction';
-import { themeAction } from '../actions/ThemeAction';
 import { duplicateNoteAction } from '../actions/DuplicateNoteAction';
-import { lockPageAction } from '../actions/LockPageAction';
 import { exportNoteAction } from '../actions/ExportNoteAction';
-import { deleteNoteAction } from '../actions/DeleteNoteAction';
 import { copyContentAction } from '../actions/CopyContentAction';
 
 interface EditorActionSheetProps {
@@ -30,7 +23,7 @@ interface EditorActionSheetProps {
   note: Note | null;
   isReadOnly: boolean;
   onToggleReadOnly: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   onCopy: () => void;
   onLock: () => void;
   onExport: () => void;
@@ -39,18 +32,7 @@ interface EditorActionSheetProps {
   onTheme?: () => void;
   subPages: Note[];
   onAddSubPage: () => void;
-  onStartCollab?: (options?: { password?: string, memberLimit?: number }) => void;
-  collabRoom?: string | null;
-  activePeers?: number;
-  collaborators?: Collaborator[];
-  sessionRole?: 'idle' | 'host' | 'guest';
-  onKickCollaborator?: (peerId: string) => void;
-  onDisconnect?: () => void;
   blocks?: any[];
-  pageWidth?: 'default' | 'full';
-  onToggleWidth?: () => void;
-  fontScale?: 'default' | 'small' | 'large';
-  onToggleFontScale?: () => void;
 }
 
 export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
@@ -59,32 +41,15 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   note,
   isReadOnly,
   onToggleReadOnly,
-  onDelete,
   onCopy,
-  onLock,
   onExport,
   onTag,
   onBookmark,
-  onTheme,
   subPages,
   onAddSubPage,
-  onStartCollab,
-  collabRoom = null,
-  activePeers = 0,
-  collaborators = [],
-  sessionRole = 'idle',
-  onKickCollaborator,
-  onDisconnect,
-  blocks = [],
-  pageWidth,
-  onToggleWidth,
-  fontScale,
-  onToggleFontScale
+  blocks = []
 }) => {
   const navigate = useNavigate();
-  const [showCollabSettings, setShowCollabSettings] = useState(false);
-  const [collabPassword, setCollabPassword] = useState('');
-  const [collabLimit, setCollabLimit] = useState(5);
   const [viewMode, setViewMode] = useState<'main' | 'subpages'>('main');
   const [isCopied, setIsCopied] = useState(false);
 
@@ -111,16 +76,16 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
       <button 
         onClick={onClick}
         className={cn(
-          "w-full flex items-center gap-5 px-6 py-1.5 transition-all active:bg-white/5 group border-b border-white/[0.03] last:border-0",
+          "w-full flex items-center gap-4 px-5 py-2.5 rounded-2xl transition-all hover:bg-white/5 active:scale-[0.99] group border border-transparent hover:border-white/5",
           danger ? "text-red-500" : "text-white/90"
         )}
       >
         <div className={cn("w-6 flex justify-center opacity-70 group-hover:opacity-100 transition-all", danger ? "text-red-500" : "text-white")}>
-          {Icon && <Icon size={22} strokeWidth={1.5} />}
+          {Icon && <Icon size={20} strokeWidth={1.5} />}
         </div>
         <div className="flex flex-col items-start text-left flex-1 min-w-0">
-          <span className="font-medium text-[16px] tracking-wide truncate">{resolvedLabel}</span>
-          {resolvedSubtitle && <span className="text-[10px] opacity-20 font-bold uppercase tracking-widest mt-0.5">{resolvedSubtitle}</span>}
+          <span className="font-medium text-[15px] tracking-wide truncate">{resolvedLabel}</span>
+          {resolvedSubtitle && <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest mt-0.5">{resolvedSubtitle}</span>}
         </div>
       </button>
     );
@@ -144,21 +109,21 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
             transition={{ type: "tween", ease: "easeOut", duration: 0.2 }}
             className="relative w-full bg-[#121213] rounded-t-[40px] border-t border-white/[0.05] shadow-[0_-20px_60px_rgba(0,0,0,0.8)] overflow-hidden max-h-[90vh] flex flex-col pt-2"
           >
-            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto my-5 shrink-0" />
+            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto my-4 shrink-0" />
             
-            <div className="px-6 mb-6 flex items-center gap-4">
-               <div className="w-16 h-16 bg-white/[0.03] rounded-2xl flex items-center justify-center text-4xl border border-white/5">
+            <div className="px-6 mb-4 flex items-center gap-4">
+               <div className="w-14 h-14 bg-white/[0.03] rounded-2xl flex items-center justify-center text-3xl border border-white/5">
                   {note.emoji || '📄'}
                </div>
                <div>
-                  <h3 className="font-bold text-xl text-white/90">{note.title || 'শিরোনামহীন'}</h3>
+                  <h3 className="font-bold text-lg text-white/90">{note.title || 'শিরোনামহীন'}</h3>
                   <p className="text-[10px] text-white/20 font-black uppercase tracking-widest">
                      {new Date(note.updatedAt).toLocaleDateString()} • {subPages.length} Subpages
                   </p>
                </div>
             </div>
 
-            <div className="overflow-y-auto pb-12 flex-1 no-scrollbar px-6 space-y-1">
+            <div className="overflow-y-auto pb-6 flex-1 no-scrollbar px-5">
               {viewMode === 'subpages' ? (
                 <div className="animate-fade-in space-y-4">
                   <div className="flex items-center justify-between mb-2">
@@ -177,8 +142,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                         <button 
                           key={sub.id}
                           onClick={() => {
-                            const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
-                            navigate(`/editor/${sub.id}${collabParam}`);
+                            navigate(`/editor/${sub.id}`);
                             onClose();
                           }}
                           className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-3xl hover:bg-white/5 transition-all text-left"
@@ -199,124 +163,28 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col space-y-2">
-                   <div className="grid grid-cols-2 gap-3 mb-2">
-                     <button 
-                        onClick={() => setViewMode('subpages')}
-                        className="p-5 bg-blue-500/10 border border-blue-500/20 rounded-3xl flex flex-col items-center gap-2 hover:bg-blue-500/20 transition-all"
-                     >
-                        <Box size={24} className="text-blue-400" />
-                        <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Sub Pages</span>
-                     </button>
-                     <button 
-                        onClick={() => {
-                          onClose();
-                          tagAction.onClick(onTag);
-                        }}
-                        className="p-5 bg-purple-500/10 border border-purple-500/20 rounded-3xl flex flex-col items-center gap-2 hover:bg-purple-500/20 transition-all"
-                     >
-                        <Check size={24} className="text-purple-400" />
-                        <span className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Manage Tags</span>
-                     </button>
-                  </div>
-
-                  {/* COLLABORATION SECTION */}
-                  <div className="space-y-4 pt-2 mb-4">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/30">Live Collaboration</h3>
-                      {sessionRole !== 'idle' && (
-                        <div className="flex items-center gap-1.5 bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-500/20">
-                          <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                          Live
-                        </div>
-                      )}
-                    </div>
-
-                    {sessionRole === 'idle' ? (
-                      <button
-                        onClick={() => {
-                          onClose();
-                          (window as any).editorEvents?.emit('openCollabSetup');
-                        }}
-                        className="w-full flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-[24px] group transition-all text-left"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                            <Zap size={20} />
-                          </div>
-                          <div className="text-left">
-                            <div className="text-sm font-bold text-white group-hover:text-amber-500 transition-colors">Start Live Session</div>
-                            <div className="text-[10px] text-white/40 font-medium">Invite others to edit in real-time</div>
-                          </div>
-                        </div>
-                        <ChevronRight size={18} className="text-white/20 group-hover:text-white transition-colors" />
-                      </button>
-                    ) : (
-                      <div className="bg-white/[0.02] border border-white/5 rounded-[28px] overflow-hidden">
-                        <div className="p-5 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
-                                <Users size={18} />
-                              </div>
-                              <div>
-                                <div className="text-xs font-bold text-white">Active Session</div>
-                                <div className="text-[10px] text-white/40 font-medium">{activePeers} member{activePeers !== 1 ? 's' : ''} connected</div>
-                              </div>
-                            </div>
-                            
-                            {collabRoom && (
-                              <button
-                                onClick={() => {
-                                  const shareUrl = `${window.location.origin}${window.location.pathname}?collab=${collabRoom}`;
-                                  navigator.clipboard.writeText(shareUrl);
-                                  (window as any).editorEvents?.emit('notification', { message: 'Invite link copied!', type: 'success' });
-                                }}
-                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all border border-white/5"
-                              >
-                                Copy Link
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="h-px bg-white/5" />
-
-                          <CollaboratorList 
-                            collaborators={collaborators} 
-                            isHost={sessionRole === 'host'} 
-                            onKick={(pid) => onKickCollaborator?.(pid)}
-                          />
-
-                          <button
-                            onClick={() => {
-                              onClose();
-                              onDisconnect?.();
-                            }}
-                            className="w-full py-3.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border border-red-500/20"
-                          >
-                            {sessionRole === 'host' ? 'Stop Live Session' : 'Leave Session'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Collaboration UI handled here same as before */}
-                  {/* Internal Actions */}
+                <div className="flex flex-col space-y-1">
+                  <MenuAction 
+                    icon={Box} 
+                    label="অনুষঙ্গিক পাতা (Sub Pages)" 
+                    subtitle={`${subPages.length}টি অনুষঙ্গিক পাতা`}
+                    onClick={() => setViewMode('subpages')} 
+                  />
+                  <MenuAction 
+                    icon={Tag} 
+                    label="ট্যাগ ম্যানেজ (Manage Tags)" 
+                    subtitle="নোটের ট্যাগ পরিবর্তন বা যোগ করুন"
+                    onClick={() => {
+                      onClose();
+                      tagAction.onClick(onTag);
+                    }} 
+                  />
                   <MenuAction 
                     icon={readOnlyToggleAction.icon(isReadOnly)} 
                     label="Toggle Read-Only" 
                     subtitle={() => readOnlyToggleAction.subtitle(isReadOnly)}
                     onClick={() => readOnlyToggleAction.onClick(onToggleReadOnly)} 
                   />
-                  {onToggleWidth && (
-                    <MenuAction 
-                      icon={Box}
-                      label={pageWidth === 'full' ? "স্বাভাবিক প্রস্থ (Normal Width)" : "পূর্ণ প্রস্থ (Full Width)"}
-                      subtitle={pageWidth === 'full' ? "Full Width Active" : "Normal Width Active"}
-                      onClick={onToggleWidth}
-                    />
-                  )}
                   <MenuAction 
                     icon={copyContentAction.icon(isCopied)} 
                     label="Copy Content" 
@@ -327,7 +195,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                     label="Export Notes" 
                     onClick={() => exportNoteAction.onClick(onExport)} 
                   />
-                   <MenuAction 
+                  <MenuAction 
                     icon={duplicateNoteAction.icon} 
                     label="Duplicate Page" 
                     onClick={() => { onCopy(); onClose(); }} 
@@ -337,16 +205,6 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                     label="বুকমার্কে যোগ করুন" 
                     onClick={() => { onBookmark?.(); onClose(); }} 
                   />
-
-                  <div className="pt-4 mt-2 border-t border-white/5">
-                    <button 
-                      onClick={() => { onDelete(); onClose(); }}
-                      className="w-full py-5 bg-red-500/10 hover:bg-red-500/20 rounded-3xl flex items-center justify-center gap-3 text-red-500 font-bold text-sm transition-all active:scale-[0.98]"
-                    >
-                      <Trash2 size={20} />
-                      ডিলেট করুন (Delete Page)
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -354,7 +212,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
             <div className="p-4 bg-[#121213] border-t border-white/[0.05] shrink-0">
               <button 
                 onClick={viewMode === 'subpages' ? () => setViewMode('main') : onClose}
-                className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all text-white/40 border border-white/5 active:scale-[0.98]"
+                className="w-full py-3.5 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all text-white/40 border border-white/5 active:scale-[0.98]"
               >
                 {viewMode === 'subpages' ? "ফিরে যান (Back)" : "বন্ধ করুন (Close)"}
               </button>

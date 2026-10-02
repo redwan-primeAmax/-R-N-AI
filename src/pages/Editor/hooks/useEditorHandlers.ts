@@ -20,7 +20,6 @@ interface UseEditorHandlersParams {
   theme: string;
   tags: string[];
   currentSubPages: Note[];
-  collabRoom: string | null;
   setNote: (note: Note) => void;
   setTitle: (title: string) => void;
   setEmoji: (emoji: string) => void;
@@ -35,7 +34,6 @@ interface UseEditorHandlersParams {
   noteRef: React.MutableRefObject<Note | null>;
   themeRef: React.MutableRefObject<string>;
   blocksRef: React.MutableRefObject<any[]>;
-  handleStartCollab: (options?: { password?: string; memberLimit?: number }) => void;
   isDeletingRef?: React.MutableRefObject<boolean>;
 }
 
@@ -48,7 +46,6 @@ export function useEditorHandlers({
   theme,
   tags,
   currentSubPages,
-  collabRoom,
   setNote,
   setTitle,
   setEmoji,
@@ -63,7 +60,6 @@ export function useEditorHandlers({
   noteRef,
   themeRef,
   blocksRef,
-  handleStartCollab,
   isDeletingRef,
 }: UseEditorHandlersParams) {
   const navigate = useNavigate();
@@ -72,7 +68,6 @@ export function useEditorHandlers({
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
-  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [subPageMode, setSubPageMode] = useState<'attach' | 'create' | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLockPrompt, setShowLockPrompt] = useState(false);
@@ -153,20 +148,19 @@ export function useEditorHandlers({
     await saveNote(currentRefContent, true);
 
     const now = Date.now();
-    const collabParam = collabRoom ? `?collab=${collabRoom}` : '';
 
     // If double pressed within 300ms, go straight home
     if (now - lastClickTime.current < 300) {
-      navigate(`/${collabParam}`);
+      navigate(`/`);
       return;
     }
     lastClickTime.current = now;
 
     // Preferred logic: if we have a parent, go to it. Otherwise home.
     if (note?.parentId) {
-      navigate(`/editor/${note.parentId}${collabParam}`, { replace: true });
+      navigate(`/editor/${note.parentId}`, { replace: true });
     } else {
-      navigate(`/${collabParam}`);
+      navigate(`/`);
     }
   };
 
@@ -245,9 +239,6 @@ export function useEditorHandlers({
       content: currentContent,
       isLocked: false,
       password: '',
-      collabRoomId: '',
-      isCollaborated: false,
-      publishedCode: '',
       updatedAt: Date.now(), 
       createdAt: Date.now() 
     };
@@ -309,8 +300,6 @@ export function useEditorHandlers({
     setShowBlockMenu,
     showThemeSelector,
     setShowThemeSelector,
-    showCollaborationModal,
-    setShowCollaborationModal,
     subPageMode,
     setSubPageMode,
     showDeleteConfirm,
