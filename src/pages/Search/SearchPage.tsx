@@ -200,16 +200,26 @@ export default function SearchPage() {
 
           <div className="flex gap-3">
             <div className="relative group flex-grow">
-              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/20 group-focus-within:text-blue-500 transition-colors">
-                <SearchIcon size={20} />
-              </div>
+              <button
+                onClick={() => setIsAccurateMode(!isAccurateMode)}
+                title={isAccurateMode ? "Accurate Search ON (Word Prefix Match)" : "Fuzzy Search (Default)"}
+                className={cn(
+                  "absolute inset-y-0 left-3 my-auto h-9 w-9 rounded-full flex items-center justify-center transition-all z-10 active:scale-90",
+                  isAccurateMode ? "text-emerald-500 bg-emerald-500/10 border border-emerald-500/30" : "text-neutral-400 hover:text-white bg-white/5"
+                )}
+              >
+                <SearchIcon size={18} />
+              </button>
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="টাইপ করুন..."
-                className="w-full pl-12 pr-12 py-4 bg-white/[0.03] border border-white/5 focus:border-blue-500/20 rounded-[28px] outline-none text-[15px] font-bold placeholder:text-white/10 transition-all"
+                placeholder={isAccurateMode ? "Accurate Search ON" : "Type..."}
+                className={cn(
+                  "w-full pl-14 pr-12 py-4 bg-white/[0.03] border border-white/5 rounded-[28px] outline-none text-[15px] font-bold transition-all",
+                  isAccurateMode ? "focus:border-emerald-500/30 placeholder:text-emerald-500/50" : "focus:border-blue-500/20 placeholder:text-white/20"
+                )}
               />
               {query && (
                 <button onClick={handleClearSearch} className="absolute inset-y-0 right-4 flex items-center text-white/20 hover:text-white"><X size={20} /></button>

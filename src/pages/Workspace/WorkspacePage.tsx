@@ -285,11 +285,10 @@ export default function WorkspacePage() {
 
               <button 
                 onClick={() => {
-                  if (workspaceSettingsModal.id === 'default') return;
                   setWorkspaceToDelete(workspaceSettingsModal.id);
                   setWorkspaceSettingsModal(null);
                 }}
-                className={`w-full flex items-center gap-4 p-4 bg-white/5 hover:bg-red-500/10 border border-white/5 rounded-3xl transition-all active:scale-95 text-left group ${workspaceSettingsModal.id === 'default' ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+                className="w-full flex items-center gap-4 p-4 bg-white/5 hover:bg-red-500/10 border border-white/5 rounded-3xl transition-all active:scale-95 text-left group"
               >
                 <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-all">
                   <Trash2 size={20} />

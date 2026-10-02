@@ -43,9 +43,11 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
   const candidateIndices = new Set<number>();
 
   if (isAccurate) {
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordPrefixRegex = new RegExp(`(?:^|\\b|\\s)${escapeRegExp(queryLower)}`, 'i');
     for (let i = 0; i < storage.size; i++) {
       const text = storage.getRawText(i);
-      if (text.includes(queryLower)) candidateIndices.add(i);
+      if (wordPrefixRegex.test(text)) candidateIndices.add(i);
     }
   } else {
     const wordSets: Set<number>[] = [];
@@ -177,9 +179,11 @@ async function searchChunkAsync(
   const candidateIndices = new Set<number>();
 
   if (isAccurate) {
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordPrefixRegex = new RegExp(`(?:^|\\b|\\s)${escapeRegExp(queryLower)}`, 'i');
     for (let i = 0; i < chunkStorage.size; i++) {
       const text = chunkStorage.getRawText(i);
-      if (text.includes(queryLower)) candidateIndices.add(i);
+      if (wordPrefixRegex.test(text)) candidateIndices.add(i);
     }
   } else {
     const wordSets: Set<number>[] = [];

@@ -50,26 +50,35 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   }, []);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (typeof window === 'undefined') return;
 
     const handleResize = () => {
-      const vv = window.visualViewport;
-      if (!vv) return;
-      const offsetBottom = window.innerHeight - vv.height - vv.offsetTop;
-      if (offsetBottom > 0) {
-        setKeyboardHeight(offsetBottom);
+      if (window.visualViewport) {
+        const vv = window.visualViewport;
+        const offsetBottom = window.innerHeight - vv.height - vv.offsetTop;
+        if (offsetBottom > 10) {
+          setKeyboardHeight(Math.max(0, Math.round(offsetBottom) + 2));
+        } else {
+          setKeyboardHeight(0);
+        }
       } else {
         setKeyboardHeight(0);
       }
     };
 
-    window.visualViewport.addEventListener('resize', handleResize);
-    window.visualViewport.addEventListener('scroll', handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleResize);
+    }
+    window.addEventListener('resize', handleResize);
     handleResize();
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('scroll', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleResize);
+      }
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 

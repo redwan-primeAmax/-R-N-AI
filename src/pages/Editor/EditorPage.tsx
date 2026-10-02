@@ -280,7 +280,6 @@ function EditorPage({ id }: { id: string | undefined }) {
 
                   <textarea
                     ref={textareaRef}
-                    autoFocus
                     value={title}
                     onFocus={() => {
                       setIsTitleFocused(true);

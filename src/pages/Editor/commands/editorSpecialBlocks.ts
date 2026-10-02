@@ -77,12 +77,13 @@ export function insertTable(blocks: EditorBlock[], attrs: any, activeBlockId: st
 }
 
 export function setMedia(blocks: EditorBlock[], attrs: any, activeBlockId: string | null): EditorBlock[] {
+  const fileId = attrs.id || crypto.randomUUID();
   const mediaBlock: EditorBlock = {
-    id: crypto.randomUUID(),
+    id: fileId,
     type: 'media',
     content: '',
     mediaData: {
-      id: attrs.id || crypto.randomUUID(),
+      id: fileId,
       type: attrs.type || 'image',
       fileName: attrs.fileName || '',
       fileSize: attrs.fileSize || '',
@@ -92,8 +93,14 @@ export function setMedia(blocks: EditorBlock[], attrs: any, activeBlockId: strin
   };
   const { idx } = getActiveIndexAndId(blocks, activeBlockId);
   if (idx > -1) {
+    const targetBlock = blocks[idx];
+    const isEmptyParagraph = targetBlock && targetBlock.type === 'paragraph' && !targetBlock.content.trim();
     const res = [...blocks];
-    res.splice(idx + 1, 0, mediaBlock);
+    if (isEmptyParagraph) {
+      res[idx] = mediaBlock;
+    } else {
+      res.splice(idx + 1, 0, mediaBlock);
+    }
     return res;
   }
   return [...blocks, mediaBlock];

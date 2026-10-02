@@ -54,6 +54,11 @@ const DANGEROUS_PATTERN = /<script|javascript:|on\w+\s*=|onerror|onload|onclick/
 export function cleanBlockHTML(html: string, blockType: string): string {
   if (!html) return '';
 
+  // Bypasses tag stripping for sandbox code and code blocks so <script>, <style> and event handlers work fully
+  if (blockType === 'sandbox' || blockType === 'code') {
+    return html;
+  }
+
   // ⚡ FAST PATH: 95% of blocks have no dangerous content — skip full parse
   if (!DANGEROUS_PATTERN.test(html)) {
     if (blockType === 'h1' || blockType === 'h2' || blockType === 'h3') {

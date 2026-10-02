@@ -370,17 +370,6 @@ function AppContent() {
             </div>
           </Modal>
         )}
-        {isOffline && (
-        <motion.div 
-          key="offline-banner"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed top-0 left-0 right-0 z-[9999] bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.2em] py-1.5 text-center flex items-center justify-center gap-2"
-        >
-          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-          আপনি অফলাইনে আছেন (Offline Mode)
-        </motion.div>
-      )}
 
       {deferredPrompt && !showPopup && !hasDismissedInstallPrompt && !isStandalone && (
         <motion.div

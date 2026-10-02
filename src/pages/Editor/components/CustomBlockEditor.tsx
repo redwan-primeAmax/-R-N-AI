@@ -61,7 +61,6 @@ interface CustomBlockEditorProps {
   noteId?: string;
 }
 
-// Add this before CustomBlockEditor component definition
 const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isReadOnly: boolean }> = ({ subPageId, defaultTitle, isReadOnly }) => {
   const [title, setTitle] = useState(defaultTitle || 'শিরোনামহীন');
   const navigate = useNavigate();
@@ -141,7 +140,10 @@ const MemoizedBlockRow = React.memo(({
         />
       )}
 
-      <div className="flex items-start gap-1 justify-start antialiased rounded-none transition-none border-none group-hover:bg-white/[0.01]">
+      <div className={cn(
+        "flex items-start gap-1 justify-start antialiased rounded-none transition-none border-none group-hover:bg-white/[0.01]",
+        block.type === 'todo' && "-my-0.5 py-0"
+      )}>
         <div className="absolute -left-7 top-[4px] w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-grab active:cursor-grabbing z-10">
            <div className="grid grid-cols-2 gap-0.5">
               {[1,2,3,4,5,6].map(i => <div key={i} className="w-0.5 h-0.5 bg-gray-300 dark:bg-white/20 rounded-full" />)}
@@ -193,8 +195,6 @@ const MemoizedBlockRow = React.memo(({
           </div>
         );
       })()}
-
-      {/* Side-specific block indicators and toggles will be here, content follows */}
 
       {/* Toggle Type Icon */}
       {block.type === 'toggle' && (
@@ -508,12 +508,19 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
       setBlocks((prev: EditorBlock[]) => prev.map(b => b.id === block.id ? { ...b, content: before } : b));
       addBlockAfter(block.id, isListType ? block.type : 'paragraph', block.indent || 0, after);
       return;
-    } else if (e.key === 'Backspace' && block.type !== 'table') {
+    } else if ((e.key === 'Backspace' || e.key === 'Delete') && block.type !== 'table') {
       const isIndented = (block.indent || 0) > 0;
       const sel = window.getSelection();
+      const isEmpty = target.textContent?.trim() === '' || target.innerHTML === '' || target.innerHTML === '<br>';
       const isAtStart = sel && sel.anchorOffset === 0 && (sel.anchorNode === target || (sel.anchorNode?.parentNode === target && !sel.anchorNode.previousSibling));
 
-      if (isAtStart) {
+      if (isEmpty && blocks.length > 1) {
+        e.preventDefault();
+        deleteBlock(block.id);
+        return;
+      }
+
+      if (isAtStart && e.key === 'Backspace') {
         if (isIndented) {
           e.preventDefault();
           handleBlockIndentChange(block.id, (block.indent || 0) - 1);
@@ -530,7 +537,6 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
         if (idx > 0) {
           e.preventDefault();
           const prevBlock = blocks[idx - 1];
-          // We can only merge if the previous block is editable
           if (['paragraph', 'h1', 'h2', 'h3', 'quote', 'todo', 'bullet', 'ordered', 'callout'].includes(prevBlock.type)) {
             const currentContent = target.innerHTML;
             const prevContent = prevBlock.content;
@@ -544,16 +550,12 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
               const el = blockRefs.current[prevBlock.id];
               if (el) {
                 el.focus();
-                // Place cursor at the merge point
+                setFocusedId(prevBlock.id);
+                if (editor.setActiveBlockId) editor.setActiveBlockId(prevBlock.id);
                 const range = document.createRange();
                 const sel = window.getSelection();
                 if (sel) {
-                  // This is a bit complex to get perfectly right with mixed nodes, 
-                  // but focusing the end of the previous content is a good start.
                   range.selectNodeContents(el);
-                  // Try to find the transition point? For now just go to end or similar.
-                  // For simplicity, we just collapse to where the old content ended.
-                  // But since we updated state, we might need a better way.
                   range.collapse(false);
                   sel.removeAllRanges();
                   sel.addRange(range);
@@ -561,8 +563,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
               }
             }, 50);
           } else {
-            // If previous is not mergeable, just delete current if empty
-            if (target.textContent?.trim() === '') {
+            if (isEmpty) {
               deleteBlock(block.id);
             }
           }
@@ -570,21 +571,25 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
       }
     } else if (e.key === 'ArrowUp') {
       const sel = window.getSelection();
-      const isAtTop = !sel || sel.anchorOffset === 0; // Rough check
+      const isAtTop = !sel || sel.anchorOffset === 0;
       if (isAtTop && idx > 0) {
         const prev = blocks[idx - 1];
         if (prev) {
           e.preventDefault();
+          setFocusedId(prev.id);
+          if (editor.setActiveBlockId) editor.setActiveBlockId(prev.id);
           blockRefs.current[prev.id]?.focus();
         }
       }
     } else if (e.key === 'ArrowDown') {
       const sel = window.getSelection();
-      const isAtBottom = !sel || (sel.anchorOffset === target.textContent?.length); // Rough check
+      const isAtBottom = !sel || (sel.anchorOffset === target.textContent?.length);
       if (isAtBottom && idx < blocks.length - 1) {
         const next = blocks[idx + 1];
         if (next) {
           e.preventDefault();
+          setFocusedId(next.id);
+          if (editor.setActiveBlockId) editor.setActiveBlockId(next.id);
           blockRefs.current[next.id]?.focus();
         }
       }
@@ -614,6 +619,8 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
     });
 
     setTimeout(() => {
+      setFocusedId(newBlock.id);
+      if (editor?.setActiveBlockId) editor.setActiveBlockId(newBlock.id);
       const el = blockRefs.current[newBlock.id];
       if (el) {
         el.focus();
@@ -747,4 +754,3 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
     </div>
   );
 }
-

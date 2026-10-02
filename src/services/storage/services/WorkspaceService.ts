@@ -278,8 +278,8 @@ class WorkspaceLogicController {
    * Safely deletes a workspace and cascades note removal
    */
   public async deleteWorkspace(id: string): Promise<void> {
-    if (!id || id === DEFAULT_WORKSPACE_ID) {
-      throw new Error('Default workspace cannot be deleted');
+    if (!id) {
+      throw new Error('Workspace ID is required for deletion');
     }
 
     await db.transaction('rw', [db.workspaces, db.notes, db.note_versions, db.deleted_notes], async () => {
