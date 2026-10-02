@@ -12,15 +12,9 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "cap:sync": "npx cap sync",
-    "cap:copy": "npx cap copy",
-    "android:sync": "npm run build && npx cap sync android"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.2",
-    "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2",
     "@tailwindcss/vite": "^4.1.14",
     "@types/crypto-js": "^4.2.2",
     "@types/file-saver": "^2.0.7",

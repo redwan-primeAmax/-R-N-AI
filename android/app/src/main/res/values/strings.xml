@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Diamond Road Notes</string>
-    <string name="title_activity_main">Diamond Road Notes</string>
-    <string name="package_name">com.diamondroadnotes.app</string>
-    <string name="custom_url_scheme">com.diamondroadnotes.app</string>
-</resources>
