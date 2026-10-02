@@ -24,7 +24,7 @@
     font-feature-settings: "kern" 1, "liga" 1;
   }
 
-  html, body {
+  html {
     @apply antialiased font-sans;
     background-color: var(--bg-main);
     color: var(--text-primary);
@@ -36,14 +36,23 @@
     text-rendering: optimizeLegibility;
     color-scheme: dark;
     min-height: 100%;
-    min-height: 100dvh;
-    width: 100%;
-    overflow-x: hidden; /* Prevent horizontal scroll on body */
-    overscroll-behavior: none;
     margin: 0;
     padding: 0;
     word-break: break-word;
     overflow-wrap: break-word;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    background-color: inherit;
+    color: inherit;
+    min-height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: visible;
   }
 
   #root {

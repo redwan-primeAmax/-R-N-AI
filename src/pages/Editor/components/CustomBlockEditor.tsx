@@ -129,7 +129,7 @@ const MemoizedBlockRow = React.memo(({
   
   return (
     <div 
-      className="flex flex-col group relative max-w-full overflow-hidden"
+      className="flex flex-col group relative max-w-full overflow-x-clip"
       style={indentStyle}
     >
       {/* Visual connecting line for nested items */}

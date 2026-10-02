@@ -132,13 +132,22 @@ function AppContent() {
     (window.navigator as any).standalone === true
   );
 
-  // Fix: App Startup Navigation State
+  // Fix: App Startup & Route Preservation on Refresh
   useEffect(() => {
-    // Explicitly force 'Main Page' on cold boot if no specific path is requested
-    // This solves the issue where app redirects to /tools on restart
+    if (location.pathname) {
+      sessionStorage.setItem('app_current_route', location.pathname + location.search);
+    }
+  }, [location]);
+
+  useEffect(() => {
     const hash = window.location.hash;
-    if (hash === '#/' || hash === '' || !hash) {
-      navigate('/main', { replace: true });
+    const hashPath = hash ? hash.replace(/^#/, '') : '';
+    
+    // If no specific route in hash or root path, restore last non-settings route or go to /main
+    if (!hashPath || hashPath === '/' || hashPath === '') {
+      const savedRoute = sessionStorage.getItem('app_current_route');
+      const targetRoute = (savedRoute && !savedRoute.startsWith('/settings')) ? savedRoute : '/main';
+      navigate(targetRoute, { replace: true });
     }
   }, []);
 

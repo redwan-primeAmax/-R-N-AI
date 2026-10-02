@@ -123,7 +123,7 @@ const SettingsPage: React.FC = () => {
   ];
 
   return (
-    <div className="h-screen bg-[#0d0d0d] text-white flex flex-col font-sans overflow-hidden fixed inset-0">
+    <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col font-sans">
       <header className="px-6 py-6 md:px-12 flex items-center justify-between shrink-0 bg-[#0d0d0d]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
         <div className="flex items-center gap-6">
           <button 
