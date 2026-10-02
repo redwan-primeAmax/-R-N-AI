@@ -58,24 +58,29 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const offset = vv
-          ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+          ? Math.max(0, Math.round(window.innerHeight - vv.height))
           : 0;
         root.style.setProperty('--kb-offset', `${offset}px`);
       });
     };
 
     vv?.addEventListener('resize', update);
-    vv?.addEventListener('scroll', update);
-    window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    document.addEventListener('focusin', update);
+    const handleFocusOut = () => {
+      setTimeout(update, 100);
+    };
+    document.addEventListener('focusout', handleFocusOut);
     update();
 
     return () => {
       cancelAnimationFrame(raf);
       vv?.removeEventListener('resize', update);
-      vv?.removeEventListener('scroll', update);
-      window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', handleFocusOut);
       root.style.removeProperty('--kb-offset');
     };
   }, []);

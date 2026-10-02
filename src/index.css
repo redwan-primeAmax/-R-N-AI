@@ -1,10 +1,5 @@
 @import "tailwindcss";
 
-.ProseMirror > * {
-  content-visibility: auto;
-  contain-intrinsic-size: 50px;
-}
-
 @theme {
   --font-sans: "Hind Siliguri", "Inter", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   
@@ -41,6 +36,7 @@
     word-break: break-word;
     overflow-wrap: break-word;
     overflow-y: auto;
+    overflow-x: clip;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -51,7 +47,7 @@
     width: 100%;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow-x: clip;
     overflow-y: visible;
   }
 
@@ -61,7 +57,7 @@
     display: flex;
     flex-direction: column;
     background-color: inherit;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   .ProseMirror, input, textarea, [contenteditable="true"], .selectable {
