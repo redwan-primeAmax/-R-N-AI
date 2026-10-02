@@ -216,8 +216,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-white pb-48 overflow-x-hidden select-none">
-      {isLoading && <LoadingScreen />}
-
       <Sidebar 
         isOpen={showSidebar}
         onClose={() => setShowSidebar(false)}
@@ -276,7 +274,13 @@ export default function HomePage() {
 
         {/* Notes Container: Grid or Layer */}
         <div className="pb-24">
-          {notes.length > 0 ? (
+          {isLoading && notes.length === 0 ? (
+            <div className="flex flex-col gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-20 bg-white/[0.02] border border-white/[0.05] rounded-3xl animate-pulse" />
+              ))}
+            </div>
+          ) : notes.length > 0 ? (
             <>
               <div className={cn(
                 viewMode === 'grid' 

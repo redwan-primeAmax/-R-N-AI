@@ -314,10 +314,6 @@ function AppContent() {
     document.documentElement.classList.toggle('light-theme', isLight);
   }, [isLight]);
 
-  if (isInitializing) {
-    return <LoadingScreen />;
-  }
-
   return (
     <MotionConfig reducedMotion={reducedMotion ? "always" : "user"}>
     <ScrollToTopOnRouteChange />

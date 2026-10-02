@@ -238,11 +238,7 @@ function EditorPage({ id }: { id: string | undefined }) {
                        showDeleteConfirm || showLockPrompt || showTagPrompt || 
                        showExportModal || showBookmarkModal || showLinkPanel;
 
-  if (!editor || !note) {
-    return <LoadingScreen />;
-  }
-
-  if (note.isLocked && !isUnlocked) {
+  if (note?.isLocked && !isUnlocked) {
     return (
       <EditorLockScreen
         note={note}
@@ -257,7 +253,7 @@ function EditorPage({ id }: { id: string | undefined }) {
 
   const focusLastBlockOnVoidClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && !isReadOnly) {
-      const blockId = editor.blocks[editor.blocks.length - 1]?.id;
+      const blockId = editor?.blocks[editor.blocks.length - 1]?.id;
       if (blockId) {
         // High Performance Ref focus without triggering layout reflow via document.getElementById
         const el = blocksRefs.current[blockId];
@@ -303,73 +299,89 @@ function EditorPage({ id }: { id: string | undefined }) {
           onClick={focusLastBlockOnVoidClick}
         >
           <div className="px-6 md:px-20 pt-10 h-full min-h-[80vh] flex flex-col" onClick={focusLastBlockOnVoidClick}>
-            {/* Title Area & Metadata Customizers */}
-            <div className="flex flex-col mb-10 items-start w-full gap-4">
-              <div className="relative group/emoji">
-                <button
-                  onClick={() => setShowPageEmojiPicker(!showPageEmojiPicker)}
-                  className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none flex items-center justify-center"
-                  title="Change Icon"
-                >
-                  <PageIcon emoji={emoji} className="text-5xl" fallback="📄" />
-                </button>
-                <IconChange 
-                  isOpen={showPageEmojiPicker}
-                  onClose={() => setShowPageEmojiPicker(false)}
-                  onSelectIcon={(svg) => {
-                    updateEmoji(svg);
-                  }}
-                  currentIcon={emoji}
-                />
+            {!editor || !note ? (
+              <div className="flex flex-col gap-6 animate-pulse">
+                <div className="w-16 h-16 bg-white/5 rounded-2xl" />
+                <div className="h-12 w-3/4 bg-white/5 rounded-xl" />
+                <div className="space-y-3 mt-8">
+                  <div className="h-4 bg-white/5 rounded w-full" />
+                  <div className="h-4 bg-white/5 rounded w-5/6" />
+                  <div className="h-4 bg-white/5 rounded w-4/6" />
+                </div>
               </div>
+            ) : (
+              <>
+                {/* Title Area & Metadata Customizers */}
+                <div className="flex flex-col mb-10 items-start w-full gap-4">
+                  <div className="relative group/emoji">
+                    <button
+                      onClick={() => setShowPageEmojiPicker(!showPageEmojiPicker)}
+                      className="text-5xl hover:scale-105 active:scale-95 transition-transform p-1.5 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer leading-none flex items-center justify-center"
+                      title="Change Icon"
+                    >
+                      <PageIcon emoji={emoji} className="text-5xl" fallback="📄" />
+                    </button>
+                    <IconChange 
+                      isOpen={showPageEmojiPicker}
+                      onClose={() => setShowPageEmojiPicker(false)}
+                      onSelectIcon={(svg) => {
+                        updateEmoji(svg);
+                      }}
+                      currentIcon={emoji}
+                    />
+                  </div>
 
-              <textarea
-                ref={textareaRef}
-                autoFocus
-                value={title}
-                onFocus={() => {
-                  setIsTitleFocused(true);
-                  if (id) collabManager.updateCursor(id, 'title');
-                }}
-                onBlur={() => setIsTitleFocused(false)}
-                onChange={(e) => updateTitle(e.target.value)}
-                placeholder="শিরোনামহীন"
-                rows={1}
-                className={cn(
-                  "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors overflow-hidden",
-                  isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
-                )}
-              />
-            </div>
+                  <textarea
+                    ref={textareaRef}
+                    autoFocus
+                    value={title}
+                    onFocus={() => {
+                      setIsTitleFocused(true);
+                      if (id) collabManager.updateCursor(id, 'title');
+                    }}
+                    onBlur={() => setIsTitleFocused(false)}
+                    onChange={(e) => updateTitle(e.target.value)}
+                    placeholder="শিরোনামহীন"
+                    rows={1}
+                    className={cn(
+                      "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors overflow-hidden",
+                      isLight ? "text-gray-900 placeholder:text-gray-200" : "text-white placeholder:text-white/[0.05]"
+                    )}
+                  />
+                </div>
 
-            {/* Interactive Block-Editor Workspace */}
-            <div 
-              className={cn("relative pb-48 min-h-[70vh] transition-all flex border-0", themeClass)}
-              data-darkreader-ignore={themeClass ? "true" : undefined}
-              onClick={focusLastBlockOnVoidClick}
-            >
-              <CustomBlockEditor 
-                editor={editor} 
-                blocksRefs={blocksRefs}
-                noteId={id}
-                collaborators={collaborators}
-                className={cn(
-                  "prose max-w-none focus:outline-none pb-20 w-full",
-                  !isLight && "prose-invert",
-                  isReadOnly && "select-none text-muted-foreground"
-                )} 
-              />
-            </div>
+                {/* Interactive Block-Editor Workspace */}
+                <div 
+                  className={cn("relative pb-48 min-h-[70vh] transition-all flex border-0", themeClass)}
+                  data-darkreader-ignore={themeClass ? "true" : undefined}
+                  onClick={focusLastBlockOnVoidClick}
+                >
+                  <CustomBlockEditor 
+                    editor={editor} 
+                    blocksRefs={blocksRefs}
+                    noteId={id}
+                    collaborators={collaborators}
+                    className={cn(
+                      "prose max-w-none focus:outline-none pb-20 w-full",
+                      !isLight && "prose-invert",
+                      isReadOnly && "select-none text-muted-foreground"
+                    )} 
+                  />
+                </div>
+              </>
+            )}
           </div>
         </main>
 
-        <EditorToolbar 
-          editor={editor}
-          onPlusClick={() => setShowBlockMenu(true)}
-          isReadOnly={isReadOnly}
-          isLight={isLight}
-          isTitleFocused={isTitleFocused}
-        />
+        {editor && (
+          <EditorToolbar 
+            editor={editor}
+            onPlusClick={() => setShowBlockMenu(true)}
+            isReadOnly={isReadOnly}
+            isLight={isLight}
+            isTitleFocused={isTitleFocused}
+          />
+        )}
 
         {anyModalOpen && <EditorModals />}
 
