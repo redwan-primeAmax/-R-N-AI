@@ -29,7 +29,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   isTitleFocused = false
 }) => {
   const [currentMenu, setCurrentMenu] = useState<'main' | 'formatting' | 'colors'>('main');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [, forceUpdate] = useState({});
 
   React.useEffect(() => {
@@ -51,38 +50,42 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    const root = document.documentElement;
+    let raf = 0;
 
-    const handleResize = () => {
-      if (window.visualViewport) {
-        const vv = window.visualViewport;
-        const offsetBottom = window.innerHeight - vv.height - vv.offsetTop;
-        if (offsetBottom > 10) {
-          setKeyboardHeight(Math.max(0, Math.round(offsetBottom) + 2));
-        } else {
-          setKeyboardHeight(0);
-        }
-      } else {
-        setKeyboardHeight(0);
-      }
+    const update = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const offset = vv
+          ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+          : 0;
+        root.style.setProperty('--kb-offset', `${offset}px`);
+      });
     };
 
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      window.visualViewport.addEventListener('scroll', handleResize);
-    }
-    window.addEventListener('resize', handleResize);
-    handleResize();
+    vv?.addEventListener('resize', update);
+    vv?.addEventListener('scroll', update);
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
 
     return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
-        window.visualViewport.removeEventListener('scroll', handleResize);
-      }
-      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(raf);
+      vv?.removeEventListener('resize', update);
+      vv?.removeEventListener('scroll', update);
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      root.style.removeProperty('--kb-offset');
     };
   }, []);
 
   if (!editor || isReadOnly) return null;
+
+  const activeEl = document.activeElement as HTMLElement | null;
+  const isEditing =
+    !!activeEl &&
+    (activeEl.isContentEditable || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT');
 
   const isKeyboardFocused = () => {
     const el = document.activeElement;
@@ -172,10 +175,14 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   return (
     <div 
       className={cn(
-        "fixed left-0 right-0 z-[100] border-t safe-area-inset-bottom transition-colors duration-300",
+        "fixed left-0 right-0 bottom-0 z-[100] border-t transition-colors duration-300",
         isLight ? "bg-white border-gray-200" : "bg-[#1a1a1a] border-white/10"
       )}
-      style={{ bottom: `${keyboardHeight}px` }}
+      style={{
+        transform: 'translate3d(0, calc(-1 * var(--kb-offset, 0px)), 0)',
+        willChange: 'transform',
+        paddingBottom: isEditing ? 0 : 'env(safe-area-inset-bottom)',
+      }}
     >
       <div className="max-w-3xl mx-auto flex items-center h-14 px-2 overflow-x-auto no-scrollbar justify-between">
         {isTitleFocused ? (

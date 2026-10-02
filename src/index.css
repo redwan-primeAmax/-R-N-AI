@@ -39,6 +39,7 @@
     min-height: 100dvh;
     width: 100%;
     overflow-x: hidden; /* Prevent horizontal scroll on body */
+    overscroll-behavior: none;
     margin: 0;
     padding: 0;
     word-break: break-word;
@@ -717,4 +718,3 @@
   max-height: 100%;
   display: block;
 }
-
