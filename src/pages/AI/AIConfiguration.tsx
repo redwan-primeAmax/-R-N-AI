@@ -8,33 +8,19 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
-  ChevronRight,
-  Layers,
   Settings, 
   Key, 
   Check, 
   AlertCircle, 
   Info, 
-  Sparkles, 
-  Plus, 
-  Trash2, 
   Eye, 
   EyeOff, 
-  Lock, 
   Loader2, 
   RefreshCw,
-  RefreshCcw,
   X,
   MessageSquare,
-  UploadCloud,
-  Download,
-  FileCode,
-  Sun,
-  Moon,
-  Brain,
   Globe,
-  Flame,
-  Zap
+  Flame
 } from 'lucide-react';
 import { VaultModal } from '../../components/modals/VaultModal';
 import { DataManager, AISettings, UserPreferences } from '../../services/storage/DataManager';
@@ -455,227 +441,6 @@ const AIConfigurationPage: React.FC = () => {
             </div>
           </motion.section>
         </AnimatePresence>
-        <section className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Automation & Processing</h2>
-            <div className="h-px flex-1 bg-white/5 mx-4" />
-          </div>
-          <div className="p-8 bg-white/[0.03] border border-white/5 rounded-[3rem] space-y-8 relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-green-500/5 blur-3xl rounded-full -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                <div className={cn(
-                  "w-14 h-14 rounded-2xl flex items-center justify-center border transition-all duration-500",
-                  draftSettings.dataCheckingEnabled ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-white/5 border-white/5 text-white/20"
-                )}>
-                  <Sparkles size={28} className={draftSettings.dataCheckingEnabled ? "animate-pulse" : ""} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black tracking-tight">AI Auto (অটোমেশন)</h2>
-                  <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">Background Intelligence</p>
-                </div>
-              </div>
-              <button 
-                id="ai-auto-toggle"
-                onClick={() => updateDraft({ dataCheckingEnabled: !draftSettings.dataCheckingEnabled })}
-                className={cn(
-                  "w-16 h-8 rounded-full transition-all flex items-center px-1.5 shadow-inner",
-                  draftSettings.dataCheckingEnabled ? "bg-green-500" : "bg-white/10"
-                )}
-              >
-                <motion.div 
-                  className="w-5 h-5 bg-white rounded-full shadow-lg"
-                  animate={{ x: draftSettings.dataCheckingEnabled ? 32 : 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              </button>
-            </div>
-
-            {draftSettings.dataCheckingEnabled && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-6 pt-6 border-t border-white/5"
-              >
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Processing Strategy</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {(['free', 'selected', 'custom'] as const).map(m => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => updateDraft({ dataCheckingModel: m })}
-                        className={cn(
-                          "py-4 rounded-2xl border text-center transition-all",
-                          draftSettings.dataCheckingModel === m 
-                            ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-lg shadow-blue-500/10' 
-                            : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/40'
-                        )}
-                      >
-                        <span className="text-[10px] font-black uppercase tracking-tight">
-                          {m === 'free' ? 'Optimized' : m === 'selected' ? 'Selected' : 'Neural Custom'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {draftSettings.dataCheckingModel === 'custom' && (
-                  <motion.div 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-3 p-6 bg-white/5 rounded-[2rem] border border-white/5"
-                  >
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Custom Provider Node</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {(['gemini', 'openrouter', 'fireworks'] as const).map(p => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => updateDraft({ dataCheckingCustomProvider: p })}
-                          className={cn(
-                            "py-3 rounded-xl border text-center transition-all flex items-center justify-center gap-2",
-                            draftSettings.dataCheckingCustomProvider === p 
-                              ? 'bg-purple-600/20 border-purple-500/50 text-purple-400' 
-                              : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/20'
-                          )}
-                        >
-                          <span className="text-[10px] font-black uppercase tracking-tight">{p}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-          </div>
-        </section>
-
-        {/* User Interface preferences */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Personalization & Security</h2>
-            <div className="h-px flex-1 bg-white/5 mx-4" />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Animation Rush */}
-            <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2.5rem] flex items-center justify-between group">
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all",
-                  (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "bg-white/5 border-white/5 text-white/20"
-                )}>
-                  <Zap size={20} className={(draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "" : "opacity-40"} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black tracking-tight">Performance Boost</h2>
-                  <p className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-0.5">Animation Rush</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  if (!draftPreferences) return;
-                  setDraftPreferences({ ...draftPreferences, reducedMotion: !draftPreferences.reducedMotion });
-                }}
-                className={cn(
-                  "w-12 h-6 rounded-full transition-all flex items-center px-1",
-                  (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? "bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]" : "bg-white/10"
-                )}
-              >
-                <motion.div 
-                  animate={{ x: (draftPreferences?.reducedMotion ?? preferences.reducedMotion) ? 24 : 0 }}
-                  className="w-4 h-4 bg-white rounded-full shadow-sm"
-                />
-              </button>
-            </div>
-
-            {/* Note Password */}
-            <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2.5rem] flex flex-col gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/5 bg-white/5 text-white/20">
-                  <Lock size={20} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black tracking-tight">Vault Credentials</h2>
-                  <p className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-0.5">Notes System Password</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {draftPreferences?.defaultPassword !== undefined ? (
-                  <div className="flex w-full gap-2">
-                    <div className="relative flex-1 group/input overflow-hidden rounded-xl border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50">
-                      <input 
-                        type="password" 
-                        value={draftPreferences.defaultPassword} 
-                        onChange={(e) => setDraftPreferences({...draftPreferences, defaultPassword: e.target.value})}
-                        className="w-full bg-transparent px-4 py-3 text-sm font-mono focus:outline-none placeholder:text-white/10"
-                        placeholder="ভল্ট পাসওয়ার্ড..."
-                      />
-                    </div>
-                    <button 
-                      onClick={handleOpenVaultClick}
-                      className="p-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 rounded-xl transition-all border border-blue-500/20 active:scale-95"
-                    >
-                      <Eye size={18} />
-                    </button>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => {
-                      if (draftPreferences) setDraftPreferences({...draftPreferences, defaultPassword: ''});
-                    }}
-                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                  >
-                    Set Password
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* System & Maintenance */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">System & Advanced</h2>
-            <div className="h-px flex-1 bg-white/5 mx-4" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             <button 
-                onClick={async () => {
-                  await DataManager.createDemoData();
-                  setStatus({ type: 'success', message: 'ডেমো ডেটা যোগ করা হয়েছে। রিফ্রেশ করুন।' });
-                }}
-                className="p-6 bg-blue-600/5 hover:bg-blue-600/10 border border-blue-500/10 rounded-[2rem] flex flex-col items-center gap-3 transition-all group active:scale-95"
-             >
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                  <Plus size={20} />
-                </div>
-                <div className="text-center">
-                  <h2 className="text-[11px] font-black tracking-tight text-white/80">Demo Data</h2>
-                  <p className="text-[9px] text-white/20 uppercase font-black tracking-[0.1em]">Test Environment</p>
-                </div>
-             </button>
-
-             <button 
-                onClick={() => setShowRestartConfirm(true)}
-                className="p-6 bg-red-600/5 hover:bg-red-600/10 border border-red-500/10 rounded-[2rem] flex flex-col items-center gap-3 transition-all group active:scale-95"
-             >
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform">
-                  <RefreshCw size={20} />
-                </div>
-                <div className="text-center">
-                  <h2 className="text-[11px] font-black tracking-tight text-white/80">Soft Reset</h2>
-                  <p className="text-[9px] text-white/20 uppercase font-black tracking-[0.1em]">Re-initialize</p>
-                </div>
-             </button>
-          </div>
-        </section>
 
         <footer className="pt-8 text-center space-y-8 pb-32">
           <button

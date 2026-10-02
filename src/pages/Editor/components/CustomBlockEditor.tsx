@@ -721,7 +721,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
             const hasIndent = (block.indent || 0) > 0;
             const indentStyle = { paddingLeft: `${(block.indent || 0) * 28}px` };
             return (
-              <ErrorBoundary key={block.id}>
+              <ErrorBoundary key={(block.id && block.id !== 'undefined') ? block.id : `virtuoso-block-${idx}`}>
                 <MemoizedBlockRow
                   block={block}
                   idx={idx}
@@ -775,7 +775,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
         const indentStyle = { paddingLeft: `${(block.indent || 0) * 28}px` };
 
         return (
-          <ErrorBoundary key={block.id}>
+          <ErrorBoundary key={(block.id && block.id !== 'undefined') ? block.id : `static-block-${idx}`}>
             <MemoizedBlockRow
               block={block}
               idx={idx}

@@ -602,8 +602,8 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
               <thead>
                 <tr className="border-b border-white/5">
                   <th className="w-10 py-3 text-center opacity-30">#</th>
-                  {dbData.columns.map((col: any) => (
-                    <th key={col.id} className="p-3 font-bold text-white/40 uppercase tracking-wider relative group">
+                  {dbData.columns.map((col: any, cIdx: number) => (
+                    <th key={col.id || `col-${cIdx}`} className="p-3 font-bold text-white/40 uppercase tracking-wider relative group">
                       <div className="flex items-center gap-2">
                         {col.type === 'text' && <Type size={12} className="text-blue-500" />}
                         {col.type === 'select' && <ListFilter size={12} className="text-purple-500" />}
@@ -633,11 +633,11 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 </tr>
               </thead>
               <tbody>
-                {transformedRows.map((row: any, idx: number) => (
-                  <tr key={row.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-all">
-                    <td className="py-3 text-center text-white/20 font-mono text-[11px]">{idx + 1}</td>
-                    {dbData.columns.map((col: any) => (
-                      <td key={col.id} className="p-1">
+                {transformedRows.map((row: any, rIdx: number) => (
+                  <tr key={row.id || `row-${rIdx}`} className="border-b border-white/5 hover:bg-white/[0.01] transition-all">
+                    <td className="py-3 text-center text-white/20 font-mono text-[11px]">{rIdx + 1}</td>
+                    {dbData.columns.map((col: any, cIdx: number) => (
+                      <td key={col.id || `cell-${cIdx}`} className="p-1">
                         {col.type === 'formula' ? (
                           <div className="px-2.5 py-2 font-mono text-amber-400 font-bold text-xs bg-amber-500/5 rounded-xl border border-amber-500/10">
                             {computeFormulaCell(col.formula, row)}

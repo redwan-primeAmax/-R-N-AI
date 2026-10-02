@@ -10,19 +10,16 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Cpu, 
-  Database, 
-  Shield, 
-  Palette, 
-  Sparkles, 
-  Trash2, 
   HardDrive, 
   Cloud, 
   History, 
-  Lock,
+  Trash2, 
+  Palette, 
   User,
   Zap,
-  RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  Settings,
+  ShieldAlert
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { DataManager } from '../../services/storage/DataManager';
@@ -33,7 +30,7 @@ const SettingsTile = ({
   title, 
   description, 
   onClick, 
-  colorClasses = "bg-white/5 border-white/5",
+  colorClasses = "bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10",
   iconColor = "text-white/60"
 }: { 
   icon: any, 
@@ -44,23 +41,23 @@ const SettingsTile = ({
   iconColor?: string
 }) => (
   <motion.button
-    whileHover={{ scale: 1.02 }}
-    whileTap={{ scale: 0.98 }}
+    whileHover={{ scale: 1.01 }}
+    whileTap={{ scale: 0.99 }}
     onClick={onClick}
     className={cn(
-      "p-6 rounded-[2.5rem] border flex flex-col text-left transition-all group relative overflow-hidden",
+      "p-6 rounded-[2rem] border flex flex-col text-left transition-all group relative overflow-hidden h-full shadow-lg",
       colorClasses
     )}
   >
     <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
-      <ChevronRight size={20} className="text-white/20" />
+      <ChevronRight size={18} className="text-white/20" />
     </div>
     <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110", "bg-white/5", iconColor)}>
       <Icon size={24} />
     </div>
     <div className="space-y-1">
-      <h3 className="text-lg font-bold tracking-tight">{title}</h3>
-      <p className="text-xs text-white/40 leading-relaxed">{description}</p>
+      <h3 className="text-lg font-bold tracking-tight text-white/90">{title}</h3>
+      <p className="text-[11px] text-white/30 leading-relaxed font-medium">{description}</p>
     </div>
   </motion.button>
 );
@@ -72,6 +69,7 @@ const SettingsPage: React.FC = () => {
 
   const handleDeleteAppData = async () => {
     await DataManager.deleteAllData();
+    window.location.reload();
   };
 
   const sections = [
@@ -81,7 +79,7 @@ const SettingsPage: React.FC = () => {
         {
           icon: Cpu,
           title: "এআই কনফিগারেশন",
-          description: "এপিআই কী, মডেল এবং ব্যাকগ্রাউন্ড অটোমেশন কন্ট্রোল",
+          description: "এপিআই কী, মডেল এবং ব্যাকগ্রাউন্ড অটোমেশন কন্ট্রোল সেটআপ করুন।",
           path: "/ai/settings",
           iconColor: "text-purple-400"
         }
@@ -93,38 +91,30 @@ const SettingsPage: React.FC = () => {
         {
           icon: HardDrive,
           title: "স্টোরেজ অপ্টিমাইজার",
-          description: "মিডিয়া ফাইল ক্লিনআপ এবং ডাটা ব্যাকআপ",
+          description: "মিডিয়া ফাইল ক্লিনআপ এবং ডাটা ব্যাকআপ করার উন্নত ফিচারসমূহ।",
           path: "/storage-optimizer",
           iconColor: "text-orange-400"
         },
         {
-          icon: Cloud,
-          title: "ক্লাউড আর্কাইভ",
-          description: "আপনার ডেটা ক্লাউডে সুরক্ষিতভাবে সংরক্ষণ করুন",
-          path: "/cloud-archive",
-          iconColor: "text-blue-500"
-        },
-        {
           icon: History,
           title: "রিসেন্ট ব্যাকআপ",
-          description: "আগের ব্যাকআপ পয়েন্টগুলো থেকে রিস্টোর করুন",
+          description: "আগের ব্যাকআপ পয়েন্টগুলো থেকে আপনার ডেটা রিস্টোর করুন।",
           path: "/recent-backups",
           iconColor: "text-teal-400"
         },
         {
-          icon: Trash2,
-          title: "রিসাইকেল বিন",
-          description: "মুছে ফেলা কন্টেন্ট পুনরুদ্ধার করুন",
-          path: "/recycle-bin",
-          iconColor: "text-red-400"
+          icon: Cloud,
+          title: "ক্লাউড আর্কাইভ",
+          description: "আপনার ডেটা ক্লাউডে সুরক্ষিতভাবে সংরক্ষণ ও সিঙ্ক করুন।",
+          path: "/cloud-archive",
+          iconColor: "text-blue-500"
         },
         {
-          icon: AlertTriangle,
-          title: "সমস্ত ডেটা মুছুন",
-          description: "অ্যাপের সমস্ত ডেটা চিরতরে মুছে ফেলুন এবং রিসেট করুন",
-          onClick: () => setShowConfirm1(true),
-          iconColor: "text-red-600",
-          colorClasses: "bg-red-500/5 border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30"
+          icon: Trash2,
+          title: "রিসাইকেল বিন",
+          description: "মুছে ফেলা কন্টেন্ট পুনরুদ্ধার করতে রিসাইকেল বিন চেক করুন।",
+          path: "/recycle-bin",
+          iconColor: "text-red-400"
         }
       ]
     },
@@ -134,14 +124,14 @@ const SettingsPage: React.FC = () => {
         {
           icon: Palette,
           title: "ইন্টারফেস সেটিংস",
-          description: "থিম, এনিমেশন এবং ভিজ্যুয়াল পছন্দসমূহ",
+          description: "থিম, এনিমেশন এবং ভিজ্যুয়াল পছন্দসমূহ পরিবর্তন করুন।",
           path: "/ai/settings",
           iconColor: "text-pink-400"
         },
         {
           icon: User,
           title: "ইউজার প্রোফাইল",
-          description: "আপনার নাম এবং অ্যাপ রিস্টার্ট সেটআপ",
+          description: "আপনার নাম এবং অ্যাপের বেসিক প্রোফাইল সেটআপ আপডেট করুন।",
           path: "/ai/settings",
           iconColor: "text-indigo-400"
         }
@@ -150,23 +140,23 @@ const SettingsPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)] text-white flex flex-col font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col font-sans overflow-x-hidden">
       {/* Background Decor */}
       <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/5 blur-[120px] pointer-events-none -translate-y-1/2" />
       <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-600/5 blur-[100px] pointer-events-none translate-y-1/2" />
 
-      <header className="px-6 py-8 md:px-12 flex items-center justify-between sticky top-0 bg-[var(--bg-main)]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
+      <header className="px-6 py-8 md:px-12 flex items-center justify-between sticky top-0 bg-[#0d0d0d]/80 backdrop-blur-2xl z-[100] border-b border-white/5">
         <div className="flex items-center gap-6">
           <button 
             onClick={() => navigate('/main')} 
-            className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-white border border-white/5 active:scale-95"
+            className="w-12 h-12 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all flex items-center justify-center active:scale-95"
           >
             <ChevronLeft size={24} />
           </button>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-               <Zap size={14} className="text-purple-400 fill-purple-400" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">System Control</span>
+            <div className="flex items-center gap-2 mb-0.5">
+               <Zap size={12} className="text-purple-400 fill-purple-400" />
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Configuration</span>
             </div>
             <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">
               মেইন <span className="text-purple-500">সেটিংস</span>
@@ -175,8 +165,8 @@ const SettingsPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full space-y-16 pb-32">
-        {sections.map((section, sIdx) => (
+      <main className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full space-y-20 pb-32">
+        {sections.map((section) => (
           <div key={section.label} className="space-y-8">
             <div className="flex items-center gap-4 px-2">
               <div className="h-0.5 w-8 bg-purple-500/30 rounded-full" />
@@ -186,19 +176,40 @@ const SettingsPage: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {section.tiles.map((tile: any, tIdx) => (
+              {section.tiles.map((tile: any) => (
                 <SettingsTile
                   key={tile.title}
                   icon={tile.icon}
                   title={tile.title}
                   description={tile.description}
-                  onClick={tile.onClick ? tile.onClick : () => navigate(tile.path)}
+                  onClick={() => navigate(tile.path)}
                   iconColor={tile.iconColor}
                 />
               ))}
             </div>
           </div>
         ))}
+
+        {/* Danger Zone */}
+        <div className="space-y-8 pt-10">
+           <div className="flex items-center gap-4 px-2">
+              <div className="h-0.5 w-8 bg-red-500/30 rounded-full" />
+              <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-red-500/40">
+                বিপজ্জনক এলাকা (Danger Zone)
+              </h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               <SettingsTile 
+                  icon={AlertTriangle}
+                  title="সমস্ত ডেটা মুছুন"
+                  description="অ্যাপের সমস্ত নোট, সেটিংস এবং ফাইল চিরতরে মুছে ফেলুন এবং রিসেট করুন।"
+                  onClick={() => setShowConfirm1(true)}
+                  iconColor="text-red-500"
+                  colorClasses="bg-red-500/[0.02] border-red-500/10 hover:bg-red-500/[0.05] hover:border-red-500/30 shadow-red-500/5 shadow-2xl"
+               />
+            </div>
+        </div>
       </main>
 
       <footer className="px-6 py-12 border-t border-white/5 bg-white/[0.02] flex flex-col items-center gap-4">
@@ -209,14 +220,17 @@ const SettingsPage: React.FC = () => {
         <p className="text-[10px] text-white/10 font-bold uppercase tracking-widest">Designed for Professional Optimization</p>
       </footer>
 
-      {/* Custom Confirmation Dialogs */}
+      {/* Confirmation Dialogs */}
       <ConfirmDialog
         isOpen={showConfirm1}
         onClose={() => setShowConfirm1(false)}
-        onConfirm={() => setShowConfirm2(true)}
+        onConfirm={() => {
+          setShowConfirm1(false);
+          setShowConfirm2(true);
+        }}
         title="ডেটা মুছুন (Step 1/2)"
-        message="আপনি কি নিশ্চিত যে আপনি সমস্ত অ্যাপ ডেটা মুছে ফেলতে চান? এটি আর পুনরুদ্ধার করা সম্ভব হবে না। আপনার সমস্ত নোট, সেটিংস এবং ফাইল হারাবে।"
-        confirmText="নিশ্চিত করুন"
+        message="আপনি কি নিশ্চিত যে আপনি সমস্ত অ্যাপ ডেটা মুছে ফেলতে চান? এটি আর পুনরুদ্ধার করা সম্ভব হবে না।"
+        confirmText="পরবর্তী ধাপ"
         cancelText="বাতিল"
         variant="danger"
       />
@@ -226,8 +240,8 @@ const SettingsPage: React.FC = () => {
         onClose={() => setShowConfirm2(false)}
         onConfirm={handleDeleteAppData}
         title="চূড়ান্ত নিশ্চিতকরণ (Step 2/2)"
-        message="শেষবার নিশ্চিত করুন: লকাল স্টোরেজ, ডাটাবেজ এবং সেটিংস সবকিছু মুছে যাবে। আপনি কি প্রস্তুত? এই অ্যাকশনটি রিভার্স করা যাবে না।"
-        confirmText="চিরতরে মুছুন"
+        message="লকাল স্টোরেজ, ডাটাবেজ এবং সেটিংস সবকিছু চিরতরে মুছে যাবে। আপনি কি প্রস্তুত?"
+        confirmText="সব মুছুন"
         cancelText="না, ফিরে যান"
         variant="danger"
       />

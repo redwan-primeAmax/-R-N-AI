@@ -304,7 +304,6 @@ function AppContent() {
     { path: "/external-ai-import", element: <PageWrapper><AIContentArchitect /></PageWrapper> },
     { path: "/template", element: <PageWrapper><BrowseTemplates /></PageWrapper> },
     { path: "/templates", element: <Navigate to="/template" replace /> },
-    { path: "/tools", element: <Navigate to="/external-ai-import" replace /> },
     { path: "*", element: <Navigate to="/main" replace /> },
   ]);
 

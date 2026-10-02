@@ -196,15 +196,16 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     const addBlock = (type: EditorBlock['type'], content: string, extra: Partial<EditorBlock> = {}) => {
       try {
         const cleanedContent = cleanBlockHTML(content, type);
-        let indent = 0;
-        if (extra.indent !== undefined) indent = extra.indent;
+        const { id, indent, ...rest } = extra;
+
+        const finalId = (id && id !== 'undefined') ? id : crypto.randomUUID();
 
         blocks.push({
-          id: extra.id || crypto.randomUUID(),
+          id: finalId,
           type,
           content: cleanedContent,
-          indent,
-          ...extra
+          indent: indent || 0,
+          ...rest
         });
       } catch (e) {
         console.error('Error adding individual block during parse:', e);
@@ -232,7 +233,9 @@ export function htmlToBlocks(html: string): EditorBlock[] {
 
       const tagName = child.tagName.toLowerCase();
       const dataType = child.getAttribute('data-type');
-      const id = child.getAttribute('data-id') || undefined;
+      let idAttr = child.getAttribute('data-id') || child.getAttribute('id') || undefined;
+      if (idAttr === 'undefined') idAttr = undefined;
+      const id = idAttr;
       const indent = getIndentFromElement(child);
 
     if (child.classList.contains('toggle-list') || dataType === 'toggle') {
@@ -441,7 +444,8 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
 
   blocks.forEach((block) => {
     const indent = block.indent || 0;
-    const commonAttrs = `data-id="${block.id}" data-indent="${indent}"`;
+    const blockId = block.id && block.id !== 'undefined' ? block.id : crypto.randomUUID();
+    const commonAttrs = `data-id="${blockId}" data-indent="${indent}"`;
 
     if (block.type === 'ordered') {
       closeActiveLists('ordered');

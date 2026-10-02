@@ -100,7 +100,18 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
         throw new Error('Web Share API not supported');
       }
     } catch (err) {
+      // AbortError means user cancelled, which is not a real failure
+      if ((err as Error).name === 'AbortError') return;
+
       console.error('Share failed:', err);
+      // Fallback: Copy to clipboard if native share fails
+      try {
+        await navigator.clipboard.writeText(`${shareData.title}\n\n${shareData.text}`);
+        setCopied('content');
+        setTimeout(() => setCopied(null), 2000);
+      } catch (clipboardErr) {
+        console.error('Clipboard fallback failed:', clipboardErr);
+      }
     }
   };
 
