@@ -382,7 +382,7 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     } else if (child.classList.contains('sandbox-block') || child.getAttribute('data-type') === 'sandbox') {
       addBlock('sandbox', child.innerHTML, { id, indent });
     } else if (child.classList.contains('media-block') || child.getAttribute('data-type') === 'media' || child.classList.contains('media-upload-block')) {
-      const mediaId = child.getAttribute('data-id') || crypto.randomUUID();
+      const mediaId = child.getAttribute('data-media-id') || child.getAttribute('data-id') || crypto.randomUUID();
       const type = (child.getAttribute('data-media-type') as any) || 'image';
       const fileName = child.getAttribute('data-name') || '';
       const fileSize = child.getAttribute('data-size') || '';
@@ -560,7 +560,7 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
       case 'media':
         if (block.mediaData) {
           const { id: mediaId, type, fileName, fileSize, status, url } = block.mediaData;
-          html += `<div class="media-block" data-type="media" data-id="${mediaId}" data-media-type="${type}" data-name="${fileName}" data-size="${fileSize}" data-status="${status}" data-url="${url || ''}" ${commonAttrs}></div>`;
+          html += `<div class="media-block" data-type="media" data-media-id="${mediaId}" data-media-type="${type}" data-name="${fileName}" data-size="${fileSize}" data-status="${status}" data-url="${url || ''}" ${commonAttrs}></div>`;
         }
         break;
       case 'table':

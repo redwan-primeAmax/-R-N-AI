@@ -116,7 +116,10 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
           
           <button 
             type="button"
-            onClick={() => onSave('Tester', 'My Workspace')}
+            onClick={() => {
+              localStorage.setItem('user_setup_dismissed', 'true');
+              onSave('User', 'My Workspace');
+            }}
             className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/40 rounded-2xl font-bold text-xs transition-all uppercase tracking-widest border border-white/5"
           >
             Skip for now

@@ -156,7 +156,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       }}
       onPointerDown={(e) => {
         e.preventDefault();
-        if (typeof window !== 'undefined' && window.navigator.vibrate) {
+        if (typeof window !== 'undefined' && typeof window.navigator?.vibrate === 'function') {
           window.navigator.vibrate(5);
         }
       }}

@@ -125,30 +125,41 @@ export const NoteService = {
       const existing = await db.notes.get(note.id);
       const isNew = !existing;
 
-      // 🚨 DATA-LOSS GUARD
+      // 🚨 DATA-LOSS GUARD: Create automatic safety snapshot in note_versions on massive content reduction
       if (!isNew && existing.content && note.content) {
         const oldSize = existing.content.length;
         const newSize = note.content.length;
         const shrinkRatio = newSize / oldSize;
 
-        if (oldSize > 100_000 && shrinkRatio < 0.6 && !note.__forceOverwrite) {
-          console.warn(
-            `[NoteService] Blocked shrink-save: ${oldSize} → ${newSize} bytes`
-          );
+        if (oldSize > 100_000 && shrinkRatio < 0.6) {
+          try {
+            await db.note_versions.put({
+              id: crypto.randomUUID(),
+              noteId: note.id,
+              title: existing.title || 'Untitled',
+              content: existing.content,
+              emoji: existing.emoji || '📝',
+              version: `Auto-Backup (${Math.round((1 - shrinkRatio) * 100)}% shrink)`,
+              createdAt: Date.now()
+            });
+            console.warn(
+              `[NoteService] Auto-snapshot saved before large shrink: ${oldSize} → ${newSize} bytes`
+            );
 
-          if (!(window as any).__shrinkGuardWarned) {
-            (window as any).__shrinkGuardWarned = true;
-            window.dispatchEvent(new CustomEvent('app-notification', {
-              detail: {
-                message: '⚠️ সেভ ব্লক হয়েছে — কনটেন্ট হঠাৎ ছোট হয়ে গেছে',
-                type: 'warning',
-                duration: 4000
-              }
-            }));
-            setTimeout(() => { (window as any).__shrinkGuardWarned = false; }, 5000);
+            if (!(window as any).__shrinkGuardWarned) {
+              (window as any).__shrinkGuardWarned = true;
+              window.dispatchEvent(new CustomEvent('app-notification', {
+                detail: {
+                  message: 'ℹ️ কনটেন্ট সাইজ কমে যাওয়ায় পূর্বের ভার্সন হিস্ট্রিতে ব্যাকআপ রাখা হয়েছে',
+                  type: 'info',
+                  duration: 4000
+                }
+              }));
+              setTimeout(() => { (window as any).__shrinkGuardWarned = false; }, 5000);
+            }
+          } catch (snapErr) {
+            console.error('[NoteService] Failed to create shrink safety snapshot:', snapErr);
           }
-
-          return existing;
         }
       }
 

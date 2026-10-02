@@ -502,7 +502,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         setSaveError(null);
       } catch (err) {
         console.error('Save failed:', err);
-        setSaveError('সংরক্ষণ করতে ব্যর্থ হয়েছে। ইন্টাররেট সংযোগ চেক করুন।');
+        setSaveError('সংরক্ষণ করতে ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ চেক করুন।');
       } finally {
         isSavingRef.current = false;
         setIsSaving(false);

@@ -256,7 +256,7 @@ decBtn.addEventListener('click', () => {
     } else if (presetType === 'card') {
       setData({
         html: `<div class="card">
-  <div className="badge">New Release</div>
+  <div class="badge">New Release</div>
   <h3>Interactive UI Sandbox</h3>
   <p>Modify HTML, CSS, and JS tabs to see real-time rendered results!</p>
   <button id="toastBtn">Show Toast Alert</button>

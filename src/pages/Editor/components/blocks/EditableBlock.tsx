@@ -106,7 +106,7 @@ export const EditableBlock = ({
     if (newType) {
       if (editor?.setBlocks) {
         editor.setBlocks((prev: EditorBlock[]) => 
-          prev.map(b => b.id === block.id ? { ...b, type: newType, content: parsedContent, checked: trimmed.startsWith('[x] ') } : b)
+          prev.map(b => b.id === block.id ? { ...b, type: newType, content: parsedContent, checked: trimmed.startsWith('[x] ') || trimmed.startsWith('[X] ') } : b)
         );
       }
     } else {

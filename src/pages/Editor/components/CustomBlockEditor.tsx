@@ -11,7 +11,6 @@ import {
 import { cn } from '../../../utils/cn';
 import { DataManager } from '../../../services/storage/DataManager';
 import { ErrorBoundary } from '../../../components/ErrorBoundary';
-import { Virtuoso } from 'react-virtuoso';
 
 import { EditorBlock, cleanBlockHTML, htmlToBlocks, blocksToHtml } from '../../../utils/blockParser';
 import { MediaBlock } from './blocks/MediaBlock';
@@ -129,7 +128,7 @@ const MemoizedBlockRow = React.memo(({
   
   return (
     <div 
-      className="flex flex-col group relative max-w-full overflow-x-clip"
+      className="flex flex-col group relative max-w-full overflow-visible"
       style={indentStyle}
     >
       {/* Visual connecting line for nested items */}
@@ -658,48 +657,6 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
       blockRefs.current[newBlock.id]?.focus();
     }, 50);
   };
-
-  if (blocks.length > 500) {
-    return (
-      <div id="editor-content-root" className={cn("ProseMirror prose space-y-0 pb-12", className)}>
-        <Virtuoso
-          data={blocks}
-          useWindowScroll
-          itemContent={(idx, block) => {
-            const hasIndent = (block.indent || 0) > 0;
-            const indentStyle = { paddingLeft: `${(block.indent || 0) * 28}px` };
-            return (
-              <ErrorBoundary key={(block.id && block.id !== 'undefined') ? block.id : `virtuoso-block-${idx}`}>
-                <MemoizedBlockRow
-                  block={block}
-                  idx={idx}
-                  blocks={blocks}
-                  setBlocks={setBlocks}
-                  isReadOnly={isReadOnly}
-                  blockRefs={blockRefs}
-                  handleKeyDown={handleKeyDown}
-                  setFocusedId={setFocusedId}
-                  editor={editor}
-                  handleBlockChange={handleBlockChange}
-                  hasIndent={hasIndent}
-                  indentStyle={indentStyle}
-                  currentHiddenIndent={null}
-                  searchTerm={editor.searchTerm}
-                  noteId={noteId}
-                />
-              </ErrorBoundary>
-            );
-          }}
-        />
-        {!isReadOnly && (
-          <div 
-            onClick={handleAddNewParagraphAtEnd}
-            className="w-full min-h-[180px] cursor-text rounded-2xl border-2 border-dashed border-transparent hover:border-neutral-200/20 active:scale-[0.99] transition-all bg-transparent mt-4"
-          />
-        )}
-      </div>
-    );
-  }
 
   return (
     <div id="editor-content-root" className={cn("ProseMirror prose space-y-0 pb-12", className)}>

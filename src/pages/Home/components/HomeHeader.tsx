@@ -72,7 +72,12 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             onChange={handleInputChange}
             onFocus={() => {
               if (window.location.hash !== '#/search' && window.location.pathname !== '/search') {
-                navigate('/search');
+                navigate('/search', { state: { query, isAccurateMode } });
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                navigate('/search', { state: { query, isAccurateMode } });
               }
             }}
             placeholder={isAccurateMode ? "Accurate Search ON" : "Type..."}

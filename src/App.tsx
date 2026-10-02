@@ -134,19 +134,21 @@ function AppContent() {
 
   // Fix: App Startup & Route Preservation on Refresh
   useEffect(() => {
-    if (location.pathname) {
+    if (location.pathname && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/ai/settings')) {
       sessionStorage.setItem('app_current_route', location.pathname + location.search);
     }
   }, [location]);
 
   useEffect(() => {
     const hash = window.location.hash;
-    const hashPath = hash ? hash.replace(/^#/, '') : '';
+    const cleanHash = hash ? hash.replace(/^#/, '').split('?')[0] : '';
     
-    // If no specific route in hash or root path, restore last non-settings route or go to /main
-    if (!hashPath || hashPath === '/' || hashPath === '') {
+    // Always navigate to /main (or saved active note) on load/refresh if path is empty, root, or settings
+    if (!cleanHash || cleanHash === '/' || cleanHash === '' || cleanHash === '/settings' || cleanHash === '/ai/settings') {
       const savedRoute = sessionStorage.getItem('app_current_route');
-      const targetRoute = (savedRoute && !savedRoute.startsWith('/settings')) ? savedRoute : '/main';
+      const targetRoute = (savedRoute && !savedRoute.startsWith('/settings') && !savedRoute.startsWith('/ai/settings')) 
+        ? savedRoute 
+        : '/main';
       navigate(targetRoute, { replace: true });
     }
   }, []);
@@ -227,9 +229,10 @@ function AppContent() {
         const name = await DataManager.getUserName();
         const urlParams = new URLSearchParams(window.location.search);
         const isDebug = urlParams.get('debug') === 'true';
+        const isSetupDismissed = localStorage.getItem('user_setup_dismissed') === 'true';
         
-        if (name || isDebug) {
-          setUserName(name || 'Tester');
+        if (name || isDebug || isSetupDismissed) {
+          setUserName(name || 'User');
         } else {
           setShowPopup(true);
         }
@@ -290,6 +293,7 @@ function AppContent() {
 
   const handleSaveName = async (name: string, workspaceName: string) => {
     try {
+      localStorage.setItem('user_setup_dismissed', 'true');
       await DataManager.saveUserName(name);
       const workspaces = await DataManager.getWorkspaces();
       if (workspaces && workspaces.length > 0) {

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Search as SearchIcon, X, ChevronRight, Hash, Tag as TagIcon } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { db } from '../../services/storage/DexieDB';
@@ -33,6 +33,11 @@ function highlightText(text: string, queryWords: string[]) {
 
 export default function SearchPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as { query?: string; isAccurateMode?: boolean } | null;
+  const initialQuery = locationState?.query || '';
+  const initialAccurate = locationState?.isAccurateMode ?? false;
+
   const inputRef = useRef<HTMLInputElement>(null);
   const searchObserverTarget = useRef<HTMLDivElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -41,13 +46,13 @@ export default function SearchPage() {
   const activeListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
 
   // States
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Note[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isAccurateMode, setIsAccurateMode] = useState(false);
+  const [isAccurateMode, setIsAccurateMode] = useState(initialAccurate);
   const [visibleSearchCount, setVisibleSearchCount] = useState<number>(20);
   const [renderedResults, setRenderedResults] = useState<Note[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);

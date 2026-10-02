@@ -4,7 +4,7 @@
  */
 
 import { Note, SearchResult } from './types';
-import { StorageBuffer, normalizeText, stripHtml, getBloomHash } from './core/StorageBuffer';
+import { StorageBuffer, normalizeText, stripHtml } from './core/StorageBuffer';
 import { InvertedIndex } from './index/InvertedIndex';
 import { expandQueryTerm } from './index/SynonymEngine';
 import { calculateFuzzyScore, calculateBM25, getTermFrequency } from './core/Scorer';
@@ -62,11 +62,9 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
       }
       
       if (termSet.size === 0 && word.length > 2) {
-        const queryHash = getBloomHash(word);
         for (let i = 0; i < storage.size; i++) {
-          // Bloom filter check before running expensive fuzzy matching
-          const docHash = storage.getBloomHash(i);
-          if ((docHash & queryHash) === queryHash || calculateFuzzyScore(storage.getRawText(i), word) < 0.4) {
+          const rawText = storage.getRawText(i);
+          if (rawText.includes(word) || calculateFuzzyScore(rawText, word) < 0.4) {
             termSet.add(i);
           }
         }
@@ -87,13 +85,11 @@ export function searchWithRST(notes: Note[], query: string, isAccurate: boolean 
     }
 
     if (candidateIndices.size === 0) {
-      const queryHash = getBloomHash(queryLower);
       for (let i = 0; i < storage.size; i++) {
         const docText = storage.getRawText(i);
-        const docHash = storage.getBloomHash(i);
         if (
-          (docHash & queryHash) === queryHash ||
-          docText.includes(queryLower)
+          docText.includes(queryLower) ||
+          calculateFuzzyScore(docText, queryLower) < 0.4
         ) {
           candidateIndices.add(i);
         }

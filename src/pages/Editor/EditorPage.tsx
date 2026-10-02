@@ -220,7 +220,7 @@ function EditorPage({ id }: { id: string | undefined }) {
   return (
     <EditorModalProvider value={modalContextValue}>
       <div className={cn(
-        "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300 overflow-x-clip",
+        "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
         isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
       )}>
         <EditorHeader 
@@ -240,9 +240,10 @@ function EditorPage({ id }: { id: string | undefined }) {
 
         <main 
           className={cn(
-            "pt-14 pb-48 max-w-4xl mx-auto min-h-screen transition-colors duration-300 mb-20",
+            "pt-14 max-w-4xl mx-auto min-h-screen transition-colors duration-300",
             isLight ? "bg-white shadow-[0_0_80px_rgba(0,0,0,0.03)] border-x border-black/5" : "bg-[#1a1a1a]"
           )}
+          style={{ paddingBottom: 'calc(14rem + var(--kb-offset, 0px))' }}
           onClick={focusLastBlockOnVoidClick}
         >
           <div className="px-6 md:px-20 pt-10 h-full min-h-[80vh] flex flex-col" onClick={focusLastBlockOnVoidClick}>
@@ -297,7 +298,7 @@ function EditorPage({ id }: { id: string | undefined }) {
 
                 {/* Interactive Block-Editor Workspace */}
                 <div 
-                  className={cn("relative pb-48 min-h-[70vh] transition-all flex border-0", themeClass)}
+                  className={cn("relative min-h-[70vh] transition-all flex flex-col w-full border-0", themeClass)}
                   data-darkreader-ignore={themeClass ? "true" : undefined}
                   onClick={focusLastBlockOnVoidClick}
                 >

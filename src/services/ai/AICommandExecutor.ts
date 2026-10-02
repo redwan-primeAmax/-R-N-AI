@@ -61,20 +61,20 @@ export const executeAICommands = async (text: string) => {
       const title = extractNestedTag('title', pageXml);
 
       const id = rawId.replace(/[^a-z0-9-_]/gi, '_');
-    if (id) {
-      const existing = await DataManager.getNoteById(id);
-      if (existing) {
-        if (content) existing.content = content;
-        if (title) existing.title = title;
-        existing.updatedAt = Date.now();
-        await DataManager.saveNote(existing);
-        window.dispatchEvent(new CustomEvent('app-notification', { 
-          detail: { message: `AI: আপডেটেড পেজ "${existing.title}"`, type: 'success' } 
-        }));
-        console.log(`[AICommandExecutor] Executed update_page for ID: ${id}`);
+      if (id) {
+        const existing = await DataManager.getNoteById(id);
+        if (existing) {
+          if (content) existing.content = content;
+          if (title) existing.title = title;
+          existing.updatedAt = Date.now();
+          await DataManager.saveNote(existing);
+          window.dispatchEvent(new CustomEvent('app-notification', { 
+            detail: { message: `AI: আপডেটেড পেজ "${existing.title}"`, type: 'success' } 
+          }));
+          console.log(`[AICommandExecutor] Executed update_page for ID: ${id}`);
+        }
       }
     }
-  }
 
     // 3. Replace Content Commands
     const replaceContents = extractTag('replace_content', text);

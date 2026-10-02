@@ -120,6 +120,11 @@ let cachedSettings: AISettings | null = null;
 export const SettingsService = {
   async getUserName(): Promise<string | null> {
     const record = await db.key_value_pairs.get('user_name');
+    return record ? record.value : null;
+  },
+
+  async getShortUserName(): Promise<string | null> {
+    const record = await db.key_value_pairs.get('user_name');
     const name = record ? record.value : null;
     if (!name) return null;
     if (name.length > 8) {
