@@ -107,6 +107,13 @@ export const executeAICommands = async (text: string) => {
     
     const id = rawId.replace(/[^a-z0-9-_]/gi, '_') || crypto.randomUUID();
 
+    const partsRaw = extractTag('part', taskXml);
+    const parts = partsRaw.map(p => ({
+      id: crypto.randomUUID(),
+      title: p,
+      status: 'pending' as const
+    }));
+
     const existingTasks = await DataManager.getTasks();
     const existing = existingTasks.find(t => t.id === id);
     if (!existing) {
@@ -115,7 +122,7 @@ export const executeAICommands = async (text: string) => {
         title,
         description,
         status: 'pending',
-        parts: [],
+        parts,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };

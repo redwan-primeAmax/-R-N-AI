@@ -80,6 +80,7 @@ export interface Workspace {
   description?: string;
   icon?: string;
   logoSvg?: string;
+  color?: string;
 }
 
 export interface NoteVersion {

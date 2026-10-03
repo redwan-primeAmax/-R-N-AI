@@ -10,6 +10,7 @@ import { cn } from '../../../utils/cn';
 
 interface HomeHeaderProps {
   currentWorkspaceName: string;
+  currentWorkspaceColor?: string;
   activeTasksCount: number;
   onOpenWorkspace: () => void;
   onOpenMenu: () => void;
@@ -18,6 +19,7 @@ interface HomeHeaderProps {
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({ 
   currentWorkspaceName, 
+  currentWorkspaceColor,
   activeTasksCount, 
   onOpenWorkspace,
   onOpenMenu,
@@ -103,7 +105,10 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             className="flex items-center gap-1.5 p-1 pr-2.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 active:scale-90 transition-all"
             title="ওয়ার্কস্পেস পরিবর্তন"
           >
-            <div className="w-7 h-7 bg-gradient-to-tr from-amber-500 to-amber-400 text-black font-black text-[11px] rounded-full flex items-center justify-center shadow-sm">
+            <div 
+              className="w-7 h-7 text-white font-black text-[11px] rounded-full flex items-center justify-center shadow-sm"
+              style={{ backgroundColor: currentWorkspaceColor || '#f59e0b' }}
+            >
               {currentWorkspaceName?.substring(0, 1) || 'W'}
             </div>
             <span className="text-[11px] font-bold text-white/90 max-w-[70px] truncate hidden xs:inline">

@@ -217,12 +217,17 @@ export default function Sidebar({
                 className="flex items-center gap-3 cursor-pointer group"
                 title="ওয়ার্কস্পেস পরিবর্তন করুন"
               >
-                <div className="w-11 h-11 bg-gradient-to-tr from-[#FFB03A] to-[#FFC966] rounded-2xl flex items-center justify-center text-black font-black text-xl shadow-[0_4px_16px_rgba(255,176,58,0.35)] border border-amber-300/30 overflow-hidden group-hover:scale-105 transition-transform">
+                <div 
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md overflow-hidden group-hover:scale-105 transition-transform"
+                  style={{ backgroundColor: activeWorkspace?.color || '#FFB03A' }}
+                >
                   {activeWorkspace?.logoSvg ? (
                     <div 
-                      className="w-7 h-7 flex items-center justify-center overflow-hidden text-black"
+                      className="w-7 h-7 flex items-center justify-center overflow-hidden text-white"
                       dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeWorkspace.logoSvg) }}
                     />
+                  ) : activeWorkspace?.icon && activeWorkspace.icon.length <= 2 ? (
+                    <span className="text-xl">{activeWorkspace.icon}</span>
                   ) : (
                     activeWorkspace?.name?.charAt(0) || 'N'
                   )}

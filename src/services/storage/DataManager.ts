@@ -147,8 +147,8 @@ export const DataManager = {
     AppStore.reloadWorkspaces();
   },
 
-  async createWorkspace(name: string, logoSvg?: string, description?: string, icon?: string): Promise<Workspace> {
-    const ws = await WorkspaceService.createWorkspace(name, logoSvg, description, icon);
+  async createWorkspace(name: string, logoSvg?: string, description?: string, icon?: string, color?: string): Promise<Workspace> {
+    const ws = await WorkspaceService.createWorkspace(name, logoSvg, description, icon, color);
     notifySync({ type: 'SYNC_COMPLETE' });
     AppStore.reloadWorkspaces();
     return ws;
@@ -172,11 +172,28 @@ export const DataManager = {
     AppStore.reloadWorkspaces();
   },
 
+  async updateWorkspaceAppearance(id: string, updates: { logoSvg?: string; icon?: string; color?: string; description?: string }): Promise<void> {
+    await WorkspaceService.updateWorkspaceAppearance(id, updates);
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
+  },
+
   async deleteWorkspace(id: string): Promise<void> {
     await WorkspaceService.deleteWorkspace(id);
     this.invalidateNotesCache(`delete-workspace:${id}`);
     notifySync({ type: 'SYNC_COMPLETE' });
     AppStore.reloadWorkspaces();
+  },
+
+  async clearWorkspaceNotes(id: string): Promise<void> {
+    await WorkspaceService.clearWorkspaceNotes(id);
+    this.invalidateNotesCache(`clear-workspace:${id}`);
+    notifySync({ type: 'SYNC_COMPLETE' });
+    AppStore.reloadWorkspaces();
+  },
+
+  async exportWorkspaceAsJson(id: string): Promise<string> {
+    return WorkspaceService.exportWorkspaceAsJson(id);
   },
 
   async getNoteCountForWorkspaces(): Promise<Record<string, number>> {

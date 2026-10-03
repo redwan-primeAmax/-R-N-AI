@@ -6,10 +6,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, Sparkles, Send, Copy, Check, 
+import { ArrowLeft, Sparkles, Send, Copy, Check, 
   Trash2, ChevronDown, Paperclip, X
 } from 'lucide-react';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { DataManager, ChatMessage, Note, AISettings } from '../../services/storage/DataManager';
 import { handleGeminiSendMessage } from '../../services/ai/gemini/gemini';
 import { cn } from '../../utils/cn';
@@ -94,6 +95,27 @@ const ChatMessageItem: React.FC<{
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
   const isError = msg.text.toLowerCase().includes('error') || msg.text.toLowerCase().includes('failed');
 
+  const renderMessageContent = (text: string) => {
+    // Strip XML commands from visible output
+    const cleanText = text
+      .replace(/<create_page>[\s\S]*?<\/create_page>/gi, '')
+      .replace(/<update_page>[\s\S]*?<\/update_page>/gi, '')
+      .replace(/<replace_content>[\s\S]*?<\/replace_content>/gi, '')
+      .replace(/<create_task>[\s\S]*?<\/create_task>/gi, '')
+      .trim();
+
+    if (!cleanText && text.includes('<')) {
+      return <div className="italic text-white/30 text-xs font-bold">Executing command...</div>;
+    }
+
+    return (
+      <div 
+        className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-black/40 prose-pre:rounded-2xl prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0"
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(cleanText, { gfm: true, breaks: true }) as string) }} 
+      />
+    );
+  };
+
   return (
     <div
       className={cn(
@@ -132,12 +154,25 @@ const ChatMessageItem: React.FC<{
         </div>
 
         <div className={cn(
-          "text-[15px] leading-relaxed whitespace-pre-wrap font-medium",
-          msg.role === 'user' ? "text-[#ECEBE6]/90" : isError ? "text-red-400 cursor-pointer" : "text-[#ECEBE6]/90"
+          "text-[15px] leading-relaxed font-medium markdown-content",
+          msg.role === 'user' ? "text-[#ECEBE6]/90 whitespace-pre-wrap" : isError ? "text-red-400 cursor-pointer" : "text-[#ECEBE6]/90"
         )}
           onClick={isError ? () => setIsErrorExpanded(!isErrorExpanded) : undefined}
         >
-          {msg.text}
+          {msg.role === 'user' ? (
+            msg.text
+          ) : renderMessageContent(msg.text)}
+
+          {msg.attachedNotes && msg.attachedNotes.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-3">
+              {msg.attachedNotes.map(n => (
+                <div key={n.id} className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-lg text-[10px] text-white/40">
+                  <span>{n.emoji || '📝'}</span>
+                  <span className="truncate max-w-[100px]">{n.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
           
           {isError && isErrorExpanded && (
             <motion.div 

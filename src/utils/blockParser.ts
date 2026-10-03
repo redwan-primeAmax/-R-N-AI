@@ -121,7 +121,7 @@ export function cleanBlockHTML(html: string, blockType: string): string {
   const spans = Array.from(body.querySelectorAll('span'));
   spans.forEach(span => {
     const style = span.getAttribute('style') || '';
-    if (!style.includes('font-weight') && !style.includes('font-style') && !style.includes('text-decoration') && !style.includes('color')) {
+    if (!style.includes('font-weight') && !style.includes('font-style') && !style.includes('text-decoration') && !style.includes('color') && !style.includes('background-color')) {
       const parent = span.parentNode;
       if (parent) {
         const docFrag = doc.createDocumentFragment();

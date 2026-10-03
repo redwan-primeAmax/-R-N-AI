@@ -20,6 +20,13 @@ export interface WorkspaceStats {
   isLimitReached: boolean;
 }
 
+export interface WorkspaceAppearanceUpdates {
+  logoSvg?: string;
+  icon?: string;
+  color?: string;
+  description?: string;
+}
+
 class WorkspaceLogicController {
   private workspaceCache: Workspace[] | null = null;
   private activeWorkspaceIdCache: string | null = null;
@@ -55,7 +62,9 @@ class WorkspaceLogicController {
         id: DEFAULT_WORKSPACE_ID,
         name: DEFAULT_WORKSPACE_NAME,
         createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        color: '#3b82f6',
+        icon: 'briefcase'
       };
 
       await db.workspaces.put(defaultWorkspace);
@@ -67,7 +76,9 @@ class WorkspaceLogicController {
         id: DEFAULT_WORKSPACE_ID,
         name: DEFAULT_WORKSPACE_NAME,
         createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        color: '#3b82f6',
+        icon: 'briefcase'
       };
     }
   }
@@ -173,7 +184,7 @@ class WorkspaceLogicController {
       // Dispatch global event for active workspace change
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('workspace-notes-changed', {
-          detail: { activeWorkspaceId: targetId }
+          detail: { activeWorkspaceId: targetId, timestamp: Date.now() }
         }));
       }
     } catch (err) {
@@ -198,7 +209,8 @@ class WorkspaceLogicController {
     name: string,
     logoSvg?: string,
     description?: string,
-    icon?: string
+    icon?: string,
+    color?: string
   ): Promise<Workspace> {
     const cleanName = this.sanitizeName(name, 'New Workspace');
     const now = Date.now();
@@ -208,9 +220,10 @@ class WorkspaceLogicController {
       name: cleanName,
       createdAt: now,
       updatedAt: now,
-      logoSvg: logoSvg || undefined,
-      description: description || undefined,
-      icon: icon || undefined
+      logoSvg: logoSvg ? logoSvg.trim() : undefined,
+      description: description ? description.trim() : undefined,
+      icon: icon || 'folder',
+      color: color || '#3b82f6'
     };
 
     await db.workspaces.put(newWorkspace);
@@ -275,11 +288,46 @@ class WorkspaceLogicController {
   }
 
   /**
+   * Updates workspace appearance (icon, color, logoSvg, description)
+   */
+  public async updateWorkspaceAppearance(id: string, updates: WorkspaceAppearanceUpdates): Promise<void> {
+    const ws = await this.getWorkspaceById(id);
+    if (!ws) throw new Error(`Workspace ${id} not found`);
+
+    const updated: Workspace = {
+      ...ws,
+      updatedAt: Date.now()
+    };
+
+    if (updates.logoSvg !== undefined) {
+      updated.logoSvg = updates.logoSvg ? updates.logoSvg.trim() : undefined;
+    }
+    if (updates.icon !== undefined) {
+      updated.icon = updates.icon || undefined;
+    }
+    if (updates.color !== undefined) {
+      updated.color = updates.color || undefined;
+    }
+    if (updates.description !== undefined) {
+      updated.description = updates.description ? updates.description.trim() : undefined;
+    }
+
+    await db.workspaces.put(updated);
+    this.invalidateCache();
+    await this.notifyWorkspaceChanged('update-appearance', id);
+  }
+
+  /**
    * Safely deletes a workspace and cascades note removal
    */
   public async deleteWorkspace(id: string): Promise<void> {
     if (!id) {
       throw new Error('Workspace ID is required for deletion');
+    }
+
+    const allWorkspaces = await this.getWorkspaces(true);
+    if (allWorkspaces.length <= 1) {
+      throw new Error('Cannot delete the last remaining workspace. At least one workspace must exist.');
     }
 
     await db.transaction('rw', [db.workspaces, db.notes, db.note_versions, db.deleted_notes], async () => {
@@ -314,6 +362,28 @@ class WorkspaceLogicController {
   }
 
   /**
+   * Clears all notes within a workspace without deleting the workspace itself
+   */
+  public async clearWorkspaceNotes(id: string): Promise<void> {
+    if (!id) throw new Error('Workspace ID is required');
+
+    await db.transaction('rw', [db.notes, db.note_versions, db.deleted_notes], async () => {
+      const notesInWorkspace = await db.notes.where('workspaceId').equals(id).toArray();
+      const noteIds = notesInWorkspace.map(n => n.id);
+
+      if (noteIds.length > 0) {
+        await db.notes.bulkDelete(noteIds);
+        await db.note_versions.where('noteId').anyOf(noteIds).delete();
+
+        const tombstones = noteIds.map(nid => ({ id: nid, deletedAt: Date.now() }));
+        await db.deleted_notes.bulkPut(tombstones);
+      }
+    });
+
+    await this.notifyWorkspaceChanged('clear-notes', id);
+  }
+
+  /**
    * Gets note count breakdown for all workspaces
    */
   public async getNoteCountForWorkspaces(): Promise<Record<string, number>> {
@@ -323,7 +393,7 @@ class WorkspaceLogicController {
     await Promise.all(
       workspaces.map(async (ws) => {
         try {
-          const count = await db.notes.where('workspaceId').equals(ws.id).count();
+          const count = await db.notes.where('workspaceId').equals(ws.id).and(n => !n.isTrashed).count();
           counts[ws.id] = count;
         } catch {
           counts[ws.id] = 0;
@@ -373,7 +443,7 @@ class WorkspaceLogicController {
       favoriteNotes,
       lockedNotes,
       lastUpdated: maxUpdated,
-      isLimitReached: allNotesInWs.length >= DEFAULT_NOTE_LIMIT
+      isLimitReached: activeNotes >= DEFAULT_NOTE_LIMIT
     };
   }
 
@@ -385,7 +455,7 @@ class WorkspaceLogicController {
     maxLimit: number;
     isLimitReached: boolean;
   }> {
-    const count = await db.notes.where('workspaceId').equals(id).count();
+    const count = await db.notes.where('workspaceId').equals(id).and(n => !n.isTrashed).count();
     return {
       count,
       maxLimit,
@@ -403,7 +473,13 @@ class WorkspaceLogicController {
     }
 
     const targetName = this.sanitizeName(newName || `${sourceWs.name} (Copy)`);
-    const newWs = await this.createWorkspace(targetName, sourceWs.logoSvg, sourceWs.description, sourceWs.icon);
+    const newWs = await this.createWorkspace(
+      targetName,
+      sourceWs.logoSvg,
+      sourceWs.description,
+      sourceWs.icon,
+      sourceWs.color
+    );
 
     const sourceNotes = await db.notes.where('workspaceId').equals(id).and(n => !n.isTrashed).toArray();
 
@@ -431,6 +507,24 @@ class WorkspaceLogicController {
     this.invalidateCache();
     await this.notifyWorkspaceChanged('duplicate', newWs.id);
     return newWs;
+  }
+
+  /**
+   * Exports all notes of a workspace as a clean JSON backup
+   */
+  public async exportWorkspaceAsJson(id: string): Promise<string> {
+    const ws = await this.getWorkspaceById(id);
+    if (!ws) throw new Error(`Workspace ${id} not found`);
+
+    const notes = await db.notes.where('workspaceId').equals(id).toArray();
+    const payload = {
+      workspace: ws,
+      notes,
+      exportedAt: new Date().toISOString(),
+      appVersion: '2.0.0'
+    };
+
+    return JSON.stringify(payload, null, 2);
   }
 
   /**

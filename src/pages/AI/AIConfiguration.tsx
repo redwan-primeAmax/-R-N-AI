@@ -326,24 +326,24 @@ const AIConfigurationPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* System Prompt Field */}
-                <div className="space-y-3 p-6 bg-white/[0.02] rounded-[2rem] border border-white/5 group-hover:border-blue-500/20 transition-all">
+                {/* Managed System Prompt Display (Setting theke editable na, amora automatic provide kori) */}
+                <div className="space-y-3 p-6 bg-white/[0.02] rounded-[2rem] border border-white/5 transition-all">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><MessageSquare size={16} /></div>
                       <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Global Instruction Set (System Prompt)</label>
                     </div>
-                    <Info size={14} className="text-white/10 hover:text-white transition-colors cursor-help" />
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                      Built-in & Optimized
+                    </span>
                   </div>
-                  <textarea 
-                    value={draftSettings.systemPrompt || ''}
-                    onChange={(e) => updateDraft({ systemPrompt: e.target.value })}
-                    placeholder="নোট অ্যাসিস্ট্যান্ট এর বিহেভিয়ার সেট করুন..."
-                    className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm leading-relaxed focus:border-blue-500/50 focus:bg-blue-500/5 outline-none min-h-[120px] resize-none transition-all placeholder:text-white/5"
-                  />
+                  <div className="p-4 bg-black/40 border border-white/5 rounded-2xl text-xs text-white/60 leading-relaxed font-mono">
+                    <p className="font-semibold text-white/80 mb-1">✓ স্বয়ংক্রিয় সিস্টেম প্রম্পট সক্রিয়:</p>
+                    <p>নোট তৈরি/আপডেট কমান্ড, বাংলা ও ইংরেজি ভাষা সমর্থন, রিচ ব্লক সিনট্যাক্স (হেডিং, কালার, কলআউট, টাস্কলিস্ট, টেবিল) এবং অ্যাটাচড নোটস রিকগনিশন ইঞ্জিন স্বয়ংক্রিয়ভাবে সক্রিয় রয়েছে। ম্যানুয়াল কনফিগারেশনের প্রয়োজন নেই।</p>
+                  </div>
                   <div className="flex items-center gap-2 px-1">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full" />
-                    <p className="text-[10px] text-white/20 font-medium italic">এটি প্রতিটি এআই জেনারেশনের জন্য গাইডহোল্ড হিসেবে কাজ করবে।</p>
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <p className="text-[10px] text-white/40 font-medium">সিস্টেম প্রম্পট অ্যাপের কোর ইঞ্জিন দ্বারা নিয়ন্ত্রিত ও অপ্টিমাইজড।</p>
                   </div>
                 </div>
             </div>

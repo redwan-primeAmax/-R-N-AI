@@ -225,6 +225,7 @@ export default function HomePage() {
 
       <HomeHeader 
         currentWorkspaceName={currentWorkspace?.name}
+        currentWorkspaceColor={currentWorkspace?.color}
         activeTasksCount={activeTasksCount}
         onOpenWorkspace={() => navigate('/workspaces')}
         onOpenMenu={() => setShowSidebar(true)}
