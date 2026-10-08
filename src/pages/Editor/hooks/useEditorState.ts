@@ -336,7 +336,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     if (noteRef.current && noteRef.current.id !== noteId) {
       await savePreviousNoteIfNeeded(noteRef.current.id);
     }
-    const fetchedNote = await DataManager.getNoteById(noteId);
+    const fetchedNote = await DataManager.getNoteById(noteId, true);
 
     if (fetchedNote) {
       // ⚡ Defer raw backup — DON'T await, DON'T block render

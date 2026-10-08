@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { db } from '../DexieDB';
-import { ChatMessage, AITask, ContextSummary } from '../../../types';
+import { db } from '../storage/DexieDB';
+import { ChatMessage, AITask, ContextSummary } from '../../types';
 
 export const AIServiceStorage = {
   async getChatHistory(): Promise<ChatMessage[]> {
@@ -12,7 +12,7 @@ export const AIServiceStorage = {
   },
 
   async saveChatMessage(message: ChatMessage): Promise<void> {
-    await db.chat_history.add(message);
+    await db.chat_history.put(message);
   },
 
   async clearChatHistory(): Promise<void> {

@@ -217,8 +217,8 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       }
     };
 
-    const children = Array.from(body.children);
-    if (children.length === 0 && body.innerHTML) {
+    const nodes = Array.from(body.childNodes);
+    if (nodes.length === 0 && body.innerHTML) {
       addBlock('paragraph', body.innerHTML);
       return blocks;
     }
@@ -227,14 +227,26 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     const MAX_BLOCKS = 50000;
     let processedCount = 0;
 
-    for (const child of children) {
+    for (const node of nodes) {
       if (processedCount >= MAX_BLOCKS) {
         throw new Error(
-          `Note too large: ${children.length} blocks exceeds safe limit of ${MAX_BLOCKS}. ` +
+          `Note too large: ${nodes.length} blocks exceeds safe limit of ${MAX_BLOCKS}. ` +
           `Please split this note into smaller ones.`
         );
       }
       processedCount++;
+
+      // Handle Text Nodes between elements
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent?.trim();
+        if (text) {
+          addBlock('paragraph', node.textContent || '');
+        }
+        continue;
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      const child = node as Element;
 
       const tagName = child.tagName.toLowerCase();
       const dataType = child.getAttribute('data-type');
@@ -242,6 +254,20 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       if (idAttr === 'undefined') idAttr = undefined;
       const id = idAttr;
       const indent = getIndentFromElement(child);
+
+    if (tagName === 'section' || tagName === 'article' || tagName === 'main' || tagName === 'div' && !dataType && !child.className) {
+      // If it's a generic container, parse its children recursively or treat as paragraph if simple
+      if (child.children.length > 0) {
+        // We don't do full recursion here for performance, but we can treat it as a block of paragraphs
+        addBlock('paragraph', child.innerHTML, { id, indent });
+        continue;
+      }
+    }
+
+    if (tagName === 'aside' || tagName === 'details') {
+      addBlock('quote', child.innerHTML, { id, indent });
+      continue;
+    }
 
     if (child.classList.contains('toggle-list') || dataType === 'toggle') {
       const isExpanded = child.getAttribute('data-expanded') === 'true';
@@ -496,13 +522,13 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         html += `<div class="synced-block" data-type="synced" data-synced-id="${block.syncedBlockId || ''}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h1':
-        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h1-block" data-type="toggle_h1" data-expanded="${block.isExpanded !== false ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h2':
-        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h2-block" data-type="toggle_h2" data-expanded="${block.isExpanded !== false ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'toggle_h3':
-        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
+        html += `<div class="toggle-h3-block" data-type="toggle_h3" data-expanded="${block.isExpanded !== false ? 'true' : 'false'}" ${commonAttrs} style="margin-left: ${indent * 24}px">${block.content}</div>`;
         break;
       case 'database': {
         const dbJson = encodeURIComponent(JSON.stringify(block.databaseData || {}));
@@ -546,7 +572,7 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         html += `<hr ${commonAttrs} style="margin-left: ${indent * 24}px" />`;
         break;
       case 'toggle':
-        html += `<div class="toggle-list" data-type="toggle" ${commonAttrs} style="margin-left: ${indent * 24}px" data-expanded="${block.isExpanded ? 'true' : 'false'}">${block.content}</div>`;
+        html += `<div class="toggle-list" data-type="toggle" ${commonAttrs} style="margin-left: ${indent * 24}px" data-expanded="${block.isExpanded !== false ? 'true' : 'false'}">${block.content}</div>`;
         break;
       case 'code':
         html += `<pre ${commonAttrs} style="margin-left: ${indent * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;

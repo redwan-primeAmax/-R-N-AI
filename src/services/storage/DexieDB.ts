@@ -31,6 +31,7 @@ export class NotionCloneDexieDB extends Dexie {
   extension_projects!: Table<any, string>;
   bookmark_folders!: Table<BookmarkFolder, string>;
   deleted_notes!: Table<{ id: string; deletedAt: number }, string>;
+  note_embeddings!: Table<{ id: string; noteId: string; embedding: number[]; text: string; updatedAt: number }, string>;
 
   constructor() {
     super('NotionCloneDexie');
@@ -69,12 +70,24 @@ export class NotionCloneDexieDB extends Dexie {
       ...v5Stores
     };
 
+    const v7Stores = {
+      ...v6Stores,
+      note_embeddings: 'id, noteId, updatedAt'
+    };
+
+    const v8Stores = {
+      ...v7Stores,
+      notes: 'id, title, workspaceId, parentId, isTrashed, isFavorite, isPinned, isBookmarked, bookmarkFolderId, updatedAt, *aiTags, [workspaceId+isTrashed]'
+    };
+
     this.version(1).stores(v1Stores);
     this.version(2).stores(v2Stores);
     this.version(3).stores(v3Stores);
     this.version(4).stores(v4Stores);
     this.version(5).stores(v5Stores);
     this.version(6).stores(v6Stores);
+    this.version(7).stores(v7Stores);
+    this.version(8).stores(v8Stores);
   }
 }
 

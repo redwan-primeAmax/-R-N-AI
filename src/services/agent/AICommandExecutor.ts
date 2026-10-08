@@ -1,9 +1,31 @@
 import { DataManager } from '../storage/DataManager';
 import { Note } from '../../types/note';
-import { AITask } from '../../types/ai';
+import { AgentService } from './AgentService';
+
+const unescapeHTML = (str: string) => {
+  if (!str) return '';
+  return str
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+};
+
+const cleanAIContent = (content: string) => {
+  let cleaned = content.trim();
+  // Strip Markdown code block wrappers if AI included them
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```[a-z]*\n/i, '').replace(/\n```$/i, '').trim();
+  }
+  return unescapeHTML(cleaned);
+};
 
 export const executeAICommands = async (text: string) => {
-  if (!text) return;
+  if (!text) return [];
+
+  const results: any[] = [];
 
   const extractTag = (tag: string, source: string) => {
     const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'gi');
@@ -18,7 +40,7 @@ export const executeAICommands = async (text: string) => {
   const extractNestedTag = (tag: string, source: string) => {
     const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
     const match = regex.exec(source);
-    return match ? match[1].trim() : '';
+    return match ? cleanAIContent(match[1]) : '';
   };
 
   try {
@@ -49,7 +71,7 @@ export const executeAICommands = async (text: string) => {
         window.dispatchEvent(new CustomEvent('app-notification', { 
           detail: { message: `AI: নতুন পেজ তৈরি করা হয়েছে "${title}"`, type: 'success' } 
         }));
-        console.log(`[AICommandExecutor] Executed create_page for ID: ${id}`);
+        results.push({ type: 'create_page', status: 'success', id, title });
       }
     }
 
@@ -71,7 +93,7 @@ export const executeAICommands = async (text: string) => {
           window.dispatchEvent(new CustomEvent('app-notification', { 
             detail: { message: `AI: আপডেটেড পেজ "${existing.title}"`, type: 'success' } 
           }));
-          console.log(`[AICommandExecutor] Executed update_page for ID: ${id}`);
+          results.push({ type: 'update_page', status: 'success', id, title: existing.title });
         }
       }
     }
@@ -93,50 +115,70 @@ export const executeAICommands = async (text: string) => {
           window.dispatchEvent(new CustomEvent('app-notification', { 
             detail: { message: `AI: পেজ এডিট সম্পন্ন হয়েছে "${existing.title}"`, type: 'success' } 
           }));
-          console.log(`[AICommandExecutor] Executed replace_content for ID: ${id}`);
+          results.push({ type: 'replace_content', status: 'success', id, title: existing.title });
         }
       }
     }
 
-    // 4. Create Task Commands
-  const createTasks = extractTag('create_task', text);
-  for (const taskXml of createTasks) {
-    const title = extractNestedTag('title', taskXml) || 'New Task';
-    const description = extractNestedTag('description', taskXml) || '';
-    const rawId = extractNestedTag('id', taskXml);
-    
-    const id = rawId.replace(/[^a-z0-9-_]/gi, '_') || crypto.randomUUID();
-
-    const partsRaw = extractTag('part', taskXml);
-    const parts = partsRaw.map(p => ({
-      id: crypto.randomUUID(),
-      title: p,
-      status: 'pending' as const
-    }));
-
-    const existingTasks = await DataManager.getTasks();
-    const existing = existingTasks.find(t => t.id === id);
-    if (!existing) {
-      const newTask: AITask = {
-        id,
-        title,
-        description,
-        status: 'pending',
-        parts,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      await DataManager.saveTask(newTask);
-      window.dispatchEvent(new CustomEvent('app-notification', { 
-        detail: { message: `AI: নতুন টাস্ক তৈরি করা হয়েছে "${title}"`, type: 'success' } 
-      }));
-      console.log(`[AICommandExecutor] Executed create_task for ID: ${id}`);
+    // 4. Delete Page Commands
+    const deletePages = extractTag('delete_page', text);
+    for (const deleteXml of deletePages) {
+      const rawId = extractNestedTag('id', deleteXml);
+      const id = rawId.replace(/[^a-z0-9-_]/gi, '_');
+      if (id) {
+        const existing = await DataManager.getNoteById(id);
+        if (existing) {
+          await DataManager.deleteNote(id);
+          window.dispatchEvent(new CustomEvent('app-notification', { 
+            detail: { message: `AI: পেজ মুছে ফেলা হয়েছে (রিসাইকেল বিনে পাঠানো হয়েছে) "${existing.title}"`, type: 'info' } 
+          }));
+          results.push({ type: 'delete_page', status: 'success', id, title: existing.title });
+        }
+      }
     }
+
+    // 5. Search Workspace Command
+    const searches = extractTag('search_workspace', text);
+    for (const query of searches) {
+      const notes = await AgentService.searchWorkspace(query);
+      results.push({ 
+        type: 'search_results', 
+        query, 
+        notes: notes.slice(0, 10).map(n => ({ id: n.id, title: n.title, aiTags: n.aiTags })) 
+      });
+    }
+
+    // 6. List Notes Command
+    const lists = extractTag('list_notes', text);
+    for (const listXml of lists) {
+      const filter = extractNestedTag('filter', listXml) as any;
+      const value = parseInt(extractNestedTag('value', listXml) || '0');
+      const notes = await AgentService.listNotesByFilter(filter, value);
+      results.push({ 
+        type: 'list_results', 
+        filter, 
+        notes: notes.slice(0, 30).map(n => ({ id: n.id, title: n.title, updatedAt: n.updatedAt })) 
+      });
+    }
+
+    // 7. Suggest Tags Command
+    const suggestions = extractTag('suggest_tags', text);
+    for (const suggestXml of suggestions) {
+      const id = extractNestedTag('id', suggestXml);
+      const tags = extractTag('tag', suggestXml);
+      if (id && tags.length > 0) {
+        window.dispatchEvent(new CustomEvent('ai-tag-suggestions', { 
+          detail: { noteId: id, tags } 
+        }));
+        results.push({ type: 'suggest_tags', status: 'success', noteId: id, tags });
+      }
+    }
+  } catch (err) {
+    console.error('[AICommandExecutor] Failed to parse/execute AI tags:', err);
+    window.dispatchEvent(new CustomEvent('app-notification', { 
+      detail: { message: `AI: কমান্ড কার্যকর করতে সমস্যা হয়েছে।`, type: 'error' } 
+    }));
   }
-} catch (err) {
-  console.error('[AICommandExecutor] Failed to parse/execute AI tags:', err);
-  window.dispatchEvent(new CustomEvent('app-notification', { 
-    detail: { message: `AI: কমান্ড কার্যকর করতে সমস্যা হয়েছে।`, type: 'error' } 
-  }));
-}
+
+  return results;
 };

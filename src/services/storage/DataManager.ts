@@ -12,7 +12,7 @@ import { WorkspaceService } from './services/WorkspaceService';
 import { MediaService } from './services/MediaService';
 import { BackupService } from './services/BackupService';
 import { SettingsService, encryptText, decryptText } from './services/SettingsService';
-import { AIServiceStorage } from './services/AIServiceStorage';
+import { AIServiceStorage } from '../agent/AIServiceStorage';
 
 const AppStore = {
   reloadWorkspaces: () => {},

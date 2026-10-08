@@ -21,7 +21,10 @@ import {
   Globe,
   Flame,
   Plus,
-  Trash2
+  Trash2,
+  Sparkles,
+  Rocket,
+  Zap
 } from 'lucide-react';
 import { DataManager, AISettings } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
@@ -180,12 +183,12 @@ const AIConfigurationPage: React.FC = () => {
             <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Select Intelligence Core</h2>
             <div className="h-px flex-1 bg-white/5 mx-4" />
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            {['gemini', 'openrouter', 'fireworks'].map(p => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {['gemini', 'openrouter', 'fireworks', 'together'].map(p => (
               <button
                 key={p}
-                onClick={() => handleSelectProvider(p)}
-                className={`group relative flex flex-col items-center justify-center p-6 rounded-[2rem] border transition-all gap-4 overflow-hidden ${
+                onClick={() => handleSelectProvider(p as any)}
+                className={`group relative flex flex-col items-center justify-center p-5 rounded-[2rem] border transition-all gap-3 overflow-hidden ${
                   draftSettings.selectedProvider === p 
                     ? 'bg-blue-600/10 border-blue-500/50 shadow-[0_0_40px_rgba(59,130,246,0.1)] ring-1 ring-blue-500/20' 
                     : 'bg-white/[0.02] border-white/5 grayscale opacity-60 hover:opacity-100 hover:grayscale-0 hover:bg-white/[0.05]'
@@ -197,15 +200,17 @@ const AIConfigurationPage: React.FC = () => {
                     className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none"
                   />
                 )}
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-inner ${
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-inner ${
                   draftSettings.selectedProvider === p ? 'bg-blue-500/20 text-white' : 'bg-white/5 text-white/20'
                 }`}>
                    {p === 'gemini' ? (
                      <img src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.png" className="w-6 h-6 object-contain" alt="gemini" />
                    ) : p === 'openrouter' ? (
-                     <Globe size={24} />
+                     <Sparkles size={20} className="text-purple-400" />
+                   ) : p === 'fireworks' ? (
+                     <Rocket size={20} className="text-orange-400" />
                    ) : (
-                     <Flame size={24} />
+                     <Zap size={20} className="text-yellow-400" />
                    )}
                 </div>
                 <div className="text-center">
@@ -213,7 +218,7 @@ const AIConfigurationPage: React.FC = () => {
                     "text-[10px] font-black uppercase tracking-widest block transition-colors",
                     draftSettings.selectedProvider === p ? "text-blue-400" : "text-white/20"
                   )}>
-                    {p === 'gemini' ? 'Google Gemini' : p === 'openrouter' ? 'OpenRouter' : 'Fireworks AI'}
+                    {p === 'gemini' ? 'Gemini' : p === 'openrouter' ? 'OpenRouter' : p === 'fireworks' ? 'Fireworks' : 'Together'}
                   </span>
                 </div>
               </button>

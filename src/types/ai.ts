@@ -2,6 +2,7 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+  commandStatus?: 'executing' | 'executed';
   attachedNotes?: { id: string; title: string; emoji?: string; content?: string }[];
   debugInfo?: {
     fullPrompt: string;

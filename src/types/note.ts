@@ -54,6 +54,7 @@ export interface Note {
   lastSyncedAt?: number;
   lastOpenedAt?: number;
   tags?: string[];
+  aiTags?: string[];
   theme?: string;
   category?: string;
   wordCount?: number;

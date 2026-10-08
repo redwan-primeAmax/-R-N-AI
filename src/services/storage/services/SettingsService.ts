@@ -61,6 +61,44 @@ export async function getEncryptionKey(): Promise<CryptoKey> {
   return derivedKeyCache;
 }
 
+// Non-standard scrambler for extra protection
+function scramble(text: string): string {
+  if (!text) return '';
+  // 1. Bit shuffle (simple XOR and shift)
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(text);
+  const shuffled = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    // XOR with position and rotate bits
+    let b = bytes[i] ^ (i % 256);
+    b = ((b << 3) | (b >> 5)) & 0xFF; 
+    shuffled[i] = b;
+  }
+  
+  // 2. Map to a custom base64-like alphabet or just reverse and shift char codes
+  const base64 = uint8ArrayToBase64(shuffled);
+  return base64.split('').reverse().map(c => String.fromCharCode(c.charCodeAt(0) + 7)).join('');
+}
+
+function descramble(text: string): string {
+  if (!text) return '';
+  // 1. Reverse the char code shift and reverse
+  const base64 = text.split('').map(c => String.fromCharCode(c.charCodeAt(0) - 7)).reverse().join('');
+  const shuffled = base64ToUint8Array(base64);
+  
+  // 2. Unshuffle bits
+  const unshuffled = new Uint8Array(shuffled.length);
+  for (let i = 0; i < shuffled.length; i++) {
+    let b = shuffled[i];
+    // Reverse rotation: (b >> 3) | (b << 5)
+    b = ((b >> 3) | (b << 5)) & 0xFF;
+    b = b ^ (i % 256);
+    unshuffled[i] = b;
+  }
+  
+  return new TextDecoder().decode(unshuffled);
+}
+
 export async function encryptText(text: string): Promise<string> {
   if (!text) return '';
   try {
@@ -79,7 +117,8 @@ export async function encryptText(text: string): Promise<string> {
     combined.set(new Uint8Array(encrypted), iv.length);
 
     // Use chunked uint8ArrayToBase64 to prevent stack overflow on large text
-    return uint8ArrayToBase64(combined);
+    const base64 = uint8ArrayToBase64(combined);
+    return 'RDW1' + scramble(base64); // Custom header + scrambled content
   } catch (e) {
     console.error('SettingsService: Encryption failed:', e);
     return '';
@@ -89,16 +128,21 @@ export async function encryptText(text: string): Promise<string> {
 export async function decryptText(encoded: string): Promise<string> {
   if (!encoded) return '';
   try {
-    if (encoded.length < 28) return encoded;
+    let toDecrypt = encoded;
+    if (encoded.startsWith('RDW1')) {
+      toDecrypt = descramble(encoded.substring(4));
+    }
+
+    if (toDecrypt.length < 28) return toDecrypt;
 
     let combined: Uint8Array;
     try {
-      combined = base64ToUint8Array(encoded);
+      combined = base64ToUint8Array(toDecrypt);
     } catch {
-      return encoded; // Return original if not valid base64
+      return toDecrypt; // Return original if not valid base64
     }
 
-    if (combined.length < 28) return encoded;
+    if (combined.length < 28) return toDecrypt;
 
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);

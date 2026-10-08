@@ -199,11 +199,11 @@ const MemoizedBlockRow = React.memo(({
       {block.type === 'toggle' && (
         <button
           onClick={() => {
-            setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: !b.isExpanded } : b));
+            setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: b.isExpanded === false } : b));
           }}
           className={cn(
             "mt-1 flex-shrink-0 text-gray-400 hover:text-white transition-all transform",
-            block.isExpanded ? "rotate-90" : "rotate-0"
+            block.isExpanded !== false ? "rotate-90" : "rotate-0"
           )}
         >
           <ChevronRight size={18} />
@@ -295,11 +295,11 @@ const MemoizedBlockRow = React.memo(({
           <div className="flex items-center gap-2 group/toggle">
             <button
               onClick={() => {
-                setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: !b.isExpanded } : b));
+                setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: b.isExpanded === false } : b));
               }}
               className={cn(
                 "mt-0.5 flex-shrink-0 text-gray-400 hover:text-white transition-all transform",
-                block.isExpanded ? "rotate-90" : "rotate-0"
+                block.isExpanded !== false ? "rotate-90" : "rotate-0"
               )}
             >
               <ChevronRight size={18} />
@@ -671,7 +671,9 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
         }
 
         // Check if this block is a collapsed toggle or toggle heading
-        if (['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) && !block.isExpanded) {
+        // Use true as default for isExpanded if undefined
+        const isExpanded = block.isExpanded !== false; 
+        if (['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) && !isExpanded) {
           currentHiddenIndent = block.indent || 0;
         }
 

@@ -98,7 +98,9 @@ function addDevLog(type: "info" | "warn" | "error", msg: string) {
 
 async function startServer() {
   const app = express();
-  app.set("trust proxy", true);
+  // Set trust proxy to 1 (trust the first proxy, e.g. Cloud Run load balancer)
+  // to satisfy express-rate-limit validation and ensure correct IP detection.
+  app.set("trust proxy", 1);
 
   // Customized safe security headers (Bug 99)
   app.use((req, res, next) => {
@@ -133,52 +135,80 @@ async function startServer() {
     next();
   });
 
-  // Gemini Proxy Route
-  app.post("/api/ai/gemini", aiLimiter, async (req: express.Request, res: express.Response) => {
+  // Generic AI Provider Proxy (Supports Gemini, OpenRouter, Fireworks, etc.)
+  app.post("/api/ai/:provider", aiLimiter, async (req: express.Request, res: express.Response) => {
+    const { provider } = req.params;
     try {
-      const { model: clientModel, contents, generationConfig, systemInstruction, system_instruction, apiKey: clientApiKey } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
-      let model = clientModel || 'gemini-1.5-flash';
-      if (!model.startsWith('models/')) model = `models/${model}`;
+      const { model, contents, generationConfig, systemInstruction, apiKey: clientApiKey } = req.body;
+      
+      let apiUrl = '';
+      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      let body: any = {};
 
-      if (!apiKey) {
-        return res.status(500).json({ 
-          success: false, 
-          error: { message: "Server Gemini API Key is missing. Please confirm configuring your API settings in the app.", code: "SERVER_CONFIG_ERROR" } 
-        });
-      }
-
-      if (!contents || !Array.isArray(contents)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: { message: "Invalid request: missing or malformed 'contents'.", code: "INVALID_REQUEST" } 
-        });
-      }
-
-      // Bug 7: Pass API key securely in header instead of URL to prevent logs/history exposure
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model}:streamGenerateContent?alt=sse`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
+      if (provider === 'gemini') {
+        const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
+        if (!apiKey) throw new Error("Gemini API Key missing");
+        
+        let targetModel = model || 'gemini-flash-latest';
+        if (!targetModel.startsWith('models/')) targetModel = `models/${targetModel}`;
+        
+        apiUrl = `https://generativelanguage.googleapis.com/v1beta/${targetModel}:streamGenerateContent?alt=sse`;
+        headers['x-goog-api-key'] = apiKey;
+        body = {
           contents,
-          // Bug 8 & 33: Forward systemInstruction in proxy call
-          systemInstruction: systemInstruction || system_instruction,
+          systemInstruction,
           generationConfig: generationConfig || { temperature: 0.7, maxOutputTokens: 8192 }
-        })
+        };
+      } else if (provider === 'openrouter' || provider === 'fireworks' || provider === 'together') {
+        const apiKey = (provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : 
+                        provider === 'fireworks' ? process.env.FIREWORKS_API_KEY : 
+                        process.env.TOGETHER_API_KEY) || clientApiKey;
+        
+        if (!apiKey) throw new Error(`${provider} API Key missing`);
+
+        apiUrl = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' :
+                 provider === 'fireworks' ? 'https://api.fireworks.ai/inference/v1/chat/completions' :
+                 'https://api.together.xyz/v1/chat/completions';
+
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        if (provider === 'openrouter') {
+          headers['HTTP-Referer'] = 'https://redwan-notes.app';
+          headers['X-Title'] = 'Redwan Notes';
+        }
+
+        // Transform Gemini format to OpenAI format for these providers
+        const messages = [];
+        if (systemInstruction?.parts?.[0]?.text) {
+          messages.push({ role: 'system', content: systemInstruction.parts[0].text });
+        }
+        
+        contents.forEach((c: any) => {
+          messages.push({
+            role: c.role === 'model' ? 'assistant' : 'user',
+            content: c.parts[0].text
+          });
+        });
+
+        body = {
+          model: model,
+          messages,
+          stream: true,
+          temperature: generationConfig?.temperature || 0.7,
+          max_tokens: generationConfig?.maxOutputTokens || 4096
+        };
+      } else {
+        return res.status(400).json({ success: false, error: `Unsupported AI provider: ${provider}` });
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: { message: errorText || `Gemini proxy error status: ${response.status}`, code: "UPSTREAM_ERROR" } };
-        }
-        return res.status(response.status).json({ success: false, ...errorData });
+        const errorText = await response.text();
+        return res.status(response.status).json({ success: false, error: errorText });
       }
 
       res.setHeader('Content-Type', 'text/event-stream');
@@ -193,13 +223,12 @@ async function startServer() {
       }
       res.end();
     } catch (err: any) {
-      console.error("Gemini Proxy Route Error:", err);
-      res.status(500).json({ 
-        success: false, 
-        error: { message: err.message || "Internal server error", code: "INTERNAL_SERVER_ERROR" } 
-      });
+      console.error(`AI Proxy Error (${provider}):`, err);
+      res.status(500).json({ success: false, error: err.message });
     }
   });
+
+  // Gemini Proxy Route (Legacy / Compatibility)
 
   // Simple AI Chat Endpoint (non-streaming, used by extensions)
   app.post("/api/ai/chat", aiLimiter, async (req: express.Request, res: express.Response) => {

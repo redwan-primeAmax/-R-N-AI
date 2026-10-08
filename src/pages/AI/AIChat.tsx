@@ -7,13 +7,54 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Sparkles, Send, Copy, Check, 
-  Trash2, ChevronDown, Paperclip, X
+  Trash2, ChevronDown, Paperclip, X, Loader2, Plus
 } from 'lucide-react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { DataManager, ChatMessage, Note, AISettings } from '../../services/storage/DataManager';
-import { handleGeminiSendMessage } from '../../services/ai/gemini/gemini';
+import { handleAgenticSendMessage } from '../../services/agent/agentic';
 import { cn } from '../../utils/cn';
+
+const TagSuggestion: React.FC<{
+  noteId: string;
+  tags: string[];
+  onTagClick: (tag: string) => void;
+  addedTags: string[];
+}> = ({ tags, onTagClick, addedTags }) => {
+  return (
+    <div className="mt-4 flex flex-wrap gap-2 pt-3 border-t border-white/5">
+      <div className="w-full text-[10px] font-black uppercase tracking-widest text-[#9B9990] mb-1">
+        Suggested Tags:
+      </div>
+      {tags.map(tag => {
+        const isAdded = addedTags.includes(tag);
+        return (
+          <button
+            key={tag}
+            onClick={() => !isAdded && onTagClick(tag)}
+            disabled={isAdded}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border",
+              isAdded 
+                ? "bg-green-500/20 border-green-500/40 text-green-400 cursor-default" 
+                : "bg-[#D97757]/10 border-[#D97757]/30 text-[#D97757] hover:bg-[#D97757]/20 active:scale-95"
+            )}
+          >
+            {isAdded ? (
+              <span className="flex items-center gap-1">
+                <Check size={12} strokeWidth={3} /> {tag}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Plus size={12} strokeWidth={3} /> {tag}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 /**
  * ModelPicker Component
@@ -91,28 +132,134 @@ const ChatMessageItem: React.FC<{
   idx: number;
   onCopy: (idx: number, text: string) => void;
   copiedIdx: number | null;
-}> = ({ msg, idx, onCopy, copiedIdx }) => {
+  notes: Note[];
+  onAddTag: (noteId: string, tag: string) => void;
+}> = ({ msg, idx, onCopy, copiedIdx, notes, onAddTag }) => {
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
+  const [addedTags, setAddedTags] = useState<string[]>([]);
   const isError = msg.text.toLowerCase().includes('error') || msg.text.toLowerCase().includes('failed');
 
   const renderMessageContent = (text: string) => {
-    // Strip XML commands from visible output
-    const cleanText = text
-      .replace(/<create_page>[\s\S]*?<\/create_page>/gi, '')
-      .replace(/<update_page>[\s\S]*?<\/update_page>/gi, '')
-      .replace(/<replace_content>[\s\S]*?<\/replace_content>/gi, '')
-      .replace(/<create_task>[\s\S]*?<\/create_task>/gi, '')
+    // 0. Extract tag suggestions
+    const suggestTagsRegex = /<suggest_tags>([\s\S]*?)<\/suggest_tags>/i;
+    const suggestMatch = suggestTagsRegex.exec(text);
+    let suggestionData: { noteId: string; tags: string[] } | null = null;
+    
+    if (suggestMatch) {
+      const xml = suggestMatch[1];
+      const idMatch = /<id>([\s\S]*?)<\/id>/i.exec(xml);
+      const tags: string[] = [];
+      const tagRegex = /<tag>([\s\S]*?)<\/tag>/gi;
+      let tMatch;
+      while ((tMatch = tagRegex.exec(xml)) !== null) {
+        tags.push(tMatch[1].trim());
+      }
+      if (idMatch) {
+        suggestionData = { noteId: idMatch[1].trim(), tags };
+      }
+    }
+
+    // 1. Suppress completion indicators
+    let processedText = text.replace(/\[COMPLETION:\s*\d+%\]/gi, '').trim();
+
+    // 2. Transform note IDs to titles in the visible text
+    const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+    processedText = processedText.replace(uuidRegex, (id) => {
+      const note = notes.find(n => n.id === id);
+      return note ? `"${note.title || 'শিরোনামহীন'}"` : id;
+    });
+
+    // 3. Identify if there are commands (even if unclosed)
+    const hasCommand = /<(create_page|update_page|replace_content|suggest_tags|delete_page|search_workspace|list_notes|rag_query)/i.test(processedText);
+
+    // 4. Strip command blocks cleanly. 
+    const cleanText = processedText
+      .replace(/<(create_page|update_page|replace_content|suggest_tags|delete_page|search_workspace|list_notes|rag_query)>[\s\S]*?<\/\1>/gi, '')
+      .replace(/<(content|description|replacement|tags|query|filter|value)[\s\S]*?(<\/\1>|$)/gi, '')
+      .replace(/<(\/)?(create_page|update_page|replace_content|suggest_tags|delete_page|title|emoji|id|search|part|tag|search_workspace|list_notes|rag_query)[^>]*>/gi, '')
       .trim();
 
-    if (!cleanText && text.includes('<')) {
-      return <div className="italic text-white/30 text-xs font-bold">Executing command...</div>;
+    const isExecuting = msg.commandStatus === 'executing' || (idx === -1 && hasCommand);
+    const isExecuted = msg.commandStatus === 'executed';
+
+    if (!cleanText && hasCommand) {
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3 py-3 px-4 bg-[#D97757]/10 border border-[#D97757]/30 rounded-2xl w-fit">
+            {isExecuting ? (
+              <>
+                <Loader2 className="animate-spin text-[#D97757]" size={18} />
+                <span className="text-xs font-black uppercase tracking-widest text-[#D97757]">Processing...</span>
+              </>
+            ) : isExecuted ? (
+              <>
+                <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Check className="text-green-500" size={14} strokeWidth={4} />
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest text-green-500">Done</span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="animate-spin text-[#D97757]" size={18} />
+                <span className="text-xs font-black uppercase tracking-widest text-[#D97757]">Working...</span>
+              </>
+            )}
+          </div>
+          {suggestionData && (
+            <TagSuggestion 
+              noteId={suggestionData.noteId} 
+              tags={suggestionData.tags} 
+              addedTags={addedTags}
+              onTagClick={(tag) => {
+                setAddedTags(prev => [...prev, tag]);
+                onAddTag(suggestionData!.noteId, tag);
+              }}
+            />
+          )}
+        </div>
+      );
     }
 
     return (
-      <div 
-        className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-black/40 prose-pre:rounded-2xl prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(cleanText, { gfm: true, breaks: true }) as string) }} 
-      />
+      <div className="space-y-4">
+        {cleanText && (
+          <div 
+            className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-black/40 prose-pre:rounded-2xl prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(cleanText, { gfm: true, breaks: true }) as string) }} 
+          />
+        )}
+        {suggestionData && (
+          <TagSuggestion 
+            noteId={suggestionData.noteId} 
+            tags={suggestionData.tags} 
+            addedTags={addedTags}
+            onTagClick={(tag) => {
+              setAddedTags(prev => [...prev, tag]);
+              onAddTag(suggestionData!.noteId, tag);
+            }}
+          />
+        )}
+        {hasCommand && (msg.commandStatus || idx === -1) && (
+          <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+            {isExecuting ? (
+              <>
+                <Loader2 className="animate-spin text-[#D97757]/60" size={12} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#D97757]/60">Processing...</span>
+              </>
+            ) : isExecuted ? (
+              <>
+                <Check className="text-green-500/60" size={12} strokeWidth={4} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-green-500/60">Done</span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="animate-spin text-[#D97757]/60" size={12} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#D97757]/60">Working...</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -273,7 +420,7 @@ export default function AIChat() {
       return;
     }
 
-    await handleGeminiSendMessage(
+    await handleAgenticSendMessage(
       input,
       messages,
       {
@@ -332,6 +479,23 @@ export default function AIChat() {
     };
     await DataManager.saveAISettings(updated);
     setAiSettings(updated);
+  };
+
+  const handleAddTag = async (noteId: string, tag: string) => {
+    try {
+      const note = await DataManager.getNoteById(noteId);
+      if (note) {
+        const currentTags = note.tags || [];
+        if (!currentTags.includes(tag)) {
+          await DataManager.updateNote(noteId, { tags: [...currentTags, tag] });
+          window.dispatchEvent(new CustomEvent('app-notification', { 
+            detail: { message: `ট্যাগ যোগ করা হয়েছে: ${tag}`, type: 'success' } 
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to add tag:', err);
+    }
   };
 
   return (
@@ -489,6 +653,8 @@ export default function AIChat() {
               idx={idx}
               onCopy={handleCopy}
               copiedIdx={copiedIdx}
+              notes={notes}
+              onAddTag={handleAddTag}
             />
           ))
         )}
@@ -499,6 +665,8 @@ export default function AIChat() {
             idx={-1}
             onCopy={() => {}}
             copiedIdx={null}
+            notes={notes}
+            onAddTag={handleAddTag}
           />
         )}
 
@@ -513,7 +681,7 @@ export default function AIChat() {
                 <span className="w-1.5 h-1.5 bg-[#D97757] rounded-full animate-bounce [animation-delay:-0.15s]" />
                 <span className="w-1.5 h-1.5 bg-[#D97757] rounded-full animate-bounce" />
               </div>
-              Thinking...
+              {aiStatus === 'updating' ? 'Page making...' : 'Thinking...'}
             </div>
           </div>
         )}

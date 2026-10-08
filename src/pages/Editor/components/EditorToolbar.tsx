@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { 
-  Underline, Strikethrough, Code, 
+  Underline, Strikethrough, Highlighter, 
   Undo2, Redo2, Plus, 
   Link2, ArrowLeft, Palette, 
   Keyboard
@@ -301,7 +301,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                     isActive={editor.isActive('code')}
                     className="flex-shrink-0"
                   >
-                    <Code size={18} />
+                    <Highlighter size={18} />
                   </ToolbarButton>
 
                   <div className={cn("w-[1px] h-6 flex-shrink-0 mx-1", isLight ? "bg-gray-200" : "bg-white/10")} />

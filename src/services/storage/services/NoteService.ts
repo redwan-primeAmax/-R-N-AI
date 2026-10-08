@@ -9,6 +9,7 @@ import { WorkspaceService } from './WorkspaceService';
 import { MediaService } from './MediaService';
 import { SettingsService } from './SettingsService';
 import { HistoryManager } from '../HistoryManager';
+import { AgentService } from '../../agent/AgentService';
 
 let cachedNotes: Note[] | null = null;
 let cachedWorkspaceId: string | null = null;
@@ -41,16 +42,17 @@ export const NoteService = {
       .equals(currentWorkspaceId)
       .and(n => !n.isTrashed && !n.parentId && !n.bookmarkFolderId);
 
+    // Sort by updatedAt descending
     const paginatedNotes = await baseQuery
-      .reverse()
-      .offset(start)
-      .limit(pageSize)
-      .toArray();
+      .sortBy('updatedAt');
+    
+    const sortedNotes = paginatedNotes.reverse();
+    const slicedNotes = sortedNotes.slice(start, start + pageSize);
 
     const totalNotes = await baseQuery.count();
     
     return {
-      notes: paginatedNotes,
+      notes: slicedNotes,
       hasMore: start + pageSize < totalNotes
     };
   },
@@ -61,7 +63,8 @@ export const NoteService = {
   async getNoteById(id: string, recordHistory: boolean = false): Promise<Note | null> {
     const note = await db.notes.get(id);
     if (note && recordHistory) {
-      db.notes.update(id, { lastOpenedAt: Date.now() }).catch(() => {});
+      const now = Date.now();
+      db.notes.update(id, { lastOpenedAt: now, updatedAt: now }).catch(() => {});
       HistoryManager.addNoteToHistory({
         id: note.id,
         title: note.title || 'Untitled',
@@ -202,6 +205,9 @@ export const NoteService = {
 
       await db.notes.put(updatedNote);
       this.invalidateCache();
+
+      // Trigger background agent tasks
+      AgentService.onNoteSaved(updatedNote).catch(() => {});
 
       return updatedNote;
     });
