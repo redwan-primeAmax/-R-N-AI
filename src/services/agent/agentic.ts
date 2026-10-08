@@ -38,7 +38,13 @@ You MUST ONLY use these exact HTML structures within <content> tags. Do NOT inve
 7. **Divider**: <hr>
 8. **Code Block**: <pre><code class="language-javascript">// code here</code></pre>
 9. **Tables**: <table><tr><td>Cell</td></tr></table>
-10. **Toggles**: <div class="toggle-list" data-type="toggle" data-expanded="false">Summary Text</div>
+10. **Toggles**: 
+    - Summary/Title: <div class="toggle-list" data-type="toggle" data-expanded="false">Summary Text</div>
+    - To put content INSIDE a toggle: Add subsequent blocks (p, ul, etc.) with a higher \`data-indent\` than the toggle block. 
+    - Example:
+      <div class="toggle-list" data-type="toggle" data-expanded="true">My Toggle</div>
+      <p data-indent="1">This is inside the toggle</p>
+      <ul data-indent="1"><li>Also inside</li></ul>
 11. **Page Link**: <div class="page-link-block" data-type="page_link" data-subpageid="TARGET_PAGE_ID">Display Text</div>
 12. **Media**: <div class="media-block" data-type="media" data-url="URL" data-media-type="image"></div>
 

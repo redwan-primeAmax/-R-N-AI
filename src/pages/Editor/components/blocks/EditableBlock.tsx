@@ -120,6 +120,7 @@ export const EditableBlock = ({
   };
 
   const isHighlighted = editor?.activeBlockId === block.id;
+  const placeholder = block.type === 'toggle' ? "টগল লিস্ট" : (block.type.startsWith('toggle_h') ? "টগল হেডিং" : "");
 
   return (
     <div 
@@ -157,7 +158,7 @@ export const EditableBlock = ({
         block.type === 'callout' && "p-4 rounded-2xl border border-blue-500/10 leading-relaxed text-[15px] sm:text-base editor-callout break-words",
         block.type === 'todo' && block.checked && "line-through editor-todo-checked opacity-60"
       )}
-      data-placeholder=""
+      data-placeholder={placeholder}
     />
   );
 };

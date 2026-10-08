@@ -28,23 +28,29 @@ export const AgentService = {
     const settings = await DataManager.getAISettings();
     
     const prompt = `Analyze this note and provide 3-5 short, secret classification tags (AI TAGS) that will help me (the AI) find this note later. 
-    Examples: "meeting", "code", "personal", "finance", "draft", "project-x".
+    Use English for tags to maintain internal consistency.
+    Examples: "meeting", "code", "personal", "finance", "draft", "project-x", "todo", "report", "idea".
     Only output the tags inside <ai_tags><tag>tag1</tag><tag>tag2</tag></ai_tags> format. 
     Nothing else.
     
     Note Title: ${note.title}
-    Note Content: ${note.content.substring(0, 2000)}`;
+    Note Content: ${note.content.substring(0, 3000)}`;
 
     try {
       const response = await ai.sendMessage(prompt, {
         settings,
-        systemPrompt: "You are a background classifier. Output only the requested XML.",
+        systemPrompt: "You are a background classifier. Output only the requested XML. Use English tags.",
         history: []
       });
 
       const tags = this.extractTags(response);
       if (tags.length > 0) {
-        await db.notes.update(note.id, { aiTags: tags });
+        // Use a direct update to avoid triggering onNoteSaved again via NoteService
+        await db.notes.update(note.id, { 
+          aiTags: tags,
+          // Store a hash or timestamp to avoid re-tagging the same content
+          lastAiTaggedAt: Date.now() 
+        });
         console.log(`[AgentService] Generated AI tags for "${note.title}":`, tags);
       }
     } catch (e) {

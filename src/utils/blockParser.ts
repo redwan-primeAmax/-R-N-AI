@@ -399,7 +399,7 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       });
     } else if (tagName === 'pre') {
       const code = child.querySelector('code');
-      const text = code ? code.innerHTML : child.innerHTML;
+      const text = code ? code.textContent || '' : child.textContent || '';
       const lang = code?.getAttribute('class')?.replace('language-', '') || 'javascript';
       addBlock('code', text, { id, indent, language: lang });
     } else if (child.classList.contains('callout') || child.getAttribute('data-type') === 'callout') {
@@ -448,6 +448,20 @@ export function htmlToBlocks(html: string): EditorBlock[] {
       { id: crypto.randomUUID(), type: 'paragraph', content: html.substring(0, 5000) }
     ];
   }
+}
+
+function escapeHTML(str: string): string {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, (m) => {
+    switch (m) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return m;
+    }
+  });
 }
 
 // Convert Blocks back to HTML String
@@ -575,7 +589,7 @@ export function blocksToHtml(blocks: EditorBlock[]): string {
         html += `<div class="toggle-list" data-type="toggle" ${commonAttrs} style="margin-left: ${indent * 24}px" data-expanded="${block.isExpanded !== false ? 'true' : 'false'}">${block.content}</div>`;
         break;
       case 'code':
-        html += `<pre ${commonAttrs} style="margin-left: ${indent * 24}px"><code class="language-${block.language || 'javascript'}">${block.content}</code></pre>`;
+        html += `<pre ${commonAttrs} style="margin-left: ${indent * 24}px"><code class="language-${block.language || 'javascript'}">${escapeHTML(block.content)}</code></pre>`;
         break;
       case 'callout':
         html += `<div class="callout" data-type="callout" data-emoji="${block.emoji || '💡'}" ${commonAttrs}>${block.content}</div>`;

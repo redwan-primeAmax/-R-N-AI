@@ -29,6 +29,7 @@ import { tocBlock } from '../blocks-config/TocBlock';
 import { toggleHeadingOneBlock } from '../blocks-config/ToggleHeadingOneBlock';
 import { toggleHeadingTwoBlock } from '../blocks-config/ToggleHeadingTwoBlock';
 import { toggleHeadingThreeBlock } from '../blocks-config/ToggleHeadingThreeBlock';
+import { toggleListBlock } from '../blocks-config/ToggleListBlock';
 import { databaseBlockConfig } from '../blocks-config/DatabaseBlockConfig';
 
 import { Palette, Box } from 'lucide-react';
@@ -96,6 +97,7 @@ export const BlockMenu: React.FC<BlockMenuProps> = ({
     toggleHeadingOneBlock,
     toggleHeadingTwoBlock,
     toggleHeadingThreeBlock,
+    toggleListBlock,
     databaseBlockConfig
   ];
 

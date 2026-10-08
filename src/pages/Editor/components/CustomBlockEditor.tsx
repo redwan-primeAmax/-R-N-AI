@@ -196,7 +196,7 @@ const MemoizedBlockRow = React.memo(({
       })()}
 
       {/* Toggle Type Icon */}
-      {block.type === 'toggle' && (
+      {['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) && (
         <button
           onClick={() => {
             setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: b.isExpanded === false } : b));
@@ -290,37 +290,25 @@ const MemoizedBlockRow = React.memo(({
         <AudioGeneratorBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
       ) : block.type === 'toc' ? (
         <TocBlockRenderer blocks={blocks} />
-      ) : ['toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) ? (
-        <div className="flex-1 flex flex-col bg-transparent text-left">
-          <div className="flex items-center gap-2 group/toggle">
-            <button
-              onClick={() => {
-                setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: b.isExpanded === false } : b));
-              }}
-              className={cn(
-                "mt-0.5 flex-shrink-0 text-gray-400 hover:text-white transition-all transform",
-                block.isExpanded !== false ? "rotate-90" : "rotate-0"
-              )}
-            >
-              <ChevronRight size={18} />
-            </button>
-            <div className={cn(
-              "flex-1",
-              block.type === 'toggle_h1' ? "text-xl font-black text-white" : "",
-              block.type === 'toggle_h2' ? "text-lg font-bold text-white/90" : "",
-              block.type === 'toggle_h3' ? "text-base font-bold text-white/80" : ""
-            )}>
-              <EditableBlock
-                block={block}
-                idx={idx}
-                isReadOnly={isReadOnly}
-                blockRefs={blockRefs}
-                handleKeyDown={handleKeyDown}
-                setFocusedId={setFocusedId}
-                editor={editor}
-                handleBlockChange={handleBlockChange}
-              />
-            </div>
+      ) : ['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) ? (
+        <div className="flex-1 flex flex-col bg-transparent text-left min-w-0">
+          <div className={cn(
+            "flex-1",
+            block.type === 'toggle_h1' ? "text-xl font-black text-white" : "",
+            block.type === 'toggle_h2' ? "text-lg font-bold text-white/90" : "",
+            block.type === 'toggle_h3' ? "text-base font-bold text-white/80" : "",
+            block.type === 'toggle' ? "text-base text-white/70" : ""
+          )}>
+            <EditableBlock
+              block={block}
+              idx={idx}
+              isReadOnly={isReadOnly}
+              blockRefs={blockRefs}
+              handleKeyDown={handleKeyDown}
+              setFocusedId={setFocusedId}
+              editor={editor}
+              handleBlockChange={handleBlockChange}
+            />
           </div>
         </div>
       ) : block.type === 'database' ? (
@@ -494,7 +482,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
       divAfter.appendChild(afterHtml);
       const after = divAfter.innerHTML;
 
-      const isListType = block.type === 'todo' || block.type === 'bullet' || block.type === 'ordered';
+      const isListType = block.type === 'todo' || block.type === 'bullet' || block.type === 'ordered' || block.type === 'toggle' || block.type.startsWith('toggle_h');
       const cleanContent = target.textContent?.trim() || '';
 
       // Requirement 12: Enter twice on empty list -> Revert to paragraph

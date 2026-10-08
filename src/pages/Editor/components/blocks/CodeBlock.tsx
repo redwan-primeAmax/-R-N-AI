@@ -14,6 +14,10 @@ import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-markup';
 import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-yaml';
+import 'prismjs/components/prism-markdown';
 import { EditorBlock } from '../../../../utils/blockParser';
 import { cn } from '../../../../utils/cn';
 // @ts-ignore
@@ -38,17 +42,13 @@ export const CodeBlock = ({
 }: CodeBlockProps) => {
   const [showPicker, setShowPicker] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [localCode, setLocalCode] = useState(() => {
-    const temp = document.createElement('div');
-    temp.innerHTML = block.content || '';
-    return temp.textContent || temp.innerText || block.content || '';
-  });
+  const [localCode, setLocalCode] = useState(block.content || '');
 
   const languagesList = React.useMemo(() => {
     try {
       return languagesText.split('\n').map((l: string) => l.trim()).filter(Boolean);
     } catch (e) {
-      return ['JavaScript', 'TypeScript', 'CSS', 'HTML', 'Python', 'JSON'];
+      return ['JavaScript', 'TypeScript', 'CSS', 'HTML', 'Python', 'JSON', 'Bash', 'SQL', 'YAML', 'Markdown'];
     }
   }, []);
 
@@ -61,16 +61,15 @@ export const CodeBlock = ({
     try {
       return Prism.highlight(codeText, grammar, normalizedLang);
     } catch (e) {
-      return DOMPurify.sanitize(codeText);
+      return codeText.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m] || m));
     }
   };
 
   useEffect(() => {
-    const temp = document.createElement('div');
-    temp.innerHTML = block.content || '';
-    const text = temp.textContent || temp.innerText || block.content || '';
-    if (text !== localCode) {
-      setLocalCode(text);
+    if (block.content !== localCode) {
+      setLocalCode(block.content || '');
     }
   }, [block.content]);
 
@@ -78,6 +77,26 @@ export const CodeBlock = ({
     const newCode = e.target.value;
     setLocalCode(newCode);
     handleBlockChange(block.id, newCode, true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = e.currentTarget.selectionStart;
+      const end = e.currentTarget.selectionEnd;
+      const value = e.currentTarget.value;
+      
+      const newValue = value.substring(0, start) + '  ' + value.substring(end);
+      setLocalCode(newValue);
+      handleBlockChange(block.id, newValue, true);
+      
+      // Reset cursor position after state update
+      setTimeout(() => {
+        if (e.currentTarget) {
+          e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2;
+        }
+      }, 0);
+    }
   };
 
   const handleSelectLanguage = (lang: string) => {
@@ -96,6 +115,8 @@ export const CodeBlock = ({
   };
 
   const highlightedHTML = getHighlightedCode(localCode, currentLangKey);
+
+  const sharedStyles = "font-mono text-[13px] leading-relaxed p-0 m-0 w-full whitespace-pre-wrap break-words border-none outline-none focus:outline-none ring-0 focus:ring-0";
 
   return (
     <div className="flex-1 border border-white/10 rounded-2xl overflow-hidden bg-[#0d0d0f] shadow-2xl text-left antialiased ring-1 ring-white/5 relative group/code">
@@ -144,24 +165,24 @@ export const CodeBlock = ({
       )}
 
       {/* Code Editor & Syntax Highlight Display */}
-      <div className="relative p-4 font-mono text-[13px] leading-relaxed min-h-[140px] overflow-x-auto">
+      <div className="relative p-5">
         {isReadOnly ? (
-          <pre className="m-0 p-0 whitespace-pre-wrap break-words text-slate-200">
+          <pre className={cn(sharedStyles, "text-slate-200 min-h-[1.5em]")}>
             <code 
               className={`language-${currentLangKey}`}
               dangerouslySetInnerHTML={{ __html: highlightedHTML }} 
             />
           </pre>
         ) : (
-          <div className="relative min-h-[120px]">
+          <div className="relative min-h-[1.5em]">
             {/* Syntax Highlight Preview Overlay behind transparent textarea */}
             <pre 
               aria-hidden="true"
-              className="absolute inset-0 m-0 p-0 pointer-events-none whitespace-pre-wrap break-words text-slate-200 select-none overflow-hidden"
+              className={cn(sharedStyles, "absolute inset-0 pointer-events-none text-slate-200 select-none overflow-hidden")}
             >
               <code 
                 className={`language-${currentLangKey}`}
-                dangerouslySetInnerHTML={{ __html: highlightedHTML + '<br/>' }} 
+                dangerouslySetInnerHTML={{ __html: highlightedHTML + '\n' }} 
               />
             </pre>
 
@@ -169,6 +190,7 @@ export const CodeBlock = ({
             <textarea
               value={localCode}
               onChange={handleCodeChange}
+              onKeyDown={handleKeyDown}
               onFocus={() => {
                 setFocusedId(block.id);
                 if (editor?.setActiveBlockId) editor.setActiveBlockId(block.id);
@@ -178,8 +200,9 @@ export const CodeBlock = ({
                 if (editor?.setActiveBlockId) editor.setActiveBlockId(null);
               }}
               placeholder="// Paste or write code here..."
-              className="w-full h-full min-h-[120px] bg-transparent text-transparent caret-white p-0 font-mono text-[13px] leading-relaxed border-none outline-none focus:outline-none resize-y relative z-10 whitespace-pre-wrap break-words selection:bg-blue-500/30"
+              className={cn(sharedStyles, "bg-transparent text-transparent caret-white relative z-10 resize-none selection:bg-blue-500/30 overflow-hidden block")}
               spellCheck={false}
+              rows={localCode.split('\n').length || 1}
             />
           </div>
         )}
