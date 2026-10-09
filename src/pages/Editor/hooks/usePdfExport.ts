@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { Note } from '../../../services/storage/DataManager';
 
 interface UsePdfExportParams {

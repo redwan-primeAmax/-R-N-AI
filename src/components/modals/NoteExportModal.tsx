@@ -5,7 +5,7 @@ import { FileText, FileDown, Archive, Image as ImageIcon, CheckCircle2, Loader2,
 import { Note } from '../../services/storage/DataManager';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 
 interface NoteExportModalProps {
   isOpen: boolean;
