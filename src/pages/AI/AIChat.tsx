@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Sparkles, Send, Copy, Check, 
-  Trash2, ChevronDown, Paperclip, X, Loader2, Plus
+  Trash2, ChevronDown, Paperclip, X, Loader2, Plus, Settings
 } from 'lucide-react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -134,7 +134,8 @@ const ChatMessageItem: React.FC<{
   copiedIdx: number | null;
   notes: Note[];
   onAddTag: (noteId: string, tag: string) => void;
-}> = ({ msg, idx, onCopy, copiedIdx, notes, onAddTag }) => {
+  onOpenSettings?: () => void;
+}> = ({ msg, idx, onCopy, copiedIdx, notes, onAddTag, onOpenSettings }) => {
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
   const [addedTags, setAddedTags] = useState<string[]>([]);
   const isError = msg.text.toLowerCase().includes('error') || msg.text.toLowerCase().includes('failed');
@@ -318,6 +319,21 @@ const ChatMessageItem: React.FC<{
                   <span className="truncate max-w-[100px]">{n.title}</span>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {isError && (
+            <div className="pt-2 flex flex-wrap items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenSettings?.();
+                }}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95"
+              >
+                <Settings size={14} />
+                <span>AI Settings খুলুন (API Key কনফিগার করুন)</span>
+              </button>
             </div>
           )}
           
@@ -606,6 +622,14 @@ export default function AIChat() {
 
         <div className="flex items-center gap-1">
           <button
+            onClick={() => navigate('/ai/settings')}
+            className="p-2 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors text-xs font-bold flex items-center gap-1.5"
+            title="AI Settings"
+          >
+            <Settings size={16} />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+          <button
             onClick={handleClearChat}
             className="p-2 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors text-xs font-bold flex items-center gap-1.5"
           >
@@ -655,6 +679,7 @@ export default function AIChat() {
               copiedIdx={copiedIdx}
               notes={notes}
               onAddTag={handleAddTag}
+              onOpenSettings={() => navigate('/ai/settings')}
             />
           ))
         )}
@@ -667,6 +692,7 @@ export default function AIChat() {
             copiedIdx={null}
             notes={notes}
             onAddTag={handleAddTag}
+            onOpenSettings={() => navigate('/ai/settings')}
           />
         )}
 

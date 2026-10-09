@@ -251,7 +251,29 @@ const AIConfigurationPage: React.FC = () => {
                 <div className="space-y-6">
                   {/* API Key Input */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Access Secret Key</label>
+                    <div className="flex items-center justify-between px-2">
+                      <label className="text-[10px] font-black text-white/20 uppercase tracking-widest">Access Secret Key</label>
+                      {draftSettings.selectedProvider === 'gemini' && (
+                        <a 
+                          href="https://aistudio.google.com/app/apikey" 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline underline-offset-2 flex items-center gap-1"
+                        >
+                          বিনামূল্যে Gemini API Key নিন ↗
+                        </a>
+                      )}
+                      {draftSettings.selectedProvider === 'openrouter' && (
+                        <a 
+                          href="https://openrouter.ai/keys" 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="text-[10px] font-bold text-purple-400 hover:text-purple-300 underline underline-offset-2 flex items-center gap-1"
+                        >
+                          OpenRouter Key নিন ↗
+                        </a>
+                      )}
+                    </div>
                     <div className="relative group/input overflow-hidden rounded-[1.5rem] border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50 focus-within:bg-blue-500/5 pr-12">
                       <div className="flex items-center gap-3 px-5 py-4">
                         <Key size={16} className="text-white/20 group-focus-within/input:text-blue-400 transition-colors" />
@@ -269,6 +291,14 @@ const AIConfigurationPage: React.FC = () => {
                       >
                         {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
+                    </div>
+
+                    {/* GitHub Pages / Static hosting hint */}
+                    <div className="px-2 pt-1 flex items-start gap-2 text-[11px] text-white/40 leading-relaxed">
+                      <Info size={14} className="shrink-0 text-blue-400 mt-0.5" />
+                      <span>
+                        <strong className="text-white/70">GitHub Pages ব্যবহারকারীদের জন্য:</strong> GitHub Pages একটি স্ট্যাটিক সাইট (এখানে কোনো ব্যাকএন্ড সার্ভার থাকে না)। তাই AI ব্যবহার করতে এখানে আপনার নিজস্ব বিনামূল্যে পাওয়া Gemini বা OpenRouter API Key সেভ করুন।
+                      </span>
                     </div>
                   </div>
 

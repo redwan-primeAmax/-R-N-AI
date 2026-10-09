@@ -114,6 +114,75 @@ End every message with [COMPLETION: 100%].`;
 
 const aiResponseCache = new Map<string, string>();
 
+async function callDirectAI(
+  provider: string,
+  model: string,
+  contents: any[],
+  systemInstruction: string,
+  apiKey: string,
+  signal: AbortSignal
+): Promise<Response> {
+  if (provider === 'gemini') {
+    let targetModel = model || 'gemini-1.5-flash';
+    if (targetModel === 'gemini-flash-latest') targetModel = 'gemini-1.5-flash';
+    if (!targetModel.startsWith('models/')) targetModel = `models/${targetModel}`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/${targetModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
+
+    return await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal,
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+      })
+    });
+  } else if (provider === 'openrouter' || provider === 'fireworks' || provider === 'together') {
+    const url = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' :
+                provider === 'fireworks' ? 'https://api.fireworks.ai/inference/v1/chat/completions' :
+                'https://api.together.xyz/v1/chat/completions';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    };
+    if (provider === 'openrouter') {
+      headers['HTTP-Referer'] = typeof window !== 'undefined' ? window.location.origin : 'https://diamond-road-notes.web.app';
+      headers['X-Title'] = 'Diamond Road Notes';
+    }
+
+    const messages: any[] = [];
+    if (systemInstruction) {
+      messages.push({ role: 'system', content: systemInstruction });
+    }
+    contents.forEach((c: any) => {
+      messages.push({
+        role: c.role === 'model' ? 'assistant' : 'user',
+        content: c.parts?.[0]?.text || ''
+      });
+    });
+
+    return await fetch(url, {
+      method: 'POST',
+      headers,
+      signal,
+      body: JSON.stringify({
+        model: model || (provider === 'openrouter' ? 'openai/gpt-4o-mini' : undefined),
+        messages,
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 4096
+      })
+    });
+  }
+
+  throw new Error(`সাপোর্ট না করা AI প্রোভাইডার: ${provider}`);
+}
+
 export class AgenticAIService extends AIService {
   name = 'agentic';
 
@@ -121,7 +190,7 @@ export class AgenticAIService extends AIService {
     const { settings, onToken, systemPrompt, history = [], attachedNotes = [] } = options;
     const finalSystemPrompt = systemPrompt || AGENTIC_SYSTEM_PROMPT;
     const provider = settings.selectedProvider;
-    const model = settings.selectedModels[provider] || (provider === 'gemini' ? 'gemini-flash-latest' : '');
+    const model = settings.selectedModels[provider] || (provider === 'gemini' ? 'gemini-1.5-flash' : '');
     const userApiKey = settings.apiKeys[provider];
 
     const cacheKey = `${provider}:${model}:${prompt}:${history.length}:${attachedNotes.length}`;
@@ -155,27 +224,81 @@ export class AgenticAIService extends AIService {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
+    const isStaticHost = typeof window !== 'undefined' && (
+      window.location.hostname.endsWith('github.io') ||
+      window.location.hostname.endsWith('pages.dev')
+    );
+
+    const effectiveApiKey = userApiKey || (
+      provider === 'gemini' 
+        ? ((import.meta.env.VITE_GEMINI_API_KEY as string) || '') 
+        : provider === 'openrouter' 
+          ? ((import.meta.env.VITE_OPENROUTER_API_KEY as string) || '') 
+          : ''
+    );
+
     try {
-      let response;
-      const apiPath = `/api/ai/${provider}`;
-      
-      // Always route through server proxy for security and reliability
-      response = await fetch(apiPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model,
-          contents,
-          systemInstruction: { parts: [{ text: finalSystemPrompt }] },
-          generationConfig: { temperature: 0.7, maxOutputTokens: 16384 },
-          apiKey: userApiKey // Safely forward key to proxy
-        })
-      });
+      let response: Response;
+
+      // GitHub Pages / Static Hosting doesn't have a backend server (returns 405 on POST)
+      if (isStaticHost) {
+        if (!effectiveApiKey) {
+          throw new Error(
+            "GitHub Pages একটি স্ট্যাটিক সাইট হওয়ায় কোনো ব্যাকএন্ড সার্ভার নেই। সরাসরি AI ব্যবহারের জন্য সেটিংস (AI Settings) এ গিয়ে আপনার Gemini বা OpenRouter API Key দিন।"
+          );
+        }
+        response = await callDirectAI(provider, model, contents, finalSystemPrompt, effectiveApiKey, controller.signal);
+      } else {
+        // Fullstack mode: try proxy route first
+        try {
+          const apiPath = `/api/ai/${provider}`;
+          response = await fetch(apiPath, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model,
+              contents,
+              systemInstruction: { parts: [{ text: finalSystemPrompt }] },
+              generationConfig: { temperature: 0.7, maxOutputTokens: 16384 },
+              apiKey: effectiveApiKey
+            })
+          });
+
+          // Handle 405 (Method Not Allowed) or 404 (Not Found) from static servers
+          if (response.status === 405 || response.status === 404) {
+            if (effectiveApiKey) {
+              response = await callDirectAI(provider, model, contents, finalSystemPrompt, effectiveApiKey, controller.signal);
+            } else {
+              throw new Error(
+                `সার্ভার প্রক্সি পাওয়া যায়নি (HTTP ${response.status})। সরাসরি ব্রাউজার থেকে AI চালাতে AI Settings এ গিয়ে আপনার API Key দিন।`
+              );
+            }
+          }
+        } catch (proxyErr: any) {
+          if (proxyErr.name === 'AbortError') throw proxyErr;
+          if (effectiveApiKey) {
+            response = await callDirectAI(provider, model, contents, finalSystemPrompt, effectiveApiKey, controller.signal);
+          } else {
+            throw proxyErr;
+          }
+        }
+      }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `AI Error (Status: ${response.status})`);
+        let errorMsg = `AI Error (Status: ${response.status})`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error?.message) {
+            errorMsg = errorData.error.message;
+          } else if (typeof errorData === 'string') {
+            errorMsg = errorData;
+          }
+        } catch {
+          const errorText = await response.text().catch(() => '');
+          if (errorText) errorMsg = errorText.slice(0, 200);
+        }
+        throw new Error(errorMsg);
       }
 
       const reader = response.body?.getReader();
