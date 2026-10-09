@@ -47,6 +47,7 @@ export default function HomePage() {
 
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const pageRef = useRef(0);
   const PAGE_SIZE = 12;
 
   // Scroll position listener for ScrollToTop button
@@ -73,6 +74,7 @@ export default function HomePage() {
   const loadData = useCallback(async (isInitial = true) => {
     if (isInitial) {
       setIsLoading(true);
+      pageRef.current = 0;
       setPage(0);
     }
     
@@ -80,14 +82,15 @@ export default function HomePage() {
       const activeWsId = await DataManager.getActiveWorkspaceId();
       setCurrentWorkspaceId(activeWsId);
       
-      const currentPage = isInitial ? 0 : page + 1;
-      const { notes: fetchedNotes, hasMore: moreAvailable } = await DataManager.getNotesPaginated(currentPage, PAGE_SIZE);
+      const targetPage = isInitial ? 0 : pageRef.current + 1;
+      const { notes: fetchedNotes, hasMore: moreAvailable } = await DataManager.getNotesPaginated(targetPage, PAGE_SIZE);
       
       if (isInitial) {
         setNotes(fetchedNotes);
       } else {
         setNotes(prev => [...prev, ...fetchedNotes]);
-        setPage(currentPage);
+        pageRef.current = targetPage;
+        setPage(targetPage);
       }
       
       setHasMore(moreAvailable);
@@ -103,7 +106,7 @@ export default function HomePage() {
     } finally {
       if (isInitial) setIsLoading(false);
     }
-  }, [page]);
+  }, []);
 
   // Performance-optimised Intersection Observer to dynamically stream note cards only as needed
   useEffect(() => {
@@ -127,10 +130,6 @@ export default function HomePage() {
       }
     };
   }, [hasMore, isLoading, loadData]);
-
-  useEffect(() => {
-    loadData(true);
-  }, []); // Only once on mount
 
   useEffect(() => {
     const unsub = operationRunner.subscribe(() => {
@@ -177,13 +176,17 @@ export default function HomePage() {
     }
   };
 
-  const handleNoteClick = (id: string) => {
+  const handleNoteClick = useCallback((id: string) => {
     if (isSelectionMode) {
       setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     } else {
       navigate(`/editor/${id}`, { state: { fromOutside: true } });
     }
-  };
+  }, [isSelectionMode, navigate]);
+
+  const handleNoteMoreClick = useCallback((note: Note) => {
+    setSelectedNoteForMenu(note);
+  }, []);
 
   const handleCopyNote = async (note: Note) => {
     const newNote = { 
@@ -295,7 +298,7 @@ export default function HomePage() {
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedIds.includes(note.id)}
                     onClick={handleNoteClick}
-                    onMoreClick={(n) => setSelectedNoteForMenu(n)}
+                    onMoreClick={handleNoteMoreClick}
                     mode={viewMode}
                   />
                 ))}

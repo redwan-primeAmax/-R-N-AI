@@ -114,8 +114,11 @@ export default function WorkspacePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-white font-sans antialiased flex flex-col selection:bg-blue-500/30">
-      {isLoading && <LoadingScreen />}
-      {isSwitching && <LoadingScreen />}
+      {isSwitching && (
+        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center">
+          <LoadingScreen />
+        </div>
+      )}
 
       {/* Modern Sticky Top App Bar */}
       <header className="sticky top-0 z-40 bg-[var(--bg-main)]/95 backdrop-blur-xl border-b border-white/[0.08] px-4 py-3 sm:px-8">
@@ -263,7 +266,11 @@ export default function WorkspacePage() {
         </AnimatePresence>
 
         {/* Workspaces Grid */}
-        {filteredWorkspaces.length === 0 ? (
+        {isLoading && workspaces.length === 0 ? (
+          <div className="py-20 flex items-center justify-center">
+            <LoadingScreen />
+          </div>
+        ) : filteredWorkspaces.length === 0 ? (
           <div className="py-16 text-center space-y-3 bg-white/[0.02] border border-white/5 rounded-[36px] p-8">
             <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mx-auto text-white/30">
               <Folder size={32} />
@@ -432,131 +439,129 @@ export default function WorkspacePage() {
       </main>
 
       {/* Workspace Settings / Action Sheet Modal */}
-      <AnimatePresence>
+      <Modal
+        isOpen={!!workspaceSettingsModal}
+        onClose={() => setWorkspaceSettingsModal(null)}
+        title={workspaceSettingsModal ? `ওয়ার্কস্পেস সেটিংস: ${workspaceSettingsModal.name}` : undefined}
+      >
         {workspaceSettingsModal && (
-          <Modal
-            isOpen={true}
-            onClose={() => setWorkspaceSettingsModal(null)}
-            title={`ওয়ার্কস্পেস সেটিংস: ${workspaceSettingsModal.name}`}
-          >
-            <div className="p-5 sm:p-6 space-y-2 text-white">
-              
-              {/* Option 1: Rename */}
-              <button
-                onClick={() => {
-                  const target = workspaceSettingsModal;
-                  setWorkspaceSettingsModal(null);
-                  setEditName(target.name);
-                  setEditingWorkspace(target);
-                }}
-                className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
-                  <Edit3 size={18} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white">নাম পরিবর্তন করুন (Rename)</div>
-                  <div className="text-[11px] text-white/40">ওয়ার্কস্পেসের টাইটেল এডিট করুন</div>
-                </div>
-              </button>
+          <div className="p-5 sm:p-6 space-y-2 text-white">
+            
+            {/* Option 1: Rename */}
+            <button
+              onClick={() => {
+                const target = workspaceSettingsModal;
+                setWorkspaceSettingsModal(null);
+                setEditName(target.name);
+                setEditingWorkspace(target);
+              }}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+                <Edit3 size={18} />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white">নাম পরিবর্তন করুন (Rename)</div>
+                <div className="text-[11px] text-white/40">ওয়ার্কস্পেসের টাইটেল এডিট করুন</div>
+              </div>
+            </button>
 
-              {/* Option 2: Appearance & Logo */}
-              <button
-                onClick={() => {
-                  const target = workspaceSettingsModal;
-                  setWorkspaceSettingsModal(null);
-                  setWorkspaceForLogo(target);
-                }}
-                className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
-                  <Palette size={18} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white">আইকন ও থিম কালার (Appearance)</div>
-                  <div className="text-[11px] text-white/40">লোগো, প্রিসেট আইকন, ইমোজি ও কালার কাস্টমাইজ করুন</div>
-                </div>
-              </button>
+            {/* Option 2: Appearance & Logo */}
+            <button
+              onClick={() => {
+                const target = workspaceSettingsModal;
+                setWorkspaceSettingsModal(null);
+                setWorkspaceForLogo(target);
+              }}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                <Palette size={18} />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white">আইকন ও থিম কালার (Appearance)</div>
+                <div className="text-[11px] text-white/40">লোগো, প্রিসেট আইকন, ইমোজি ও কালার কাস্টমাইজ করুন</div>
+              </div>
+            </button>
 
-              {/* Option 3: Duplicate */}
-              <button
-                onClick={() => {
-                  const targetId = workspaceSettingsModal.id;
-                  setWorkspaceSettingsModal(null);
-                  handleDuplicate(targetId);
-                }}
-                className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Copy size={18} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white">ডুপ্লিকেট করুন (Duplicate Workspace)</div>
-                  <div className="text-[11px] text-white/40">ওয়ার্কস্পেস ও এর সকল নোট ক্লোন করুন</div>
-                </div>
-              </button>
+            {/* Option 3: Duplicate */}
+            <button
+              onClick={() => {
+                const targetId = workspaceSettingsModal.id;
+                setWorkspaceSettingsModal(null);
+                handleDuplicate(targetId);
+              }}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+                <Copy size={18} />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white">ডুপ্লিকেট করুন (Duplicate Workspace)</div>
+                <div className="text-[11px] text-white/40">ওয়ার্কস্পেস ও এর সকল নোট ক্লোন করুন</div>
+              </div>
+            </button>
 
-              {/* Option 4: Export Backup */}
-              <button
-                onClick={() => {
-                  const targetId = workspaceSettingsModal.id;
-                  setWorkspaceSettingsModal(null);
-                  handleExportJson(targetId);
-                }}
-                className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center shrink-0">
-                  <Download size={18} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white">ব্যাকআপ এক্সপোর্ট (JSON Export)</div>
-                  <div className="text-[11px] text-white/40">এই ওয়ার্কস্পেসের সব নোট ডাউনলোড করুন</div>
-                </div>
-              </button>
+            {/* Option 4: Export Backup */}
+            <button
+              onClick={() => {
+                const targetId = workspaceSettingsModal.id;
+                setWorkspaceSettingsModal(null);
+                handleExportJson(targetId);
+              }}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center shrink-0">
+                <Download size={18} />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white">ব্যাকআপ এক্সপোর্ট (JSON Export)</div>
+                <div className="text-[11px] text-white/40">এই ওয়ার্কস্পেসের সব নোট ডাউনলোড করুন</div>
+              </div>
+            </button>
 
-              {/* Option 5: Clear All Notes */}
-              <button
-                onClick={() => {
-                  const targetId = workspaceSettingsModal.id;
-                  setWorkspaceSettingsModal(null);
-                  setWorkspaceToClear(targetId);
-                }}
-                className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-amber-500/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-black transition-colors">
-                  <Eraser size={18} />
+            {/* Option 5: Clear All Notes */}
+            <button
+              onClick={() => {
+                const targetId = workspaceSettingsModal.id;
+                setWorkspaceSettingsModal(null);
+                setWorkspaceToClear(targetId);
+              }}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-amber-500/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-black transition-colors">
+                <Eraser size={18} />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors">
+                  সব নোট মুছে ফেলুন (Clear Notes)
                 </div>
-                <div>
-                  <div className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors">
-                    সব নোট মুছে ফেলুন (Clear Notes)
-                  </div>
-                  <div className="text-[11px] text-white/40">ওয়ার্কস্পেস অক্ষত রেখে কেবল নোটগুলো খালি করুন</div>
-                </div>
-              </button>
+                <div className="text-[11px] text-white/40">ওয়ার্কস্পেস অক্ষত রেখে কেবল নোটগুলো খালি করুন</div>
+              </div>
+            </button>
 
-              {/* Option 6: Delete Workspace */}
-              <button
-                onClick={() => {
-                  const targetId = workspaceSettingsModal.id;
-                  setWorkspaceSettingsModal(null);
-                  setWorkspaceToDelete(targetId);
-                }}
-                className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-red-500/15 rounded-2xl transition-all text-left active:scale-98 cursor-pointer group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center shrink-0 group-hover:bg-red-500 group-hover:text-white transition-colors">
-                  <Trash2 size={18} />
+            {/* Option 6: Delete Workspace */}
+            <button
+              onClick={() => {
+                const targetId = workspaceSettingsModal.id;
+                setWorkspaceSettingsModal(null);
+                setWorkspaceToDelete(targetId);
+              }}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-red-500/15 rounded-2xl transition-all text-left active:scale-98 cursor-pointer group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center shrink-0 group-hover:bg-red-500 group-hover:text-white transition-colors">
+                <Trash2 size={18} />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white group-hover:text-red-400 transition-colors">
+                  ওয়ার্কস্পেস ডিলিট করুন (Delete Workspace)
                 </div>
-                <div>
-                  <div className="font-bold text-sm text-white group-hover:text-red-400 transition-colors">
-                    ওয়ার্কস্পেস ডিলিট করুন (Delete Workspace)
-                  </div>
-                  <div className="text-[11px] text-white/40">স্থায়ীভাবে ওয়ার্কস্পেসটি মুছে ফেলুন</div>
-                </div>
-              </button>
-            </div>
-          </Modal>
+                <div className="text-[11px] text-white/40">স্থায়ীভাবে ওয়ার্কস্পেসটি মুছে ফেলুন</div>
+              </div>
+            </button>
+          </div>
         )}
-      </AnimatePresence>
+      </Modal>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -594,33 +599,30 @@ export default function WorkspacePage() {
       />
 
       {/* Limit Notice Modal */}
-      <AnimatePresence>
-        {showLimitNoticeModal && (
-          <Modal
-            isOpen={true}
-            onClose={handleDismissLimitNotice}
-            title="ওয়ার্কস্পেস কোটা ও তথ্য"
+      <Modal
+        isOpen={showLimitNoticeModal}
+        onClose={handleDismissLimitNotice}
+        title="ওয়ার্কস্পেস কোটা ও তথ্য"
+      >
+        <div className="p-6 text-center space-y-5 text-white">
+          <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-3xl flex items-center justify-center mx-auto border border-amber-500/20">
+            <Rocket size={32} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold text-white">প্রতি ওয়ার্কস্পেসে ১০,০০০ নোট লিমিট</h3>
+            <p className="text-xs text-white/70 leading-relaxed max-w-sm mx-auto">
+              আপনার ব্রাউজার ও ডিভাইসের পারফরম্যান্স যেন সর্বদা সর্বোচ্চ দ্রুত ও মসৃণ থাকে, সেজন্য প্রতিটি ওয়ার্কস্পেসে সর্বোচ্চ ১০,০০০ নোট রাখা যায়। একাধিক প্রজেক্টের জন্য আপনি যত ইচ্ছা নতুন ওয়ার্কস্পেস তৈরি করে নিতে পারেন।
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDismissLimitNotice}
+            className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-black font-black rounded-2xl transition-all shadow-lg shadow-amber-400/25 cursor-pointer"
           >
-            <div className="p-6 text-center space-y-5 text-white">
-              <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-3xl flex items-center justify-center mx-auto border border-amber-500/20">
-                <Rocket size={32} />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-white">প্রতি ওয়ার্কস্পেসে ১০,০০০ নোট লিমিট</h3>
-                <p className="text-xs text-white/70 leading-relaxed max-w-sm mx-auto">
-                  আপনার ব্রাউজার ও ডিভাইসের পারফরম্যান্স যেন সর্বদা সর্বোচ্চ দ্রুত ও মসৃণ থাকে, সেজন্য প্রতিটি ওয়ার্কস্পেসে সর্বোচ্চ ১০,০০০ নোট রাখা যায়। একাধিক প্রজেক্টের জন্য আপনি যত ইচ্ছা নতুন ওয়ার্কস্পেস তৈরি করে নিতে পারেন।
-                </p>
-              </div>
-              <button
-                onClick={handleDismissLimitNotice}
-                className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-black font-black rounded-2xl transition-all shadow-lg shadow-amber-400/25 cursor-pointer"
-              >
-                বুঝেছি (OK)
-              </button>
-            </div>
-          </Modal>
-        )}
-      </AnimatePresence>
+            বুঝেছি (OK)
+          </button>
+        </div>
+      </Modal>
 
     </div>
   );

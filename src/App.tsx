@@ -80,14 +80,9 @@ function LoadingFallback() {
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={{ opacity: 1 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 1 }}
-      className="w-full"
-    >
+    <div className="w-full">
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -360,8 +355,7 @@ function AppContent() {
       <AndroidStatusBar />
       <AnimatePresence mode="sync">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
-        {isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning && (
-          <Modal key="limit-warning-modal" id="limit-warning-modal" isOpen={true} onClose={() => setHasDismissedLimitWarning(true)} title="একটি সতর্কতা (Note Limit Reached)">
+        <Modal key="limit-warning-modal" id="limit-warning-modal" isOpen={Boolean(isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning)} onClose={() => setHasDismissedLimitWarning(true)} title="একটি সতর্কতা (Note Limit Reached)">
             <div className="flex flex-col items-center text-center p-6 gap-6 relative">
               <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center animate-bounce">
                 <AlertCircle size={32} />
@@ -382,7 +376,6 @@ function AppContent() {
               </button>
             </div>
           </Modal>
-        )}
 
       {deferredPrompt && !showPopup && !hasDismissedInstallPrompt && !isStandalone && (
         <motion.div

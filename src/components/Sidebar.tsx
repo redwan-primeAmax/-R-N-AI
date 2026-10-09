@@ -45,25 +45,6 @@ export default function Sidebar({
   const [isNavigating, setIsNavigating] = useState(false);
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
-  const [iconsLoaded, setIconsLoaded] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setIconsLoaded(false);
-      const timer = setTimeout(() => {
-        setIconsLoaded(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    } else {
-      setIconsLoaded(false);
-    }
-  }, [isOpen]);
-
-  const SidebarIconPlaceholder = () => (
-    <div className="w-4 h-4 rounded-full border border-white/10 flex items-center justify-center animate-pulse bg-white/5">
-      <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-    </div>
-  );
 
   const handleNavigation = (path: string, options?: any) => {
     navigate(path, options);
@@ -185,18 +166,19 @@ export default function Sidebar({
     <>
       <AnimatePresence>
         {isOpen && (
-          <>
-            {/* Backdrop */}
           <motion.div
+            key="sidebar-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 z-[100]"
+            className="fixed inset-0 bg-black/70 z-[100] cursor-pointer"
           />
-
-          {/* Sidebar Content */}
+        )}
+        {isOpen && (
           <motion.div
+            key="sidebar-drawer"
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
@@ -382,7 +364,6 @@ export default function Sidebar({
             <div className="p-8 text-center">
             </div>
           </motion.div>
-          </>
         )}
       </AnimatePresence>
 
