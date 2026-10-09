@@ -69,12 +69,14 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   useEffect(() => {
     if (editor && !isSearchActive) {
-      if ((editor.commands as any)?.setSearchTerm) {
-         (editor.commands as any).setSearchTerm('');
+      if (searchQuery !== '') {
+        if ((editor.commands as any)?.setSearchTerm) {
+           (editor.commands as any).setSearchTerm('');
+        }
+        setSearchQuery('');
       }
-      setSearchQuery('');
     }
-  }, [isSearchActive, editor]);
+  }, [isSearchActive, editor, searchQuery]);
 
   const scrollToCurrentResult = () => {
     setTimeout(() => {

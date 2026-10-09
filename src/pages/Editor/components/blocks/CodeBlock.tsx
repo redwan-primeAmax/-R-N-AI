@@ -18,6 +18,15 @@ import 'prismjs/components/prism-bash';
 import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-cpp';
+import 'prismjs/components/prism-ruby';
+import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-swift';
+import 'prismjs/components/prism-kotlin';
+import 'prismjs/components/prism-php';
 import { EditorBlock } from '../../../../utils/blockParser';
 import { cn } from '../../../../utils/cn';
 // @ts-ignore
@@ -56,7 +65,15 @@ export const CodeBlock = ({
 
   // Highlight code using Prism
   const getHighlightedCode = (codeText: string, lang: string) => {
-    const normalizedLang = lang.toLowerCase() === 'html' ? 'markup' : lang.toLowerCase();
+    const langMap: Record<string, string> = {
+      'html': 'markup',
+      'xml': 'markup',
+      'svg': 'markup',
+      'c++': 'cpp',
+      'shell': 'bash',
+      'sh': 'bash'
+    };
+    const normalizedLang = langMap[lang.toLowerCase()] || lang.toLowerCase();
     const grammar = Prism.languages[normalizedLang] || Prism.languages.javascript || Prism.languages.clike;
     try {
       return Prism.highlight(codeText, grammar, normalizedLang);
@@ -167,7 +184,7 @@ export const CodeBlock = ({
       {/* Code Editor & Syntax Highlight Display */}
       <div className="relative p-5">
         {isReadOnly ? (
-          <pre className={cn(sharedStyles, "text-slate-200 min-h-[1.5em]")}>
+          <pre className={cn(sharedStyles, `language-${currentLangKey} min-h-[1.5em]`)}>
             <code 
               className={`language-${currentLangKey}`}
               dangerouslySetInnerHTML={{ __html: highlightedHTML }} 
@@ -178,7 +195,7 @@ export const CodeBlock = ({
             {/* Syntax Highlight Preview Overlay behind transparent textarea */}
             <pre 
               aria-hidden="true"
-              className={cn(sharedStyles, "absolute inset-0 pointer-events-none text-slate-200 select-none overflow-hidden")}
+              className={cn(sharedStyles, `language-${currentLangKey} absolute inset-0 pointer-events-none select-none overflow-hidden`)}
             >
               <code 
                 className={`language-${currentLangKey}`}

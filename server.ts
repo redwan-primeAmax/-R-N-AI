@@ -9,15 +9,12 @@ import path from "path";
 import fs from "fs";
 import { Readable } from "stream";
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import cors from 'cors';
 
 // Robust __dirname for both CJS and ESM without top-level await
 const __dirname_resolved = typeof __dirname !== 'undefined' 
   ? __dirname 
   : path.resolve();
-
-dotenv.config();
 
 // Rate limiter for AI routes
 const aiLimiter = rateLimit({

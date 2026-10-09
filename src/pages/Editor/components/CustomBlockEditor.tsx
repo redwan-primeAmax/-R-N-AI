@@ -18,6 +18,7 @@ import { SandboxBlock } from './blocks/SandboxBlock';
 import { CodeBlock } from './blocks/CodeBlock';
 import { TableBlock } from './blocks/TableBlock';
 import { EditableBlock } from './blocks/EditableBlock';
+import { ToggleBlock } from './blocks/ToggleBlock';
 import { AudioGeneratorBlock } from './blocks/AudioGeneratorBlock';
 import { BookmarkBlock } from './blocks/BookmarkBlock';
 import { DatabaseBlock } from './blocks/DatabaseBlock';
@@ -117,7 +118,8 @@ const MemoizedBlockRow = React.memo(({
   indentStyle,
   currentHiddenIndent,
   searchTerm,
-  noteId
+  noteId,
+  addBlockAfter
 }: any) => {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
@@ -125,6 +127,11 @@ const MemoizedBlockRow = React.memo(({
   if (currentHiddenIndent !== null && (block.indent || 0) > currentHiddenIndent) {
     return null;
   }
+
+  const isToggleType = ['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type);
+  const isExpanded = block.isExpanded !== false;
+  const hasChildren = idx < blocks.length - 1 && (blocks[idx + 1].indent || 0) > (block.indent || 0);
+  const showEmptyPlaceholder = isToggleType && isExpanded && !hasChildren && !isReadOnly;
   
   return (
     <div 
@@ -150,7 +157,7 @@ const MemoizedBlockRow = React.memo(({
         </div>
 
         {/* Space for lists to keep them indented, but normal paragraphs will be flush left */}
-        {['todo', 'bullet', 'ordered', 'toggle'].includes(block.type) && (
+        {['todo', 'bullet', 'ordered', 'toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) && (
            <div className="w-1.5 flex-shrink-0" />
         )}
       {block.type === 'todo' && (
@@ -195,20 +202,7 @@ const MemoizedBlockRow = React.memo(({
         );
       })()}
 
-      {/* Toggle Type Icon */}
-      {['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) && (
-        <button
-          onClick={() => {
-            setBlocks((prev: EditorBlock[]) => prev.map((b: EditorBlock) => b.id === block.id ? { ...b, isExpanded: b.isExpanded === false } : b));
-          }}
-          className={cn(
-            "mt-1 flex-shrink-0 text-gray-400 hover:text-white transition-all transform",
-            block.isExpanded !== false ? "rotate-90" : "rotate-0"
-          )}
-        >
-          <ChevronRight size={18} />
-        </button>
-      )}
+      {/* Toggle Type Icon - Removed since it is now inside ToggleBlock */}
 
       {/* Render Horizontal Rule (Divider) */}
       {block.type === 'hr' ? (
@@ -291,26 +285,17 @@ const MemoizedBlockRow = React.memo(({
       ) : block.type === 'toc' ? (
         <TocBlockRenderer blocks={blocks} />
       ) : ['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type) ? (
-        <div className="flex-1 flex flex-col bg-transparent text-left min-w-0">
-          <div className={cn(
-            "flex-1",
-            block.type === 'toggle_h1' ? "text-xl font-black text-white" : "",
-            block.type === 'toggle_h2' ? "text-lg font-bold text-white/90" : "",
-            block.type === 'toggle_h3' ? "text-base font-bold text-white/80" : "",
-            block.type === 'toggle' ? "text-base text-white/70" : ""
-          )}>
-            <EditableBlock
-              block={block}
-              idx={idx}
-              isReadOnly={isReadOnly}
-              blockRefs={blockRefs}
-              handleKeyDown={handleKeyDown}
-              setFocusedId={setFocusedId}
-              editor={editor}
-              handleBlockChange={handleBlockChange}
-            />
-          </div>
-        </div>
+        <ToggleBlock
+          block={block}
+          idx={idx}
+          isReadOnly={isReadOnly}
+          blockRefs={blockRefs}
+          handleKeyDown={handleKeyDown}
+          setFocusedId={setFocusedId}
+          editor={editor}
+          handleBlockChange={handleBlockChange}
+          setBlocks={setBlocks}
+        />
       ) : block.type === 'database' ? (
         <div className="flex-1 min-w-0">
           <DatabaseBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
@@ -346,6 +331,18 @@ const MemoizedBlockRow = React.memo(({
         />
       )}
       </div>
+      
+      {/* Empty expanded toggle placeholder */}
+      {showEmptyPlaceholder && (
+        <div 
+          className="py-2 ml-7 border-l-2 border-white/5 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-all cursor-text select-none"
+          onClick={() => addBlockAfter(block.id, 'paragraph', (block.indent || 0) + 1)}
+        >
+          <div className="text-xs text-white/40 font-medium pl-4">
+            টগল খালি। নতুন কিছু লিখতে এখানে ক্লিক করুন...
+          </div>
+        </div>
+      )}
     </div>
   );
 }, (prev, next) => {
@@ -355,6 +352,7 @@ const MemoizedBlockRow = React.memo(({
          prev.block.indent === next.block.indent &&
          prev.block.checked === next.block.checked &&
          prev.block.isExpanded === next.block.isExpanded &&
+         prev.block.language === next.block.language &&
          prev.idx === next.idx && 
          prev.hasIndent === next.hasIndent && 
          prev.currentHiddenIndent === next.currentHiddenIndent &&
@@ -686,6 +684,7 @@ export default function CustomBlockEditor({ editor, className, blocksRefs, noteI
               currentHiddenIndent={currentHiddenIndent}
               searchTerm={editor.searchTerm}
               noteId={noteId}
+              addBlockAfter={addBlockAfter}
             />
           </ErrorBoundary>
         );

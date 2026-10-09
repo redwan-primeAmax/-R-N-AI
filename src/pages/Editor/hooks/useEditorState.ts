@@ -138,8 +138,8 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   // Simple local search engine mimicking Tiptap's search & replace storage
   useEffect(() => {
     if (!searchTerm) {
-      setSearchResults([]);
-      setSearchIndex(0);
+      setSearchResults(prev => prev.length === 0 ? prev : []);
+      setSearchIndex(prev => prev === 0 ? prev : 0);
       return;
     }
 
@@ -148,15 +148,21 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       const lowerSearch = searchTerm.toLowerCase();
       
       blocks.forEach((block, bIdx) => {
-        // Optimized check: textContent is faster if we had it, but we have HTML content.
-        // We do a simple case-insensitive include.
         if (block.content.toLowerCase().includes(lowerSearch)) {
           results.push({ blockId: block.id, blockIdx: bIdx });
         }
       });
-      setSearchResults(results);
-      setSearchIndex(0);
-    }, 500); // 500ms debounce for search results update during typing
+      
+      setSearchResults(prev => {
+        // Simple equality check for search results array
+        if (prev.length === results.length && 
+            prev.every((r, i) => r.blockId === results[i].blockId && r.blockIdx === results[i].blockIdx)) {
+          return prev;
+        }
+        return results;
+      });
+      setSearchIndex(prev => prev === 0 ? prev : 0);
+    }, 500);
     
     return () => clearTimeout(timer);
   }, [searchTerm, blocks]);
@@ -183,8 +189,10 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
   // Trigger search transaction events
   useEffect(() => {
-    editor.triggerEvent('transaction');
-  }, [searchResults, searchIndex]);
+    if (editor && typeof editor.triggerEvent === 'function') {
+      editor.triggerEvent('transaction');
+    }
+  }, [searchResults, searchIndex, editor]);
 
   // Debounced auto-save triggers whenever blocks update
   useEffect(() => {
