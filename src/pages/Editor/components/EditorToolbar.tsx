@@ -191,11 +191,68 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     >
       <div className="max-w-3xl mx-auto flex items-center h-14 px-2 overflow-x-auto no-scrollbar justify-between">
         {isTitleFocused ? (
-          // Title specific minimalist bar: contains only keyboard off button at the far right
-          <div className="flex w-full justify-end px-2">
-            <ToolbarButton onClick={handleKeyboardToggle} isActive={true}>
-              <Keyboard size={20} className="text-blue-500" />
-            </ToolbarButton>
+          // Title specific minimalist bar: displays clear status and shift down icon to main editor content
+          <div className="flex w-full items-center justify-between px-3">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "text-[11px] font-bold uppercase tracking-wider",
+                isLight ? "text-gray-400" : "text-white/30"
+              )}>
+                শিরোনাম সম্পাদনা
+              </span>
+            </div>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.preventDefault();
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+                const firstBlockId = editor.blocks?.[0]?.id || editor.activeBlockId;
+                if (firstBlockId) {
+                  const el = document.getElementById(firstBlockId);
+                  if (el) {
+                    el.focus();
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    range.selectNodeContents(el);
+                    range.collapse(true);
+                    sel?.removeAllRanges();
+                    sel?.addRange(range);
+                    if (editor.setActiveBlockId) editor.setActiveBlockId(firstBlockId);
+                    return;
+                  }
+                }
+                if (editor?.chain?.focus) {
+                  editor.chain().focus().run();
+                }
+              }}
+              title="কন্টেন্টে যান (Shift cursor down to content)"
+              aria-label="Shift cursor down into main text content"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 group",
+                isLight 
+                  ? "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100" 
+                  : "bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:text-blue-300"
+              )}
+            >
+              <svg 
+                width="18" 
+                height="18" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="transition-transform group-hover:translate-y-0.5"
+              >
+                <path d="M12 4v12" />
+                <path d="m7 11 5 5 5-5" />
+                <path d="M4 20h16" />
+              </svg>
+              <span className="hidden sm:inline text-[11px] uppercase tracking-wider font-extrabold">কন্টেন্টে যান</span>
+            </button>
           </div>
         ) : (
           <div className="flex items-center w-full gap-0.5 min-w-0">

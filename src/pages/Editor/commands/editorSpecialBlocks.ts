@@ -139,9 +139,27 @@ export function runWebBookmark(blocks: EditorBlock[], activeBlockId: string | nu
 }
 
 export function toggleToggleList(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
-  const { activeId } = getActiveIndexAndId(blocks, activeBlockId);
-  if (!activeId) return blocks;
-  return blocks.map(b => b.id === activeId ? { ...b, type: b.type === 'toggle' ? 'paragraph' : 'toggle', isExpanded: true } : b);
+  const { activeId, idx } = getActiveIndexAndId(blocks, activeBlockId);
+  if (!activeId || idx === -1) return blocks;
+  const currentBlock = blocks[idx];
+  if (currentBlock.type === 'toggle') {
+    return blocks.map(b => b.id === activeId ? { ...b, type: 'paragraph' } : b);
+  }
+  const curIndent = currentBlock.indent || 0;
+  const nextBlock = blocks[idx + 1];
+  const hasChild = nextBlock && (nextBlock.indent || 0) > curIndent;
+
+  const updated = blocks.map(b => b.id === activeId ? { ...b, type: 'toggle' as any, isExpanded: true } : b);
+  if (!hasChild) {
+    const childBlock: EditorBlock = {
+      id: crypto.randomUUID(),
+      type: 'paragraph',
+      content: '',
+      indent: curIndent + 1
+    };
+    updated.splice(idx + 1, 0, childBlock);
+  }
+  return updated;
 }
 
 export function insertColumns(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
@@ -242,16 +260,37 @@ export function insertEmbed(blocks: EditorBlock[], activeBlockId: string | null)
 
 export function insertBlock(blocks: EditorBlock[], type: string, activeBlockId: string | null): { blocks: EditorBlock[], newId: string } {
   const newId = crypto.randomUUID();
+  const isToggle = ['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(type);
   const newBlock: EditorBlock = { 
     id: newId, 
     type: type as any, 
-    content: ''
+    content: '',
+    isExpanded: isToggle ? true : undefined
   };
   const { idx } = getActiveIndexAndId(blocks, activeBlockId);
   if (idx > -1) {
     const res = [...blocks];
     res.splice(idx + 1, 0, newBlock);
+    if (isToggle) {
+      const childId = crypto.randomUUID();
+      const curIndent = newBlock.indent || 0;
+      res.splice(idx + 2, 0, {
+        id: childId,
+        type: 'paragraph',
+        content: '',
+        indent: curIndent + 1
+      });
+    }
     return { blocks: res, newId };
   }
-  return { blocks: [...blocks, newBlock], newId };
+  const res = [...blocks, newBlock];
+  if (isToggle) {
+    res.push({
+      id: crypto.randomUUID(),
+      type: 'paragraph',
+      content: '',
+      indent: (newBlock.indent || 0) + 1
+    });
+  }
+  return { blocks: res, newId };
 }
