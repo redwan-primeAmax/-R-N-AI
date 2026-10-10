@@ -103,24 +103,6 @@ const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isRea
   );
 };
 
-const isBlockHidden = (blocks: EditorBlock[], index: number): boolean => {
-  const currentBlock = blocks[index];
-  const currentIndent = currentBlock.indent || 0;
-  if (currentIndent === 0) return false;
-
-  for (let i = index - 1; i >= 0; i--) {
-    const prev = blocks[i];
-    const prevIndent = prev.indent || 0;
-    if (prevIndent < currentIndent) {
-      if (['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(prev.type) && prev.isExpanded === false) {
-        return true;
-      }
-      if (prevIndent === 0) break;
-    }
-  }
-  return false;
-};
-
 const MemoizedBlockRow = React.memo(({ 
   block, 
   idx, 
@@ -134,13 +116,17 @@ const MemoizedBlockRow = React.memo(({
   handleBlockChange,
   hasIndent,
   indentStyle,
-  isActive,
+  currentHiddenIndent,
   searchTerm,
   noteId,
   addBlockAfter
 }: any) => {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const navigate = useNavigate();
+
+  if (currentHiddenIndent !== null && (block.indent || 0) > currentHiddenIndent) {
+    return null;
+  }
 
   const isToggleType = ['toggle', 'toggle_h1', 'toggle_h2', 'toggle_h3'].includes(block.type);
   const isExpanded = block.isExpanded !== false;
@@ -149,10 +135,7 @@ const MemoizedBlockRow = React.memo(({
   
   return (
     <div 
-      className={cn(
-        "flex flex-col group relative max-w-full overflow-visible transition-colors duration-150 rounded-lg",
-        isActive && "bg-black/5 dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/10"
-      )}
+      className="flex flex-col group relative max-w-full overflow-visible"
       style={indentStyle}
     >
       {/* Visual connecting line for nested items */}

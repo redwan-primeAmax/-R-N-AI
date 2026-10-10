@@ -15,7 +15,6 @@ interface EditorHeaderProps {
   onBack: () => void;
   workspaceName: string;
   parentNote: Note | null;
-  parentTrail?: Note[];
   title: string;
   activeTasksCount: number;
   onShowMenu: () => void;
@@ -30,7 +29,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   onBack,
   workspaceName,
   parentNote,
-  parentTrail = [],
   title,
   activeTasksCount,
   onShowMenu,
@@ -43,15 +41,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchState, setSearchState] = useState({ results: 0, currentIndex: 0 });
-  const [isProgressiveMounted, setIsProgressiveMounted] = useState(false);
-
-  // Progressive loading optimization: Header container renders first, then child components mount smoothly
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setIsProgressiveMounted(true);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
 
   useEffect(() => {
     const handleOpenSearch = () => setIsSearchActive(true);
@@ -205,97 +194,71 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                 <ArrowLeft size={20} strokeWidth={2.2} />
               </motion.button>
 
-              {/* Notion-style Hierarchical Breadcrumb Trail: Current Page / Parent / [...] / Workspace */}
-              {isProgressiveMounted && (
-                <div className="flex items-center min-w-0 ml-1.5 overflow-hidden text-xs gap-0.5">
-                  {/* 1. Current Page Name */}
-                  <span 
-                    className="font-bold text-gray-900 dark:text-white truncate shrink-0 max-w-[130px] sm:max-w-[160px]"
-                    title={title || 'Untitled'}
-                  >
-                    {title || 'Untitled'}
-                  </span>
-
-                  {/* 2. Parent Page / Note */}
-                  {parentNote && (
-                    <div className="flex items-center shrink-0 min-w-0 max-w-[130px]">
-                      <span className="text-gray-400/50 mx-1 shrink-0 font-medium select-none">/</span>
-                      <button 
-                        onClick={() => onNavigateToNote?.(parentNote.id)}
-                        className="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white truncate font-medium transition-colors"
-                        title={parentNote.title || 'Parent Note'}
-                      >
-                        <PageIcon emoji={parentNote.emoji} className="shrink-0 text-xs" />
-                        <span className="truncate">{parentNote.title || 'Untitled'}</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* 3. Deep Ancestor Pages indicator if nested deeper */}
-                  {parentTrail && parentTrail.length > 1 && (
-                    <div className="flex items-center shrink-0">
-                      <span className="text-gray-400/50 mx-1 shrink-0 font-medium select-none">/</span>
-                      <button 
-                        onClick={() => onNavigateToNote?.(parentTrail[1].id)}
-                        className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-1 py-0.5 rounded text-[10px] font-bold tracking-widest shrink-0 transition-colors bg-black/5 dark:bg-white/5"
-                        title={parentTrail.slice(1).map(p => p.title || 'Untitled').join(' > ')}
-                      >
-                        ...
-                      </button>
-                    </div>
-                  )}
-
-                  {/* 4. Workspace Name */}
-                  {workspaceName && (
-                    <div className="flex items-center shrink-0 min-w-0 max-w-[110px]">
-                      <span className="text-gray-400/50 mx-1 shrink-0 font-medium select-none">/</span>
-                      <span 
-                        onClick={onBack}
-                        className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 truncate cursor-pointer font-medium"
-                        title={workspaceName}
-                      >
-                        {workspaceName}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Notion-style Breadcrumb Trail */}
+              <div className="flex items-center min-w-0 ml-1.5 overflow-hidden text-xs">
+                {workspaceName && (
+                  <div className="flex items-center shrink-0 max-w-[110px]">
+                    <span 
+                      onClick={onBack}
+                      className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 truncate cursor-pointer font-medium"
+                      title={workspaceName}
+                    >
+                      {workspaceName}
+                    </span>
+                    <ChevronRight size={12} className="text-gray-400/40 mx-1 shrink-0" />
+                  </div>
+                )}
+                {parentNote && (
+                  <div className="flex items-center shrink-0 max-w-[120px]">
+                    <button 
+                      onClick={() => onNavigateToNote?.(parentNote.id)}
+                      className="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white truncate font-medium transition-colors"
+                      title={parentNote.title || 'Parent Note'}
+                    >
+                      <PageIcon emoji={parentNote.emoji} className="shrink-0 text-sm" />
+                      <span className="truncate">{parentNote.title || 'Untitled'}</span>
+                    </button>
+                    <ChevronRight size={12} className="text-gray-400/40 mx-1 shrink-0" />
+                  </div>
+                )}
+                <span className="font-semibold text-gray-800 dark:text-white/90 truncate min-w-0">
+                  {title || 'Untitled'}
+                </span>
+              </div>
             </div>
 
-            {isProgressiveMounted && (
-              <div className="flex items-center gap-2">
-                 {saveError ? (
-                   <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-[10px] font-bold animate-pulse border border-red-500/20">
-                     <AlertCircle size={12} /> সংরক্ষণ ব্যর্থ
-                   </div>
-                 ) : isSaving ? (
-                   <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-500 rounded-full text-[10px] font-bold border border-blue-500/20">
-                     <RefreshCw size={12} className="animate-spin" /> সংরক্ষিত হচ্ছে...
-                   </div>
-                 ) : null}
+            <div className="flex items-center gap-2">
+               {saveError ? (
+                 <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-[10px] font-bold animate-pulse border border-red-500/20">
+                   <AlertCircle size={12} /> সংরক্ষণ ব্যর্থ
+                 </div>
+               ) : isSaving ? (
+                 <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-500 rounded-full text-[10px] font-bold border border-blue-500/20">
+                   <RefreshCw size={12} className="animate-spin" /> সংরক্ষিত হচ্ছে...
+                 </div>
+               ) : null}
 
-                 <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsSearchActive(true)}
-                  className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-90"
-                  title="Search"
-                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                 </motion.button>
+               <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsSearchActive(true)}
+                className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-90"
+                title="Search"
+               >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+               </motion.button>
 
-                 <button 
-                  onClick={onShowMenu}
-                  className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-90"
-                  title="More options"
-                  aria-label="আরও অপশন"
-                 >
-                  <MoreVertical size={22} />
-                 </button>
-              </div>
-            )}
+               <button 
+                onClick={onShowMenu}
+                className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-90"
+                title="More options"
+                aria-label="আরও অপশন"
+               >
+                <MoreVertical size={22} />
+               </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

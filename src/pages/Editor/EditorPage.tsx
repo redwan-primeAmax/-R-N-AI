@@ -41,7 +41,7 @@ function EditorPage({ id }: { id: string | undefined }) {
   const {
     editor, note, setNote, title, setTitle, emoji, setEmoji,
     tags, setTags, theme, setTheme, isSaving, saveError,
-    activeTasksCount, workspaceName, parentNote, parentTrail, currentSubPages, setCurrentSubPages,
+    activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, titleRef, emojiRef, noteRef, themeRef, blocksRef, isDeletingRef
   } = useEditorState(id, blocksRefs as any);
@@ -227,7 +227,6 @@ function EditorPage({ id }: { id: string | undefined }) {
           onBack={handleBack}
           workspaceName={workspaceName}
           parentNote={parentNote}
-          parentTrail={parentTrail}
           title={title}
           activeTasksCount={activeTasksCount}
           onShowMenu={() => setShowActionSheet(true)}

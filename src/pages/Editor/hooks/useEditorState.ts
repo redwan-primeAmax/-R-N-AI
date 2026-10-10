@@ -30,7 +30,6 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   const [activeTasksCount, setActiveTasksCount] = useState(0);
   const [workspaceName, setWorkspaceName] = useState('Workspace');
   const [parentNote, setParentNote] = useState<Note | null>(null);
-  const [parentTrail, setParentTrail] = useState<Note[]>([]);
   const [currentSubPages, setCurrentSubPages] = useState<Note[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -456,20 +455,8 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       setCurrentSubPages(subPages);
 
       if (fetchedNote.parentId) {
-        const trail: Note[] = [];
-        let currId: string | undefined = fetchedNote.parentId;
-        let depth = 0;
-        while (currId && depth < 8) {
-          const p = await DataManager.getNoteById(currId);
-          if (!p) break;
-          trail.push(p);
-          currId = p.parentId;
-          depth++;
-        }
-        setParentTrail(trail);
-        setParentNote(trail[0] || null);
+        DataManager.getNoteById(fetchedNote.parentId).then(setParentNote);
       } else {
-        setParentTrail([]);
         setParentNote(null);
       }
 
@@ -584,7 +571,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   return {
     editor, note, setNote, title, setTitle, emoji, setEmoji,
     tags, setTags, theme, setTheme, isSaving, saveError,
-    activeTasksCount, workspaceName, parentNote, parentTrail, currentSubPages, setCurrentSubPages, isListening,
+    activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages, isListening,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
     saveNote, startListening, stopListening, loadNote, isDeletingRef, 
     titleRef, emojiRef, noteRef, themeRef, blocksRef

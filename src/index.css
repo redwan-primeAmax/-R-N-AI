@@ -175,8 +175,26 @@
     cursor: text;
   }
 
+  .ProseMirror > *:hover {
+    background-color: rgba(243, 244, 246, 0.5) !important;
+  }
+  
+  :not(.light-theme) .ProseMirror > *:hover {
+    background-color: #161616 !important;
+  }
+
   .ProseMirror > *.ProseMirror-focused {
     border-color: transparent !important;
+  }
+
+  .ProseMirror > *.has-focus {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .light-theme .ProseMirror > *.has-focus {
+    background-color: rgba(59, 130, 246, 0.06) !important;
+    border-color: rgba(59, 130, 246, 0.15) !important;
   }
 
   /* Table Styles */
