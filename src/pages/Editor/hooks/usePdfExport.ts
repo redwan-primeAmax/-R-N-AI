@@ -4,8 +4,7 @@
  */
 
 import { useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas-pro';
+import DOMPurify from 'dompurify';
 import { Note } from '../../../services/storage/DataManager';
 
 interface UsePdfExportParams {
@@ -15,7 +14,7 @@ interface UsePdfExportParams {
 
 export function usePdfExport({ note, setNotification }: UsePdfExportParams) {
   useEffect(() => {
-    const handlePdfExport = () => {
+    const handlePdfExport = async () => {
       if (!note) return;
       setNotification({ message: 'Generating PDF...', type: 'info' });
 
@@ -29,15 +28,17 @@ export function usePdfExport({ note, setNotification }: UsePdfExportParams) {
         tempContainer.style.left = '-9999px';
         tempContainer.style.top = '0';
         tempContainer.style.width = '800px';
-        tempContainer.innerHTML = `
+        tempContainer.innerHTML = DOMPurify.sanitize(`
           <h1 style="font-size: 26px; font-weight: bold; margin-bottom: 16px;">${note.emoji || ''} ${note.title || 'Note'}</h1>
           <div style="font-size: 15px; line-height: 1.6;">${note.content || '<p>Empty note</p>'}</div>
-        `;
+        `);
         document.body.appendChild(tempContainer);
         element = tempContainer;
       }
 
-      html2canvas(element, {
+      try {
+      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas-pro')]);
+      await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
@@ -64,6 +65,10 @@ export function usePdfExport({ note, setNotification }: UsePdfExportParams) {
           }
           setTimeout(() => setNotification(null), 2000);
         });
+      } catch {
+        tempContainer?.remove();
+        setNotification({ message: 'PDF module could not load. Try again.', type: 'error' });
+      }
     };
 
     window.addEventListener('export-note-pdf', handlePdfExport);

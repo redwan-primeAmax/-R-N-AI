@@ -117,7 +117,7 @@ export function TagManagerDialog({
 interface InputDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (value: string) => void;
+  onConfirm: (value: string) => void | Promise<void>;
   title: string;
   placeholder?: string;
   initialValue?: string;
@@ -138,16 +138,22 @@ export function InputDialog({
   cancelText = 'বাতিল'
 }: InputDialogProps) {
   const [value, setValue] = useState(initialValue);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setValue(initialValue);
+      setError('');
     }
   }, [isOpen, initialValue]);
 
-  const handleConfirm = () => {
-    onConfirm(value);
-    onClose();
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await onConfirm(value); onClose(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'আবার চেষ্টা করুন'); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -155,6 +161,8 @@ export function InputDialog({
       <div className="space-y-6">
         <input
           type={type}
+          aria-label={title}
+          disabled={busy}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
@@ -162,11 +170,12 @@ export function InputDialog({
           autoFocus
           onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
         />
+        {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-[18px] font-bold transition-all text-white/60">
             {cancelText}
           </button>
-          <button onClick={handleConfirm} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-[18px] font-bold transition-all text-white">
+          <button disabled={busy} onClick={handleConfirm} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-[18px] font-bold transition-all text-white">
             {confirmText}
           </button>
         </div>

@@ -5,7 +5,6 @@ import { Lock, FileText, X } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { useNavigate } from 'react-router-dom';
 import { InputDialog } from './CustomDialogs';
-import { hashPassword } from '../../utils/crypto';
 
 interface VaultModalProps {
   isOpen: boolean;
@@ -40,14 +39,12 @@ export function VaultModal({ isOpen, onClose }: VaultModalProps) {
   };
 
   const handleUnlock = async (password: string) => {
-    const hashed = await hashPassword(password);
-    if (selectedNote?.password === hashed || selectedNote?.password === password) {
+    if (selectedNote && await DataManager.authorizeNote(selectedNote.id, password)) {
       setShowPasswordPrompt(false);
       onClose();
       navigate(`/editor/${selectedNote.id}`, { state: { authorized: true } });
     } else {
-      setError('ভুল পাসওয়ার্ড (Incorrect password)');
-      setTimeout(() => setError(''), 3000);
+      throw new Error('ভুল পাসওয়ার্ড (Incorrect password)');
     }
   };
 

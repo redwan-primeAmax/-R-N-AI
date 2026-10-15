@@ -19,5 +19,5 @@ export function sanitizeSearchQuery(query: string): string {
  */
 export function isValidOrigin(origin: string): boolean {
   const allowed = [window.location.origin];
-  return allowed.includes(origin) || origin === 'null';
+  return origin !== 'null' && allowed.includes(origin);
 }

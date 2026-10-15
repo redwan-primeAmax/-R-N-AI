@@ -14,7 +14,7 @@ export const AgentService = {
    */
   async onNoteSaved(note: Note) {
     // If note is too small or trashed, skip
-    if (note.isTrashed || note.content.length < 20) return;
+    if (note.isLocked || note.isTrashed || note.content.length < 20) return;
 
     // Throttle generation: only if aiTags are missing or content changed significantly
     // For now, let's just generate if missing
@@ -84,7 +84,7 @@ export const AgentService = {
     // Since the user mentioned 10,000 notes, memory filtering might be slow but let's try to be smart.
     const allNotes = await db.notes
       .where('workspaceId').equals(workspaceId)
-      .and(n => !n.isTrashed)
+      .and(n => !n.isTrashed && !n.isLocked)
       .toArray();
 
     return allNotes.filter(n => {
@@ -125,7 +125,7 @@ export const AgentService = {
     } else if (filter === 'recent') {
       return await db.notes
         .where('workspaceId').equals(workspaceId)
-        .and(n => !n.isTrashed)
+        .and(n => !n.isTrashed && !n.isLocked)
         .reverse()
         .sortBy('updatedAt')
         .then(notes => notes.slice(0, value || 20));

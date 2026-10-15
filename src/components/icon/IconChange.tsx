@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import EmojiPicker, { Theme, EmojiClickData, EmojiStyle } from 'emoji-picker-react';
+import type { Theme, EmojiClickData, EmojiStyle } from 'emoji-picker-react';
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
 interface IconChangeProps {
   isOpen: boolean;
@@ -61,12 +62,12 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
             {/* Emoji Picker container */}
             <div className="flex-1 overflow-hidden p-6 bg-[#121212]">
               <div className="w-full h-full rounded-3xl overflow-hidden shadow-inner border border-white/5 flex flex-col emoji-picker-wrapper">
-                <EmojiPicker
-                  theme={Theme.DARK}
+                <Suspense fallback={<p role="status">Loading icons…</p>}><EmojiPicker
+                  theme={'dark' as Theme}
                   width="100%"
                   height="100%"
                   lazyLoadEmojis={false}
-                  emojiStyle={EmojiStyle.NATIVE}
+                  emojiStyle={'native' as EmojiStyle}
                   onEmojiClick={handleEmojiClick}
                   searchPlaceholder="ইমোজি খুঁজুন..."
                   previewConfig={{
@@ -74,7 +75,7 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
                     defaultEmoji: currentIcon && !currentIcon.startsWith('<svg') ? currentIcon : "📝",
                     defaultCaption: "নোট সাজানোর জন্য পছন্দসই ইমোজি সিলেক্ট করুন"
                   }}
-                />
+                /></Suspense>
               </div>
             </div>
             

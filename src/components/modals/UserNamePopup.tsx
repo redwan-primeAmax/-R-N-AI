@@ -48,11 +48,11 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
   };
 
   return (
-    <Modal ref={ref} isOpen={true} showCloseButton={false} id="setup-modal">
+    <Modal ref={ref} isOpen={true} showCloseButton={false} id="setup-modal" accessibleLabel="Redwan Assistant">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-white tracking-tight">Redwan Assistant</h2>
-          <p className="text-white/40 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার তথ্য দিন।</p>
+          <p className="text-white/70 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার তথ্য দিন।</p>
         </div>
         
         <div className="space-y-4">
@@ -67,7 +67,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
           )}
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-white/40 uppercase ml-4" htmlFor="name-input">আপনার নাম</label>
+            <label className="text-[10px] font-bold text-white/70 uppercase ml-4" htmlFor="name-input">আপনার নাম</label>
             <input 
               id="name-input"
               type="text"
@@ -75,7 +75,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
               value={name}
               maxLength={20}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold placeholder:text-white/20 dark:bg-white/5 bg-gray-100 dark:text-white text-gray-900 shadow-inner"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold placeholder:text-white/60 bg-[#292929] text-white shadow-inner"
               disabled={isSubmitting}
               autoFocus
               aria-required="true"
@@ -83,7 +83,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-white/40 uppercase ml-4" htmlFor="workspace-input">ওয়ার্কস্পেস নাম</label>
+            <label className="text-[10px] font-bold text-white/70 uppercase ml-4" htmlFor="workspace-input">ওয়ার্কস্পেস নাম</label>
             <input 
               id="workspace-input"
               type="text"
@@ -91,7 +91,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
               value={workspaceName}
               maxLength={30}
               onChange={(e) => setWorkspaceName(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold placeholder:text-white/20 dark:bg-white/5 bg-gray-100 dark:text-white text-gray-900 shadow-inner"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-blue-500/50 transition-all font-bold placeholder:text-white/60 bg-[#292929] text-white shadow-inner"
               disabled={isSubmitting}
               aria-required="true"
             />
@@ -101,7 +101,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
             type="submit"
             disabled={!name.trim() || !workspaceName.trim() || isSubmitting}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
-            aria-label="Get Started"
+            aria-label="Get Started (শুরু করুন)"
             id="start-app-button"
           >
             {isSubmitting ? (
@@ -120,7 +120,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
               localStorage.setItem('user_setup_dismissed', 'true');
               onSave('User', 'My Workspace');
             }}
-            className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/40 rounded-2xl font-bold text-xs transition-all uppercase tracking-widest border border-white/5"
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-2xl font-bold text-xs transition-all uppercase tracking-widest border border-white/5"
           >
             Skip for now
           </button>

@@ -50,6 +50,10 @@ export interface Note {
   isBookmarked?: boolean;
   bookmarkFolderId?: string;
   password?: string;
+  /** Random salt for password-derived AES-GCM encryption; never a key. */
+  vaultSalt?: string;
+  /** In-memory metadata placeholder; must never be saved over real content. */
+  _vaultRedacted?: boolean;
   mediaRefs?: { localId: string; type: string }[];
   lastSyncedAt?: number;
   lastOpenedAt?: number;

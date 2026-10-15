@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, useId } from 'react';
+import { createPortal } from 'react-dom';
+import FocusTrap from 'focus-trap-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
+let openModals = 0;
+let previousRootInert = false;
+
 interface ModalProps {
+  accessibleLabel?: string;
   isOpen: boolean;
   onClose?: () => void;
   title?: string;
@@ -29,8 +35,11 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
   maxWidth = 'max-w-sm', 
   id, 
   position = 'center',
-  className
+  className,
+  accessibleLabel = 'Dialog'
 }, ref) => {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => containerRef.current!);
@@ -38,6 +47,8 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
   // Close on Escape & manage body scroll
   useEffect(() => {
     if (!isOpen) return;
+    const root = document.getElementById('root');
+    if (openModals++ === 0 && root) { previousRootInert = root.inert; root.inert = true; }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && onClose) {
@@ -51,15 +62,19 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = originalOverflow;
+      if (--openModals === 0) {
+        if (root) root.inert = previousRootInert;
+        document.body.style.overflow = '';
+      }
     };
   }, [isOpen, onClose]);
 
   const isBottom = position === 'bottom';
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
+        <FocusTrap focusTrapOptions={{ escapeDeactivates: false, clickOutsideDeactivates: false, allowOutsideClick: true, fallbackFocus: () => dialogRef.current!, returnFocusOnDeactivate: true }}>
         <div 
           className={cn(
             "fixed inset-0 z-[200] flex justify-center p-4 sm:p-6",
@@ -71,23 +86,25 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
           {/* Backdrop with smooth fade in/out */}
           <motion.div
             key="modal-backdrop"
-            initial={{ opacity: 0 }}
+            initial={id === 'setup-modal' ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/65 backdrop-blur-md cursor-pointer"
+            className="fixed inset-0 bg-black/75 cursor-pointer"
           />
 
           {/* Modal Content Box with smooth spring animation */}
           <motion.div
             key="modal-content"
-            id={id || 'modal-root'}
+            id={id}
+            ref={dialogRef}
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-labelledby={title ? "modal-title" : undefined}
-            initial={isBottom ? { y: "100%", opacity: 0 } : { scale: 0.95, opacity: 0, y: 15 }}
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={title ? undefined : accessibleLabel}
+            initial={id === 'setup-modal' ? false : isBottom ? { y: "100%", opacity: 0 } : { scale: 0.95, opacity: 0, y: 15 }}
             animate={isBottom ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1, y: 0 }}
             exit={isBottom ? { y: "100%", opacity: 0 } : { scale: 0.95, opacity: 0, y: 15 }}
             transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.7 }}
@@ -110,7 +127,7 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
             
             {title && (
               <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-3 flex items-center justify-between border-b border-white/[0.04]">
-                <h3 id="modal-title" className="text-xl font-bold text-white tracking-tight">{title}</h3>
+                <h3 id={titleId} className="text-xl font-bold text-white tracking-tight">{title}</h3>
                 {showCloseButton && onClose && (
                   <button 
                     type="button"
@@ -144,7 +161,8 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(({
             </div>
           </motion.div>
         </div>
+        </FocusTrap>
       )}
-    </AnimatePresence>
+    </AnimatePresence>, document.body
   );
 });

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   CheckSquare, Square, MessageSquare, ChevronRight, Layout, Columns, Table as TableIcon, Bookmark, Plus
@@ -21,7 +21,7 @@ import { EditableBlock } from './blocks/EditableBlock';
 import { ToggleBlock } from './blocks/ToggleBlock';
 import { AudioGeneratorBlock } from './blocks/AudioGeneratorBlock';
 import { BookmarkBlock } from './blocks/BookmarkBlock';
-import { DatabaseBlock } from './blocks/DatabaseBlock';
+const DatabaseBlock = lazy(() => import('./blocks/DatabaseBlock').then(m => ({ default: m.DatabaseBlock })));
 import { EmbedBlock } from './blocks/EmbedBlock';
 
 import { TocBlockRenderer } from '../renderers/TocBlockRenderer';
@@ -298,7 +298,7 @@ const MemoizedBlockRow = React.memo(({
         />
       ) : block.type === 'database' ? (
         <div className="flex-1 min-w-0">
-          <DatabaseBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} />
+          <Suspense fallback={<p role="status">Loading database…</p>}><DatabaseBlock block={block} setBlocks={setBlocks} isReadOnly={isReadOnly} /></Suspense>
         </div>
       ) : block.type === 'embed' ? (
         <div className="flex-1 min-w-0">

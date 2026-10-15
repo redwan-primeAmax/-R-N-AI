@@ -41,6 +41,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
   isReadOnly,
   onToggleReadOnly,
   onCopy,
+  onLock,
   onExport,
   onTag,
   subPages,
@@ -182,6 +183,12 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                       tagAction.onClick(onTag);
                     }} 
                   />
+                  {!note.isLocked && <MenuAction
+                    icon={Lock}
+                    label="Lock Page"
+                    subtitle="নোটের লেখা পাসওয়ার্ড দিয়ে এনক্রিপ্ট করুন"
+                    onClick={() => { onClose(); onLock(); }}
+                  />}
                   <MenuAction 
                     icon={isReadOnly ? Unlock : Lock} 
                     label="Toggle Read-Only" 

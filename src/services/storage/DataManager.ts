@@ -8,6 +8,7 @@ import { db, runMigrationFromLocalForage } from './DexieDB';
 import { iconsDb } from '../../components/icon/IconManager';
 import { HistoryManager } from './HistoryManager';
 import { NoteService } from './services/NoteService';
+import { VaultService } from './services/VaultService';
 import { WorkspaceService } from './services/WorkspaceService';
 import { MediaService } from './services/MediaService';
 import { BackupService } from './services/BackupService';
@@ -116,6 +117,20 @@ export const DataManager = {
 
   async updateUser(user: any): Promise<void> {
     await SettingsService.updateUserProfile(user);
+  },
+
+  async lockNote(id: string, password: string): Promise<Note> {
+    const note = await NoteService.lockNote(id, password);
+    VaultService.forget(id);
+    this.invalidateNotesCache(`lock-note:${id}`);
+    notifySync({ type: 'UPDATE_NOTE', id });
+    return note;
+  },
+  async authorizeNote(id: string, password: string): Promise<boolean> {
+    return NoteService.authorizeNote(id, password);
+  },
+  async saveDraft(id: string, key: string, value: unknown): Promise<void> {
+    return NoteService.saveDraft(id, key, value);
   },
 
   async updateNote(id: string, updates: Partial<Note>): Promise<void> {

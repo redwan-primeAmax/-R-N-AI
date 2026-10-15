@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from '@firebase/app';
 import { 
   getAuth, 
   signInWithPopup, 
@@ -11,7 +11,7 @@ import {
   onAuthStateChanged, 
   signOut,
   User 
-} from 'firebase/auth';
+} from '@firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();

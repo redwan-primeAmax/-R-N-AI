@@ -48,3 +48,27 @@
 
 ---
 Developed by **Redwan** ❤️
+
+## Build, deployment and security
+
+- Use **Node.js 24+** and `npm ci`. `package-lock.json` is the dependency source of truth.
+- `npm run build` puts browser assets in `dist/` and the private Node server in `build/server.cjs`.
+  Publish **only `dist/`** to static hosting. Run the full-stack server with `NODE_ENV=production npm start`.
+- AI uses **your own provider API key**, entered in AI Settings. Neither the browser build nor the
+  anonymous proxy consumes a shared deployment key. Do not put provider secrets into `VITE_*` variables.
+  If an older deployment exposed such a key, revoke/rotate it in the provider dashboard.
+- The server defaults to same-origin requests. Set `ALLOWED_ORIGINS` to an exact, comma-separated
+  allowlist only if another frontend needs access. Set `TRUST_PROXY_HOPS` only to the number of
+  trusted reverse proxies in your deployment (default `0`); set `PORT` if needed.
+- Note password protection now encrypts **text, comments, embedded snapshots and version content**
+  with password-derived AES-GCM keys. New passwords require at least 8 characters. Keys exist only
+  in tab memory; explicitly locking a note clears its session. Closing/reloading the tab requires
+  the password again. There is no password-recovery backdoor.
+- Older locked notes are migrated only after their correct password is entered; they cannot be
+  encrypted retroactively without that password. Successfully migrated note drafts/search copies
+  and retained LocalForage note/version copies are removed. Existing external/previous full backups
+  are not rewritten: keep them private. **Titles, metadata and separately stored media attachments
+  are not encrypted by note locking.** Exporting an unlocked note deliberately creates a readable copy.
+- Google Fonts are bundled locally for offline use. Heavy emoji/PDF/database features are lazy-loaded;
+  the PWA still precaches production assets. On mobile, persistent navigation/dialog effects avoid
+  expensive backdrop blur/shadows.

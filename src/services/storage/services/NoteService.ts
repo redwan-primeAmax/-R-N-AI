@@ -9,7 +9,8 @@ import { WorkspaceService } from './WorkspaceService';
 import { MediaService } from './MediaService';
 import { SettingsService } from './SettingsService';
 import { HistoryManager } from '../HistoryManager';
-import { AgentService } from '../../agent/AgentService';
+import Dexie from 'dexie';
+import { VaultService } from './VaultService';
 
 let cachedNotes: Note[] | null = null;
 let cachedWorkspaceId: string | null = null;
@@ -27,9 +28,9 @@ export const NoteService = {
     }
 
     const notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
-    cachedNotes = notes;
+    cachedNotes = notes.map(n => VaultService.metadata(n));
     cachedWorkspaceId = currentWorkspaceId;
-    return notes;
+    return cachedNotes;
   },
 
   async getNotesPaginated(page: number, pageSize: number): Promise<{ notes: Note[]; hasMore: boolean }> {
@@ -52,7 +53,7 @@ export const NoteService = {
     const totalNotes = await baseQuery.count();
     
     return {
-      notes: slicedNotes,
+      notes: slicedNotes.map(n => VaultService.metadata(n)),
       hasMore: start + pageSize < totalNotes
     };
   },
@@ -71,7 +72,7 @@ export const NoteService = {
         emoji: note.emoji || ''
       }).catch(() => {});
     }
-    return note || null;
+    return note ? VaultService.read(note) : null;
   },
 
   async wasPermanentlyDeleted(id: string): Promise<boolean> {
@@ -108,6 +109,7 @@ export const NoteService = {
   },
 
   async saveNote(note: Note): Promise<Note> {
+    if (note._vaultRedacted) throw new Error('Unlock the note before editing it.');
     const currentWorkspaceId = await WorkspaceService.getActiveWorkspaceId();
     if (!note.workspaceId) {
       note.workspaceId = currentWorkspaceId;
@@ -117,7 +119,7 @@ export const NoteService = {
     const processedContent = await MediaService.extractMediaFromContent(note.content);
     const now = Date.now();
 
-    return await db.transaction('rw', [db.notes, db.deleted_notes, db.key_value_pairs], async () => {
+    return await db.transaction('rw', [db.notes, db.deleted_notes, db.key_value_pairs, db.note_versions], async () => {
       // Tombstone protection (moved inside transaction)
       const isDeleted = await db.deleted_notes.get(note.id);
       if (isDeleted) {
@@ -125,45 +127,22 @@ export const NoteService = {
         return note;
       }
 
-      const existing = await db.notes.get(note.id);
+      const stored = await db.notes.get(note.id);
+      if (stored?.isLocked) VaultService.key(stored);
+      const existing = stored ? await Dexie.waitFor(VaultService.read(stored)) : undefined;
       const isNew = !existing;
+      // A stale editor may still carry isLocked=false. Never let it remove encryption.
+      if (stored?.isLocked) note = { ...note, isLocked: true, vaultSalt: stored.vaultSalt, password: stored.password };
+      if (note.isLocked) VaultService.key(note);
 
-      // 🚨 DATA-LOSS GUARD: Create automatic safety snapshot in note_versions on massive content reduction
-      if (!isNew && existing.content && note.content) {
-        const oldSize = existing.content.length;
-        const newSize = note.content.length;
-        const shrinkRatio = newSize / oldSize;
-
-        if (oldSize > 100_000 && shrinkRatio < 0.6) {
-          try {
-            await db.note_versions.put({
-              id: crypto.randomUUID(),
-              noteId: note.id,
-              title: existing.title || 'Untitled',
-              content: existing.content,
-              emoji: existing.emoji || '📝',
-              version: `Auto-Backup (${Math.round((1 - shrinkRatio) * 100)}% shrink)`,
-              createdAt: Date.now()
-            });
-            console.warn(
-              `[NoteService] Auto-snapshot saved before large shrink: ${oldSize} → ${newSize} bytes`
-            );
-
-            if (!(window as any).__shrinkGuardWarned) {
-              (window as any).__shrinkGuardWarned = true;
-              window.dispatchEvent(new CustomEvent('app-notification', {
-                detail: {
-                  message: 'ℹ️ কনটেন্ট সাইজ কমে যাওয়ায় পূর্বের ভার্সন হিস্ট্রিতে ব্যাকআপ রাখা হয়েছে',
-                  type: 'info',
-                  duration: 4000
-                }
-              }));
-              setTimeout(() => { (window as any).__shrinkGuardWarned = false; }, 5000);
-            }
-          } catch (snapErr) {
-            console.error('[NoteService] Failed to create shrink safety snapshot:', snapErr);
-          }
-        }
+      // A safety snapshot and overwrite either both commit or both roll back.
+      if (existing && existing.content.length > 100_000 && processedContent.length < existing.content.length * 0.6) {
+        const version: NoteVersion = {
+          id: crypto.randomUUID(), noteId: note.id, title: existing.title || 'Untitled',
+          content: existing.content, emoji: existing.emoji || '📝',
+          version: 'Auto-Backup (content reduction)', createdAt: Date.now()
+        };
+        await db.note_versions.put(await Dexie.waitFor(VaultService.sealVersion(version, note)));
       }
 
       const config = await SettingsService.getSystemConfig();
@@ -203,39 +182,60 @@ export const NoteService = {
         createdAt: isNew ? now : (existing?.createdAt || now)
       };
 
-      await db.notes.put(updatedNote);
+      await db.notes.put(await Dexie.waitFor(VaultService.seal(updatedNote)));
       this.invalidateCache();
 
       // Trigger background agent tasks
-      AgentService.onNoteSaved(updatedNote).catch(() => {});
+      if (!updatedNote.isLocked && updatedNote.content.length >= 20) {
+        void import('../../agent/AgentService').then(({ AgentService }) => AgentService.onNoteSaved(updatedNote)).catch(() => {});
+      }
 
       return updatedNote;
     });
   },
 
   async updateNote(id: string, updates: Partial<Note>): Promise<void> {
-    const note = await db.notes.get(id);
-    if (!note) return;
-    const now = Date.now();
-    await db.notes.update(id, { ...updates, updatedAt: now });
+    const raw = await db.notes.get(id);
+    if (!raw) return;
+    if (raw.isLocked && updates.isLocked === false) {
+      const unlocked = await VaultService.removeLock(id);
+      await this.saveNote({ ...unlocked, ...updates, id });
+    } else {
+      if (raw.isLocked) VaultService.key(raw);
+      const note = await VaultService.read(raw);
+      await this.saveNote({ ...note, ...updates, id });
+    }
     this.invalidateCache();
   },
 
   async duplicateNote(id: string): Promise<Note | null> {
-    const noteToDuplicate = await db.notes.get(id);
-    if (noteToDuplicate) {
-      const duplicatedNote: Note = {
-        ...noteToDuplicate,
-        id: `copy-${Date.now()}`,
-        title: `${noteToDuplicate.title} (Copy)`,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await db.notes.put(duplicatedNote);
-      this.invalidateCache();
-      return duplicatedNote;
-    }
-    return null;
+    const raw = await db.notes.get(id);
+    if (!raw) return null;
+    if (raw.isLocked) VaultService.key(raw);
+    const note = await VaultService.read(raw);
+    const newId = crypto.randomUUID();
+    if (raw.isLocked) VaultService.copySession(raw, newId);
+    // Use the same transactional quota and title validation as ordinary creation.
+    return this.saveNote({ ...note, id: newId, title: `${note.title} (Copy)`, createdAt: Date.now(), updatedAt: Date.now() });
+  },
+
+  async lockNote(id: string, password: string): Promise<Note> {
+    const note = await VaultService.lock(id, password);
+    this.invalidateCache();
+    return note;
+  },
+  async authorizeNote(id: string, password: string): Promise<boolean> {
+    const valid = await VaultService.authorize(id, password);
+    this.invalidateCache();
+    return valid;
+  },
+  async saveDraft(id: string, key: string, value: unknown): Promise<void> {
+    // Re-check the persisted lock inside the transaction; a pending timer must not
+    // recreate plaintext drafts after a note was encrypted in another callback/tab.
+    await db.transaction('rw', [db.notes, db.key_value_pairs], async () => {
+      const note = await db.notes.get(id);
+      if (note && !note.isLocked) await db.key_value_pairs.put({ key, value });
+    });
   },
 
   async deleteNote(id: string): Promise<void> {
@@ -342,10 +342,10 @@ export const NoteService = {
   async toggleLock(noteId: string): Promise<boolean> {
     const note = await db.notes.get(noteId);
     if (!note) return false;
-    const newState = !note.isLocked;
-    await db.notes.update(noteId, { isLocked: newState, updatedAt: Date.now() });
+    if (!note.isLocked) throw new Error('A password is required to encrypt a note.');
+    await VaultService.removeLock(noteId);
     this.invalidateCache();
-    return newState;
+    return false;
   },
 
   async toggleFavorite(id: string): Promise<void> {
@@ -421,19 +421,21 @@ export const NoteService = {
 
   // Versioning
   async saveVersion(version: NoteVersion): Promise<void> {
-    const id = `v-${Date.now()}`;
-    await db.note_versions.put({ ...version, id, createdAt: Date.now() });
-
-    const noteVersions = await db.note_versions.where('noteId').equals(version.noteId).sortBy('createdAt');
-    if (noteVersions.length > 10) {
-      const toRemoveCount = noteVersions.length - 10;
-      const idsToRemove = noteVersions.slice(0, toRemoveCount).map(v => v.id);
-      await db.note_versions.bulkDelete(idsToRemove);
-    }
+    await db.transaction('rw', [db.notes, db.note_versions], async () => {
+      const note = await db.notes.get(version.noteId);
+      if (!note) throw new Error('Note not found');
+      const snapshot = { ...version, id: crypto.randomUUID(), createdAt: Date.now() };
+      await db.note_versions.put(await Dexie.waitFor(VaultService.sealVersion(snapshot, note)));
+      const versions = await db.note_versions.where('noteId').equals(version.noteId).sortBy('createdAt');
+      if (versions.length > 10) await db.note_versions.bulkDelete(versions.slice(0, versions.length - 10).map(v => v.id));
+    });
   },
 
   async getVersions(noteId: string): Promise<NoteVersion[]> {
-    return await db.note_versions.where('noteId').equals(noteId).reverse().sortBy('createdAt');
+    const note = await db.notes.get(noteId);
+    if (!note) return [];
+    const versions = await db.note_versions.where('noteId').equals(noteId).sortBy('createdAt');
+    return Promise.all(versions.reverse().map(v => VaultService.readVersion(v, note)));
   },
 
   async deleteVersion(id: string): Promise<void> {
@@ -458,9 +460,9 @@ export const NoteService = {
     }
 
     if (note) {
-      note.content = note.content.replace(search, replacement);
-      note.updatedAt = Date.now();
-      await db.notes.put(note);
+      if (note.isLocked) VaultService.key(note);
+      const plain = await VaultService.read(note);
+      await this.saveNote({ ...plain, content: plain.content.replace(search, replacement) });
       this.invalidateCache();
     }
   }

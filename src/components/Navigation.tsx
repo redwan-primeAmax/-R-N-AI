@@ -48,7 +48,7 @@ export default function Navigation() {
     <>
       {/* Android Material 3 Bottom Navigation Bar with Centered FAB */}
       <div 
-        className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1918]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-[0_-8px_30px_rgba(0,0,0,0.6)] select-none"
+        className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1918] border-t border-white/[0.08] sm:shadow-[0_-8px_30px_rgba(0,0,0,0.6)] select-none"
         style={{ paddingBottom: 'max(0.4rem, env(safe-area-inset-bottom))' }}
       >
         <div className="max-w-md mx-auto px-3 pt-1.5 flex items-center justify-between relative">
