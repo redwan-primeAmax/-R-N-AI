@@ -925,3 +925,10 @@
 .token.italic {
   font-style: italic;
 }
+
+/* Keep dialog interactions affordable on small/low-memory mobile GPUs. */
+@media (max-width: 640px) {
+  [role="dialog"], [role="dialog"] * {
+    box-shadow: none !important;
+  }
+}

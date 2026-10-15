@@ -10,7 +10,7 @@ import {
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
 import { db } from '../services/storage/DexieDB';
-import { blocksToHtml } from '../pages/Editor/components/CustomBlockEditor';
+import { blocksToHtml } from '../utils/blockParser';
 import { HistoryManager, RecentNote } from '../services/storage/HistoryManager';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';

@@ -1,394 +1,184 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import express from "express";
-import { createServer as createViteServer } from "vite";
-import path from "path";
-import fs from "fs";
-import { Readable } from "stream";
-import rateLimit from 'express-rate-limit';
+/** @license SPDX-License-Identifier: Apache-2.0 */
+import 'dotenv/config';
+import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import path from 'node:path';
 
-// Robust __dirname for both CJS and ESM without top-level await
-const __dirname_resolved = typeof __dirname !== 'undefined' 
-  ? __dirname 
-  : path.resolve();
-
-// Rate limiter for AI routes
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: { error: { message: "Too many requests from this IP, please try again after 15 minutes." } },
-  standardHeaders: true,
-  legacyHeaders: false,
+const app = express();
+const production = process.env.NODE_ENV === 'production';
+app.disable('x-powered-by');
+// Only trust a known deployment proxy; do not trust arbitrary forwarded IPs.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 0));
+const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (production) res.setHeader('Content-Security-Policy', [
+    "default-src 'self'", "base-uri 'self'", "object-src 'none'",
+    "script-src 'self' 'wasm-unsafe-eval' https://apis.google.com",
+    "style-src 'self' 'unsafe-inline'", "font-src 'self' data:",
+    "img-src 'self' data: blob: https:", "media-src 'self' data: blob: https:",
+    "connect-src 'self' https:", "worker-src 'self' blob:",
+    "frame-src https: blob: data:", "form-action 'self'",
+  ].join('; '));
+  // Same-origin requests (including proxied live previews) work without CORS.
+  // Cross-origin access is opt-in, and never reflects credentialed wildcards.
+  const origin = req.get('origin');
+  const sameHost = (() => { try { return !!origin && new URL(origin).host === req.get('host'); } catch { return false; } })();
+  if (origin && !sameHost && !allowedOrigins.has(origin)) {
+    res.status(403).json({ success: false, error: 'Origin not allowed' });
+    return;
+  }
+  next();
 });
+app.use(cors({ origin: [...allowedOrigins], credentials: false }));
+// SSE must not be buffered by compression.
+app.use(compression({ filter: (req, res) => !req.path.startsWith('/api/ai/') && compression.filter(req, res) }));
+app.use(express.json({ limit: '10mb' }));
+const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: 'draft-8', legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Try again later.' } });
+app.use('/api/ai', aiLimiter);
 
-// Helper to find index.html recursively
-function findIndexHtml(dir: string, base: string = ''): string | null {
-  const files = fs.readdirSync(dir);
-  
-  // Look for index.html in current dir first
-  if (files.some(f => f.toLowerCase() === 'index.html')) {
-    const found = files.find(f => f.toLowerCase() === 'index.html');
-    return path.join(base, found!);
-  }
-
-  // Look in subdirs
-  for (const file of files) {
-    const fullPath = path.join(dir, file);
-    if (fs.statSync(fullPath).isDirectory()) {
-      const found = findIndexHtml(fullPath, path.join(base, file));
-      if (found) return found;
-    }
-  }
-
-  return null;
+class RequestError extends Error { constructor(public status: number, message: string) { super(message); } }
+function text(value: unknown, field: string, max = 200_000): string {
+  if (typeof value !== 'string' || value.length > max) throw new RequestError(400, `Invalid ${field}`);
+  return value;
 }
-
-// Robustly inject <base> tag into html
-function injectBaseTag(html: string, baseHref: string): string {
-  // If there's already some variation of <base href=, don't overwrite it
-  if (/<base\s+href=/i.test(html)) {
-    return html;
-  }
-
-  const baseTag = `<base href="${baseHref}">`;
-
-  // 1. Try case-insensitive <head>
-  if (/<head>/i.test(html)) {
-    return html.replace(/<head>/i, (match) => `${match}\n    ${baseTag}`);
-  }
-
-  // 2. Try case-insensitive <html>
-  if (/<html>/i.test(html)) {
-    return html.replace(/<html>/i, (match) => `${match}\n    <head>${baseTag}</head>`);
-  }
-
-  // 3. Try case-insensitive <!doctype html>
-  if (/<!doctype\s+html>/i.test(html)) {
-    return html.replace(/<!doctype\s+html>/i, (match) => `${match}\n<head>${baseTag}</head>`);
-  }
-
-  // 4. Otherwise, prepend to the very beginning of the html content
-  return `<head>${baseTag}</head>\n` + html;
+function apiKey(body: any): string {
+  // BYOK only. Never let an anonymous request spend a shared environment key.
+  if (!body?.apiKey) throw new RequestError(401, 'Supply your provider API key in AI Settings.');
+  const key = text(body.apiKey, 'apiKey', 1024);
+  if (!key.trim() || /[\r\n]/.test(key)) throw new RequestError(400, 'Invalid apiKey');
+  return key;
 }
-
-interface DevLog {
-  time: string;
-  type: "info" | "warn" | "error";
-  msg: string;
+function modelName(value: unknown, fallback: string): string {
+  const model = value === undefined ? fallback : text(value, 'model', 200);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model) || model.includes('..')) throw new RequestError(400, 'Invalid model');
+  return model;
 }
-const devLogs: DevLog[] = [];
-function addDevLog(type: "info" | "warn" | "error", msg: string) {
-  const log: DevLog = {
-    time: new Date().toLocaleTimeString(),
-    type,
-    msg
-  };
-  devLogs.push(log);
-  if (devLogs.length > 200) {
-    devLogs.shift();
-  }
+function systemInstruction(value: any): any {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value?.parts) || value.parts.length !== 1) throw new RequestError(400, 'Invalid systemInstruction');
+  return { parts: [{ text: text(value.parts[0]?.text, 'systemInstruction') }] };
 }
-
-async function startServer() {
-  const app = express();
-  // Set trust proxy to 1 (trust the first proxy, e.g. Cloud Run load balancer)
-  // to satisfy express-rate-limit validation and ensure correct IP detection.
-  app.set("trust proxy", 1);
-
-  // Customized safe security headers (Bug 99)
-  app.use((req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    next();
+function contents(value: any): any[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 200) throw new RequestError(400, 'contents must contain 1–200 messages');
+  return value.map(c => {
+    if (!['user', 'model'].includes(c?.role) || !Array.isArray(c.parts) || c.parts.length === 0 || c.parts.length > 20) throw new RequestError(400, 'Invalid message');
+    return { role: c.role, parts: c.parts.map((p: any) => ({ text: text(p?.text, 'message text') })) };
   });
-
-  // Tighten CORS configuration (Bug 98)
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow localhost, the AI Studio runner, and Cloud Run preview URLs
-      if (!origin || /localhost/.test(origin) || /asia-southeast1\.run\.app$/.test(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true); // Fallback to allow preview, but securely configurable
-      }
-    },
-    credentials: true
-  }));
-
-  const PORT = 3000;
-
-  // Protect against Denial of Service with a safer 10MB limit (Bug 97)
-  app.use(express.json({ limit: '10mb' }));
-
-  // Request logging for AI routes
-  app.use((req, res, next) => {
-    if (req.url.startsWith('/api/ai')) {
-      console.log(`[AI API] ${req.method} ${req.url}`);
+}
+function generationConfig(value: any = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RequestError(400, 'Invalid generationConfig');
+  const temperature = value.temperature ?? 0.7;
+  const maxOutputTokens = value.maxOutputTokens ?? 4096;
+  if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2 || !Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 32768) throw new RequestError(400, 'Invalid generation limits');
+  return { temperature, maxOutputTokens };
+}
+async function upstream(req: express.Request, res: express.Response, url: string, keyHeaders: Record<string, string>, body: any, streaming: boolean, responseField = 'text') {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  const abort = () => controller.abort();
+  req.on('aborted', abort);
+  res.on('close', abort);
+  try {
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...keyHeaders }, body: JSON.stringify(body), signal: controller.signal });
+    if (!response.ok) {
+      await response.body?.cancel();
+      res.status(response.status === 429 ? 429 : response.status === 401 || response.status === 403 ? 401 : 502)
+        .json({ success: false, error: `AI provider rejected the request (${response.status}). Check your key and model.` });
+      return;
     }
-    next();
-  });
-
-  // Generic AI Provider Proxy (Supports Gemini, OpenRouter, Fireworks, etc.)
-  app.post("/api/ai/:provider", aiLimiter, async (req: express.Request, res: express.Response) => {
-    const { provider } = req.params;
-    try {
-      const { model, contents, generationConfig, systemInstruction, apiKey: clientApiKey } = req.body;
-      
-      let apiUrl = '';
-      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      let body: any = {};
-
-      if (provider === 'gemini') {
-        const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
-        if (!apiKey) throw new Error("Gemini API Key missing");
-        
-        let targetModel = model || 'gemini-flash-latest';
-        if (!targetModel.startsWith('models/')) targetModel = `models/${targetModel}`;
-        
-        apiUrl = `https://generativelanguage.googleapis.com/v1beta/${targetModel}:streamGenerateContent?alt=sse`;
-        headers['x-goog-api-key'] = apiKey;
-        body = {
-          contents,
-          systemInstruction,
-          generationConfig: generationConfig || { temperature: 0.7, maxOutputTokens: 8192 }
-        };
-      } else if (provider === 'openrouter' || provider === 'fireworks' || provider === 'together') {
-        const apiKey = (provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : 
-                        provider === 'fireworks' ? process.env.FIREWORKS_API_KEY : 
-                        process.env.TOGETHER_API_KEY) || clientApiKey;
-        
-        if (!apiKey) throw new Error(`${provider} API Key missing`);
-
-        apiUrl = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' :
-                 provider === 'fireworks' ? 'https://api.fireworks.ai/inference/v1/chat/completions' :
-                 'https://api.together.xyz/v1/chat/completions';
-
-        headers['Authorization'] = `Bearer ${apiKey}`;
-        if (provider === 'openrouter') {
-          headers['HTTP-Referer'] = 'https://redwan-notes.app';
-          headers['X-Title'] = 'Redwan Notes';
-        }
-
-        // Transform Gemini format to OpenAI format for these providers
-        const messages = [];
-        if (systemInstruction?.parts?.[0]?.text) {
-          messages.push({ role: 'system', content: systemInstruction.parts[0].text });
-        }
-        
-        contents.forEach((c: any) => {
-          messages.push({
-            role: c.role === 'model' ? 'assistant' : 'user',
-            content: c.parts[0].text
-          });
-        });
-
-        body = {
-          model: model,
-          messages,
-          stream: true,
-          temperature: generationConfig?.temperature || 0.7,
-          max_tokens: generationConfig?.maxOutputTokens || 4096
-        };
-      } else {
-        return res.status(400).json({ success: false, error: `Unsupported AI provider: ${provider}` });
-      }
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.status(response.status).json({ success: false, error: errorText });
-      }
-
+    if (streaming) {
       res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      if (response.body) {
-        // @ts-ignore
-        for await (const chunk of response.body) {
-          res.write(chunk);
-        }
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+      if (response.body) for await (const chunk of response.body as any) {
+        if (res.destroyed) break;
+        res.write(chunk);
       }
       res.end();
-    } catch (err: any) {
-      console.error(`AI Proxy Error (${provider}):`, err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // Gemini Proxy Route (Legacy / Compatibility)
-
-  // Simple AI Chat Endpoint (non-streaming, used by extensions)
-  app.post("/api/ai/chat", aiLimiter, async (req: express.Request, res: express.Response) => {
-    try {
-      const { messages, apiKey: clientApiKey, model: clientModel } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
-      let model = clientModel || 'gemini-1.5-flash';
-      if (!apiKey) return res.status(500).json({ error: "AI Key missing. Please check your AI Settings." });
-
-      // Normalize model name
-      if (!model.startsWith('models/')) model = `models/${model}`;
-
-      // Separate system messages and conversation contents
-      const systemMessages = messages.filter((m: any) => m.role === 'system');
-      const chatMessages = messages.filter((m: any) => m.role !== 'system');
-      
-      const systemInstruction = systemMessages.length > 0 
-        ? { parts: [{ text: systemMessages.map((m: any) => m.content || m.text).join('\n') }] }
-        : undefined;
-
-      // Transform messages into Gemini format
-      const contents = chatMessages.map((m: any) => ({
-        role: (m.role === 'assistant' || m.role === 'model') ? 'model' : 'user',
-        parts: [{ text: m.content || m.text || '' }]
-      }));
-
-      // Bug 7: Pass API key securely in header instead of URL
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        // Bug 8: Support both standard camelCase and backward-compatibility snake_case
-        body: JSON.stringify({ 
-          contents,
-          systemInstruction: systemInstruction,
-          system_instruction: systemInstruction
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "Unknown error");
-        console.error(`Gemini Chat API Error (${response.status}):`, errorText);
-        try {
-          return res.status(response.status).json(JSON.parse(errorText));
-        } catch {
-          return res.status(response.status).json({ error: { message: errorText } });
-        }
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      res.json({ content: text });
-    } catch (err: any) {
-      console.error("AI Chat Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // General AI Proxy (used by extensions for more control)
-  app.post("/api/ai/proxy", aiLimiter, async (req: express.Request, res: express.Response) => {
-    try {
-      const { prompt, systemInstruction, system_instruction, apiKey: clientApiKey, model: clientModel } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
-      let model = clientModel || 'gemini-1.5-flash';
-      if (!apiKey) return res.status(500).json({ error: "AI Key missing. Please check your AI Settings." });
-
-      // Normalize model name
-      if (!model.startsWith('models/')) model = `models/${model}`;
-
-      const activeInstruction = systemInstruction || system_instruction;
-      const body: any = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      };
-      
-      if (activeInstruction) {
-        const partsObj = { parts: [{ text: activeInstruction }] };
-        body.systemInstruction = partsObj;
-        body.system_instruction = partsObj; // Support both (Bug 8)
-      }
-
-      // Bug 7: Pass API key securely in header instead of URL
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "Unknown error");
-        console.error(`Gemini Proxy API Error (${response.status}):`, errorText);
-        try {
-          return res.status(response.status).json(JSON.parse(errorText));
-        } catch {
-          return res.status(response.status).json({ error: { message: errorText } });
-        }
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      res.json({ text });
-    } catch (err: any) {
-      console.error("AI Proxy Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Route to download extensions spec
-  app.get("/api/docs/spec", (req, res) => {
-    const filePath = path.join(process.cwd(), "docs", "EXTENSIONS_SPEC.md");
-    if (fs.existsSync(filePath)) {
-      res.setHeader('Content-Disposition', 'attachment; filename="EXTENSIONS_SPEC.md"');
-      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-      res.sendFile(filePath);
     } else {
-      res.status(404).json({ error: "Specification file not found" });
+      const data = await response.json();
+      res.json({ [responseField]: data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '' });
     }
+  } catch (error) {
+    if (res.destroyed) return;
+    if (res.headersSent) { res.end(); return; }
+    res.status(controller.signal.aborted ? 504 : 502).json({ success: false, error: controller.signal.aborted ? 'AI request timed out.' : 'AI provider is unavailable.' });
+  } finally {
+    clearTimeout(timer);
+    req.off('aborted', abort);
+    res.off('close', abort);
+  }
+}
+const handler = (fn: (req: express.Request, res: express.Response) => Promise<void>) =>
+  (req: express.Request, res: express.Response, next: express.NextFunction) => { fn(req, res).catch(next); };
+
+// Specific routes MUST precede /:provider.
+app.post('/api/ai/chat', handler(async (req, res) => {
+  const key = apiKey(req.body);
+  const model = modelName(req.body.model, 'gemini-flash-latest').replace(/^models\//, '');
+  const messages = req.body.messages;
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 200) throw new RequestError(400, 'Invalid messages');
+  messages.forEach((m: any) => {
+    if (!['system', 'user', 'assistant', 'model'].includes(m?.role)) throw new RequestError(400, 'Invalid role');
+    text(m.content ?? m.text, 'message');
   });
-
-  // Mediafire direct download proxy - REMOVED AS REQUESTED TO USE LOCAL FILES
-  // ...
-
-  // End point for dev logs
-  app.get("/api/dev/logs", (req, res) => {
-    res.json(devLogs);
-  });
-
-  // Catch-all for /api routes to return JSON 404 instead of HTML
-  app.all("/api/*", (req, res) => {
-    res.status(404).json({ success: false, error: `API route not found: ${req.method} ${req.url}` });
-  });
-
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+  const system = messages.filter((m: any) => m.role === 'system').map((m: any) => m.content ?? m.text).join('\n');
+  const conversation = contents(messages.filter((m: any) => m.role !== 'system').map((m: any) => ({ role: ['assistant', 'model'].includes(m.role) ? 'model' : 'user', parts: [{ text: m.content ?? m.text }] })));
+  await upstream(req, res, `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { 'x-goog-api-key': key }, { contents: conversation, ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}) }, false, 'content');
+}));
+app.post('/api/ai/proxy', handler(async (req, res) => {
+  const key = apiKey(req.body);
+  const model = modelName(req.body.model, 'gemini-flash-latest').replace(/^models\//, '');
+  const prompt = text(req.body.prompt, 'prompt');
+  const instruction = req.body.systemInstruction ?? req.body.system_instruction;
+  const system = instruction === undefined ? undefined : typeof instruction === 'string' ? { parts: [{ text: text(instruction, 'systemInstruction') }] } : systemInstruction(instruction);
+  await upstream(req, res, `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { 'x-goog-api-key': key }, { contents: [{ role: 'user', parts: [{ text: prompt }] }], systemInstruction: system }, false);
+}));
+app.post('/api/ai/:provider', handler(async (req, res) => {
+  const provider = req.params.provider;
+  if (!['gemini', 'openrouter', 'fireworks', 'together'].includes(provider)) throw new RequestError(400, 'Unsupported AI provider');
+  const key = apiKey(req.body);
+  const model = modelName(req.body.model, provider === 'gemini' ? 'gemini-flash-latest' : '');
+  const conversation = contents(req.body.contents);
+  const system = systemInstruction(req.body.systemInstruction);
+  const config = generationConfig(req.body.generationConfig);
+  if (provider === 'gemini') {
+    await upstream(req, res, `https://generativelanguage.googleapis.com/v1beta/models/${model.replace(/^models\//, '')}:streamGenerateContent?alt=sse`, { 'x-goog-api-key': key }, { contents: conversation, systemInstruction: system, generationConfig: config }, true);
+  } else {
+    const urls: Record<string, string> = { openrouter: 'https://openrouter.ai/api/v1/chat/completions', fireworks: 'https://api.fireworks.ai/inference/v1/chat/completions', together: 'https://api.together.xyz/v1/chat/completions' };
+    const messages = conversation.map(c => ({ role: c.role === 'model' ? 'assistant' : 'user', content: c.parts.map((p: any) => p.text).join('\n') }));
+    if (system) messages.unshift({ role: 'system', content: system.parts[0].text });
+    await upstream(req, res, urls[provider], { Authorization: `Bearer ${key}` }, { model, messages, stream: true, temperature: config.temperature, max_tokens: config.maxOutputTokens }, true);
+  }
+}));
+app.all('/api/*', (_req, res) => { res.status(404).json({ success: false, error: 'API route not found' }); });
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status = err instanceof RequestError ? err.status : err.type === 'entity.too.large' ? 413 : err instanceof SyntaxError || err.status === 400 ? 400 : 500;
+  res.status(status).json({ success: false, error: err instanceof RequestError ? err.message : status === 413 ? 'Request body too large' : status === 400 ? 'Invalid JSON body' : 'Internal server error' });
+});
+async function start() {
+  if (!production) {
+    const { createServer } = await import('vite');
+    const vite = await createServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    const publicDir = path.resolve('dist');
+    app.use(express.static(publicDir, { setHeaders(res, file) {
+      res.setHeader('Cache-Control', file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache');
+    } }));
     app.get('*', (req, res) => {
-      const htmlPath = path.join(distPath, 'index.html');
-      if (fs.existsSync(htmlPath)) {
-        let html = fs.readFileSync(htmlPath, 'utf8');
-        html = injectBaseTag(html, '/');
-        res.send(html);
-      } else {
-        res.status(404).send('Not Found');
-      }
+      // Missing files are not SPA routes. In particular never expose server artifacts.
+      if (path.extname(req.path) || req.path.startsWith('/assets/')) { res.status(404).send('Not found'); return; }
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(path.join(publicDir, 'index.html'));
     });
   }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  app.listen(Number(process.env.PORT || 3000), '0.0.0.0', () => console.log('RN AI server ready'));
 }
-
-startServer().catch(err => {
-  console.error("Failed to start server:", err);
-});
+start().catch(error => { console.error('Server startup failed:', error.message); process.exitCode = 1; });

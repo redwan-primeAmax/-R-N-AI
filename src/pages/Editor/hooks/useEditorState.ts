@@ -16,7 +16,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [isUnlocked, setIsUnlocked] = useState(location.state?.authorized || false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [note, setNote] = useState<Note | null>(null);
   const [title, setTitle] = useState('');
@@ -204,13 +204,13 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         (window as any).requestIdleCallback(() => {
           const content = blocksToHtml(blocks);
           if (content === lastSavedContentRef.current) return;
-          if (id) db.key_value_pairs.put({ key: BACKUP_KEY, value: content }).catch(console.error);
+          if (id) DataManager.saveDraft(id, BACKUP_KEY, content).catch(console.error);
           saveNote(content);
         });
       } else {
         const content = blocksToHtml(blocks);
         if (content === lastSavedContentRef.current) return;
-        if (id) db.key_value_pairs.put({ key: BACKUP_KEY, value: content }).catch(console.error);
+        if (id) DataManager.saveDraft(id, BACKUP_KEY, content).catch(console.error);
         saveNote(content);
       }
     }, 5000); // 5s debounce
@@ -218,7 +218,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
   // Asynchronous secure hot-backup of current draft state to Dexie (immediate & immune to exit data loss)
   useEffect(() => {
-    if (!id || blocks.length === 0) return;
+    if (!id || blocks.length === 0 || noteRef.current?.isLocked) return;
     
     const draftData = {
       blocks,
@@ -240,10 +240,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
           return;
         }
 
-        await db.key_value_pairs.put({ 
-          key: `note_draft_${id}`, 
-          value: draftData 
-        });
+        await DataManager.saveDraft(id, `note_draft_${id}`, draftData);
       } catch (e) {
         console.warn('Draft write error:', e);
       }
@@ -347,21 +344,23 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
     const fetchedNote = await DataManager.getNoteById(noteId, true);
 
     if (fetchedNote) {
+      noteRef.current = fetchedNote;
+      setIsUnlocked(!fetchedNote._vaultRedacted);
+      if (fetchedNote._vaultRedacted) {
+        blocksRef.current = [];
+        setNote(fetchedNote);
+        return;
+      }
       // ⚡ Defer raw backup — DON'T await, DON'T block render
-      if (fetchedNote.content && fetchedNote.content.length > 100_000) {
+      if (!fetchedNote.isLocked && fetchedNote.content && fetchedNote.content.length > 100_000) {
         const backupKey = `raw_html_backup_${noteId}`;
         const scheduleBackup = () => {
           db.key_value_pairs.get(backupKey).then(existing => {
             const existingTs = existing?.value?.timestamp || 0;
             if (Date.now() - existingTs < 5 * 60 * 1000) return;
 
-            db.key_value_pairs.put({
-              key: backupKey,
-              value: {
-                html: fetchedNote.content,
-                timestamp: Date.now(),
-                size: fetchedNote.content.length
-              }
+            DataManager.saveDraft(noteId, backupKey, {
+              html: fetchedNote.content, timestamp: Date.now(), size: fetchedNote.content.length
             }).catch(() => {});
           }).catch(() => {});
         };
@@ -382,7 +381,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       let contentVal = fetchedNote.content;
 
       // Hot draft recovery check (Dexie-based for performance)
-      const draftRecord = await db.key_value_pairs.get(`note_draft_${noteId}`);
+      const draftRecord = fetchedNote.isLocked ? undefined : await db.key_value_pairs.get(`note_draft_${noteId}`);
       let draftRestored = false;
       if (draftRecord && draftRecord.value) {
         try {
@@ -415,7 +414,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       
       let content = contentVal;
       if (!draftRestored) {
-        const backupRecord = await db.key_value_pairs.get(BACKUP_KEY);
+        const backupRecord = fetchedNote.isLocked ? undefined : await db.key_value_pairs.get(BACKUP_KEY);
         const backup = backupRecord ? backupRecord.value as string : null;
         if (backup && backup !== fetchedNote.content) content = backup;
       }

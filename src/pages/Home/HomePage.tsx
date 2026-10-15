@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, ChevronUp, LayoutGrid, Layers } from 'lucide-react';
 import { DataManager, Note, Workspace } from '../../services/storage/DataManager';
@@ -16,7 +16,7 @@ import Sidebar from '../../components/Sidebar';
 import { HomeHeader } from './components/HomeHeader';
 import { RecentNotes } from './components/RecentNotes';
 import { NoteCard } from './components/NoteCard';
-import { ActionMenu } from './components/ActionMenu';
+const ActionMenu = lazy(() => import('./components/ActionMenu').then(m => ({ default: m.ActionMenu })));
 import { SelectionBar } from './components/SelectionBar';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import { cn } from '../../utils/cn';
@@ -36,12 +36,12 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNoteForMenu, setSelectedNoteForMenu] = useState<Note | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  
+
   // Custom states for 100-star Progressive Chunk Loading to handle scale perfectly
   const [visibleCount, setVisibleCount] = useState<number>(10);
   const [historyNotes, setHistoryNotes] = useState<RecentNote[]>([]);
   const observerTarget = useRef<HTMLDivElement | null>(null);
-  
+
   const navigate = useNavigate();
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || workspaces[0];
 
@@ -77,14 +77,14 @@ export default function HomePage() {
       pageRef.current = 0;
       setPage(0);
     }
-    
+
     try {
       const activeWsId = await DataManager.getActiveWorkspaceId();
       setCurrentWorkspaceId(activeWsId);
-      
+
       const targetPage = isInitial ? 0 : pageRef.current + 1;
       const { notes: fetchedNotes, hasMore: moreAvailable } = await DataManager.getNotesPaginated(targetPage, PAGE_SIZE);
-      
+
       if (isInitial) {
         setNotes(fetchedNotes);
       } else {
@@ -92,10 +92,10 @@ export default function HomePage() {
         pageRef.current = targetPage;
         setPage(targetPage);
       }
-      
+
       setHasMore(moreAvailable);
-      setVisibleCount(10); 
-      
+      setVisibleCount(10);
+
       const ws = await DataManager.getWorkspaces();
       setWorkspaces(ws);
 
@@ -111,19 +111,19 @@ export default function HomePage() {
   // Performance-optimised Intersection Observer to dynamically stream note cards only as needed
   useEffect(() => {
     if (!observerTarget.current || !hasMore) return;
-    
+
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && !isLoading) {
         loadData(false);
       }
     }, {
       threshold: 0.1,
-      rootMargin: '200px' 
+      rootMargin: '200px'
     });
-    
+
     const currentSentinel = observerTarget.current;
     observer.observe(currentSentinel);
-    
+
     return () => {
       if (currentSentinel) {
         observer.unobserve(currentSentinel);
@@ -141,7 +141,7 @@ export default function HomePage() {
   useEffect(() => {
     loadData();
     const syncHandler = DataManager.onSync(loadData);
-    
+
     const handleOpenExternal = () => navigate('/external-ai-import');
     window.addEventListener('open-external-import', handleOpenExternal);
 
@@ -189,11 +189,11 @@ export default function HomePage() {
   }, []);
 
   const handleCopyNote = async (note: Note) => {
-    const newNote = { 
-      ...note, 
-      id: crypto.randomUUID(), 
-      title: (note.title || 'শিরোনামহীন') + ' (কপি)', 
-      updatedAt: Date.now() 
+    const newNote = {
+      ...note,
+      id: crypto.randomUUID(),
+      title: (note.title || 'শিরোনামহীন') + ' (কপি)',
+      updatedAt: Date.now()
     };
     await DataManager.saveNote(newNote);
     loadData();
@@ -219,14 +219,14 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-white pb-48 overflow-x-hidden select-none">
-      <Sidebar 
+      <Sidebar
         isOpen={showSidebar}
         onClose={() => setShowSidebar(false)}
         onOpenTrash={() => navigate('/recycle-bin')}
         onOpenSettings={() => navigate('/settings')}
       />
 
-      <HomeHeader 
+      <HomeHeader
         currentWorkspaceName={currentWorkspace?.name}
         currentWorkspaceColor={currentWorkspace?.color}
         activeTasksCount={activeTasksCount}
@@ -241,15 +241,15 @@ export default function HomePage() {
             পেজসমূহ ({notes.length})
           </span>
           <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-1 rounded-xl text-[11px]">
-            <button 
+            <button
               onClick={() => {
                 setViewMode('grid');
                 localStorage.setItem('home_view_mode', 'grid');
               }}
               className={cn(
                 "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
-                viewMode === 'grid' 
-                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs" 
+                viewMode === 'grid'
+                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs"
                   : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
               )}
               title="Grid Mode (2-Column Grid)"
@@ -257,15 +257,15 @@ export default function HomePage() {
               <LayoutGrid size={14} />
               <span>Grid</span>
             </button>
-            <button 
+            <button
               onClick={() => {
                 setViewMode('layer');
                 localStorage.setItem('home_view_mode', 'layer');
               }}
               className={cn(
                 "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
-                viewMode === 'layer' 
-                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs" 
+                viewMode === 'layer'
+                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs"
                   : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
               )}
               title="Layer Mode (Single Column List)"
@@ -287,12 +287,12 @@ export default function HomePage() {
           ) : notes.length > 0 ? (
             <>
               <div className={cn(
-                viewMode === 'grid' 
-                  ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" 
+                viewMode === 'grid'
+                  ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5"
                   : "flex flex-col gap-0.5"
               )}>
                 {notes.slice(0, visibleCount).map(note => (
-                  <NoteCard 
+                  <NoteCard
                     key={note.id}
                     note={note}
                     isSelectionMode={isSelectionMode}
@@ -303,10 +303,10 @@ export default function HomePage() {
                   />
                 ))}
               </div>
-              
+
               {/* Sentinel target for high-performance lazy loading */}
               {notes.length > visibleCount && (
-                <div 
+                <div
                   ref={observerTarget}
                   className="h-1 w-full"
                 />
@@ -321,7 +321,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <ActionMenu 
+      {selectedNoteForMenu && <Suspense fallback={null}><ActionMenu
         note={selectedNoteForMenu}
         onClose={() => setSelectedNoteForMenu(null)}
         onEdit={(id) => navigate(`/editor/${id}`)}
@@ -332,9 +332,9 @@ export default function HomePage() {
           setSelectedIds([id]);
         }}
         onEmojiSelect={handleEmojiSelect}
-      />
+      /></Suspense>}
 
-      <SelectionBar 
+      <SelectionBar
         isVisible={isSelectionMode}
         selectedCount={selectedIds.length}
         onCancel={() => { setIsSelectionMode(false); setSelectedIds([]); }}

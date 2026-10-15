@@ -45,8 +45,8 @@ export default function Vault() {
   }, [checkStatus]);
 
   const handleSetPassword = async () => {
-    if (password.length < 4) {
-      setError('পাসওয়ার্ড অন্তত ৪ অক্ষরের হতে হবে');
+    if (password.length < 8) {
+      setError('পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে');
       return;
     }
     if (password !== confirmPassword) {
@@ -74,6 +74,9 @@ export default function Vault() {
 
   const handleUnlockNote = async (noteId: string) => {
     if (window.confirm('আপনি কি এই নোটটির সুরক্ষা কবজ সরিয়ে ফেলতে চান?')) {
+      const pwd = prompt('এই নোটের পাসওয়ার্ড দিন:');
+      if (pwd === null) return;
+      if (!await DataManager.authorizeNote(noteId, pwd)) { setError('ভুল নোট পাসওয়ার্ড'); return; }
       await DataManager.updateNote(noteId, { isLocked: false });
       setLockedNotes(prev => prev.filter(n => n.id !== noteId));
     }
@@ -114,7 +117,7 @@ export default function Vault() {
             <div className="space-y-2">
               <h1 className="text-4xl font-black tracking-tighter uppercase">সিকিউর <span className="text-amber-500">ভল্ট</span></h1>
               <p className="text-white/30 text-xs font-bold uppercase tracking-widest">
-                {hasPasswordSet ? 'Access Protected Content' : 'Setup Master Security'}
+                {hasPasswordSet ? 'নোটের লেখা এনক্রিপ্টেড; শিরোনাম ও সংযুক্ত ফাইল নয়' : 'Setup Master Security'}
               </p>
             </div>
           </div>

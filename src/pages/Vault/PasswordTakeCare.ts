@@ -4,7 +4,7 @@
  */
 
 import { DataManager } from '../../services/storage/DataManager';
-import { hashPassword } from '../../utils/crypto';
+import { hashPassword, verifyPassword } from '../../utils/crypto';
 
 export const PasswordTakeCare = {
   getMasterPassword: async (): Promise<string | null> => {
@@ -16,29 +16,16 @@ export const PasswordTakeCare = {
     const master = await PasswordTakeCare.getMasterPassword();
     if (!master) return false;
 
-    // New SHA-256 based check
-    const hashed = await hashPassword(password);
-    if (master === hashed) return true;
-
-    // Legacy fallback (old manual hash) — auto-migrates on success
-    if (master.includes('$')) {
-      const [salt, hash] = master.split('$');
-      const combined = password + salt;
-      let calculated = 0;
-      for (let i = 0; i < combined.length; i++) {
-        const char = combined.charCodeAt(i);
-        calculated = ((calculated << 5) - calculated) + char;
-        calculated |= 0;
-      }
-      if (Math.abs(calculated).toString(16) === hash) {
-        await PasswordTakeCare.setMasterPassword(password);
-        return true;
-      }
+    const valid = await verifyPassword(password, master);
+    if (valid && !master.startsWith('pbkdf2$')) {
+      const user = await DataManager.getUser();
+      await DataManager.updateUser({ ...user, masterPassword: await hashPassword(password) });
     }
-    return false;
+    return valid;
   },
 
   setMasterPassword: async (password: string): Promise<void> => {
+    if (password.length < 8) throw new Error('Use at least 8 characters.');
     const user = await DataManager.getUser();
     if (user) {
       const hashed = await hashPassword(password);

@@ -12,7 +12,6 @@ import {
   MoveRight, Check, X, ClipboardCopy, Shield
 } from 'lucide-react';
 import { Note, DataManager, encrypt } from '../../../services/storage/DataManager';
-import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { PageIcon } from '../../../components/PageIcon';
 import { IconChange } from '../../../components/icon/IconChange';
 import { PasswordTakeCare } from '../../Vault/PasswordTakeCare';
@@ -158,18 +157,20 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
             return;
           }
 
-          if (note.isLocked) {
-             // Unlock logic
-             await DataManager.toggleLock(note.id);
-             onClose();
-          } else {
-             const pwd = prompt('এই পেজটির জন্য একটি আলাদা সিকিউরিটি পাসওয়ার্ড সেট করুন:');
-             if (pwd && pwd.length >= 2) {
-                const encryptedNotePwd = await encrypt(pwd);
-                await DataManager.saveNote({ ...note, isLocked: true, password: encryptedNotePwd });
-                onClose();
-             }
-          }
+          try {
+            if (note.isLocked) {
+              const pwd = prompt('নোটের পাসওয়ার্ড দিন:');
+              if (pwd === null) return;
+              if (!await DataManager.authorizeNote(note.id, pwd)) throw new Error('ভুল পাসওয়ার্ড');
+              await DataManager.toggleLock(note.id);
+            } else {
+              const pwd = prompt('নোটের জন্য অন্তত ৮ অক্ষরের পাসওয়ার্ড দিন:');
+              if (pwd === null) return;
+              await DataManager.lockNote(note.id, pwd);
+            }
+            onClose();
+          } catch (error) { alert(error instanceof Error ? error.message : 'নোট লক/আনলক করা যায়নি'); }
+
         }
       }
     },

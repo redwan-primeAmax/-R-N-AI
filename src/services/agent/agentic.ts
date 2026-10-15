@@ -127,12 +127,13 @@ async function callDirectAI(
     if (targetModel === 'gemini-flash-latest') targetModel = 'gemini-1.5-flash';
     if (!targetModel.startsWith('models/')) targetModel = `models/${targetModel}`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/${targetModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/${targetModel}:streamGenerateContent?alt=sse`;
 
     return await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       signal,
       body: JSON.stringify({
@@ -229,13 +230,8 @@ export class AgenticAIService extends AIService {
       window.location.hostname.endsWith('pages.dev')
     );
 
-    const effectiveApiKey = userApiKey || (
-      provider === 'gemini' 
-        ? ((import.meta.env.VITE_GEMINI_API_KEY as string) || '') 
-        : provider === 'openrouter' 
-          ? ((import.meta.env.VITE_OPENROUTER_API_KEY as string) || '') 
-          : ''
-    );
+    // Provider credentials are user-supplied; shared secrets must never enter a client bundle.
+    const effectiveApiKey = userApiKey || '';
 
     try {
       let response: Response;

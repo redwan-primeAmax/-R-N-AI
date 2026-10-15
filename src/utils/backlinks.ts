@@ -18,15 +18,17 @@ export function findBacklinks(noteId: string, allNotes: Note[]): BacklinkItem[] 
   const backlinks: BacklinkItem[] = [];
 
   for (const otherNote of allNotes) {
-    if (otherNote.id === noteId || otherNote.isTrashed) continue;
+    if (otherNote.id === noteId || otherNote.isTrashed || otherNote.isLocked) continue;
 
     const content = otherNote.content || '';
     
     // Check for references in HTML data attributes, editor URLs, or markdown links
+    const escapedId = noteId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const editorLink = new RegExp(`/editor/${escapedId}(?=$|[\\s"'<>?#/)])`);
     const isLinked = 
       content.includes(`data-note-id="${noteId}"`) ||
       content.includes(`data-note-id='${noteId}'`) ||
-      content.includes(`/editor/${noteId}`) ||
+      editorLink.test(content) ||
       content.includes(`[[${noteId}]]`);
 
     if (isLinked) {

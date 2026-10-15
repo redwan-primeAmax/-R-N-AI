@@ -43,7 +43,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   };
 
   return (
-    <div className="px-4 pt-1.5 pb-2 sticky top-0 bg-[var(--bg-main)]/95 backdrop-blur-xl z-40 border-b border-white/[0.04]">
+    <div className="px-4 pt-1.5 pb-2 sticky top-0 bg-[var(--bg-main)] z-40 border-b border-white/[0.04]">
       {/* Android Material 3 Pill Top App Bar with minimal gap */}
       <div className="flex items-center gap-2 bg-[#262422]/90 hover:bg-[#2c2a27] border border-white/[0.08] shadow-md rounded-full px-2.5 py-1 transition-all">
         {/* Android Navigation Drawer Button (Hamburger Menu) */}

@@ -43,7 +43,7 @@ function EditorPage({ id }: { id: string | undefined }) {
     tags, setTags, theme, setTheme, isSaving, saveError,
     activeTasksCount, workspaceName, parentNote, currentSubPages, setCurrentSubPages,
     notification, setNotification, isReadOnly, setIsReadOnly, isUnlocked, setIsUnlocked,
-    saveNote, titleRef, emojiRef, noteRef, themeRef, blocksRef, isDeletingRef
+    saveNote, loadNote, titleRef, emojiRef, noteRef, themeRef, blocksRef, isDeletingRef
   } = useEditorState(id, blocksRefs as any);
 
   // Editor Actions & Component Handlers Setup
@@ -196,6 +196,7 @@ function EditorPage({ id }: { id: string | undefined }) {
         note={note}
         isLight={isLight}
         setIsUnlocked={setIsUnlocked}
+        onUnlocked={() => loadNote(note.id)}
         navigate={navigate}
         notification={notification}
         setNotification={setNotification}

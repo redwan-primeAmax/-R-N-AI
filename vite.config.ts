@@ -118,28 +118,9 @@ export default defineConfig(({mode}) => {
       target: 'es2020',
       cssCodeSplit: true,
       minify: 'esbuild', // Faster and good enough, using terser requires extra dependency
-      chunkSizeWarningLimit: 1000,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-                return 'vendor-core';
-              }
-              if (id.includes('framer-motion')) {
-                return 'vendor-motion';
-              }
-              if (id.includes('lucide-react')) {
-                return 'vendor-icons';
-              }
-              if (id.includes('dexie') || id.includes('localforage')) {
-                return 'vendor-storage';
-              }
-              return 'vendor-others';
-            }
-          }
-        }
-      }
+      chunkSizeWarningLimit: 600,
+      // Let Rollup preserve lazy feature boundaries instead of merging all vendors
+      // (including PDF, emoji, math and AI code) into an eager circular chunk.
     },
     resolve: {
       alias: {

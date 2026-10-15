@@ -6,8 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DataManager, Note } from '../../../services/storage/DataManager';
-import { blocksToHtml } from '../components/CustomBlockEditor';
-import { hashPassword } from '../../../utils/crypto';
+import { blocksToHtml } from '../../../utils/blockParser';
 import { loadThemeConfig } from '../themes/ThemeRegistry';
 import { ThemeConfig } from '../themes/types';
 
@@ -239,6 +238,8 @@ export function useEditorHandlers({
       content: currentContent,
       isLocked: false,
       password: '',
+      vaultSalt: undefined,
+      _vaultRedacted: false,
       updatedAt: Date.now(), 
       createdAt: Date.now() 
     };
@@ -249,15 +250,17 @@ export function useEditorHandlers({
   };
 
   const handleLock = async (password: string) => {
-    const trimmed = password.trim();
-    if (trimmed) {
-      const hashed = await hashPassword(trimmed);
-      const currentNote = noteRef.current || note!;
-      await DataManager.saveNote({ ...currentNote, isLocked: true, password: hashed, updatedAt: Date.now() });
-      setNotification({ message: 'Page Locked', type: 'success' });
-      setShowActionSheet(false);
-      setTimeout(() => setNotification(null), 2000);
-    }
+    if (password.length < 8) throw new Error('পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে।');
+    const currentNote = noteRef.current || note!;
+    await DataManager.saveNote({ ...currentNote, title: titleRef.current, emoji: emojiRef.current, tags, theme: themeRef.current, content: blocksToHtml(editor.blocks) });
+    const locked = await DataManager.lockNote(currentNote.id, password);
+    noteRef.current = locked;
+    setNote(locked);
+    // Latest editor state was saved before encryption. Do not let an unmount
+    // autosave recreate a plaintext draft after the explicit lock operation.
+    if (isDeletingRef) isDeletingRef.current = true;
+    setShowActionSheet(false);
+    navigate('/main');
   };
 
   const handleExport = () => {

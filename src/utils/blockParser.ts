@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -48,7 +49,6 @@ export interface EditorBlock {
 
 // ⚡ Singleton DOMParser — reuse across all block sanitization calls
 const sharedParser = new DOMParser();
-const DANGEROUS_PATTERN = /<script|javascript:|on\w+\s*=|onerror|onload|onclick/i;
 
 // Helper to clean up HTML from unnecessary tags, forcing tag mappings and nesting rules
 export function cleanBlockHTML(html: string, blockType: string): string {
@@ -59,16 +59,11 @@ export function cleanBlockHTML(html: string, blockType: string): string {
     return html;
   }
 
-  // ⚡ FAST PATH: 95% of blocks have no dangerous content — skip full parse
-  if (!DANGEROUS_PATTERN.test(html)) {
-    if (blockType === 'h1' || blockType === 'h2' || blockType === 'h3') {
-      if (/<(h[1-3]|p)[^>]*>[\s\S]*?<(h[1-3]|p)/i.test(html)) {
-        return flattenNestedHeadingsString(html);
-      }
-      return html;
-    }
-    return html;
-  }
+  // Always decode and sanitize untrusted HTML; regex fast paths miss encoded URLs.
+  html = DOMPurify.sanitize(html, {
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet', 'base', 'link', 'meta', 'style', 'form'],
+    ALLOW_DATA_ATTR: true,
+  });
 
   // SLOW PATH: dangerous content detected — full DOM parse required
   const doc = sharedParser.parseFromString(html, 'text/html');
