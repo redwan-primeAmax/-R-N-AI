@@ -72,3 +72,23 @@ Developed by **Redwan** ❤️
 - Google Fonts are bundled locally for offline use. Heavy emoji/PDF/database features are lazy-loaded;
   the PWA still precaches production assets. On mobile, persistent navigation/dialog effects avoid
   expensive backdrop blur/shadows.
+
+## Performance and mobile layout
+
+- Home reads bounded, newest-first pages through the IndexedDB v9 workspace/time index.
+  List/grid cards and the AI note picker use virtualization rather than mounting the whole workspace.
+  The index upgrade preserves existing notes, history and attachments.
+- Animation features load after the initial shell. The full math engine loads only for formula columns;
+  formulas are compiled once per expression. Canvas/ZIP export code loads on demand, and PDF/image
+  export share the same canvas implementation. These remain in the PWA's offline asset cache.
+- Search runs one ranking implementation in a worker, reuses its index until data changes, and ignores
+  stale results. If workers are unavailable it falls back to the same engine on the main thread.
+- AI chat follows the visual viewport with dynamic-height and safe-area fallbacks. It accounts for
+  software keyboards/browser toolbars without resizing during pinch zoom. Enter respects IME composition;
+  Shift+Enter inserts a newline. Clearing chat cancels generation and waits for outstanding writes.
+- Media cleanup protects references in retained versions, snapshots, drafts and covers. If locked/encrypted
+  content makes references unknowable, cleanup conservatively keeps media instead of risking data loss.
+  Over-quota backups are rejected intact rather than silently truncated during restore. Settings encryption
+  finishes before the restore transaction starts, so slow WebCrypto cannot cause a partial auto-commit.
+- Performance still depends on device, note/media size and browser. Viewport emulation cannot establish
+  identical behavior for every physical Android/iOS keyboard or browser toolbar.

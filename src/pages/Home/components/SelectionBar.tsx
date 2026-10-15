@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 
 interface SelectionBarProps {
   isVisible: boolean;

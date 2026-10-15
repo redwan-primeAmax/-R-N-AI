@@ -6,6 +6,8 @@
 import { DataManager, ChatMessage, Note } from '../storage/DataManager';
 import { AIService, AIServiceOptions } from './AIService';
 import { executeAICommands } from './AICommandExecutor';
+import type { Dispatch, SetStateAction } from 'react';
+import { readAIStream } from './readAIStream';
 import { AgentService } from './AgentService';
 
 export const AGENTIC_SYSTEM_PROMPT = `You are the Redwan Agentic AI, a hyper-capable Content Architect and Productivity Engine, inspired by Notion AI.
@@ -112,7 +114,6 @@ Attached notes are provided with [PAGE ID: ...]. ALWAYS use these IDs for 'updat
 
 End every message with [COMPLETION: 100%].`;
 
-const aiResponseCache = new Map<string, string>();
 
 async function callDirectAI(
   provider: string,
@@ -194,11 +195,6 @@ export class AgenticAIService extends AIService {
     const model = settings.selectedModels[provider] || (provider === 'gemini' ? 'gemini-1.5-flash' : '');
     const userApiKey = settings.apiKeys[provider];
 
-    const cacheKey = `${provider}:${model}:${prompt}:${history.length}:${attachedNotes.length}`;
-    if (aiResponseCache.has(cacheKey) && !onToken) {
-      return aiResponseCache.get(cacheKey)!;
-    }
-
     const contents: any[] = [];
     
     // Process History
@@ -223,6 +219,9 @@ export class AgenticAIService extends AIService {
     contents.push({ role: 'user', parts: [{ text: finalPrompt }] });
 
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.throwIfAborted();
+    options.signal?.addEventListener('abort', abort, { once: true });
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     const isStaticHost = typeof window !== 'undefined' && (
@@ -297,86 +296,42 @@ export class AgenticAIService extends AIService {
         throw new Error(errorMsg);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No stream reader");
-
-      const decoder = new TextDecoder();
-      let fullResponse = "";
-      let streamBuffer = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          // Critical: Use { stream: true } to handle multi-byte characters split across chunks
-          streamBuffer += decoder.decode(value, { stream: true });
-          
-          const lines = streamBuffer.split('\n');
-          // Keep the last (potentially partial) line in the buffer
-          streamBuffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const dataLine = line.trim();
-            if (!dataLine || !dataLine.startsWith('data: ')) continue;
-
-            if (provider === 'gemini') {
-              try {
-                const jsonStr = dataLine.replace('data: ', '').trim();
-                const parsed = JSON.parse(jsonStr);
-                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                  fullResponse += text;
-                  if (onToken) onToken(fullResponse);
-                }
-              } catch (e) {}
-            } else {
-              // For OpenRouter/OpenAI compatible streaming
-              const data = dataLine.replace('data: ', '').trim();
-              if (data === '[DONE]') break;
-              try {
-                const parsed = JSON.parse(data);
-                const text = parsed.choices?.[0]?.delta?.content || '';
-                if (text) {
-                  fullResponse += text;
-                  if (onToken) onToken(fullResponse);
-                }
-              } catch (e) {}
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-
-      aiResponseCache.set(cacheKey, fullResponse);
-      return fullResponse;
+      return await readAIStream(response, provider, onToken);
 
     } catch (err: any) {
-      if (err.name === 'AbortError') throw new Error("Request Timeout");
+      if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+      if (err.name === 'AbortError') throw new Error('Request Timeout');
       throw err;
     } finally {
       clearTimeout(timeoutId);
+      options.signal?.removeEventListener('abort', abort);
     }
   }
 }
 
-let lastSendTime = 0;
+interface AgenticSetters {
+  setIsLoading: (value: boolean) => void;
+  setAiStatus: (value: 'idle' | 'generating' | 'checking' | 'updating' | 'error') => void;
+  setAiReason: (value: string | null) => void;
+  setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+  setStreamingMessage: (value: string | null) => void;
+  setInput: (value: string) => void;
+  loadHistory: () => void | Promise<void>;
+  loadNotes: () => void | Promise<void>;
+  loadTasks: () => void | Promise<void>;
+}
 
 export const handleAgenticSendMessage = async (
   input: string,
   messages: ChatMessage[],
-  setters: any,
-  attachedNotes: Note[] = []
+  setters: AgenticSetters,
+  attachedNotes: Note[] = [],
+  signal?: AbortSignal
 ) => {
   const { 
     setIsLoading, setAiStatus, setAiReason, setMessages, 
     setStreamingMessage, setInput, loadHistory, loadNotes, loadTasks 
   } = setters;
-
-  const now = Date.now();
-  if (now - lastSendTime < 1000) return;
-  lastSendTime = now;
 
   if (!input.trim() && attachedNotes.length === 0) return;
 
@@ -388,23 +343,26 @@ export const handleAgenticSendMessage = async (
   };
   setMessages((prev: ChatMessage[]) => [...prev, userMessage]);
   setInput('');
-  await DataManager.saveChatMessage(userMessage);
 
   setIsLoading(true);
   setAiStatus('generating');
   
   try {
+    signal?.throwIfAborted();
+    await DataManager.saveChatMessage(userMessage);
     const settings = await DataManager.getAISettings();
     const service = new AgenticAIService();
 
     const response = await service.sendMessage(input, {
       settings,
+      signal,
       systemPrompt: AGENTIC_SYSTEM_PROMPT,
       history: messages,
       attachedNotes,
       onToken: (token) => setStreamingMessage(token)
     });
 
+    signal?.throwIfAborted();
     const aiMessage: ChatMessage = { 
       role: 'model', 
       text: response, 
@@ -446,6 +404,7 @@ export const handleAgenticSendMessage = async (
           // Call AI again with feedback
           const finalResponse = await service.sendMessage(feedbackText, {
             settings,
+            signal,
             systemPrompt: AGENTIC_SYSTEM_PROMPT,
             history: [...messages, userMessage, { role: 'model', text: response, timestamp: Date.now() }],
             onToken: (token) => setStreamingMessage(token)
@@ -453,6 +412,7 @@ export const handleAgenticSendMessage = async (
 
           aiMessage.text = finalResponse;
           // Execute any new commands in final response (optional, usually confirm/create)
+          signal?.throwIfAborted();
           await executeAICommands(finalResponse);
         }
 
@@ -460,15 +420,17 @@ export const handleAgenticSendMessage = async (
         aiMessage.commandStatus = 'executed';
       }
     } catch (cmdErr) {
-      console.error('[Agentic] Command execution failed:', cmdErr);
+      throw cmdErr;
     }
 
+    signal?.throwIfAborted();
     setMessages((prev: ChatMessage[]) => [...prev, aiMessage]);
     await DataManager.saveChatMessage(aiMessage);
     
     setStreamingMessage(null);
     setAiStatus('idle');
   } catch (err: any) {
+    if (signal?.aborted) { setAiStatus('idle'); return; }
     setAiStatus('error');
     const errorMsg = err.message || 'AI Error';
     setAiReason(errorMsg);
@@ -479,9 +441,10 @@ export const handleAgenticSendMessage = async (
       timestamp: Date.now()
     };
     setMessages((prev: ChatMessage[]) => [...prev, errorChatMessage]);
-    await DataManager.saveChatMessage(errorChatMessage);
+    await DataManager.saveChatMessage(errorChatMessage).catch(console.error);
   } finally {
     setIsLoading(false);
-    loadHistory(); loadNotes(); loadTasks();
+    setStreamingMessage(null);
+    if (!signal?.aborted) await Promise.all([loadHistory(), loadNotes(), loadTasks()]).catch(console.error);
   }
 };

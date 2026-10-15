@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { Note, DataManager } from '../../../services/storage/DataManager';

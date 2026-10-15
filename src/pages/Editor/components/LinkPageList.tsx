@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { FileText, Search, X, CornerDownRight, SquareArrowOutUpRight } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { cn } from '../../../utils/cn';

@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Sparkles, Layout, Zap, Briefcase, User, GraduationCap, Coffee } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { TEMPLATES, Template } from '../../templates/template-data';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 
 const CATEGORIES = [

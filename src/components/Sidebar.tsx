@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { 
   X, Trash2, Search, Bookmark, Lock,

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Sparkles, Send, Copy, Check, 
   Trash2, ChevronDown, Paperclip, X, Loader2, Plus, Settings
 } from 'lucide-react';
@@ -13,7 +13,11 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { DataManager, ChatMessage, Note, AISettings } from '../../services/storage/DataManager';
 import { handleAgenticSendMessage } from '../../services/agent/agentic';
+import { useVisualViewport } from '../../hooks/useVisualViewport';
+import { notify } from '../../utils/notify';
 import { cn } from '../../utils/cn';
+
+const NoteContextPicker = lazy(() => import('./NoteContextPicker'));
 
 const TagSuggestion: React.FC<{
   noteId: string;
@@ -131,11 +135,11 @@ const ChatMessageItem: React.FC<{
   msg: ChatMessage;
   idx: number;
   onCopy: (idx: number, text: string) => void;
-  copiedIdx: number | null;
-  notes: Note[];
-  onAddTag: (noteId: string, tag: string) => void;
+  isCopied: boolean;
+  noteTitles: ReadonlyMap<string, string>;
+  onAddTag: (noteId: string, tag: string) => Promise<boolean>;
   onOpenSettings?: () => void;
-}> = ({ msg, idx, onCopy, copiedIdx, notes, onAddTag, onOpenSettings }) => {
+}> = React.memo(({ msg, idx, onCopy, isCopied, noteTitles, onAddTag, onOpenSettings }) => {
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
   const [addedTags, setAddedTags] = useState<string[]>([]);
   const isError = msg.text.toLowerCase().includes('error') || msg.text.toLowerCase().includes('failed');
@@ -166,8 +170,8 @@ const ChatMessageItem: React.FC<{
     // 2. Transform note IDs to titles in the visible text
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
     processedText = processedText.replace(uuidRegex, (id) => {
-      const note = notes.find(n => n.id === id);
-      return note ? `"${note.title || 'শিরোনামহীন'}"` : id;
+      const title = noteTitles.get(id.toLowerCase());
+      return title !== undefined ? `"${title || 'শিরোনামহীন'}"` : id;
     });
 
     // 3. Identify if there are commands (even if unclosed)
@@ -182,6 +186,13 @@ const ChatMessageItem: React.FC<{
 
     const isExecuting = msg.commandStatus === 'executing' || (idx === -1 && hasCommand);
     const isExecuted = msg.commandStatus === 'executed';
+
+    const suggestion = suggestionData && <TagSuggestion
+      noteId={suggestionData.noteId} tags={[...new Set(suggestionData.tags)]} addedTags={addedTags}
+      onTagClick={async tag => {
+        if (await onAddTag(suggestionData.noteId, tag)) setAddedTags(prev => [...new Set([...prev, tag])]);
+      }}
+    />;
 
     if (!cleanText && hasCommand) {
       return (
@@ -206,17 +217,7 @@ const ChatMessageItem: React.FC<{
               </>
             )}
           </div>
-          {suggestionData && (
-            <TagSuggestion 
-              noteId={suggestionData.noteId} 
-              tags={suggestionData.tags} 
-              addedTags={addedTags}
-              onTagClick={(tag) => {
-                setAddedTags(prev => [...prev, tag]);
-                onAddTag(suggestionData!.noteId, tag);
-              }}
-            />
-          )}
+          {suggestion}
         </div>
       );
     }
@@ -229,17 +230,7 @@ const ChatMessageItem: React.FC<{
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(cleanText, { gfm: true, breaks: true }) as string) }} 
           />
         )}
-        {suggestionData && (
-          <TagSuggestion 
-            noteId={suggestionData.noteId} 
-            tags={suggestionData.tags} 
-            addedTags={addedTags}
-            onTagClick={(tag) => {
-              setAddedTags(prev => [...prev, tag]);
-              onAddTag(suggestionData!.noteId, tag);
-            }}
-          />
-        )}
+        {suggestion}
         {hasCommand && (msg.commandStatus || idx === -1) && (
           <div className="flex items-center gap-2 pt-3 border-t border-white/5">
             {isExecuting ? (
@@ -263,6 +254,8 @@ const ChatMessageItem: React.FC<{
       </div>
     );
   };
+
+  const renderedContent = useMemo(() => renderMessageContent(msg.text), [msg.text, msg.commandStatus, idx, noteTitles, addedTags, onAddTag]);
 
   return (
     <div
@@ -294,10 +287,11 @@ const ChatMessageItem: React.FC<{
             {msg.role === 'user' ? 'You' : 'Assistant'}
           </span>
           <button
+            aria-label="Copy message"
             onClick={() => onCopy(idx, msg.text)}
             className="text-[#9B9990] hover:text-[#ECEBE6] transition-colors p-1.5 bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
           >
-            {copiedIdx === idx ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+            {isCopied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
           </button>
         </div>
 
@@ -309,7 +303,7 @@ const ChatMessageItem: React.FC<{
         >
           {msg.role === 'user' ? (
             msg.text
-          ) : renderMessageContent(msg.text)}
+          ) : renderedContent}
 
           {msg.attachedNotes && msg.attachedNotes.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-3">
@@ -360,7 +354,7 @@ const ChatMessageItem: React.FC<{
       </div>
     </div>
   );
-};
+});
 
 export default function AIChat() {
   const navigate = useNavigate();
@@ -380,18 +374,44 @@ export default function AIChat() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useVisualViewport();
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const followBottom = useRef(true);
+  const mounted = useRef(false);
+  const loadId = useRef(0);
+  const busy = useRef(false);
+  const request = useRef<{ controller: AbortController; promise: Promise<void> } | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamFrame = useRef(0);
+  const pendingToken = useRef<string | null>(null);
+  const noteTitles = useMemo(() => new Map(notes.map(n => [n.id.toLowerCase(), n.title])), [notes]);
+  const openSettings = useCallback(() => navigate('/ai/settings'), [navigate]);
+  const updateStream = useCallback((text: string | null) => {
+    pendingToken.current = text;
+    if (text === null) {
+      cancelAnimationFrame(streamFrame.current);
+      streamFrame.current = 0;
+      if (mounted.current) setStreamingMessage(null);
+    } else if (!streamFrame.current) {
+      streamFrame.current = requestAnimationFrame(() => {
+        streamFrame.current = 0;
+        if (mounted.current) setStreamingMessage(pendingToken.current);
+      });
+    }
+  }, []);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadData = useCallback(async () => {
+    const id = ++loadId.current;
     const [history, allNotes, settings] = await Promise.all([
       DataManager.getChatHistory(),
       DataManager.getAllNotes(),
       DataManager.getAISettings()
     ]);
+    if (!mounted.current || id !== loadId.current) return;
     setMessages(history);
-    setNotes(allNotes.filter(n => !n.isTrashed));
+    setNotes(allNotes.filter(n => !n.isTrashed && !n.isLocked));
     setAiSettings(settings);
     
     const provider = settings.selectedProvider;
@@ -403,12 +423,35 @@ export default function AIChat() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    mounted.current = true;
+    void loadData().catch(() => notify('Could not load chat data.', 'error'));
+    return () => {
+      mounted.current = false;
+      loadId.current++;
+      request.current?.controller.abort();
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      cancelAnimationFrame(streamFrame.current);
+    };
   }, [loadData]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading, streamingMessage]);
+    const frame = requestAnimationFrame(() => {
+      const element = messagesRef.current;
+      if (element && followBottom.current) element.scrollTop = element.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages, isLoading, streamingMessage, input]);
+
+  useEffect(() => {
+    if (!showModelPicker) return;
+    const close = () => setShowModelPicker(false);
+    window.addEventListener('resize', close);
+    window.visualViewport?.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.visualViewport?.removeEventListener('resize', close);
+    };
+  }, [showModelPicker]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -418,53 +461,68 @@ export default function AIChat() {
   }, [input]);
 
   const handleSend = async () => {
-    const trimmed = input.trim();
-    if (!trimmed && selectedNotes.length === 0) return;
-    if (isLoading) return;
-
-    if (!aiSettings || (!aiSettings.apiKeys[aiSettings.selectedProvider] && aiSettings.selectedProvider !== 'gemini')) {
-      const errorMsg = `⚠️ এপিআই কী সেটআপ করা নেই!
-
-আপনার নির্বাচন করা সার্ভিস (${aiSettings?.selectedProvider.toUpperCase()}) ব্যবহার করতে একটি এপিআই কী প্রয়োজন।
-
-কিভাবে ঠিক করবেন:
-১. 'Settings' এ যান।
-২. 'AI Configuration' সিলেক্ট করুন।
-৩. আপনার API Key প্রদান করে সেভ করুন।`;
-      const msg: ChatMessage = { role: 'model', text: errorMsg, timestamp: Date.now() };
-      setMessages(prev => [...prev, { role: 'user', text: input, timestamp: Date.now() }, msg]);
+    if (busy.current || (!input.trim() && selectedNotes.length === 0)) return;
+    if (!aiSettings || (aiSettings.selectedProvider !== 'local' && !aiSettings.apiKeys[aiSettings.selectedProvider]?.trim())) {
+      notify('AI Settings থেকে নির্বাচিত provider-এর API Key দিন।', 'error');
       return;
     }
-
-    await handleAgenticSendMessage(
-      input,
-      messages,
-      {
-        setIsLoading,
-        setAiStatus,
-        setAiReason,
-        setMessages,
-        setStreamingMessage,
-        setInput,
-        loadHistory: loadData,
-        loadNotes: () => {},
-        loadTasks: () => {}
-      } as any,
-      selectedNotes
-    );
-    setSelectedNotes([]); // Clear attachments after sending
+    busy.current = true; // React state alone cannot prevent two same-frame clicks.
+    followBottom.current = true;
+    setIsLoading(true);
+    setAiReason(null);
+    const controller = new AbortController();
+    const attachments = selectedNotes;
+    setSelectedNotes([]);
+    const promise = handleAgenticSendMessage(input, messages, {
+      setIsLoading, setAiStatus, setAiReason, setMessages,
+      setStreamingMessage: updateStream, setInput,
+      loadHistory: loadData, loadNotes: () => {}, loadTasks: () => {}
+    }, attachments, controller.signal);
+    const active = { controller, promise };
+    request.current = active;
+    try {
+      await promise;
+    } catch (error) {
+      if (!controller.signal.aborted) notify('Could not send the message.', 'error');
+    } finally {
+      if (request.current === active) { request.current = null; busy.current = false; }
+    }
   };
 
   const handleClearChat = async () => {
-    setMessages([]);
-    await DataManager.clearChatHistory();
+    if (busy.current && !request.current) return;
+    busy.current = true;
+    setIsLoading(true);
+    const active = request.current;
+    request.current = null;
+    active?.controller.abort();
+    ++loadId.current;
+    try {
+      // Wait for any already-running command/save before clearing, so late writes
+      // cannot resurrect a conversation after the user has deleted it.
+      await active?.promise.catch(() => {});
+      await DataManager.clearChatHistory();
+      setMessages([]);
+      updateStream(null);
+      setAiStatus('idle');
+      setAiReason(null);
+    } catch {
+      notify('Could not clear chat history.', 'error');
+    } finally {
+      busy.current = false;
+      if (mounted.current) setIsLoading(false);
+    }
   };
 
-  const handleCopy = (idx: number, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIdx(idx);
-    setTimeout(() => setCopiedIdx(null), 2000);
-  };
+  const handleCopy = useCallback(async (idx: number, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (!mounted.current) return;
+      setCopiedIdx(idx);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopiedIdx(null), 2000);
+    } catch { notify('Could not copy to the clipboard.', 'error'); }
+  }, []);
 
   const handleToggleModelPicker = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -497,7 +555,7 @@ export default function AIChat() {
     setAiSettings(updated);
   };
 
-  const handleAddTag = async (noteId: string, tag: string) => {
+  const handleAddTag = useCallback(async (noteId: string, tag: string) => {
     try {
       const note = await DataManager.getNoteById(noteId);
       if (note) {
@@ -509,87 +567,26 @@ export default function AIChat() {
           }));
         }
       }
+      return !!note;
     } catch (err) {
       console.error('Failed to add tag:', err);
+      notify('Could not add this tag.', 'error');
+      return false;
     }
-  };
+  }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-[#181816] text-[#ECEBE6] font-sans selection:bg-[#D97757]/30 overflow-hidden">
-      {/* Note Selector Modal */}
-      <AnimatePresence>
-        {showNoteSelector && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowNoteSelector(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-[#22211F] border border-[#363430] rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[70vh]"
-            >
-              <div className="p-6 border-b border-[#363430] flex items-center justify-between">
-                <h3 className="text-lg font-black text-[#ECEBE6]">নোট সিলেক্ট করুন</h3>
-                <button 
-                  onClick={() => setShowNoteSelector(false)}
-                  className="p-2 hover:bg-[#363430] rounded-full transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
-                {notes.length === 0 ? (
-                  <p className="text-center py-8 text-[#9B9990] text-sm">কোনো নোট পাওয়া যায়নি।</p>
-                ) : (
-                  notes.map(note => {
-                    const isSelected = selectedNotes.find(n => n.id === note.id);
-                    return (
-                      <button
-                        key={note.id}
-                        onClick={() => toggleNoteSelection(note)}
-                        className={cn(
-                          "w-full flex items-center gap-3 p-3.5 rounded-2xl transition-all border text-left",
-                          isSelected 
-                            ? "bg-[#D97757]/10 border-[#D97757]/50 text-[#D97757]" 
-                            : "bg-[#2B2A27] border-transparent text-[#ECEBE6]/60 hover:border-[#363430] hover:text-[#ECEBE6]"
-                        )}
-                      >
-                        <div className="w-10 h-10 bg-[#363430] rounded-xl flex items-center justify-center text-lg shrink-0">
-                          {note.emoji || '📝'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm truncate">{note.title || 'শিরোনামহীন'}</p>
-                          <p className="text-[10px] opacity-40 uppercase font-black tracking-widest mt-0.5">Updated recently</p>
-                        </div>
-                        {isSelected && <Check size={18} strokeWidth={3} />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-              <div className="p-6 bg-[#181816] border-t border-[#363430]">
-                <button
-                  onClick={() => setShowNoteSelector(false)}
-                  className="w-full py-4 bg-[#D97757] hover:bg-[#c56647] text-black font-black rounded-2xl transition-all active:scale-95 shadow-xl shadow-[#D97757]/20"
-                >
-                  সম্পন্ন করুন ({selectedNotes.length}টি নির্বাচিত)
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+    <div ref={viewportRef} className="ai-chat-viewport flex flex-col min-h-0 bg-[#181816] text-[#ECEBE6] font-sans selection:bg-[#D97757]/30 overflow-hidden">
+      {showNoteSelector && <Suspense fallback={null}>
+        <NoteContextPicker notes={notes} selectedNotes={selectedNotes} onToggle={toggleNoteSelection} onClose={() => setShowNoteSelector(false)} />
+      </Suspense>}
 
       {/* Minimal Header */}
       <header className="h-14 border-b border-[#2B2A27] bg-[#181816] px-4 flex items-center justify-between z-[50] shrink-0">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/main')}
+            aria-label="Back to notes"
             className="p-1.5 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors"
           >
             <ArrowLeft size={18} />
@@ -631,6 +628,7 @@ export default function AIChat() {
           </button>
           <button
             onClick={handleClearChat}
+            aria-label="Clear chat"
             className="p-2 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors text-xs font-bold flex items-center gap-1.5"
           >
             <Trash2 size={16} />
@@ -640,7 +638,10 @@ export default function AIChat() {
       </header>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 max-w-3xl mx-auto w-full no-scrollbar scroll-smooth">
+      <div ref={messagesRef} onScroll={e => {
+        const element = e.currentTarget;
+        followBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+      }} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-6 space-y-6 max-w-3xl mx-auto w-full no-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-6 my-auto py-20 animate-in fade-in duration-700">
             <div className="w-16 h-16 bg-[#D97757]/10 text-[#D97757] rounded-[24px] flex items-center justify-center border border-[#D97757]/20 shadow-inner">
@@ -649,7 +650,7 @@ export default function AIChat() {
             <div className="space-y-2 max-w-md px-4">
               <h2 className="text-2xl font-black text-[#ECEBE6] tracking-tight">AI Assistant</h2>
               <p className="text-sm text-[#9B9990] leading-relaxed font-medium">
-                How can Claude help you analyze notes, organize tasks, or brainstorm ideas today?
+                How can AI help you analyze notes, organize tasks, or brainstorm ideas today?
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg pt-4 px-2">
@@ -676,10 +677,10 @@ export default function AIChat() {
               msg={msg}
               idx={idx}
               onCopy={handleCopy}
-              copiedIdx={copiedIdx}
-              notes={notes}
+              isCopied={copiedIdx === idx}
+              noteTitles={noteTitles}
               onAddTag={handleAddTag}
-              onOpenSettings={() => navigate('/ai/settings')}
+              onOpenSettings={openSettings}
             />
           ))
         )}
@@ -689,10 +690,10 @@ export default function AIChat() {
             msg={{ role: 'model', text: streamingMessage, timestamp: Date.now() }}
             idx={-1}
             onCopy={() => {}}
-            copiedIdx={null}
-            notes={notes}
+            isCopied={false}
+            noteTitles={noteTitles}
             onAddTag={handleAddTag}
-            onOpenSettings={() => navigate('/ai/settings')}
+            onOpenSettings={openSettings}
           />
         )}
 
@@ -712,13 +713,13 @@ export default function AIChat() {
           </div>
         )}
 
-        <div ref={messagesEndRef} className="h-4" />
+        <div className="h-4" />
       </div>
 
       {/* Input Dock */}
-      <div className="p-4 bg-[#181816] border-t border-[#2B2A27] shrink-0 pb-8 sm:pb-4">
+      <div className="ai-chat-composer p-3 sm:p-4 bg-[#181816] border-t border-[#2B2A27] shrink-0">
         {selectedNotes.length > 0 && (
-          <div className="max-w-3xl mx-auto mb-3 flex flex-wrap gap-2 animate-in slide-in-from-bottom-2 fade-in">
+          <div className="max-w-3xl mx-auto mb-3 max-h-20 overflow-y-auto flex flex-wrap gap-2 animate-in slide-in-from-bottom-2 fade-in">
             {selectedNotes.map(note => (
               <div 
                 key={note.id}
@@ -726,7 +727,7 @@ export default function AIChat() {
               >
                 <span>{note.emoji || '📝'}</span>
                 <span className="max-w-[120px] truncate">{note.title}</span>
-                <button onClick={() => toggleNoteSelection(note)} className="hover:text-white">
+                <button aria-label={`Remove ${note.title || "note"}`} onClick={() => toggleNoteSelection(note)} className="hover:text-white">
                   <X size={12} strokeWidth={3} />
                 </button>
               </div>
@@ -739,14 +740,15 @@ export default function AIChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                 e.preventDefault();
                 handleSend();
               }
             }}
+            aria-label="Message AI"
             placeholder="How can I help you?"
             rows={1}
-            className="w-full bg-transparent text-[15px] text-[#ECEBE6] placeholder-[#9B9990]/40 resize-none outline-none px-3 py-1.5 leading-relaxed font-medium min-h-[44px] max-h-[200px] no-scrollbar"
+            className="w-full bg-transparent text-[16px] text-[#ECEBE6] placeholder-[#9B9990]/40 resize-none outline-none px-3 py-1.5 leading-relaxed font-medium min-h-[44px] max-h-[200px] no-scrollbar"
           />
 
           <div className="flex items-center justify-between pt-2 px-1">
@@ -765,6 +767,7 @@ export default function AIChat() {
 
             <button
               onClick={handleSend}
+              aria-label="Send message"
               disabled={(!input.trim() && selectedNotes.length === 0) || isLoading}
               className={cn(
                 "w-10 h-10 rounded-full transition-all flex items-center justify-center shadow-lg",

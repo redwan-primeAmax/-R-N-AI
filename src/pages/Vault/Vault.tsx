@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, Unlock, ShieldCheck, ChevronLeft, Trash2, 
   Eye, EyeOff, Key, AlertCircle, FileLock, Search,

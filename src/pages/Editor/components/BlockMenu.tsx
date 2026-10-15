@@ -4,7 +4,7 @@
  */
 
 import React, { useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { ImageIcon } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { uploadAndInsertMedia } from '../services/mediaUploader';

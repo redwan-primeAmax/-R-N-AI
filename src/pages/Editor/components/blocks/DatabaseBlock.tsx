@@ -27,8 +27,8 @@ import {
   X,
   Code
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { evaluate } from 'mathjs';
+import { m as motion, AnimatePresence } from 'framer-motion';
+import type { EvalFunction } from 'mathjs';
 import { cn } from '../../../../utils/cn';
 import { DatabaseView, DatabaseFilter, DatabaseSort, RollupConfig } from '../../../../types/note';
 
@@ -201,9 +201,31 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
     return rows;
   }, [dbData.rows, activeView?.filters, activeView?.sorts]);
 
+  const [mathEngine, setMathEngine] = useState<{ compile: typeof import('mathjs').compile } | null>(null);
+  const [mathFailed, setMathFailed] = useState(false);
+  const hasFormulas = dbData.columns.some((column: any) => column.type === 'formula');
+  useEffect(() => {
+    if (!hasFormulas || mathEngine) return;
+    let disposed = false;
+    import('mathjs').then(({ compile }) => {
+      if (!disposed) setMathEngine({ compile });
+    }).catch(() => { if (!disposed) setMathFailed(true); });
+    return () => { disposed = true; };
+  }, [hasFormulas, mathEngine]);
+  const formulas = useMemo(() => {
+    const compiled = new Map<string, EvalFunction | null>();
+    if (mathEngine) dbData.columns.forEach((column: any) => {
+      if (column.type !== 'formula' || !column.formula || compiled.has(column.formula)) return;
+      try { compiled.set(column.formula, mathEngine.compile(column.formula)); }
+      catch { compiled.set(column.formula, null); }
+    });
+    return compiled;
+  }, [mathEngine, dbData.columns]);
+
   // Compute Formula
   const computeFormulaCell = (expression: string, row: any) => {
     if (!expression) return '';
+    if (!mathEngine) return mathFailed ? 'Error' : '…';
     try {
       const scope: Record<string, number> = {};
       dbData.columns.forEach((col: any) => {
@@ -211,7 +233,9 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
         scope[col.id] = isNaN(num) ? 0 : num;
         if (col.name) scope[col.name] = isNaN(num) ? 0 : num;
       });
-      const res = evaluate(expression, scope);
+      const formula = formulas.get(expression);
+      if (!formula) return 'Error';
+      const res = formula.evaluate(scope);
       return typeof res === 'number' ? res.toFixed(2) : String(res);
     } catch {
       return 'Error';

@@ -8,6 +8,38 @@ import { db } from '../DexieDB';
 const activeObjectUrls = new Set<string>();
 const objectUrlToMediaId = new Map<string, string>();
 
+/** Scan references once for both stats and deletion. Encrypted payloads are
+ * deliberately conservative: without decryption we cannot prove any blob unused.
+ * The caller's transaction prevents a note save racing garbage collection.
+ */
+async function collectUnusedMedia(): Promise<{ ids: string[]; size: number }> {
+  const referenced = new Set<string>();
+  let opaque = false;
+  const scan = (value: unknown) => {
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    if (!text) return;
+    if (text.includes('RNV1:')) opaque = true;
+    for (const match of text.matchAll(/(?:blob-id:|media:)([a-zA-Z0-9_-]+)/g)) referenced.add(match[1]);
+  };
+  await db.notes.each(note => {
+    if (note.isLocked) opaque = true;
+    scan(note); // Includes snapshots, comments and cover images, not just body.
+    note.mediaRefs?.forEach(ref => referenced.add(ref.localId));
+  });
+  await db.note_versions.each(scan);
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('note_draft_') || key?.startsWith('note_backup_')) scan(localStorage.getItem(key));
+  }
+  if (opaque) return { ids: [], size: 0 };
+  const ids: string[] = [];
+  let size = 0;
+  await db.media.each(item => {
+    if (!referenced.has(item.id)) { ids.push(item.id); size += item.blob.size; }
+  });
+  return { ids, size };
+}
+
 export const MediaService = {
   async saveMedia(blob: Blob): Promise<string> {
     const id = `media_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -128,63 +160,18 @@ export const MediaService = {
    * Optimized garbage collection check ($O(N)$ Set lookup instead of $O(N \times M)$ string search)
    */
   async getUnusedMediaStats(): Promise<{ unusedMediaCount: number; unusedMediaSize: number }> {
-    const allMedia = await db.media.toArray();
-    if (allMedia.length === 0) return { unusedMediaCount: 0, unusedMediaSize: 0 };
-
-    const allNotes = await db.notes.toArray();
-    const referencedMediaIds = new Set<string>();
-
-    for (const note of allNotes) {
-      if (!note.content) continue;
-      const matches = note.content.match(/blob-id:([a-zA-Z0-9_-]+)/g);
-      if (matches) {
-        matches.forEach(m => referencedMediaIds.add(m.replace('blob-id:', '')));
-      }
-    }
-
-    let unusedMediaCount = 0;
-    let unusedMediaSize = 0;
-
-    for (const item of allMedia) {
-      if (!referencedMediaIds.has(item.id)) {
-        unusedMediaCount++;
-        unusedMediaSize += item.blob.size;
-      }
-    }
-
-    return { unusedMediaCount, unusedMediaSize };
+    return db.transaction('r', [db.notes, db.note_versions, db.media], async () => {
+      const { ids, size } = await collectUnusedMedia();
+      return { unusedMediaCount: ids.length, unusedMediaSize: size };
+    });
   },
 
   async cleanUnusedMedia(): Promise<{ count: number; savedSize: number }> {
-    const allMedia = await db.media.toArray();
-    if (allMedia.length === 0) return { count: 0, savedSize: 0 };
-
-    const allNotes = await db.notes.toArray();
-    const referencedMediaIds = new Set<string>();
-
-    for (const note of allNotes) {
-      if (!note.content) continue;
-      const matches = note.content.match(/blob-id:([a-zA-Z0-9_-]+)/g);
-      if (matches) {
-        matches.forEach(m => referencedMediaIds.add(m.replace('blob-id:', '')));
-      }
-    }
-
-    const idsToDelete: string[] = [];
-    let savedSize = 0;
-
-    for (const item of allMedia) {
-      if (!referencedMediaIds.has(item.id)) {
-        idsToDelete.push(item.id);
-        savedSize += item.blob.size;
-      }
-    }
-
-    if (idsToDelete.length > 0) {
-      await db.media.bulkDelete(idsToDelete);
-    }
-
-    return { count: idsToDelete.length, savedSize };
+    return db.transaction('rw', [db.notes, db.note_versions, db.media], async () => {
+      const { ids, size } = await collectUnusedMedia();
+      await db.media.bulkDelete(ids);
+      return { count: ids.length, savedSize: size };
+    });
   }
 };
 

@@ -37,7 +37,7 @@ export const AIServiceStorage = {
   async updateTaskPartStatus(taskId: string, partTitle: string, status: 'pending' | 'completed'): Promise<void> {
     let task = await db.ai_tasks.get(taskId);
     if (!task) {
-      task = await db.ai_tasks.where('title').equalsIgnoreCase(taskId).first();
+      task = await db.ai_tasks.filter(t => t.title.toLowerCase() === taskId.toLowerCase()).first();
     }
 
     if (task) {
@@ -63,13 +63,13 @@ export const AIServiceStorage = {
   },
 
   async deleteOldMessages(count: number): Promise<void> {
-    const all = await db.chat_history.toArray();
-    if (all.length > count) {
-      const toDeleteCount = all.length - count;
-      const idsToDelete = all.slice(0, toDeleteCount).map(c => c.id).filter((id): id is number => id !== undefined);
-      if (idsToDelete.length > 0) {
-        await db.chat_history.bulkDelete(idsToDelete);
-      }
-    }
+    const keep = Math.max(0, Math.floor(count));
+    if (!Number.isFinite(keep)) return;
+    await db.transaction('rw', db.chat_history, async () => {
+      const excess = await db.chat_history.count() - keep;
+      if (excess <= 0) return;
+      const ids = await db.chat_history.orderBy(':id').limit(excess).primaryKeys();
+      await db.chat_history.bulkDelete(ids);
+    });
   }
 };

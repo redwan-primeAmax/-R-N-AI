@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { Modal } from './Modal';
 import { Loader2 } from 'lucide-react';
 
@@ -37,8 +37,6 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
 
     setIsSubmitting(true);
     try {
-      // Simulate small delay for visual feedback
-      await new Promise(resolve => setTimeout(resolve, 500));
       await onSave(trimmedName, trimmedWorkspace);
     } catch (err) {
       setError('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।');

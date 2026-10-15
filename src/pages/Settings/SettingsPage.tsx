@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
 import { Tag as TagIcon, X, Plus } from 'lucide-react';
 import { Note, DataManager } from '../../services/storage/DataManager';

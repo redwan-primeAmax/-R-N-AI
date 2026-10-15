@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { Modal } from './Modal';
 import { FileText, FileDown, Archive, Image as ImageIcon, CheckCircle2, Loader2, PlaySquare } from 'lucide-react';
 import { Note } from '../../services/storage/DataManager';
-import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import html2canvas from 'html2canvas-pro';
+import DOMPurify from 'dompurify';
 
 interface NoteExportModalProps {
   isOpen: boolean;
@@ -29,7 +28,7 @@ export function NoteExportModal({ isOpen, onClose, note, onPdfExport }: NoteExpo
     setExportSuccess(null);
     try {
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = note.content;
+      tempDiv.innerHTML = DOMPurify.sanitize(note.content);
       const textContent = tempDiv.innerText || tempDiv.textContent || '';
       
       const header = `Title: ${note.title}\nDate: ${new Date(note.updatedAt).toLocaleString()}\n\n`;
@@ -53,10 +52,11 @@ export function NoteExportModal({ isOpen, onClose, note, onPdfExport }: NoteExpo
     setIsExporting(true);
     setExportSuccess(null);
     try {
+      const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
       
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = note.content;
+      tempDiv.innerHTML = DOMPurify.sanitize(note.content);
       
       // Add text content
       const textContent = tempDiv.innerText || tempDiv.textContent || '';
@@ -105,21 +105,23 @@ export function NoteExportModal({ isOpen, onClose, note, onPdfExport }: NoteExpo
         tempContainer.style.left = '-9999px';
         tempContainer.style.top = '0';
         tempContainer.style.width = '800px';
-        tempContainer.innerHTML = `
+        tempContainer.innerHTML = DOMPurify.sanitize(`
           <h1 style="font-size: 26px; font-weight: bold; margin-bottom: 16px;">${note.emoji || ''} ${note.title || 'Note'}</h1>
           <div style="font-size: 15px; line-height: 1.6;">${note.content || '<p>No content</p>'}</div>
-        `;
+        `);
         document.body.appendChild(tempContainer);
         element = tempContainer;
       }
       
+      const { default: html2canvas } = await import('html2canvas-pro');
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
       
       const isLarge = canvas.height > 8000;
       
       if (isLarge) {
         // Zip multiple fragments if very large
-        const zip = new JSZip();
+        const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
         const numPages = Math.ceil(canvas.height / 2000);
         
         for (let i = 0; i < numPages; i++) {

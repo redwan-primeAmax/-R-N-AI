@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Theme, EmojiClickData, EmojiStyle } from 'emoji-picker-react';
 const EmojiPicker = lazy(() => import('emoji-picker-react'));

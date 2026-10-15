@@ -7,8 +7,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter as Router, useLocation, useRoutes, Navigate, useNavigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import { DataManager } from './services/storage/DataManager';
-import localforage from 'localforage';
-import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
+import { m as motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import VersionControl from './components/VersionControl';
@@ -95,7 +94,6 @@ function ScrollToTopOnRouteChange() {
 }
 
 function AppContent() {
-  console.log('App: Rendering AppContent, path:', window.location.pathname);
   const location = useLocation();
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
@@ -218,10 +216,12 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    let disposed = false;
     const bootstrap = async () => {
       try {
         // Step 1: Check User Profile
-        const name = await DataManager.getUserName();
+        const [name, prefs] = await Promise.all([DataManager.getUserName(), DataManager.getUserPreferences()]);
+        if (disposed) return;
         const urlParams = new URLSearchParams(window.location.search);
         const isDebug = urlParams.get('debug') === 'true';
         const isSetupDismissed = localStorage.getItem('user_setup_dismissed') === 'true';
@@ -232,32 +232,13 @@ function AppContent() {
           setShowPopup(true);
         }
 
-        // Step 2: Auto Offline Initialization (Problem 12 / Task 3)
-        if ('caches' in window && navigator.onLine) {
-          const runAutoCache = async () => {
-            try {
-              const cache = await caches.open('rn-ai-offline-v1');
-              const vitalAssets = ['/', '/index.html', '/manifest.webmanifest'];
-              // Silent pre-cache of vital entry points
-              vitalAssets.forEach(asset => {
-                fetch(asset, { cache: 'no-cache' }).then(res => {
-                   if (res.ok) cache.put(asset, res);
-                }).catch(() => {});
-              });
-            } catch (e) {}
-          };
-          runAutoCache();
-        }
-
-        // Step 3: Theme initialization
-        const prefs = await DataManager.getUserPreferences();
+        // Offline assets are owned by the generated service worker.
         setTheme(prefs.theme || 'dark');
         setReducedMotion(!!prefs.reducedMotion);
       } catch (err) {
         console.error('App: Bootstrap failed', err);
       } finally {
-        // Reduced artificial delay for better performance on mobile
-        setTimeout(() => setIsInitializing(false), 50);
+        if (!disposed) setIsInitializing(false);
       }
     };
 
@@ -280,6 +261,7 @@ function AppContent() {
     };
     const syncHandler = DataManager.onSync(handleSync);
     return () => {
+      disposed = true;
       DataManager.offSync(syncHandler);
       window.removeEventListener('open-external-import', handleOpenExternal);
       window.removeEventListener('open-global-search', handleOpenSearch);
@@ -446,6 +428,7 @@ function AppContent() {
                 )}
                 <button 
                   onClick={() => setNotification(null)}
+                  aria-label="Dismiss notification"
                   className="p-2 hover:bg-black/10 rounded-full transition-colors"
                 >
                   <X size={16} />

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { Check, FileText, MoreVertical, Lock, Radio } from 'lucide-react';
 import { PageIcon } from '../../../components/PageIcon';
 import { Note } from '../../../services/storage/DataManager';

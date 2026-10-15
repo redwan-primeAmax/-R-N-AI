@@ -9,7 +9,7 @@ import {
   ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, Maximize2,
   File, FileSpreadsheet, FileCode, Archive
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../../utils/cn';
 import { operationRunner } from '../../../../services/storage/OperationRunner';
 import { DataManager } from '../../../../services/storage/DataManager';

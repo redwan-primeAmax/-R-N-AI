@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Search, Share2, Tag, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DataManager } from '../services/storage/DataManager';

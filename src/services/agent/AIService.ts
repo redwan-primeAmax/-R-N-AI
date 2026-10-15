@@ -8,6 +8,7 @@ import { AISettings, ChatMessage, Note } from '../storage/DataManager';
 export interface AIServiceOptions {
   settings: AISettings;
   systemPrompt: string;
+  signal?: AbortSignal;
   onToken?: (token: string) => void;
   onFullResponse?: (response: string) => void;
   history?: ChatMessage[];

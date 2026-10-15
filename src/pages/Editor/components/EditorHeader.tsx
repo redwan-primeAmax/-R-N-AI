@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MoreVertical, Search, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { PublishIcon } from '../svg/PublishIcon';

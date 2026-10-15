@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Palette } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { THEME_METADATA } from '../../pages/Editor/themes/ThemeRegistry';
