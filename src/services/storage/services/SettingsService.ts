@@ -10,33 +10,27 @@ import { uint8ArrayToBase64, base64ToUint8Array } from '../../../utils/binaryUti
 const SALT = 'redwan-salt-v2';
 let derivedKeyCache: CryptoKey | null = null;
 
+let pendingEncryptionKey: Promise<CryptoKey> | null = null;
 export async function getEncryptionKey(): Promise<CryptoKey> {
   if (derivedKeyCache) return derivedKeyCache;
+  if (pendingEncryptionKey) return pendingEncryptionKey;
+  pendingEncryptionKey = deriveEncryptionKey();
+  try { return await pendingEncryptionKey; }
+  finally { pendingEncryptionKey = null; }
+}
 
-  let customKey = 'default-fallback-key-should-be-randomized';
-  let customSalt = SALT;
-  try {
-    const storedKey = await db.key_value_pairs.get('user_encryption_key_seed');
-    if (storedKey && storedKey.value) {
-      customKey = storedKey.value;
-    } else {
-      const randomSeed = crypto.randomUUID() + '-' + crypto.randomUUID();
-      await db.key_value_pairs.put({ key: 'user_encryption_key_seed', value: randomSeed });
-      customKey = randomSeed;
-    }
-
-    const storedSalt = await db.key_value_pairs.get('user_encryption_salt_seed');
-    if (storedSalt && storedSalt.value) {
-      customSalt = storedSalt.value;
-    } else {
-      const randomSalt = crypto.randomUUID();
-      await db.key_value_pairs.put({ key: 'user_encryption_salt_seed', value: randomSalt });
-      customSalt = randomSalt;
-    }
-  } catch (e) {
-    console.error('SettingsService: Critical error fetching encryption keys:', e);
-    throw new Error('Encryption initialization failed');
-  }
+async function deriveEncryptionKey(): Promise<CryptoKey> {
+  // A single transaction also serializes first-time initialization across tabs.
+  // Previously concurrent encryptions could overwrite each other's random seed.
+  const [customKey, customSalt] = await db.transaction('rw', db.key_value_pairs, async () => {
+    const keyRecord = await db.key_value_pairs.get('user_encryption_key_seed');
+    const saltRecord = await db.key_value_pairs.get('user_encryption_salt_seed');
+    const key = keyRecord?.value || `${crypto.randomUUID()}-${crypto.randomUUID()}`;
+    const salt = saltRecord?.value || crypto.randomUUID();
+    if (!keyRecord?.value) await db.key_value_pairs.put({ key: 'user_encryption_key_seed', value: key });
+    if (!saltRecord?.value) await db.key_value_pairs.put({ key: 'user_encryption_salt_seed', value: salt });
+    return [key, salt];
+  });
 
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -121,7 +115,7 @@ export async function encryptText(text: string): Promise<string> {
     return 'RDW1' + scramble(base64); // Custom header + scrambled content
   } catch (e) {
     console.error('SettingsService: Encryption failed:', e);
-    return '';
+    throw new Error('Encryption failed; no data was saved.');
   }
 }
 
@@ -296,8 +290,7 @@ export const SettingsService = {
     return mergedSettings;
   },
 
-  async saveAISettings(settings: AISettings): Promise<void> {
-    cachedSettings = settings;
+  async prepareAISettings(settings: AISettings): Promise<AISettings> {
     const encryptedKeys: Record<string, string> = {};
     if (settings.apiKeys) {
       await Promise.all(Object.keys(settings.apiKeys).map(async key => {
@@ -306,8 +299,14 @@ export const SettingsService = {
       }));
     }
 
-    const settingsToSave = { ...settings, apiKeys: encryptedKeys };
+    return { ...settings, apiKeys: encryptedKeys };
+  },
+
+  async saveAISettings(settings: AISettings): Promise<void> {
+    const settingsToSave = await this.prepareAISettings(settings);
     await db.key_value_pairs.put({ key: 'ai_settings', value: settingsToSave });
+    // Failed encryption/storage must not publish settings that were never saved.
+    cachedSettings = settings;
   },
 
   invalidateSettingsCache() {

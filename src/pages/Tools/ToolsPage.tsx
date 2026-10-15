@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, Wrench, ArrowLeft, 

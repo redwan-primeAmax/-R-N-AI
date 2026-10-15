@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
 import { Lock, FileText, X } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';

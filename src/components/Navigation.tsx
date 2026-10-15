@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, FileText } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { DataManager } from '../services/storage/DataManager';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 
 import { useNoteLimit } from '../hooks/useNoteLimit';

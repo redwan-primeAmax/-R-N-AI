@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import CustomBlockEditor from './components/CustomBlockEditor';
 import { X } from 'lucide-react';
 

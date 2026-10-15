@@ -7,15 +7,12 @@ import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { FileText, ChevronUp, LayoutGrid, Layers } from 'lucide-react';
 import { DataManager, Note, Workspace } from '../../services/storage/DataManager';
-import { HistoryManager, RecentNote } from '../../services/storage/HistoryManager';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { operationRunner } from '../../services/storage/OperationRunner';
 
-import LoadingScreen from '../../components/LoadingScreen';
-import Sidebar from '../../components/Sidebar';
+const Sidebar = lazy(() => import('../../components/Sidebar'));
+const HomeNoteList = lazy(() => import('./components/HomeNoteList'));
 import { HomeHeader } from './components/HomeHeader';
-import { RecentNotes } from './components/RecentNotes';
-import { NoteCard } from './components/NoteCard';
 const ActionMenu = lazy(() => import('./components/ActionMenu').then(m => ({ default: m.ActionMenu })));
 import { SelectionBar } from './components/SelectionBar';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
@@ -37,16 +34,15 @@ export default function HomePage() {
   const [selectedNoteForMenu, setSelectedNoteForMenu] = useState<Note | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // Custom states for 100-star Progressive Chunk Loading to handle scale perfectly
-  const [visibleCount, setVisibleCount] = useState<number>(10);
-  const [historyNotes, setHistoryNotes] = useState<RecentNote[]>([]);
-  const observerTarget = useRef<HTMLDivElement | null>(null);
+
 
   const navigate = useNavigate();
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || workspaces[0];
 
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
+  const hasMore = useRef(true);
+  const loadingPage = useRef(false);
+  const loadVersion = useRef(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const pageRef = useRef(0);
   const PAGE_SIZE = 12;
 
@@ -72,64 +68,35 @@ export default function HomePage() {
   };
 
   const loadData = useCallback(async (isInitial = true) => {
-    if (isInitial) {
-      setIsLoading(true);
-      pageRef.current = 0;
-      setPage(0);
-    }
-
+    if (!isInitial && (loadingPage.current || !hasMore.current)) return;
+    const version = isInitial ? ++loadVersion.current : loadVersion.current;
+    loadingPage.current = true;
+    if (isInitial) setIsLoading(true);
+    else setIsLoadingMore(true);
     try {
       const activeWsId = await DataManager.getActiveWorkspaceId();
-      setCurrentWorkspaceId(activeWsId);
-
       const targetPage = isInitial ? 0 : pageRef.current + 1;
       const { notes: fetchedNotes, hasMore: moreAvailable } = await DataManager.getNotesPaginated(targetPage, PAGE_SIZE);
-
+      if (version !== loadVersion.current) return;
+      setCurrentWorkspaceId(activeWsId);
+      setNotes(prev => isInitial ? fetchedNotes : [...new Map([...prev, ...fetchedNotes].map(n => [n.id, n])).values()]);
+      pageRef.current = targetPage;
+      hasMore.current = moreAvailable;
       if (isInitial) {
-        setNotes(fetchedNotes);
-      } else {
-        setNotes(prev => [...prev, ...fetchedNotes]);
-        pageRef.current = targetPage;
-        setPage(targetPage);
+        const ws = await DataManager.getWorkspaces();
+        if (version !== loadVersion.current) return;
+        setWorkspaces(ws);
       }
-
-      setHasMore(moreAvailable);
-      setVisibleCount(10);
-
-      const ws = await DataManager.getWorkspaces();
-      setWorkspaces(ws);
-
-      const recentHistory = await HistoryManager.getRecentNotes();
-      setHistoryNotes(recentHistory);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      if (isInitial) setIsLoading(false);
+    } catch (err) { console.error(err); }
+    finally {
+      if (version === loadVersion.current) {
+        loadingPage.current = false;
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   }, []);
-
-  // Performance-optimised Intersection Observer to dynamically stream note cards only as needed
-  useEffect(() => {
-    if (!observerTarget.current || !hasMore) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !isLoading) {
-        loadData(false);
-      }
-    }, {
-      threshold: 0.1,
-      rootMargin: '200px'
-    });
-
-    const currentSentinel = observerTarget.current;
-    observer.observe(currentSentinel);
-
-    return () => {
-      if (currentSentinel) {
-        observer.unobserve(currentSentinel);
-      }
-    };
-  }, [hasMore, isLoading, loadData]);
+  const loadMore = useCallback(() => { void loadData(false); }, [loadData]);
 
   useEffect(() => {
     const unsub = operationRunner.subscribe(() => {
@@ -140,24 +107,25 @@ export default function HomePage() {
 
   useEffect(() => {
     loadData();
-    const syncHandler = DataManager.onSync(loadData);
+    let reloadTimer: ReturnType<typeof setTimeout>;
+    const scheduleReload = () => {
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => { void loadData(); }, 50);
+    };
+    const syncHandler = DataManager.onSync(scheduleReload);
 
     const handleOpenExternal = () => navigate('/external-ai-import');
     window.addEventListener('open-external-import', handleOpenExternal);
 
-    const handleHistoryUpdate = () => {
-      HistoryManager.getRecentNotes().then(setHistoryNotes);
-    };
-    window.addEventListener('history-updated', handleHistoryUpdate);
-
-    const handleWorkspaceChange = () => loadData();
+    const handleWorkspaceChange = scheduleReload;
     window.addEventListener('workspace-notes-changed', handleWorkspaceChange);
     window.addEventListener('notes-cache-invalidated', handleWorkspaceChange);
 
     return () => {
+      ++loadVersion.current;
+      clearTimeout(reloadTimer);
       DataManager.offSync(syncHandler);
       window.removeEventListener('open-external-import', handleOpenExternal);
-      window.removeEventListener('history-updated', handleHistoryUpdate);
       window.removeEventListener('workspace-notes-changed', handleWorkspaceChange);
       window.removeEventListener('notes-cache-invalidated', handleWorkspaceChange);
     };
@@ -199,15 +167,6 @@ export default function HomePage() {
     loadData();
   };
 
-  const recentNotesList = [...notes]
-    .filter(n => n.lastOpenedAt)
-    .sort((a, b) => (b.lastOpenedAt || 0) - (a.lastOpenedAt || 0))
-    .slice(0, 4);
-
-  if (recentNotesList.length === 0) {
-    recentNotesList.push(...[...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 4));
-  }
-
   const handleEmojiSelect = async (id: string, emoji: string) => {
     const note = await DataManager.getNoteById(id);
     if (note) {
@@ -219,12 +178,12 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-white pb-48 overflow-x-hidden select-none">
-      <Sidebar
+      {showSidebar && <Suspense fallback={null}><Sidebar
         isOpen={showSidebar}
         onClose={() => setShowSidebar(false)}
         onOpenTrash={() => navigate('/recycle-bin')}
         onOpenSettings={() => navigate('/settings')}
-      />
+      /></Suspense>}
 
       <HomeHeader
         currentWorkspaceName={currentWorkspace?.name}
@@ -285,33 +244,12 @@ export default function HomePage() {
               ))}
             </div>
           ) : notes.length > 0 ? (
-            <>
-              <div className={cn(
-                viewMode === 'grid'
-                  ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5"
-                  : "flex flex-col gap-0.5"
-              )}>
-                {notes.slice(0, visibleCount).map(note => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    isSelectionMode={isSelectionMode}
-                    isSelected={selectedIds.includes(note.id)}
-                    onClick={handleNoteClick}
-                    onMoreClick={handleNoteMoreClick}
-                    mode={viewMode}
-                  />
-                ))}
-              </div>
-
-              {/* Sentinel target for high-performance lazy loading */}
-              {notes.length > visibleCount && (
-                <div
-                  ref={observerTarget}
-                  className="h-1 w-full"
-                />
-              )}
-            </>
+            <Suspense fallback={<div className="h-40 animate-pulse" aria-label="Loading notes" />}>
+              <HomeNoteList notes={notes} mode={viewMode} selectedIds={selectedIds}
+                isSelectionMode={isSelectionMode} onClick={handleNoteClick}
+                onMoreClick={handleNoteMoreClick} onLoadMore={loadMore} />
+              {isLoadingMore && <p role="status" className="text-center py-4 text-sm text-neutral-400">Loading more notes…</p>}
+            </Suspense>
           ) : (
             <div className="py-24 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-600">
               <FileText size={44} className="mb-3 opacity-30" />

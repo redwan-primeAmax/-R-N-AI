@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   Download, Upload, ChevronLeft, Loader2, 
   CheckCircle2, AlertCircle, Package,

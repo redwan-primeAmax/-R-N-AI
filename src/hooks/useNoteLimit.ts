@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { DataManager } from '../services/storage/DataManager';
+import { db } from '../services/storage/DexieDB';
 import { DEFAULT_NOTE_LIMIT } from '../constants/defaults';
 
 export function useNoteLimit(limit: number = DEFAULT_NOTE_LIMIT) {
@@ -13,13 +14,16 @@ export function useNoteLimit(limit: number = DEFAULT_NOTE_LIMIT) {
 
   useEffect(() => {
     let mounted = true;
+    let requestId = 0;
 
     const checkLimit = async () => {
+      const id = ++requestId;
       try {
         const activeId = await DataManager.getActiveWorkspaceId();
-        const counts = await DataManager.getNoteCountForWorkspaces();
-        const count = counts[activeId] || 0;
-        if (mounted) {
+        // Trashed records still occupy quota until permanently deleted, matching
+        // NoteService.saveNote. Native indexed count avoids reading every body.
+        const count = await db.notes.where('workspaceId').equals(activeId).count();
+        if (mounted && id === requestId) {
           setCurrentCount(count);
           setIsOverLimit(count >= limit);
         }

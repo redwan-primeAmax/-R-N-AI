@@ -10,7 +10,7 @@ import {
   RotateCcw,
   Plus
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { cn } from '../../../../utils/cn';
 
 interface EmbedBlockProps {

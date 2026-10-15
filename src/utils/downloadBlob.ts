@@ -27,6 +27,6 @@ export function downloadText(
   mimeType: string = 'text/plain;charset=utf-8',
   withBom: boolean = false
 ): void {
-  const data = withBom ? ["\ufeff", text] : text;
-  downloadBlob(data as any, filename, mimeType);
+  const data = withBom ? "\ufeff" + text : text;
+  downloadBlob(data, filename, mimeType);
 }

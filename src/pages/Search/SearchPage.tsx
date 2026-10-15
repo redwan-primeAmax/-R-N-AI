@@ -8,9 +8,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Search as SearchIcon, X, ChevronRight, Hash, Tag as TagIcon } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { db } from '../../services/storage/DexieDB';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { PageIcon } from '../../components/PageIcon';
-import { searchWithRSTParallel } from './RSTSearch/RSTSearch';
 import Filter from './Filter';
 import { cn } from '../../utils/cn';
 
@@ -25,7 +24,7 @@ function highlightText(text: string, queryWords: string[]) {
     const regex = new RegExp(`(${regexStr})`, 'gi');
     const parts = text.split(regex);
     return parts.map((part, i) => {
-      const isMatch = regex.test(part);
+      const isMatch = i % 2 === 1;
       return isMatch ? <mark key={i} className="bg-blue-500/30 text-blue-300 font-bold px-0.5 rounded">{part}</mark> : part;
     });
   } catch (e) { return text; }
@@ -39,9 +38,8 @@ export default function SearchPage() {
   const initialAccurate = locationState?.isAccurateMode ?? false;
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchObserverTarget = useRef<HTMLDivElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
-  const workerSyncedRef = useRef(false);
+  const workerDatasetRef = useRef<Note[] | null>(null);
   const latestRequestIdRef = useRef<number>(0);
   const activeListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
 
@@ -58,107 +56,122 @@ export default function SearchPage() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [scanStats, setScanStats] = useState({ timeTaken: '0.00ms', docsScanned: 0, memoryEstimate: '0 KB' });
 
-  // 1. Initial Load
-  useEffect(() => {
-    const stored = localStorage.getItem('recent_searches');
-    if (stored) setRecentSearches(JSON.parse(stored));
-    
-    workerRef.current = new Worker(new URL('./SearchWorker.ts', import.meta.url), { type: 'module' });
-    
-    const loadTags = async () => {
-      const allNotes = await DataManager.getAllNotes();
-      const tags = new Set<string>();
-      allNotes.forEach(n => n.tags?.forEach(t => tags.add(t)));
-      const tagsRec = await db.key_value_pairs.get('system_tags');
-      if (tagsRec?.value) tagsRec.value.forEach((t: string) => tags.add(t));
-      setAllTags(Array.from(tags));
-    };
-    loadTags();
+  const [dataVersion, setDataVersion] = useState(0);
 
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('recent_searches') || '[]');
+      if (Array.isArray(stored)) setRecentSearches(stored.filter(x => typeof x === 'string').slice(0, 8));
+    } catch { /* Corrupt optional history must not crash search. */ }
+    let worker: Worker | null = null;
+    try {
+      worker = new Worker(new URL('./SearchWorker.ts', import.meta.url), { type: 'module' });
+      workerRef.current = worker;
+      worker.onerror = () => {
+        worker?.terminate();
+        workerRef.current = null;
+        workerDatasetRef.current = null;
+        latestRequestIdRef.current++;
+        setDataVersion(value => value + 1);
+      };
+    } catch { /* The lazy main-thread fallback also works without Web Workers. */ }
+    let timer: ReturnType<typeof setTimeout>;
+    const invalidate = () => {
+      latestRequestIdRef.current++;
+      workerDatasetRef.current = null;
+      clearTimeout(timer);
+      timer = setTimeout(() => setDataVersion(value => value + 1), 50);
+    };
+    window.addEventListener('workspace-notes-changed', invalidate);
     return () => {
-      if (activeListenerRef.current) workerRef.current?.removeEventListener('message', activeListenerRef.current);
-      workerRef.current?.terminate();
+      latestRequestIdRef.current++;
+      clearTimeout(timer);
+      window.removeEventListener('workspace-notes-changed', invalidate);
+      worker?.terminate();
+      workerRef.current = null;
+      workerDatasetRef.current = null;
     };
   }, []);
 
-  // 2. Search Engine Logic
-  const performSearch = useCallback(async (currentQuery: string, currentTags: string[], currentAccurateMode: boolean) => {
-    if (currentQuery.trim() === '' && currentTags.length === 0) {
+  useEffect(() => {
+    let disposed = false;
+    void Promise.all([DataManager.getAllNotes(), db.key_value_pairs.get('system_tags')]).then(([notes, record]) => {
+      if (disposed) return;
+      const tags = new Set<string>();
+      notes.filter(n => !n.isTrashed && !n.isLocked).forEach(n => n.tags?.forEach(t => tags.add(t)));
+      if (Array.isArray(record?.value)) record.value.forEach(t => { if (typeof t === 'string') tags.add(t); });
+      setAllTags([...tags]);
+    }).catch(console.error);
+    return () => { disposed = true; };
+  }, [dataVersion]);
+
+  const performSearch = useCallback(async (currentQuery: string, currentTags: string[], accurate: boolean) => {
+    const requestId = ++latestRequestIdRef.current;
+    if (!currentQuery.trim() && currentTags.length === 0) {
       setResults([]);
       setIsSearching(false);
       return;
     }
-
     setIsSearching(true);
     const startTime = performance.now();
-
     try {
-      let notes = await DataManager.getAllNotes(false);
-      notes = notes.filter(n => !n.isTrashed && !n.isLocked);
-      const totalAvailable = notes.length;
-
-      if (currentTags.length > 0) {
-        const filtered = notes.filter(n => currentTags.every(tag => n.tags?.includes(tag)));
-        setResults(filtered as any);
+      const dataset = await DataManager.getAllNotes();
+      if (requestId !== latestRequestIdRef.current) return;
+      const notes = dataset.filter(n => !n.isTrashed && !n.isLocked);
+      const finish = (results: Note[], timeMs: string) => {
+        if (requestId !== latestRequestIdRef.current) return;
+        setScanStats({ timeTaken: `${timeMs}ms`, docsScanned: notes.length, memoryEstimate: `${((notes.length * 44 + currentQuery.length * 2) / 1024).toFixed(1)} KB` });
+        setResults(results);
         setVisibleSearchCount(20);
         setIsSearching(false);
+      };
+      if (currentTags.length) {
+        finish(notes.filter(n => currentTags.every(tag => n.tags?.includes(tag))), (performance.now() - startTime).toFixed(2));
         return;
       }
-
-      const requestId = Date.now();
-      latestRequestIdRef.current = requestId;
-
-      if (workerRef.current) {
-        if (!workerSyncedRef.current) {
-          workerRef.current.postMessage({ type: 'SYNC', notes, requestId: requestId - 1 });
-          workerSyncedRef.current = true;
+      const fallback = async () => {
+        const { searchWithRST } = await import('./RSTSearch/RSTSearch');
+        if (requestId !== latestRequestIdRef.current) return;
+        finish(searchWithRST(notes, currentQuery, accurate) as Note[], (performance.now() - startTime).toFixed(2));
+      };
+      const worker = workerRef.current;
+      if (!worker) { await fallback(); return; }
+      if (activeListenerRef.current) worker.removeEventListener('message', activeListenerRef.current);
+      const listener = (e: MessageEvent) => {
+        if (e.data.requestId !== requestId || requestId !== latestRequestIdRef.current) return;
+        if (e.data.type === 'SEARCH_RESULTS') finish(e.data.results, e.data.timeMs);
+        else if (e.data.type === 'ERROR') {
+          worker.terminate();
+          workerRef.current = null;
+          workerDatasetRef.current = null;
+          void fallback().catch(() => { if (requestId === latestRequestIdRef.current) setIsSearching(false); });
         }
-
-        if (activeListenerRef.current) workerRef.current.removeEventListener('message', activeListenerRef.current);
-
-        const handleMessage = (e: MessageEvent) => {
-          if (e.data.requestId === latestRequestIdRef.current && e.data.type === 'SEARCH_RESULTS') {
-            const { results: searchResults, timeMs } = e.data;
-            const memKb = ((totalAvailable * 44 + currentQuery.length * 2) / 1024).toFixed(1);
-            setScanStats({ timeTaken: `${timeMs}ms`, docsScanned: totalAvailable, memoryEstimate: `${memKb} KB` });
-            setResults(searchResults);
-            setVisibleSearchCount(20);
-            setIsSearching(false);
-          }
-        };
-        activeListenerRef.current = handleMessage;
-        workerRef.current.addEventListener('message', handleMessage);
-        workerRef.current.postMessage({ type: 'SEARCH', query: currentQuery, isAccurateMode: currentAccurateMode, requestId });
-      } else {
-        const searchResults = await searchWithRSTParallel(notes as any, currentQuery, currentAccurateMode);
-        const timeMs = (performance.now() - startTime).toFixed(2);
-        const memKb = ((totalAvailable * 44 + currentQuery.length * 2) / 1024).toFixed(1);
-        setScanStats({ timeTaken: `${timeMs}ms`, docsScanned: totalAvailable, memoryEstimate: `${memKb} KB` });
-        setResults(searchResults as any);
-        setVisibleSearchCount(20);
-        setIsSearching(false);
+      };
+      activeListenerRef.current = listener;
+      worker.addEventListener('message', listener);
+      if (workerDatasetRef.current !== dataset) {
+        worker.postMessage({ type: 'SYNC', notes, requestId });
+        workerDatasetRef.current = dataset;
       }
-    } catch (err) {
-      console.error(err);
-      setIsSearching(false);
+      worker.postMessage({ type: 'SEARCH', query: currentQuery, isAccurateMode: accurate, requestId });
+    } catch (error) {
+      console.error(error);
+      if (requestId === latestRequestIdRef.current) setIsSearching(false);
     }
   }, []);
 
-  // 3. Effects for Querying
   useEffect(() => {
-    if (!query.trim()) {
-      if (selectedTags.length === 0) {
-        setResults([]);
-        setRenderedResults([]);
-      }
+    ++latestRequestIdRef.current; // Invalidate now, not after the debounce window.
+    if (!query.trim() && selectedTags.length === 0) {
+      setResults([]);
+      setRenderedResults([]);
+      setIsSearching(false);
       return;
     }
-    const timer = setTimeout(() => {
-      setSelectedTags([]); 
-      performSearch(query, [], isAccurateMode);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [query, isAccurateMode, performSearch]);
+    setIsSearching(true);
+    const timer = setTimeout(() => { void performSearch(query, selectedTags, isAccurateMode); }, query.trim() ? 250 : 0);
+    return () => { clearTimeout(timer); ++latestRequestIdRef.current; };
+  }, [query, selectedTags, isAccurateMode, dataVersion, performSearch]);
 
   // 4. Progressive Rendering
   useEffect(() => {
@@ -175,7 +188,6 @@ export default function SearchPage() {
     const updatedTags = selectedTags.includes(tag) ? selectedTags.filter(t => t !== tag) : [...selectedTags, tag];
     setSelectedTags(updatedTags);
     setQuery('');
-    performSearch('', updatedTags, isAccurateMode);
   };
 
   const handleClearTags = () => { setSelectedTags([]); setResults([]); setRenderedResults([]); };
@@ -219,7 +231,8 @@ export default function SearchPage() {
                 ref={inputRef}
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => { setSelectedTags([]); setQuery(e.target.value); }}
+                aria-label="Search notes"
                 placeholder={isAccurateMode ? "Accurate Search ON" : "Type..."}
                 className={cn(
                   "w-full pl-14 pr-12 py-4 bg-white/[0.03] border border-white/5 rounded-[28px] outline-none text-[15px] font-bold transition-all",
@@ -227,7 +240,7 @@ export default function SearchPage() {
                 )}
               />
               {query && (
-                <button onClick={handleClearSearch} className="absolute inset-y-0 right-4 flex items-center text-white/20 hover:text-white"><X size={20} /></button>
+                <button aria-label="Clear search" onClick={handleClearSearch} className="absolute inset-y-0 right-4 flex items-center text-white/20 hover:text-white"><X size={20} /></button>
               )}
             </div>
 
@@ -263,7 +276,7 @@ export default function SearchPage() {
               <div className="flex-grow min-w-0 font-sans">
                 <h3 className="font-bold text-[14px] text-white/90 truncate">{highlightText(note.title || 'শিরোনামহীন', query.split(' '))}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">{new Date(note.updatedAt).toLocaleDateString()}</span>
+                  <span className="text-[10px] text-white/60 font-black uppercase tracking-widest">{new Date(note.updatedAt).toLocaleDateString()}</span>
                   {note.tags && note.tags.length > 0 && <span className="text-[9px] text-blue-400 font-bold">#{note.tags[0]}</span>}
                 </div>
               </div>
@@ -271,10 +284,17 @@ export default function SearchPage() {
             </motion.div>
           ))}
 
+          {results.length > visibleSearchCount && (
+            <button onClick={() => setVisibleSearchCount(count => count + 20)} className="w-full py-3 rounded-xl bg-white/5 text-white/80">
+              Load more results ({results.length - visibleSearchCount})
+            </button>
+          )}
+          {(query || selectedTags.length > 0) && results.length === 0 && !isSearching && <p role="status" className="text-center py-8 text-white/60">No matching notes</p>}
+
           {!query && selectedTags.length === 0 && results.length === 0 && !isSearching && (
             <div className="py-32 text-center">
                <div className="w-16 h-16 bg-[#111111] rounded-3xl flex items-center justify-center text-white/10 mx-auto mb-4"><Hash size={32} /></div>
-               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/10">Search your notes</p>
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Search your notes</p>
             </div>
           )}
         </div>

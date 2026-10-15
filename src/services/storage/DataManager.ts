@@ -5,20 +5,13 @@
 
 import localforage from 'localforage';
 import { db, runMigrationFromLocalForage } from './DexieDB';
-import { iconsDb } from '../../components/icon/IconManager';
 import { HistoryManager } from './HistoryManager';
 import { NoteService } from './services/NoteService';
 import { VaultService } from './services/VaultService';
 import { WorkspaceService } from './services/WorkspaceService';
 import { MediaService } from './services/MediaService';
-import { BackupService } from './services/BackupService';
 import { SettingsService, encryptText, decryptText } from './services/SettingsService';
 import { AIServiceStorage } from '../agent/AIServiceStorage';
-
-const AppStore = {
-  reloadWorkspaces: () => {},
-  reloadNotes: (_force?: boolean) => {}
-};
 
 import type { 
   Note, Workspace, NoteVersion, ChatMessage, 
@@ -30,7 +23,10 @@ export type { Note, Workspace, NoteVersion, ChatMessage, AITask, ContextSummary,
 // Trigger background migration seamlessly on load
 runMigrationFromLocalForage().then(async () => {
   console.log('DataManager: Dexie migration completed.');
-  await DataManager.runAutoCleanup().catch(console.error);
+  // Housekeeping must not compete with the first paint / initial DB reads.
+  const cleanup = () => { void DataManager.runAutoCleanup().catch(console.error); };
+  if ('requestIdleCallback' in window) window.requestIdleCallback(cleanup, { timeout: 10000 });
+  else setTimeout(cleanup, 3000);
 }).catch(err => {
   console.error('DataManager: Dexie migration error:', err);
 });
@@ -159,52 +155,52 @@ export const DataManager = {
     await WorkspaceService.setActiveWorkspaceId(id);
     this.invalidateNotesCache(`switch-workspace:${id}`);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async createWorkspace(name: string, logoSvg?: string, description?: string, icon?: string, color?: string): Promise<Workspace> {
     const ws = await WorkspaceService.createWorkspace(name, logoSvg, description, icon, color);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
     return ws;
   },
 
   async saveWorkspace(workspace: Workspace): Promise<void> {
     await WorkspaceService.saveWorkspace(workspace);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async renameWorkspace(id: string, newName: string): Promise<void> {
     await WorkspaceService.renameWorkspace(id, newName);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async updateWorkspaceLogo(id: string, logoSvg: string): Promise<void> {
     await WorkspaceService.updateWorkspaceLogo(id, logoSvg);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async updateWorkspaceAppearance(id: string, updates: { logoSvg?: string; icon?: string; color?: string; description?: string }): Promise<void> {
     await WorkspaceService.updateWorkspaceAppearance(id, updates);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async deleteWorkspace(id: string): Promise<void> {
     await WorkspaceService.deleteWorkspace(id);
     this.invalidateNotesCache(`delete-workspace:${id}`);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async clearWorkspaceNotes(id: string): Promise<void> {
     await WorkspaceService.clearWorkspaceNotes(id);
     this.invalidateNotesCache(`clear-workspace:${id}`);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
   },
 
   async exportWorkspaceAsJson(id: string): Promise<string> {
@@ -227,7 +223,7 @@ export const DataManager = {
     const ws = await WorkspaceService.duplicateWorkspace(id, newName);
     this.invalidateNotesCache(`duplicate-workspace:${id}`);
     notifySync({ type: 'SYNC_COMPLETE' });
-    AppStore.reloadWorkspaces();
+
     return ws;
   },
 
@@ -263,15 +259,10 @@ export const DataManager = {
       }
 
       // 4. Purge chat history beyond last 100 messages
-      const allChat = await db.chat_history.toArray();
-      if (allChat.length > 100) {
-        const idsToDelete = allChat.slice(0, allChat.length - 100).map(c => c.id).filter((id): id is number => typeof id === 'number');
-        await db.chat_history.bulkDelete(idsToDelete);
-      }
+      await AIServiceStorage.deleteOldMessages(100);
 
-      // 5. Delete orphan note drafts from localStorage
-      const allNotes = await db.notes.toArray();
-      const liveIds = new Set(allNotes.map(n => n.id));
+      // Only keys are needed; do not deserialize every note body during startup.
+      const liveIds = new Set(await db.notes.toCollection().primaryKeys());
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key?.startsWith('note_draft_')) {
@@ -303,33 +294,14 @@ export const DataManager = {
     NoteService.invalidateCache();
     this.resetStorageCache();
 
-    // Debounce search index invalidation to prevent performance hits on every save
-    if (reason !== 'demo-data-seed' && !reason.startsWith('broadcast:')) {
-      const rstTimerKey = 'rst_invalidation_timer';
-      if ((window as any)[rstTimerKey]) clearTimeout((window as any)[rstTimerKey]);
-      
-      (window as any)[rstTimerKey] = setTimeout(() => {
-        import('../../pages/Search/RSTSearch/RSTSearch').then(mod => {
-          if (mod && typeof mod.invalidateRST === 'function') {
-            mod.invalidateRST();
-          }
-        }).catch(() => {});
-      }, 5000); // 5s debounce for normal edits
-    } else if (reason === 'demo-data-seed' || reason === 'import-all-data' || reason === 'storage-optimization') {
-      // Immediate invalidation for bulk changes
-      import('../../pages/Search/RSTSearch/RSTSearch').then(mod => {
-        if (mod && typeof mod.invalidateRST === 'function') {
-          mod.invalidateRST();
-        }
-      }).catch(() => {});
-    }
-
+    // Search consumers invalidate their own indexes via the event below.
+    // Never import the full search engine just to clear an unused cache.
     if (!reason.startsWith('broadcast:')) {
       notifySync({ type: 'NOTES_CACHE_INVALIDATED', reason });
     }
     window.dispatchEvent(new CustomEvent('workspace-notes-changed', { detail: { reason } }));
     window.dispatchEvent(new CustomEvent('notes-cache-invalidated', { detail: { reason } }));
-    AppStore.reloadNotes(true);
+
   },
 
   resetStorageCache() {
@@ -374,22 +346,27 @@ export const DataManager = {
   },
 
   async exportAllData(): Promise<string> {
+    const { BackupService } = await import('./services/BackupService');
     return BackupService.exportAllData();
   },
 
   async saveInternalBackup(data: string): Promise<void> {
+    const { BackupService } = await import('./services/BackupService');
     return BackupService.saveInternalBackup(data);
   },
 
   async getInternalBackups(): Promise<any[]> {
+    const { BackupService } = await import('./services/BackupService');
     return BackupService.getInternalBackups();
   },
 
   async deleteInternalBackup(id: string): Promise<void> {
+    const { BackupService } = await import('./services/BackupService');
     return BackupService.deleteInternalBackup(id);
   },
 
   async importAllData(anonData: string): Promise<void> {
+    const { BackupService } = await import('./services/BackupService');
     await BackupService.importAllData(anonData);
     this.invalidateNotesCache('import-all-data');
     notifySync({ type: 'SYNC_COMPLETE' });
@@ -775,11 +752,11 @@ export const DataManager = {
       const tablesToClear = [
         db.notes, db.workspaces, db.chat_history, db.ai_tasks,
         db.note_versions, db.media, db.key_value_pairs,
-        db.extension_projects, db.bookmark_folders, db.deleted_notes
+        db.extension_projects, db.bookmark_folders, db.deleted_notes, db.note_embeddings
       ];
 
       await Promise.all(tablesToClear.map(t => t.clear().catch(() => {})));
-      try { await iconsDb.icons.clear(); } catch {}
+      try { const { iconsDb } = await import('../../components/icon/IconManager'); await iconsDb.icons.clear(); } catch {}
 
       localStorage.clear();
       await localforage.clear();

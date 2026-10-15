@@ -106,6 +106,13 @@ export function setMedia(blocks: EditorBlock[], attrs: any, activeBlockId: strin
   return [...blocks, mediaBlock];
 }
 
+function insertAfterActive(blocks: EditorBlock[], activeBlockId: string | null, newBlock: EditorBlock): EditorBlock[] {
+  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
+  const result = [...blocks];
+  result.splice(idx < 0 ? result.length : idx + 1, 0, newBlock);
+  return result;
+}
+
 export function runAudioGenerator(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
   const newBlock: EditorBlock = { 
     id: crypto.randomUUID(), 
@@ -113,13 +120,7 @@ export function runAudioGenerator(blocks: EditorBlock[], activeBlockId: string |
     content: '',
     meta: { text: '', status: 'idle' }
   };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function runWebBookmark(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
@@ -129,13 +130,7 @@ export function runWebBookmark(blocks: EditorBlock[], activeBlockId: string | nu
     content: '',
     meta: { url: '', status: 'empty' }
   };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function toggleToggleList(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
@@ -146,46 +141,22 @@ export function toggleToggleList(blocks: EditorBlock[], activeBlockId: string | 
 
 export function insertColumns(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
   const newBlock: EditorBlock = { id: crypto.randomUUID(), type: 'column', content: '' };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function insertTableView(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
   const newBlock: EditorBlock = { id: crypto.randomUUID(), type: 'table_view', content: '' };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function setToc(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
   const newBlock: EditorBlock = { id: crypto.randomUUID(), type: 'toc', content: '' };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function setSynced(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
   const newBlock: EditorBlock = { id: crypto.randomUUID(), type: 'synced', content: '', syncedBlockId: crypto.randomUUID() };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function toggleToggleHeading(blocks: EditorBlock[], level: number, activeBlockId: string | null): EditorBlock[] {
@@ -215,13 +186,7 @@ export function insertDatabase(blocks: EditorBlock[], activeBlockId: string | nu
       ]
     }
   };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function insertEmbed(blocks: EditorBlock[], activeBlockId: string | null): EditorBlock[] {
@@ -231,13 +196,7 @@ export function insertEmbed(blocks: EditorBlock[], activeBlockId: string | null)
     content: '',
     embedData: { provider: 'custom', url: '' }
   };
-  const { idx } = getActiveIndexAndId(blocks, activeBlockId);
-  if (idx > -1) {
-    const res = [...blocks];
-    res.splice(idx + 1, 0, newBlock);
-    return res;
-  }
-  return [...blocks, newBlock];
+  return insertAfterActive(blocks, activeBlockId, newBlock);
 }
 
 export function insertBlock(blocks: EditorBlock[], type: string, activeBlockId: string | null): { blocks: EditorBlock[], newId: string } {

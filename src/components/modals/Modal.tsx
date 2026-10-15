@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useImperativeHandle, useId } from 'react';
 import { createPortal } from 'react-dom';
 import FocusTrap from 'focus-trap-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 

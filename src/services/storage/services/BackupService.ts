@@ -10,9 +10,9 @@ import { Note } from '../../../types';
 
 export const BackupService = {
   async exportAllData(): Promise<string> {
-    const notes = await db.notes.toArray();
-    const workspaces = await db.workspaces.toArray();
-    const media = await db.media.toArray();
+    const [notes, workspaces, media] = await db.transaction('r', [db.notes, db.workspaces, db.media], () =>
+      Promise.all([db.notes.toArray(), db.workspaces.toArray(), db.media.toArray()])
+    );
     const settings = await SettingsService.getAISettings();
     const preferences = await SettingsService.getUserPreferences();
     const userName = await SettingsService.getFullUserName();
@@ -26,6 +26,7 @@ export const BackupService = {
           mediaWithBase64.push({ id: m.id, base64, mimeType: m.blob.type });
         } catch (e) {
           console.error('BackupService: Failed to export media item:', m.id, e);
+          throw new Error('Could not read a media attachment; incomplete backup was not exported.');
         }
       }
     }
@@ -86,9 +87,12 @@ export const BackupService = {
     const config = await SettingsService.getSystemConfig();
     const maxLimit = config?.noteLimitPerWorkspace || 10000;
 
-    const clampedNotes: Note[] = [];
+    const restoredNotes: Note[] = [];
     const notesByWorkspace = new Map<string, Note[]>();
     for (const note of notes) {
+      if (!note || typeof note.id !== 'string' || typeof note.content !== 'string') throw new Error('Invalid note in backup');
+      note.workspaceId ||= 'default';
+      if (!Number.isFinite(note.updatedAt)) note.updatedAt = note.createdAt || 0;
       const ws = note.workspaceId || 'default';
       let list = notesByWorkspace.get(ws);
       if (!list) {
@@ -98,10 +102,14 @@ export const BackupService = {
       list.push(note);
     }
     for (const [_, list] of notesByWorkspace.entries()) {
-      clampedNotes.push(...list.slice(0, maxLimit));
+      if (list.length > maxLimit) throw new Error(`Backup exceeds workspace note limit (${maxLimit}); nothing was restored.`);
+      restoredNotes.push(...list);
     }
 
-    const restoredNoteIds = clampedNotes.map(n => n.id);
+    const restoredNoteIds = restoredNotes.map(n => n.id);
+    // WebCrypto can outlive an IndexedDB transaction and cause auto-commit.
+    // Complete encryption before starting the atomic restore transaction.
+    const preparedSettings = settings ? await SettingsService.prepareAISettings(settings) : null;
 
     await db.transaction('rw', [db.notes, db.workspaces, db.media, db.key_value_pairs, db.deleted_notes], async () => {
       await db.notes.clear();
@@ -113,7 +121,7 @@ export const BackupService = {
         await db.deleted_notes.where('id').anyOf(restoredNoteIds).delete();
       }
 
-      await db.notes.bulkPut(clampedNotes);
+      await db.notes.bulkPut(restoredNotes);
       await db.workspaces.bulkPut(workspaces);
 
       if (media && Array.isArray(media)) {
@@ -126,9 +134,10 @@ export const BackupService = {
         await db.media.bulkPut(mediaRecords);
       }
 
-      if (settings) await SettingsService.saveAISettings(settings);
+      if (preparedSettings) await db.key_value_pairs.put({ key: 'ai_settings', value: preparedSettings });
       if (preferences) await SettingsService.saveUserPreferences(preferences);
       if (userName) await SettingsService.saveUserName(userName);
     });
+    SettingsService.invalidateSettingsCache();
   }
 };

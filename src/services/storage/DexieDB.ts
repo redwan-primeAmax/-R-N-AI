@@ -88,6 +88,13 @@ export class NotionCloneDexieDB extends Dexie {
     this.version(6).stores(v6Stores);
     this.version(7).stores(v7Stores);
     this.version(8).stores(v8Stores);
+    this.version(9).stores({
+      ...v8Stores,
+      notes: v8Stores.notes + ', [workspaceId+updatedAt]'
+    }).upgrade(tx => tx.table('notes').toCollection().modify(note => {
+      if (!Number.isFinite(note.updatedAt)) note.updatedAt = note.createdAt || 0;
+      if (!note.workspaceId) note.workspaceId = 'default';
+    }));
   }
 }
 

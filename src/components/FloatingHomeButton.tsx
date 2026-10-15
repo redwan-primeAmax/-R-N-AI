@@ -6,7 +6,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 
 export default function FloatingHomeButton() {
   const navigate = useNavigate();

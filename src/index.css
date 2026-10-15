@@ -40,7 +40,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
 
   body {
@@ -931,4 +931,23 @@
   [role="dialog"], [role="dialog"] * {
     box-shadow: none !important;
   }
+}
+
+/* Browser chrome and software keyboards change the visual viewport, not 100vh. */
+.ai-chat-viewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--chat-viewport-top, 0px);
+  height: 100vh;
+  height: var(--chat-viewport-height, 100dvh);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.ai-chat-composer {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.ai-chat-composer textarea {
+  max-height: min(180px, calc(var(--chat-viewport-height, 100dvh) * 0.25));
 }

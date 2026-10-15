@@ -20,7 +20,7 @@ export default defineConfig(({mode}) => {
         devOptions: {
           enabled: false,
         },
-        injectRegister: 'auto',
+        injectRegister: 'script-defer',
         includeAssets: ['pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: 'redwan-ai-note',
@@ -125,6 +125,9 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        // jsPDF's optional HTML renderer and our exports share one compatible
+        // canvas implementation instead of shipping both forks.
+        'html2canvas': 'html2canvas-pro',
       },
     },
     optimizeDeps: {

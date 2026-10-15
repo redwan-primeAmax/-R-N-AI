@@ -14,9 +14,13 @@ import { VaultService } from './VaultService';
 
 let cachedNotes: Note[] | null = null;
 let cachedWorkspaceId: string | null = null;
+let cacheVersion = 0;
+let pendingRead: { workspaceId: string; version: number; promise: Promise<Note[]> } | null = null;
 
 export const NoteService = {
   invalidateCache() {
+    cacheVersion++;
+    pendingRead = null;
     cachedNotes = null;
     cachedWorkspaceId = null;
   },
@@ -27,35 +31,34 @@ export const NoteService = {
       return cachedNotes;
     }
 
-    const notes = await db.notes.where('workspaceId').equals(currentWorkspaceId).toArray();
-    cachedNotes = notes.map(n => VaultService.metadata(n));
-    cachedWorkspaceId = currentWorkspaceId;
-    return cachedNotes;
+    const version = forceRefresh ? ++cacheVersion : cacheVersion;
+    if (!forceRefresh && pendingRead?.workspaceId === currentWorkspaceId && pendingRead.version === version) return pendingRead.promise;
+    const promise = db.notes.where('workspaceId').equals(currentWorkspaceId).toArray().then(notes => {
+      const result = notes.map(n => VaultService.metadata(n));
+      if (version === cacheVersion) {
+        cachedNotes = result;
+        cachedWorkspaceId = currentWorkspaceId;
+      }
+      return result;
+    });
+    const read = { workspaceId: currentWorkspaceId, version, promise };
+    pendingRead = read;
+    try { return await promise; }
+    finally { if (pendingRead === read) pendingRead = null; }
   },
 
   async getNotesPaginated(page: number, pageSize: number): Promise<{ notes: Note[]; hasMore: boolean }> {
-    const currentWorkspaceId = await WorkspaceService.getActiveWorkspaceId();
-    const start = page * pageSize;
-
-    // Enhanced pagination with primary filters (no trash, no subpages, no bookmarks)
-    const baseQuery = db.notes
-      .where('workspaceId')
-      .equals(currentWorkspaceId)
-      .and(n => !n.isTrashed && !n.parentId && !n.bookmarkFolderId);
-
-    // Sort by updatedAt descending
-    const paginatedNotes = await baseQuery
-      .sortBy('updatedAt');
-    
-    const sortedNotes = paginatedNotes.reverse();
-    const slicedNotes = sortedNotes.slice(start, start + pageSize);
-
-    const totalNotes = await baseQuery.count();
-    
-    return {
-      notes: slicedNotes.map(n => VaultService.metadata(n)),
-      hasMore: start + pageSize < totalNotes
-    };
+    if (!Number.isSafeInteger(page) || page < 0 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      throw new Error('Invalid note pagination');
+    }
+    const workspaceId = await WorkspaceService.getActiveWorkspaceId();
+    // Read an ordered, bounded page from IndexedDB, not every note + a JS sort
+    // and a second full count for each page. One extra row tells us hasMore.
+    const rows = await db.notes.where('[workspaceId+updatedAt]')
+      .between([workspaceId, Dexie.minKey], [workspaceId, Dexie.maxKey])
+      .reverse().and(n => !n.isTrashed && !n.parentId && !n.bookmarkFolderId)
+      .offset(page * pageSize).limit(pageSize + 1).toArray();
+    return { notes: rows.slice(0, pageSize).map(n => VaultService.metadata(n)), hasMore: rows.length > pageSize };
   },
 
   /**
@@ -162,9 +165,9 @@ export const NoteService = {
 
         const findDuplicate = async (title: string) => {
           return await db.notes
-            .where('workspaceId')
-            .equals(wsId)
-            .and(n => n.title.toLowerCase() === title.toLowerCase())
+            .where('title')
+            .equalsIgnoreCase(title)
+            .and(n => n.workspaceId === wsId)
             .first();
         };
 

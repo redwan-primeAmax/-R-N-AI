@@ -11,7 +11,7 @@ import {
   Keyboard
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 
 interface EditorToolbarProps {
   editor: any;

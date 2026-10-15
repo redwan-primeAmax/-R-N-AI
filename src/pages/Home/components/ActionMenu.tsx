@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   Star, Share, Link, Copy, Bookmark, Edit, Info,

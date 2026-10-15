@@ -20,14 +20,15 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
     lastArgsRef.current = args;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
-      callbackRef.current(...args);
+      timeoutRef.current = null;
       lastArgsRef.current = null;
+      callbackRef.current(...args);
     }, delay);
   }, [delay]) as any;
 
   debouncedFn.flush = useCallback(() => {
     if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-    if (lastArgsRef.current) { callbackRef.current(...lastArgsRef.current); lastArgsRef.current = null; }
+    if (lastArgsRef.current) { const args = lastArgsRef.current; lastArgsRef.current = null; callbackRef.current(...args); }
   }, []);
 
   debouncedFn.cancel = useCallback(() => {

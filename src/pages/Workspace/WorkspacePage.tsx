@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { 
   ArrowLeft, Plus, Check, X, Search, 

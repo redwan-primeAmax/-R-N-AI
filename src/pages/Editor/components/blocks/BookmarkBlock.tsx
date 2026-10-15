@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Bookmark, Globe, X, Link2, ExternalLink } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../../utils/cn';
 
 interface BookmarkBlockProps {
