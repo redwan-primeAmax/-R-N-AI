@@ -18,8 +18,10 @@ import LoadingScreen from '../../components/LoadingScreen';
 import { Modal } from '../../components/modals/Modal';
 import { useWorkspaceLogic } from './useWorkspaceLogic';
 import { cn } from '../../utils/cn';
+import { useLanguage } from '../../utils/translator';
 
 export default function WorkspacePage() {
+  const { t, language } = useLanguage();
   const {
     workspaces,
     filteredWorkspaces,
@@ -113,7 +115,7 @@ export default function WorkspacePage() {
   const QUICK_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4'];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)] text-white font-sans antialiased flex flex-col selection:bg-blue-500/30">
+    <div className="min-h-screen bg-[var(--bg-main)] text-white font-sans antialiased flex flex-col selection:bg-teal-500/30">
       {isSwitching && (
         <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center">
           <LoadingScreen />
@@ -127,30 +129,30 @@ export default function WorkspacePage() {
             <button
               onClick={() => navigate('/main')}
               className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-90 border border-white/5 cursor-pointer"
-              title="ফিরে যান"
+              title={t('common.back')}
             >
               <ArrowLeft size={20} />
             </button>
 
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight">ওয়ার্কস্পেসসমূহ</h1>
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-mono text-xs font-bold">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight">{t('workspace.title')}</h1>
+                <span className="px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 font-mono text-xs font-bold">
                   {workspaces.length}
                 </span>
               </div>
               <p className="text-[11px] font-bold text-white/40 uppercase tracking-widest hidden sm:block">
-                Multi-Workspace Management
+                {t('workspace.eyebrow')}
               </p>
             </div>
           </div>
 
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-2xl text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-600/20 transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 rounded-2xl text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-teal-600/20 transition-all active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.5} />
-            <span>নতুন তৈরি করুন</span>
+            <span>{t('workspace.createNew')}</span>
           </button>
         </div>
       </header>
@@ -164,10 +166,10 @@ export default function WorkspacePage() {
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
             <input
               type="text"
-              placeholder="ওয়ার্কস্পেস খুঁজুন..."
+              placeholder={t('workspace.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-blue-500/60 focus:bg-white/[0.06] transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-teal-500/60 focus:bg-white/[0.06] transition-all"
             />
             {searchQuery && (
               <button 
@@ -184,7 +186,7 @@ export default function WorkspacePage() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 text-xs text-white/50 hover:text-white transition-all self-start sm:self-auto cursor-pointer"
           >
             <Info size={14} className="text-amber-400" />
-            <span>কোটা নীতি (১০,০০০ নোট)</span>
+            <span>{t('workspace.limitTitle')}</span>
           </button>
         </div>
 
@@ -195,12 +197,12 @@ export default function WorkspacePage() {
               initial={{ opacity: 0, y: -20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              className="p-5 sm:p-6 bg-gradient-to-br from-blue-950/40 via-[#161618] to-[#121214] border-2 border-blue-500/40 rounded-[32px] shadow-2xl flex flex-col gap-4"
+              className="p-5 sm:p-6 bg-gradient-to-br from-teal-950/40 via-[#161618] to-[#121214] border-2 border-teal-500/40 rounded-[32px] shadow-2xl flex flex-col gap-4"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-widest text-blue-400 flex items-center gap-1.5">
+                <span className="text-xs font-black uppercase tracking-widest text-teal-400 flex items-center gap-1.5">
                   <Sparkles size={14} />
-                  নতুন ওয়ার্কস্পেস তৈরি
+                  {t('workspace.createNew')}
                 </span>
                 <button 
                   onClick={() => setIsCreating(false)} 
@@ -214,17 +216,17 @@ export default function WorkspacePage() {
                 <input
                   autoFocus
                   type="text"
-                  placeholder="ওয়ার্কস্পেসের নাম লিখুন (যেমন: Personal, Project, Studies)..."
+                  placeholder={t('workspace.namePlaceholder')}
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  className="w-full bg-transparent border-b border-white/20 py-2.5 text-lg sm:text-xl font-bold text-white placeholder:text-white/25 outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-transparent border-b border-white/20 py-2.5 text-lg sm:text-xl font-bold text-white placeholder:text-white/25 outline-none focus:border-teal-500 transition-colors"
                 />
               </div>
 
               {/* Quick Color Picker */}
               <div className="flex items-center gap-2 pt-1 flex-wrap">
-                <span className="text-[11px] font-bold text-white/40 mr-1">থিম কালার:</span>
+                <span className="text-[11px] font-bold text-white/40 mr-1">{t('workspace.colorLabel')}:</span>
                 {QUICK_COLORS.map(color => (
                   <button
                     key={color}
@@ -246,19 +248,19 @@ export default function WorkspacePage() {
                   onClick={handleCreate}
                   disabled={!newWorkspaceName.trim()}
                   className={cn(
-                    "flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-white shadow-lg shadow-blue-600/30 transition-all active:scale-95 cursor-pointer",
+                    "flex-1 py-3 bg-teal-600 hover:bg-teal-500 rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 text-white shadow-lg shadow-teal-600/30 transition-all active:scale-95 cursor-pointer",
                     !newWorkspaceName.trim() && "opacity-40 cursor-not-allowed"
                   )}
                 >
                   <Check size={16} strokeWidth={2.5} />
-                  সংরক্ষণ করুন
+                  {t('workspace.create')}
                 </button>
 
                 <button
                   onClick={() => setIsCreating(false)}
                   className="px-5 py-3 bg-white/5 hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider text-white/60 hover:text-white transition-all cursor-pointer"
                 >
-                  বাতিল
+                  {t('common.cancel')}
                 </button>
               </div>
             </motion.div>
@@ -275,16 +277,16 @@ export default function WorkspacePage() {
             <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mx-auto text-white/30">
               <Folder size={32} />
             </div>
-            <h3 className="font-extrabold text-base text-white">কোনো ওয়ার্কস্পেস পাওয়া যায়নি</h3>
+            <h3 className="font-extrabold text-base text-white">{t('workspace.noResults')}</h3>
             <p className="text-xs text-white/40 max-w-sm mx-auto">
-              {searchQuery ? `"${searchQuery}" এর সাথে মিলে এমন কোনো ওয়ার্কস্পেস নেই।` : 'আপনার এখনও কোনো ওয়ার্কস্পেস তৈরি করা হয়নি।'}
+              {searchQuery ? `"${searchQuery}" — ${language === 'bn' ? 'এর সাথে মিলে এমন কোনো ওয়ার্কস্পেস নেই।' : 'no workspace matches this search.'}` : t('workspace.noResultsDesc')}
             </p>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
                 className="mt-2 px-4 py-2 bg-white/10 hover:bg-white/15 rounded-xl text-xs font-bold text-white transition-all"
               >
-                ফিল্টার রিসেট করুন
+                {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset filter'}
               </button>
             )}
           </div>
@@ -302,7 +304,7 @@ export default function WorkspacePage() {
                   className={cn(
                     "group p-5 rounded-[32px] border transition-all duration-300 flex flex-col justify-between relative overflow-hidden",
                     isActive 
-                      ? "bg-gradient-to-br from-blue-500/10 via-[#181a24] to-[#121318] border-blue-500/50 shadow-2xl shadow-blue-500/10 ring-1 ring-blue-500/20" 
+                      ? "bg-gradient-to-br from-teal-500/10 via-[#181a24] to-[#121318] border-teal-500/50 shadow-2xl shadow-teal-500/10 ring-1 ring-teal-500/20" 
                       : "bg-[#18181a]/90 border-white/[0.06] hover:border-white/15 hover:bg-[#1e1e22]"
                   )}
                 >
@@ -313,7 +315,7 @@ export default function WorkspacePage() {
                       <div 
                         onClick={() => setWorkspaceForLogo(ws)}
                         className="relative group/avatar cursor-pointer transition-transform active:scale-95 shrink-0"
-                        title="লোগো ও কালার পরিবর্তন করুন"
+                        title={t('workspace.appearance')}
                       >
                         {renderWorkspaceAvatar(ws, 'md')}
                         <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity">
@@ -327,7 +329,7 @@ export default function WorkspacePage() {
                           <div className="flex items-center gap-1.5">
                             <input
                               autoFocus
-                              className="bg-black/40 border border-blue-500 rounded-xl px-2 py-1 outline-none font-bold text-base text-white w-full"
+                              className="bg-black/40 border border-teal-500 rounded-xl px-2 py-1 outline-none font-bold text-base text-white w-full"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
                               onKeyDown={(e) => {
@@ -335,7 +337,7 @@ export default function WorkspacePage() {
                                 if (e.key === 'Escape') setEditingWorkspace(null);
                               }}
                             />
-                            <button onClick={handleRename} className="p-1.5 bg-blue-600 rounded-xl text-white">
+                            <button onClick={handleRename} className="p-1.5 bg-teal-600 rounded-xl text-white">
                               <Check size={14} />
                             </button>
                             <button onClick={() => setEditingWorkspace(null)} className="p-1.5 bg-white/10 rounded-xl text-white/50">
@@ -360,10 +362,10 @@ export default function WorkspacePage() {
                     {/* Active LIVE Badge or Settings trigger */}
                     <div className="flex items-center gap-1 shrink-0">
                       {isActive && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                          <span className="text-[9px] font-black uppercase tracking-wider text-blue-300">
-                            সক্রিয়
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-500/20 border border-teal-500/30 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                          <span className="text-[9px] font-black uppercase tracking-wider text-teal-300">
+                            {t('workspace.active')}
                           </span>
                         </div>
                       )}
@@ -371,7 +373,7 @@ export default function WorkspacePage() {
                       <button
                         onClick={() => setWorkspaceSettingsModal(ws)}
                         className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all active:scale-90 cursor-pointer"
-                        title="মেনু"
+                        title={t('workspace.menu')}
                       >
                         <MoreHorizontal size={17} />
                       </button>
@@ -381,7 +383,7 @@ export default function WorkspacePage() {
                   {/* Middle: Capacity Progress Bar */}
                   <div className="my-5 space-y-1.5">
                     <div className="flex items-center justify-between text-[11px] font-mono font-bold">
-                      <span className="text-white/40">নোট সংখ্যা</span>
+                      <span className="text-white/40">{t('workspace.notesCount')}</span>
                       <span className={cn(
                         "font-extrabold",
                         capacityPercent > 90 ? "text-red-400" : capacityPercent > 75 ? "text-amber-400" : "text-white/70"
@@ -394,7 +396,7 @@ export default function WorkspacePage() {
                       <div 
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
-                          capacityPercent > 90 ? "bg-red-500" : capacityPercent > 75 ? "bg-amber-400" : "bg-blue-500"
+                          capacityPercent > 90 ? "bg-red-500" : capacityPercent > 75 ? "bg-amber-400" : "bg-teal-500"
                         )}
                         style={{ width: `${Math.max(4, capacityPercent)}%` }}
                       />
@@ -408,27 +410,27 @@ export default function WorkspacePage() {
                       className={cn(
                         "flex-1 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95",
                         isActive 
-                          ? "bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20" 
+                          ? "bg-teal-500/15 text-teal-300 border border-teal-500/30 hover:bg-teal-500/20" 
                           : "bg-white/5 hover:bg-white/10 text-white/80 hover:text-white"
                       )}
                     >
                       {isActive ? (
                         <>
-                          <Check size={14} strokeWidth={3} className="text-blue-400" />
-                          <span>বর্তমান ওয়ার্কস্পেস</span>
+                          <Check size={14} strokeWidth={3} className="text-teal-400" />
+                          <span>{t('workspace.current')}</span>
                         </>
                       ) : (
-                        <span>সুইচ করুন</span>
+                        <span>{t('workspace.switch')}</span>
                       )}
                     </button>
 
                     <button
                       onClick={() => setWorkspaceForLogo(ws)}
                       className="px-3 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                      title="আইকন ও রং পরিবর্তন"
+                      title={t('workspace.appearance')}
                     >
                       <Palette size={14} />
-                      <span className="hidden sm:inline">লোগো</span>
+                      <span className="hidden sm:inline">{t('workspace.logo')}</span>
                     </button>
                   </div>
                 </motion.div>
@@ -442,7 +444,7 @@ export default function WorkspacePage() {
       <Modal
         isOpen={!!workspaceSettingsModal}
         onClose={() => setWorkspaceSettingsModal(null)}
-        title={workspaceSettingsModal ? `ওয়ার্কস্পেস সেটিংস: ${workspaceSettingsModal.name}` : undefined}
+        title={workspaceSettingsModal ? `${t('workspace.settingsTitle')}: ${workspaceSettingsModal.name}` : undefined}
       >
         {workspaceSettingsModal && (
           <div className="p-5 sm:p-6 space-y-2 text-white">
@@ -457,12 +459,12 @@ export default function WorkspacePage() {
               }}
               className="w-full flex items-center gap-3.5 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-left active:scale-98 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/15 text-teal-400 flex items-center justify-center shrink-0">
                 <Edit3 size={18} />
               </div>
               <div>
-                <div className="font-bold text-sm text-white">নাম পরিবর্তন করুন (Rename)</div>
-                <div className="text-[11px] text-white/40">ওয়ার্কস্পেসের টাইটেল এডিট করুন</div>
+                <div className="font-bold text-sm text-white">{t('workspace.rename')}</div>
+                <div className="text-[11px] text-white/40">{t('workspace.renameDesc')}</div>
               </div>
             </button>
 
@@ -479,8 +481,8 @@ export default function WorkspacePage() {
                 <Palette size={18} />
               </div>
               <div>
-                <div className="font-bold text-sm text-white">আইকন ও থিম কালার (Appearance)</div>
-                <div className="text-[11px] text-white/40">লোগো, প্রিসেট আইকন, ইমোজি ও কালার কাস্টমাইজ করুন</div>
+                <div className="font-bold text-sm text-white">{t('workspace.appearance')}</div>
+                <div className="text-[11px] text-white/40">{t('workspace.appearanceDesc')}</div>
               </div>
             </button>
 
@@ -497,8 +499,8 @@ export default function WorkspacePage() {
                 <Copy size={18} />
               </div>
               <div>
-                <div className="font-bold text-sm text-white">ডুপ্লিকেট করুন (Duplicate Workspace)</div>
-                <div className="text-[11px] text-white/40">ওয়ার্কস্পেস ও এর সকল নোট ক্লোন করুন</div>
+                <div className="font-bold text-sm text-white">{t('workspace.duplicate')}</div>
+                <div className="text-[11px] text-white/40">{t('workspace.duplicateDesc')}</div>
               </div>
             </button>
 
@@ -515,8 +517,8 @@ export default function WorkspacePage() {
                 <Download size={18} />
               </div>
               <div>
-                <div className="font-bold text-sm text-white">ব্যাকআপ এক্সপোর্ট (JSON Export)</div>
-                <div className="text-[11px] text-white/40">এই ওয়ার্কস্পেসের সব নোট ডাউনলোড করুন</div>
+                <div className="font-bold text-sm text-white">{t('workspace.exportBackup')}</div>
+                <div className="text-[11px] text-white/40">{t('workspace.exportDesc')}</div>
               </div>
             </button>
 
@@ -534,9 +536,9 @@ export default function WorkspacePage() {
               </div>
               <div>
                 <div className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors">
-                  সব নোট মুছে ফেলুন (Clear Notes)
+                  {t('workspace.clearNotes')}
                 </div>
-                <div className="text-[11px] text-white/40">ওয়ার্কস্পেস অক্ষত রেখে কেবল নোটগুলো খালি করুন</div>
+                <div className="text-[11px] text-white/40">{t('workspace.clearNotesDesc')}</div>
               </div>
             </button>
 
@@ -554,9 +556,9 @@ export default function WorkspacePage() {
               </div>
               <div>
                 <div className="font-bold text-sm text-white group-hover:text-red-400 transition-colors">
-                  ওয়ার্কস্পেস ডিলিট করুন (Delete Workspace)
+                  {t('workspace.deleteWorkspace')}
                 </div>
-                <div className="text-[11px] text-white/40">স্থায়ীভাবে ওয়ার্কস্পেসটি মুছে ফেলুন</div>
+                <div className="text-[11px] text-white/40">{t('workspace.deleteDesc')}</div>
               </div>
             </button>
           </div>
@@ -568,11 +570,11 @@ export default function WorkspacePage() {
         isOpen={workspaceToDelete !== null}
         onClose={() => setWorkspaceToDelete(null)}
         onConfirm={handleDelete}
-        title="ওয়ার্কস্পেস মুছে ফেলুন"
-        message="আপনি কি নিশ্চিত যে এই ওয়ার্কস্পেস এবং এর অন্তর্ভুক্ত সমস্ত নোট চিরতরে ডিলিট করতে চান? এই কাজ পরবর্তীতে ফেরত নেওয়া সম্ভব নয়।"
+        title={t('workspace.deleteTitle')}
+        message={t('workspace.deleteMessage')}
         variant="danger"
-        confirmText="হ্যাঁ, ডিলিট করুন"
-        cancelText="বাতিল"
+        confirmText={t('workspace.confirmDelete')}
+        cancelText={t('common.cancel')}
       />
 
       {/* Clear Notes Confirmation Dialog */}
@@ -580,11 +582,11 @@ export default function WorkspacePage() {
         isOpen={workspaceToClear !== null}
         onClose={() => setWorkspaceToClear(null)}
         onConfirm={handleClearNotes}
-        title="ওয়ার্কস্পেসের সব নোট ক্লিয়ার"
-        message="আপনি কি এই ওয়ার্কস্পেসের সব নোট মুছে ফেলতে চান? ওয়ার্কস্পেসটি অক্ষত থাকবে কিন্তু ভেতরের নোটগুলো ডিলিট হয়ে যাবে।"
+        title={t('workspace.clearTitle')}
+        message={t('workspace.clearMessage')}
         variant="danger"
-        confirmText="সব নোট মুছুন"
-        cancelText="বাতিল"
+        confirmText={t('workspace.confirmClear')}
+        cancelText={t('common.cancel')}
       />
 
       {/* Workspace Logo & Appearance Customizer Modal */}
@@ -602,16 +604,16 @@ export default function WorkspacePage() {
       <Modal
         isOpen={showLimitNoticeModal}
         onClose={handleDismissLimitNotice}
-        title="ওয়ার্কস্পেস কোটা ও তথ্য"
+        title={t('workspace.limitTitle')}
       >
         <div className="p-6 text-center space-y-5 text-white">
           <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-3xl flex items-center justify-center mx-auto border border-amber-500/20">
             <Rocket size={32} />
           </div>
           <div className="space-y-2">
-            <h3 className="text-lg font-bold text-white">প্রতি ওয়ার্কস্পেসে ১০,০০০ নোট লিমিট</h3>
+            <h3 className="text-lg font-bold text-white">{t('workspace.limitHeading')}</h3>
             <p className="text-xs text-white/70 leading-relaxed max-w-sm mx-auto">
-              আপনার ব্রাউজার ও ডিভাইসের পারফরম্যান্স যেন সর্বদা সর্বোচ্চ দ্রুত ও মসৃণ থাকে, সেজন্য প্রতিটি ওয়ার্কস্পেসে সর্বোচ্চ ১০,০০০ নোট রাখা যায়। একাধিক প্রজেক্টের জন্য আপনি যত ইচ্ছা নতুন ওয়ার্কস্পেস তৈরি করে নিতে পারেন।
+              {t('workspace.limitBody')}
             </p>
           </div>
           <button
@@ -619,7 +621,7 @@ export default function WorkspacePage() {
             onClick={handleDismissLimitNotice}
             className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-black font-black rounded-2xl transition-all shadow-lg shadow-amber-400/25 cursor-pointer"
           >
-            বুঝেছি (OK)
+            {t('workspace.understood')}
           </button>
         </div>
       </Modal>

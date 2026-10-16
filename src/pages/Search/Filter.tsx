@@ -6,6 +6,7 @@
 import React from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { Tag as TagIcon, X, Check } from 'lucide-react';
+import { useLanguage } from '../../utils/translator';
 
 interface FilterProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ const Filter: React.FC<FilterProps> = ({
   onToggleTag,
   onClearTags
 }) => {
+  const { t, language } = useLanguage();
   return (
     <AnimatePresence>
       {isOpen && (
@@ -51,7 +53,7 @@ const Filter: React.FC<FilterProps> = ({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", damping: 30, stiffness: 450 }}
-            className="w-full max-w-sm bg-[#121212] border border-white/10 rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col pointer-events-auto"
+            className="w-full max-w-[340px] bg-[#121212] border border-white/10 rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col pointer-events-auto"
             onClick={(e) => e.stopPropagation()} // Stop click from reaching backdrop
           >
             {/* Header */}
@@ -61,7 +63,7 @@ const Filter: React.FC<FilterProps> = ({
                   <TagIcon size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">ফিল্টার</h3>
+                  <h3 className="text-base font-bold text-white">{t('search.filters')}</h3>
                   <p className="text-[10px] text-white/30 uppercase tracking-widest font-black">Filter by Tags</p>
                 </div>
               </div>
@@ -95,27 +97,30 @@ const Filter: React.FC<FilterProps> = ({
                 })
               ) : (
                 <div className="w-full py-12 text-center text-white/20 text-xs font-medium">
-                  কোনো ট্যাগ পাওয়া যায়নি
+                  {language === 'bn' ? 'কোনো ট্যাগ পাওয়া যায়নি' : 'No tags found'}
                 </div>
               )}
             </div>
 
-            {/* Footer */}
-            <div className="p-6 mt-2 flex items-center justify-between bg-white/[0.02] border-t border-white/5">
-              <button
-                onClick={onClearTags}
-                disabled={selectedTags.length === 0}
-                className="text-[11px] font-black uppercase tracking-[0.15em] text-red-500 disabled:opacity-20 transition-all hover:opacity-100"
-              >
-                ক্লিয়ার ({selectedTags.length})
-              </button>
-              
-              <button
-                onClick={onClose}
-                className="px-10 py-3.5 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest transition-transform active:scale-95 shadow-xl hover:bg-gray-100"
-              >
-                Done
-              </button>
+            {/* Footer — narrower centered action row, shifted slightly
+                down so Apply/Clear never crowd the tag chips above */}
+            <div className="px-6 pt-3 pb-7 bg-white/[0.02] border-t border-white/5">
+              <div className="w-[76%] max-w-[240px] mx-auto mt-2.5 flex items-center justify-between gap-3">
+                <button
+                  onClick={onClearTags}
+                  disabled={selectedTags.length === 0}
+                  className="text-[11px] font-black uppercase tracking-[0.15em] text-red-500 disabled:opacity-20 transition-all hover:opacity-100 shrink-0"
+                >
+                  {t('search.clear')} ({selectedTags.length})
+                </button>
+
+                <button
+                  onClick={onClose}
+                  className="px-7 py-3 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest transition-transform active:scale-95 shadow-xl hover:bg-gray-100 shrink-0"
+                >
+                  {t('search.apply')}
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>

@@ -226,10 +226,12 @@ export const SettingsService = {
     const settings = record ? record.value as AISettings : null;
     const defaultSettings: AISettings = {
       selectedProvider: 'gemini',
+      // No model is pre-configured: users add models themselves, and the
+      // Agent surface shows "No model configured" until they do.
       selectedModels: {
-        gemini: 'gemini-1.5-flash',
+        gemini: '',
         openrouter: '',
-        fireworks: 'accounts/fireworks/models/deepseek-v3p1',
+        fireworks: '',
         local: ''
       },
       apiKeys: {},
@@ -240,10 +242,7 @@ export const SettingsService = {
       selectedAppID: 'threat-all',
       customAppIDs: [],
       providerModels: {
-        // Gemini 1.5 Flash is the out-of-the-box default model. If the
-        // user removes every configured model, the AI page falls back
-        // to its "Add Model" action instead of an empty picker.
-        gemini: ['gemini-1.5-flash'],
+        gemini: [],
         openrouter: [],
         fireworks: [],
         local: []
@@ -288,6 +287,32 @@ export const SettingsService = {
     if (mergedSettings.selectedProvider as any === 'picoapps' || mergedSettings.selectedProvider === 'local') {
       mergedSettings.selectedProvider = 'gemini';
     }
+
+    // Migration: older versions seeded a pre-configured default model
+    // (Gemini 1.5 Flash) that the user never added themselves. Remove that
+    // seed when no Gemini API key was ever configured, so the Agent page
+    // correctly shows "No model configured" until the user adds a model.
+    const geminiModels = mergedSettings.providerModels?.gemini;
+    if (
+      Array.isArray(geminiModels) &&
+      geminiModels.length === 1 &&
+      geminiModels[0] === 'gemini-1.5-flash' &&
+      !decryptedKeys.gemini
+    ) {
+      mergedSettings.providerModels = { ...mergedSettings.providerModels, gemini: [] };
+    }
+
+    // Invariant: a selected model must be one the user actually added.
+    // Clear any stale selection that is not in the provider's model list.
+    const providerModels = mergedSettings.providerModels || {};
+    const selectedModels = { ...(mergedSettings.selectedModels || {}) } as Record<string, string>;
+    for (const provider of Object.keys(selectedModels)) {
+      const list = providerModels[provider];
+      if (selectedModels[provider] && Array.isArray(list) && !list.includes(selectedModels[provider])) {
+        selectedModels[provider] = '';
+      }
+    }
+    mergedSettings.selectedModels = selectedModels as AISettings['selectedModels'];
 
     cachedSettings = mergedSettings;
     return mergedSettings;

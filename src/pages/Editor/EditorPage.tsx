@@ -224,13 +224,12 @@ function EditorPage({ id }: { id: string | undefined }) {
         "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
         isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
       )}>
-        <EditorHeader 
+        <EditorHeader
           onBack={handleBack}
           workspaceName={workspaceName}
           parentNote={parentNote}
           title={title}
           activeTasksCount={activeTasksCount}
-          onShowMenu={() => setShowActionSheet(true)}
           editor={editor}
           isSaving={isSaving}
           saveError={saveError}

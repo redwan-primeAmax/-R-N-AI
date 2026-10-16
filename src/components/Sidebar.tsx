@@ -5,7 +5,7 @@ import {
   Settings2, Settings, Sun, Moon, Layers, Plus, Sparkles,
   ChevronRight, FileText, ChevronDown, MoreHorizontal,
   Box, Download, Zap, Database, AlertCircle, FileDown, Users,
-  Boxes, Layout, ArrowLeft, History, Clock, Loader2, LayoutGrid, Monitor, Wrench, Share2
+  Boxes, Layout, ArrowLeft, ArrowLeftRight, History, Clock, Loader2, LayoutGrid, Monitor, Wrench, Share2
 } from 'lucide-react';
 import localforage from 'localforage';
 import { DataManager, Note, Workspace } from '../services/storage/DataManager';
@@ -216,12 +216,13 @@ export default function Sidebar({
                     activeWorkspace?.name?.charAt(0) || 'N'
                   )}
                 </div>
-                <div className="flex flex-col">
-                  <h2 className="text-base font-black tracking-tight leading-none text-white/95 group-hover:text-amber-300 transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h2 className="text-base font-black tracking-tight leading-none text-white/95 group-hover:text-amber-300 transition-colors truncate">
                     {activeWorkspace?.name || 'My Notes'}
                   </h2>
-                  <span className="text-[10px] font-bold text-amber-400 mt-1 flex items-center gap-1">
-                    {t('nav.tapToSwitchWorkspace')} <ChevronRight size={10} />
+                  {/* Swap affordance: a small switch-arrow right beside the name (no extra text) */}
+                  <span className="w-6 h-6 shrink-0 rounded-full bg-amber-400/15 border border-amber-400/25 text-amber-300 flex items-center justify-center group-hover:bg-amber-400/25 transition-colors" aria-hidden="true">
+                    <ArrowLeftRight size={12} strokeWidth={2.5} />
                   </span>
                 </div>
               </div>

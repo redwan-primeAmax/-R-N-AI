@@ -54,6 +54,107 @@ interface EditorCommandsProps {
   blocksRef: React.MutableRefObject<EditorBlock[]>;
 }
 
+/* ------------------------------------------------------------------ */
+/* Highlight helpers (shared by the focus chain below)                 */
+/*                                                                     */
+/* Highlighting is implemented with real <mark class="hl"> elements    */
+/* instead of execCommand('backColor'). That guarantees:               */
+/*  - the highlight renders IMMEDIATELY, including for text typed      */
+/*    right after picking a color (a caret mark is planted first);     */
+/*  - deep, solid highlight colors stay legible;                       */
+/*  - highlight markup is fully independent of text color spans, so    */
+/*    changing one never clashes with the other.                       */
+/* ------------------------------------------------------------------ */
+
+function collectTextNodesInRange(range: Range): Text[] {
+  const root = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+    ? (range.commonAncestorContainer as Element)
+    : range.commonAncestorContainer.parentElement;
+  if (!root) return [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) =>
+      range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+  });
+  const nodes: Text[] = [];
+  let current: Node | null;
+  while ((current = walker.nextNode())) nodes.push(current as Text);
+  return nodes;
+}
+
+function unwrapMark(mark: HTMLElement) {
+  const parent = mark.parentNode;
+  if (!parent) return;
+  while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+  parent.removeChild(mark);
+  parent.normalize();
+}
+
+function wrapRangeWithMark(range: Range, color: string) {
+  for (const textNode of collectTextNodesInRange(range)) {
+    let node: Text = textNode;
+    const start = node === range.startContainer ? range.startOffset : 0;
+    const end = node === range.endContainer ? range.endOffset : node.length;
+    if (end < node.length) node.splitText(end);
+    let middle: Text = node;
+    if (start > 0) middle = node.splitText(start);
+    if (!middle.length) continue;
+    if (middle.parentElement?.tagName === 'MARK') {
+      // Already highlighted — just recolor in place, never nest marks.
+      (middle.parentElement as HTMLElement).style.backgroundColor = color;
+      continue;
+    }
+    const mark = document.createElement('mark');
+    mark.className = 'hl';
+    mark.style.backgroundColor = color;
+    middle.parentNode?.insertBefore(mark, middle);
+    mark.appendChild(middle);
+  }
+}
+
+function clearHighlightInRange(range: Range) {
+  const anchorEl = range.startContainer.nodeType === Node.ELEMENT_NODE
+    ? (range.startContainer as Element)
+    : range.startContainer.parentElement;
+  if (range.collapsed) {
+    const mark = anchorEl?.closest('mark');
+    if (mark) {
+      const parent = mark.parentNode;
+      unwrapMark(mark as HTMLElement);
+      // Keep the caret where the user was working.
+      if (parent) {
+        const sel = window.getSelection();
+        const caret = document.createRange();
+        caret.selectNodeContents(parent);
+        caret.collapse(true);
+        sel?.removeAllRanges();
+        sel?.addRange(caret);
+      }
+    }
+    return;
+  }
+  const marks = new Set<HTMLElement>();
+  for (const textNode of collectTextNodesInRange(range)) {
+    const mark = textNode.parentElement?.closest('mark');
+    if (mark) marks.add(mark as HTMLElement);
+  }
+  marks.forEach(unwrapMark);
+}
+
+/** Plant a caret-sized mark so the very next typed characters are highlighted. */
+function plantTypingMark(range: Range, color: string) {
+  const mark = document.createElement('mark');
+  mark.className = 'hl';
+  mark.style.backgroundColor = color;
+  mark.appendChild(document.createTextNode('\u200B'));
+  range.insertNode(mark);
+  const caret = document.createRange();
+  caret.setStart(mark.firstChild as Node, 1);
+  caret.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(caret);
+}
+
 export function useEditorCommands({
   blocks,
   setBlocks,
@@ -72,10 +173,21 @@ export function useEditorCommands({
   blocksRefs,
   blocksRef
 }: EditorCommandsProps) {
-  
+
   // Custom in-memory event hub listeners registry to avoid window event pollution/clashes
   const listenersRef = useRef<Record<string, Array<(detail?: any) => void>>>({});
-  
+
+  /** Persist the active block's live DOM back into block state. */
+  const syncActiveBlockContent = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
+      if (activeId) {
+        const html = document.activeElement.innerHTML;
+        setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+      }
+    }
+  };
+
   const editor = useMemo(() => {
     const focusChain = {
       focus: (id?: string) => {
@@ -164,29 +276,53 @@ export function useEditorCommands({
         return focusChain;
       },
       setTextColor: (color: string) => {
+        const activeEl = document.activeElement as HTMLElement;
+        if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+          focusChain.focus();
+        }
+        // CSS mode => color is serialized as <span style="color:…">, fully
+        // independent of <mark> highlight elements.
+        document.execCommand('styleWithCSS', false, 'true');
         document.execCommand('foreColor', false, color);
-        if (document.activeElement instanceof HTMLElement) {
-          const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
-          if (activeId) {
-            const html = document.activeElement.innerHTML;
-            setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
-          }
-        }
+        syncActiveBlockContent();
         setForceRefreshState({});
         return focusChain;
       },
-      setBackgroundColor: (color: string) => {
-        document.execCommand('backColor', false, color);
-        if (document.activeElement instanceof HTMLElement) {
-          const activeId = document.activeElement.getAttribute('data-block-id') || document.activeElement.getAttribute('id');
-          if (activeId) {
-            const html = document.activeElement.innerHTML;
-            setBlocks(prev => prev.map(b => b.id === activeId ? { ...b, content: html } : b));
+      /**
+       * Apply (or clear, with null/'transparent') the text highlight.
+       * Works on a selection — and on a collapsed caret, where a caret
+       * mark is planted so newly typed text is highlighted immediately.
+       */
+      setHighlight: (color: string | null) => {
+        const activeEl = document.activeElement as HTMLElement;
+        if (!activeEl || !activeEl.hasAttribute('contenteditable')) {
+          focusChain.focus();
+        }
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          if (!color || color === 'transparent') {
+            clearHighlightInRange(range);
+          } else if (range.collapsed) {
+            plantTypingMark(range, color);
+          } else {
+            wrapRangeWithMark(range, color);
           }
         }
+        syncActiveBlockContent();
         setForceRefreshState({});
         return focusChain;
       },
+      toggleHighlight: (color: string) => {
+        const sel = window.getSelection();
+        const anchorEl = sel?.anchorNode
+          ? (sel.anchorNode.nodeType === Node.ELEMENT_NODE ? (sel.anchorNode as Element) : sel.anchorNode.parentElement)
+          : null;
+        const insideMark = !!anchorEl?.closest('mark');
+        return focusChain.setHighlight(insideMark ? null : color);
+      },
+      // Backwards-compatible alias: background color == highlight.
+      setBackgroundColor: (color: string) => focusChain.setHighlight(color),
       toggleHeading: (attrs: { level: number }) => {
         setBlocks(prev => toggleHeading(prev, attrs.level, activeBlockId));
         setForceRefreshState({});
@@ -328,7 +464,14 @@ export function useEditorCommands({
         if (type === 'strike') return document.queryCommandState?.('strikeThrough') || false;
         if (type === 'underline') return document.queryCommandState?.('underline') || false;
         if (type === 'code') return document.queryCommandValue?.('fontName')?.toLowerCase()?.includes('monospace') || false;
-        
+        if (type === 'highlight') {
+          const sel = window.getSelection();
+          const anchorEl = sel?.anchorNode
+            ? (sel.anchorNode.nodeType === Node.ELEMENT_NODE ? (sel.anchorNode as Element) : sel.anchorNode.parentElement)
+            : null;
+          return !!anchorEl?.closest('mark');
+        }
+
         if (type === 'heading') {
           if (!activeBlock) return false;
           if (attrs && attrs.level) return activeBlock.type === `h${attrs.level}`;
