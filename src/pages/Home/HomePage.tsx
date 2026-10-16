@@ -17,6 +17,7 @@ const ActionMenu = lazy(() => import('./components/ActionMenu').then(m => ({ def
 import { SelectionBar } from './components/SelectionBar';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import { cn } from '../../utils/cn';
+import { useLanguage } from '../../utils/translator';
 
 export default function HomePage() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -37,6 +38,7 @@ export default function HomePage() {
 
 
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || workspaces[0];
 
   const hasMore = useRef(true);
@@ -197,41 +199,41 @@ export default function HomePage() {
         {/* Section Header with View Mode Switcher */}
         <div className="flex items-center justify-between pb-2 mb-2 px-1">
           <span className="text-[12px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-            পেজসমূহ ({notes.length})
+            {t('home.pages', { count: notes.length })}
           </span>
-          <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-1 rounded-xl text-[11px]">
-            <button
-              onClick={() => {
-                setViewMode('grid');
-                localStorage.setItem('home_view_mode', 'grid');
-              }}
-              className={cn(
-                "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
-                viewMode === 'grid'
-                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs"
-                  : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
-              )}
-              title="Grid Mode (2-Column Grid)"
-            >
-              <LayoutGrid size={14} />
-              <span>Grid</span>
-            </button>
-            <button
-              onClick={() => {
-                setViewMode('layer');
-                localStorage.setItem('home_view_mode', 'layer');
-              }}
-              className={cn(
-                "px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5",
-                viewMode === 'layer'
-                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs"
-                  : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
-              )}
-              title="Layer Mode (Single Column List)"
-            >
-              <Layers size={14} />
-              <span>Layer</span>
-            </button>
+          {/* Grid / Layer switcher — one polished amber design system:
+              soft glass track, gradient pill + glow on the active mode */}
+          <div
+            role="group"
+            aria-label={`${t('home.grid')} / ${t('home.layer')}`}
+            className="flex items-center gap-1 p-1 rounded-2xl text-[11px] bg-gradient-to-b from-white/[0.08] to-white/[0.03] border border-amber-400/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md"
+          >
+            {([
+              { mode: 'grid' as const, icon: LayoutGrid, label: t('home.grid'), title: t('home.gridMode') },
+              { mode: 'layer' as const, icon: Layers, label: t('home.layer'), title: t('home.layerMode') },
+            ]).map(({ mode, icon: Icon, label, title }) => {
+              const isActive = viewMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setViewMode(mode);
+                    localStorage.setItem('home_view_mode', mode);
+                  }}
+                  aria-pressed={isActive}
+                  title={title}
+                  className={cn(
+                    "relative px-3 py-1.5 rounded-xl font-bold tracking-tight flex items-center gap-1.5 transition-all duration-200 active:scale-95",
+                    isActive
+                      ? "bg-gradient-to-b from-amber-300 to-amber-500 text-neutral-950 shadow-[0_4px_14px_rgba(245,158,11,0.45),inset_0_1px_0_rgba(255,255,255,0.5)]"
+                      : "text-amber-100/50 hover:text-amber-200 hover:bg-amber-400/10"
+                  )}
+                >
+                  <Icon size={14} strokeWidth={isActive ? 2.6 : 2} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -253,7 +255,7 @@ export default function HomePage() {
           ) : (
             <div className="py-24 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-600">
               <FileText size={44} className="mb-3 opacity-30" />
-              <p className="font-medium text-sm">কোনো নোট পাওয়া যায়নি</p>
+              <p className="font-medium text-sm">{t('home.noNotes')}</p>
             </div>
           )}
         </div>

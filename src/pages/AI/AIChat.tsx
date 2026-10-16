@@ -16,6 +16,7 @@ import { handleAgenticSendMessage } from '../../services/agent/agentic';
 import { useVisualViewport } from '../../hooks/useVisualViewport';
 import { notify } from '../../utils/notify';
 import { cn } from '../../utils/cn';
+import { DEFAULT_MODEL_ID, useLanguage } from '../../utils/translator';
 
 const NoteContextPicker = lazy(() => import('./NoteContextPicker'));
 
@@ -73,7 +74,10 @@ const ModelPicker: React.FC<{
   onSelect: (model: string) => void;
   anchorRect: DOMRect | null;
   models: string[];
-}> = ({ isOpen, onClose, selectedModel, onSelect, anchorRect, models }) => {
+  onAddModel: () => void;
+  addModelLabel: string;
+  noModelsLabel: string;
+}> = ({ isOpen, onClose, selectedModel, onSelect, anchorRect, models, onAddModel, addModelLabel, noModelsLabel }) => {
   if (!anchorRect) return null;
 
   return (
@@ -105,7 +109,16 @@ const ModelPicker: React.FC<{
             onClick={(e) => e.stopPropagation()}
           >
             {models.length === 0 ? (
-              <div className="px-3 py-2 text-[10px] text-white/30 font-bold uppercase tracking-widest text-center">No models configured</div>
+              <div className="space-y-2">
+                <div className="px-3 py-2 text-[10px] text-white/30 font-bold uppercase tracking-widest text-center">{noModelsLabel}</div>
+                <button
+                  onClick={() => { onClose(); onAddModel(); }}
+                  className="w-full px-3 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 bg-[#D97757] text-black hover:bg-[#c56647] active:scale-95 transition-all"
+                >
+                  <Plus size={14} strokeWidth={3} />
+                  <span>{addModelLabel}</span>
+                </button>
+              </div>
             ) : models.map((model) => (
               <button
                 key={model}
@@ -358,6 +371,7 @@ const ChatMessageItem: React.FC<{
 
 export default function AIChat() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -417,8 +431,17 @@ export default function AIChat() {
     const provider = settings.selectedProvider;
     const models = settings.providerModels?.[provider] || [];
     setAvailableModels(models);
-    
-    const currentModel = settings.selectedModels[provider] || models[0] || '';
+
+    // Default to Gemini 1.5 Flash on open: keep an explicit saved choice
+    // when it is still configured, otherwise prefer Gemini 1.5 Flash,
+    // then the first configured model. With nothing configured the
+    // header shows the "Add Model" action instead (see render below).
+    const savedModel = settings.selectedModels?.[provider];
+    const currentModel =
+      (savedModel && (models.length === 0 || models.includes(savedModel)) ? savedModel : '') ||
+      (provider === 'gemini'
+        ? (models.includes(DEFAULT_MODEL_ID) ? DEFAULT_MODEL_ID : (models[0] || DEFAULT_MODEL_ID))
+        : (models[0] || ''));
     setSelectedModel(currentModel);
   }, []);
 
@@ -586,33 +609,48 @@ export default function AIChat() {
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/main')}
-            aria-label="Back to notes"
+            aria-label={t('ai.backToNotes')}
             className="p-1.5 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors"
           >
             <ArrowLeft size={18} />
           </button>
           
           <div className="relative">
-            <button
-              ref={modelButtonRef}
-              onClick={handleToggleModelPicker}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-sm font-bold",
-                showModelPicker ? "bg-[#2B2A27] text-[#ECEBE6]" : "hover:bg-[#2B2A27] text-[#ECEBE6]/80"
-              )}
-            >
-              <div className="w-2 h-2 rounded-full bg-[#D97757] shadow-[0_0_8px_rgba(217,119,87,0.5)]" />
-              <span>{selectedModel || 'Select Model'}</span>
-              <ChevronDown size={14} className={cn("text-[#9B9990] transition-transform duration-200", showModelPicker && "rotate-180")} />
-            </button>
+            {aiSettings && availableModels.length === 0 ? (
+              /* No model configured yet — "Add Model" + button goes
+                 straight to the model configuration page */
+              <button
+                onClick={() => navigate('/ai/settings')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#D97757] text-black text-sm font-bold hover:bg-[#c56647] active:scale-95 transition-all shadow-lg shadow-[#D97757]/20"
+              >
+                <span>{t('ai.addModel')}</span>
+                <Plus size={15} strokeWidth={3} />
+              </button>
+            ) : (
+              <button
+                ref={modelButtonRef}
+                onClick={handleToggleModelPicker}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-sm font-bold",
+                  showModelPicker ? "bg-[#2B2A27] text-[#ECEBE6]" : "hover:bg-[#2B2A27] text-[#ECEBE6]/80"
+                )}
+              >
+                <div className="w-2 h-2 rounded-full bg-[#D97757] shadow-[0_0_8px_rgba(217,119,87,0.5)]" />
+                <span>{selectedModel || t('ai.selectModel')}</span>
+                <ChevronDown size={14} className={cn("text-[#9B9990] transition-transform duration-200", showModelPicker && "rotate-180")} />
+              </button>
+            )}
 
-            <ModelPicker 
+            <ModelPicker
               isOpen={showModelPicker}
               onClose={() => setShowModelPicker(false)}
               selectedModel={selectedModel}
               onSelect={handleSelectModel}
               anchorRect={pickerAnchor}
               models={availableModels}
+              onAddModel={() => navigate('/ai/settings')}
+              addModelLabel={t('ai.addModel')}
+              noModelsLabel={t('ai.noModelsConfigured')}
             />
           </div>
         </div>
@@ -624,7 +662,7 @@ export default function AIChat() {
             title="AI Settings"
           >
             <Settings size={16} />
-            <span className="hidden sm:inline">Settings</span>
+            <span className="hidden sm:inline">{t('ai.settings')}</span>
           </button>
           <button
             onClick={handleClearChat}
@@ -632,7 +670,7 @@ export default function AIChat() {
             className="p-2 hover:bg-[#2B2A27] rounded-lg text-[#9B9990] hover:text-[#ECEBE6] transition-colors text-xs font-bold flex items-center gap-1.5"
           >
             <Trash2 size={16} />
-            <span className="hidden sm:inline">Clear Chat</span>
+            <span className="hidden sm:inline">{t('ai.clearChat')}</span>
           </button>
         </div>
       </header>
@@ -648,9 +686,9 @@ export default function AIChat() {
               <Sparkles size={32} />
             </div>
             <div className="space-y-2 max-w-md px-4">
-              <h2 className="text-2xl font-black text-[#ECEBE6] tracking-tight">AI Assistant</h2>
+              <h2 className="text-2xl font-black text-[#ECEBE6] tracking-tight">{t('ai.welcomeTitle')}</h2>
               <p className="text-sm text-[#9B9990] leading-relaxed font-medium">
-                How can AI help you analyze notes, organize tasks, or brainstorm ideas today?
+                {t('ai.welcomeDesc')}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg pt-4 px-2">
@@ -745,8 +783,8 @@ export default function AIChat() {
                 handleSend();
               }
             }}
-            aria-label="Message AI"
-            placeholder="How can I help you?"
+            aria-label={t('ai.messageLabel')}
+            placeholder={t('ai.placeholder')}
             rows={1}
             className="w-full bg-transparent text-[16px] text-[#ECEBE6] placeholder-[#9B9990]/40 resize-none outline-none px-3 py-1.5 leading-relaxed font-medium min-h-[44px] max-h-[200px] no-scrollbar"
           />

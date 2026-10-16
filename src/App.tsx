@@ -17,6 +17,7 @@ import { UserNamePopup } from './components/modals/UserNamePopup';
 import { Loader2, Check, AlertCircle, X } from 'lucide-react';
 import { cn } from './utils/cn';
 import { useNoteLimit } from './hooks/useNoteLimit';
+import { getStoredLanguage, isAppLanguage, setStoredLanguage } from './utils/translator';
 
 // Helper to retry lazy loading modules when dynamic import fails (e.g. on new PWA builds/deployments)
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -235,6 +236,11 @@ function AppContent() {
         // Offline assets are owned by the generated service worker.
         setTheme(prefs.theme || 'dark');
         setReducedMotion(!!prefs.reducedMotion);
+        // Restore the saved UI language (localStorage already applied it
+        // for the first paint; IndexedDB is the backup/restore copy).
+        if (isAppLanguage(prefs.language) && prefs.language !== getStoredLanguage()) {
+          setStoredLanguage(prefs.language);
+        }
       } catch (err) {
         console.error('App: Bootstrap failed', err);
       } finally {

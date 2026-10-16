@@ -20,6 +20,7 @@ import { PageIcon } from './PageIcon';
 import LoadingScreen from './LoadingScreen';
 import { cn } from '../utils/cn';
 import { formatSize } from '../utils/formatSize';
+import { useLanguage } from '../utils/translator';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export default function Sidebar({
   onOpenSettings
 }: SidebarProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { id: activeNoteId } = useParams();
   const [sidebarView, setSidebarView] = useState<'main' | 'tags' | 'subpages'>('main');
   const [tagInput, setTagInput] = useState('');
@@ -197,7 +199,7 @@ export default function Sidebar({
               <div 
                 onClick={() => handleNavigation('/workspaces')}
                 className="flex items-center gap-3 cursor-pointer group"
-                title="ওয়ার্কস্পেস পরিবর্তন করুন"
+                title={t('nav.tapToSwitchWorkspace')}
               >
                 <div 
                   className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md overflow-hidden group-hover:scale-105 transition-transform"
@@ -219,7 +221,7 @@ export default function Sidebar({
                     {activeWorkspace?.name || 'My Notes'}
                   </h2>
                   <span className="text-[10px] font-bold text-amber-400 mt-1 flex items-center gap-1">
-                    ট্যাপ করে ওয়ার্কস্পেস বদলান <ChevronRight size={10} />
+                    {t('nav.tapToSwitchWorkspace')} <ChevronRight size={10} />
                   </span>
                 </div>
               </div>
@@ -227,7 +229,7 @@ export default function Sidebar({
                 <button 
                   onClick={onClose}
                   className="w-9 h-9 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
-                  aria-label="বন্ধ করুন"
+                  aria-label={t('nav.close')}
                 >
                   <X size={18} />
                 </button>
@@ -241,7 +243,7 @@ export default function Sidebar({
                 <div className="flex items-center justify-between px-3 py-1.5 mb-1 text-[11px] font-bold uppercase tracking-wider text-white/40">
                   <span className="flex items-center gap-1.5">
                     <Clock size={12} className="text-amber-400" />
-                    সাম্প্রতিক ৩টি নোট
+                    {t('nav.recentNotes')}
                   </span>
                   <button 
                     onClick={() => {
@@ -249,8 +251,8 @@ export default function Sidebar({
                       onClose();
                     }}
                     className="p-1 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-colors"
-                    title="নতুন পেজ"
-                    aria-label="নতুন পেজ"
+                    title={t('nav.newPage')}
+                    aria-label={t('nav.newPage')}
                   >
                     <Plus size={14} />
                   </button>
@@ -264,7 +266,7 @@ export default function Sidebar({
                     if (top3Recent.length === 0) {
                       return (
                         <div className="px-3 py-2 text-xs text-white/30 italic">
-                          কোনো নোট পাওয়া যায়নি
+                          {t('nav.noNotes')}
                         </div>
                       );
                     }
@@ -284,7 +286,7 @@ export default function Sidebar({
                             className="flex items-center gap-2.5 flex-1 min-w-0"
                           >
                             <PageIcon emoji={note.emoji} className="text-base shrink-0" />
-                            <span className="text-[13px] truncate font-medium">{note.title || 'শিরোনামহীন'}</span>
+                            <span className="text-[13px] truncate font-medium">{note.title || t('nav.untitled')}</span>
                           </div>
                           <button
                             onClick={(e) => {
@@ -307,7 +309,7 @@ export default function Sidebar({
               {notes.filter(n => n.isFavorite).length > 0 && (
                 <div className="pt-2 border-t border-white/[0.06]">
                   <div className="px-3 py-1.5 mb-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                    <span>★ পছন্দের নোটসমূহ</span>
+                    <span>{t('nav.favorites')}</span>
                   </div>
                   <div className="space-y-1">
                     {notes.filter(n => n.isFavorite).map(fNote => (
@@ -317,7 +319,7 @@ export default function Sidebar({
                         className="flex items-center gap-2.5 py-2 px-3 rounded-xl cursor-pointer hover:bg-white/[0.06] text-white/80"
                       >
                         <PageIcon emoji={fNote.emoji} className="text-base shrink-0" />
-                        <span className="text-[13px] truncate font-medium flex-1">{fNote.title || 'শিরোনামহীন'}</span>
+                        <span className="text-[13px] truncate font-medium flex-1">{fNote.title || t('nav.untitled')}</span>
                       </div>
                     ))}
                   </div>
@@ -327,15 +329,15 @@ export default function Sidebar({
               {/* Navigation Sections */}
               <div className="pt-2 border-t border-white/[0.06] space-y-1">
                 <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/40">
-                  অ্যাপ মেনু
+                  {t('nav.appMenu')}
                 </div>
                 {[
-                  { icon: <Sparkles size={16} />, label: 'AI সহকারী ও চ্যাট', path: '/ai-chat' },
-                  { icon: <Bookmark size={16} />, label: 'বুকমার্কসমূহ', path: '/bookmarks' },
-                  { icon: <Lock size={16} />, label: 'সিকিউর ভল্ট (লকড)', path: '/vault' },
-                  { icon: <Wrench size={16} />, label: 'টুলস সেকশন', path: '/tools' },
-                  { icon: <Settings size={16} />, label: 'অ্যাপ সেটিংস', path: '/settings' },
-                  { icon: <Trash2 size={16} />, label: 'রিসাইকেল বিন', path: '/recycle-bin' }
+                  { icon: <Sparkles size={16} />, label: t('nav.agent'), path: '/ai-chat' },
+                  { icon: <Bookmark size={16} />, label: t('nav.bookmarks'), path: '/bookmarks' },
+                  { icon: <Lock size={16} />, label: t('nav.vault'), path: '/vault' },
+                  { icon: <Wrench size={16} />, label: t('nav.tools'), path: '/tools' },
+                  { icon: <Settings size={16} />, label: t('nav.settings'), path: '/settings' },
+                  { icon: <Trash2 size={16} />, label: t('nav.recycleBin'), path: '/recycle-bin' }
                 ].map((item, idx) => (
                   <button 
                     key={idx}
