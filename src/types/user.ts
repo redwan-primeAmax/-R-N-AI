@@ -2,6 +2,8 @@ export interface UserPreferences {
   reducedMotion: boolean;
   theme: 'dark' | 'light' | 'system';
   defaultPassword?: string;
+  /** UI language — managed by src/utils/translator.ts */
+  language?: 'en' | 'bn';
 }
 
 export type ActionType = 

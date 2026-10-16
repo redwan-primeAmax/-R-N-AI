@@ -240,7 +240,10 @@ export const SettingsService = {
       selectedAppID: 'threat-all',
       customAppIDs: [],
       providerModels: {
-        gemini: [],
+        // Gemini 1.5 Flash is the out-of-the-box default model. If the
+        // user removes every configured model, the AI page falls back
+        // to its "Add Model" action instead of an empty picker.
+        gemini: ['gemini-1.5-flash'],
         openrouter: [],
         fireworks: [],
         local: []

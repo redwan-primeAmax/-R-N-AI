@@ -11,11 +11,13 @@ import { m as motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 
 import { useNoteLimit } from '../hooks/useNoteLimit';
+import { useLanguage } from '../utils/translator';
 
 export default function Navigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isOverLimit } = useNoteLimit();
+  const { t } = useLanguage();
 
   const createQuickNote = async () => {
     try {
@@ -32,13 +34,13 @@ export default function Navigation() {
   const navItems = [
     {
       to: '/main',
-      label: 'নোটস',
+      label: t('nav.notes'),
       icon: FileText,
       isActive: location.pathname === '/' || location.pathname === '/main'
     },
     {
       to: '/search',
-      label: 'সার্চ',
+      label: t('nav.search'),
       icon: Search,
       isActive: location.pathname === '/search'
     }
@@ -74,7 +76,7 @@ export default function Navigation() {
                 (location.pathname === '/' || location.pathname === '/main') ? "text-[#FFB03A] font-bold" : "text-white/50 group-hover:text-white/70"
               )}
             >
-              নোটস
+              {t('nav.notes')}
             </span>
           </NavLink>
 
@@ -84,7 +86,7 @@ export default function Navigation() {
               <button
                 onClick={createQuickNote}
                 id="android-fab-new-note"
-                aria-label="নতুন নোট তৈরি করুন"
+                aria-label={t('nav.newPage')}
                 className="w-12 h-12 rounded-full bg-gradient-to-r from-[#FFB03A] to-[#FFC966] text-black flex items-center justify-center shadow-[0_8px_20px_rgba(255,176,58,0.4)] border border-amber-300/40 hover:scale-105 active:scale-90 transition-all duration-150"
               >
                 <Plus size={24} strokeWidth={2.8} />
@@ -114,7 +116,7 @@ export default function Navigation() {
                 location.pathname === '/search' ? "text-[#FFB03A] font-bold" : "text-white/50 group-hover:text-white/70"
               )}
             >
-              সার্চ
+              {t('nav.search')}
             </span>
           </NavLink>
         </div>
