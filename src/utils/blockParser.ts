@@ -1,7 +1,10 @@
 import DOMPurify from 'dompurify';
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * This source code is proprietary and confidential. No part of this
+ * project may be copied, modified, distributed, or used in any form
+ * without the prior written permission of the copyright holder.
  */
 
 export interface EditorBlock {
