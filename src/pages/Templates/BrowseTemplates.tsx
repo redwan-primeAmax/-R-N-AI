@@ -11,12 +11,13 @@
 
 import { useState, memo, useCallback, useMemo, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Layout, Zap, Briefcase, User, Sparkles } from 'lucide-react';
+import { Plus, Layout, Briefcase, User, Sparkles } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
 import { TEMPLATES, Template } from '../../templates/template-data';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { useLanguage, type TranslationKey } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 
 /** Categories that actually exist in the template data. */
 const CATEGORY_KEYS: { id: string; key: TranslationKey; icon: any }[] = [
@@ -129,30 +130,7 @@ export default function BrowseTemplates() {
     <div className="relative min-h-screen bg-[#05070D] text-white flex flex-col font-sans overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0"><div className="absolute -top-40 left-1/3 w-[720px] h-[420px] bg-violet-600/[0.14] blur-[140px] rounded-full" /><div className="absolute top-40 -left-40 w-[360px] h-[360px] bg-cyan-500/[0.11] blur-[120px] rounded-full" /><div className="absolute -right-40 bottom-0 w-[360px] h-[360px] bg-fuchsia-600/[0.09] blur-[130px] rounded-full" /></div>
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#05070D]/75 backdrop-blur-2xl border-b border-white/[0.07] px-5 sm:px-8 py-4">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => navigate('/tools')}
-            className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/[0.07] rounded-2xl transition-all active:scale-90"
-            title={t('common.back')}
-            aria-label={t('common.back')}
-          >
-            <ArrowLeft size={21} className="text-white/80" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Zap size={11} className="text-cyan-300" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('templates.eyebrow')}</span>
-            </div>
-            <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">{t('templates.title')}</h1>
-          </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-300/10 border border-cyan-300/20 rounded-full text-[10px] font-black uppercase tracking-wider text-cyan-200 shrink-0">
-            <Layout size={12} />
-            {t('templates.count', { count: TEMPLATES.length })}
-          </span>
-        </div>
-      </header>
+      <Navigation2 backTo="/tools" />
 
       <main className="relative flex-1 w-full max-w-6xl mx-auto px-5 sm:px-8 py-7 pb-32">
         <p className="text-sm text-white/40 font-medium leading-relaxed max-w-xl">{t('templates.subtitle')}</p>

@@ -37,6 +37,7 @@ import {
 import { DataManager } from '../../services/storage/DataManager';
 import { Note } from '../../types';
 import { useLanguage } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 
 const SYSTEM_PROMPT = `You are a World-Class Master Content Architect and Senior Bengali Editorial Specialist. 
 Your primary directive is to transform scattered data or brief concepts into elite, high-fidelity, deeply structured JSON architectures optimized for a Notion-style interface.
@@ -283,34 +284,7 @@ const AIContentArchitect: React.FC = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_45%,#05070D_85%)]" />
       </div>
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#05070D]/75 backdrop-blur-2xl">
-        <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-5 py-4 sm:px-8">
-          <button
-            onClick={() => navigate('/tools')}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.09] bg-white/[0.05] transition hover:bg-white/[0.1] active:scale-90"
-            aria-label={t('common.back')}
-          >
-            <ChevronLeft size={21} className="text-white/85" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300/80">
-              <Zap size={11} className="fill-cyan-300" /> {t('architect.eyebrow')}
-            </p>
-            <h1 className="truncate text-[22px] font-black leading-tight tracking-tight">{t('architect.title')}</h1>
-          </div>
-          <span className="hidden max-w-[240px] items-center gap-2 truncate rounded-full border border-white/[0.09] bg-white/[0.05] px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 md:inline-flex">
-            <Layers size={12} className="shrink-0 text-cyan-300" />
-            <span className="truncate">
-              {t('architect.selectedTarget')}: {targetId
-                ? (allNotes.find(n => n.id === targetId)?.title || t('architect.untitled'))
-                : parentId
-                  ? (allNotes.find(n => n.id === parentId)?.title || t('architect.untitled'))
-                  : t('architect.newPage')}
-            </span>
-          </span>
-        </div>
-      </header>
+      <Navigation2 backTo="/tools" />
 
       <main className="relative mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
         {/* Intro + step tracker */}

@@ -20,6 +20,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { DataManager } from '../../services/storage/DataManager';
 import { ConfirmDialog } from '../../components/modals/CustomDialogs';
+import Navigation2 from '../../components/Navigation2';
 
 export default function AppCloudArchive() {
   const [status, setStatus] = useState<'idle' | 'preparing' | 'success' | 'error'>('idle');
@@ -35,6 +36,8 @@ export default function AppCloudArchive() {
     setError(null);
     try {
       const encryptedData = await DataManager.exportAllData();
+      // Keep an internal copy so the Recent Backups page lists it.
+      await DataManager.saveInternalBackup(encryptedData);
       
       const blob = new Blob([encryptedData], { type: 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
@@ -92,18 +95,7 @@ export default function AppCloudArchive() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white p-6 pb-40">
-      <header className="flex items-center gap-4 mb-8">
-        <button 
-          onClick={() => navigate('/settings')}
-          className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors text-white/60"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <div>
-          <h1 className="text-3xl font-black tracking-tight">{tr('cloud.title')}</h1>
-          <p className="text-[10px] text-white/40 uppercase font-black tracking-[0.2em]">Cloud Backup & Storage</p>
-        </div>
-      </header>
+      <div className="-mx-6 -mt-6 mb-8"><Navigation2 backTo="/settings" /></div>
 
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Navigation Mode Selector */}

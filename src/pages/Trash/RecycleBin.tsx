@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { t as tr } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   Trash2, RotateCcw, X, ArrowLeft, 
@@ -105,30 +106,18 @@ export default function RecycleBin() {
       className="fixed inset-0 bg-[#0A0A0B] z-[1000] flex flex-col pt-12"
     >
       {isLoading && <LoadingScreen />}
-      <header className="px-6 mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={handleBack}
-            className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors text-white/60"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <div>
-            <h1 className="text-3xl font-black tracking-tighter">{tr('recycle.title')}</h1>
-            <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em] mt-1">Recycle Bin</p>
-          </div>
-        </div>
-
-        {trashedNotes.length > 0 && (
-          <button 
+      <Navigation2 onBack={handleBack} />
+      {trashedNotes.length > 0 && (
+        <div className="px-6 mt-5 flex justify-end">
+          <button
             onClick={() => setShowEmptyConfirm(true)}
             className="flex items-center gap-2 px-5 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
           >
             <Trash size={14} />
             {tr('recycle.deleteAll')}
           </button>
-        )}
-      </header>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-32">
         {isLoading ? (

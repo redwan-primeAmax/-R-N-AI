@@ -43,11 +43,6 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
     if (onSearchQueryChange) onSearchQueryChange(query, nextState);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuery(val);
-    if (onSearchQueryChange) onSearchQueryChange(val, isAccurateMode);
-  };
 
   return (
     <div className="px-4 pt-1.5 pb-2 sticky top-0 bg-[var(--bg-main)] z-40 border-b border-white/[0.04]">
@@ -77,21 +72,12 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
           </button>
           <input
             type="text"
-            value={query}
-            onChange={handleInputChange}
-            onFocus={() => {
-              if (window.location.hash !== '#/search' && window.location.pathname !== '/search') {
-                navigate('/search', { state: { query, isAccurateMode } });
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                navigate('/search', { state: { query, isAccurateMode } });
-              }
-            }}
+            readOnly
+            aria-label={tr('nav.search')}
+            onMouseDown={(e) => { e.preventDefault(); navigate('/search', { state: { isAccurateMode } }); }}
             placeholder={isAccurateMode ? "Accurate Search ON" : "Type..."}
             className={cn(
-              "bg-transparent text-[13px] font-medium outline-none border-none w-full text-white transition-all",
+              "bg-transparent text-[13px] font-medium outline-none border-none w-full text-white transition-all cursor-pointer",
               isAccurateMode ? "placeholder:text-emerald-500/60" : "placeholder:text-neutral-400/60"
             )}
           />

@@ -38,6 +38,7 @@ import {
 import { DataManager, AISettings } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
 import { useLanguage } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 
 const PROVIDERS = [
   { id: 'gemini', name: 'Gemini', tagline: 'Google AI', iconBg: 'bg-sky-500/15 border-sky-500/25', glow: 'shadow-[0_12px_36px_rgba(56,189,248,0.18)]' },
@@ -171,7 +172,13 @@ const AIConfigurationPage: React.FC = () => {
 
   const handleSelectProvider = (p: string) => {
     if (!draftSettings) return;
-    updateDraft({ selectedProvider: p as any, enabledProviders: [p] });
+    // Switching providers is navigation between tabs, not a data edit:
+    // apply it to BOTH the saved snapshot and the draft so it never
+    // marks the page dirty or triggers the unsaved-changes modal.
+    // Any other in-progress edits stay in the draft untouched.
+    const selection = { selectedProvider: p as any, enabledProviders: [p] };
+    setSettings(prev => (prev ? { ...prev, ...selection } : prev));
+    setDraftSettings(prev => (prev ? { ...prev, ...selection } : prev));
     setNewModel('');
   };
 
@@ -219,45 +226,7 @@ const AIConfigurationPage: React.FC = () => {
       <div className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-gradient-to-b from-orange-600/[0.10] via-amber-600/[0.04] to-transparent" />
       <div className="pointer-events-none fixed -top-24 right-0 w-72 h-72 rounded-full bg-orange-600/10 blur-3xl" />
 
-      {/* Header */}
-      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#120e0c]/85 backdrop-blur-2xl">
-        <div className="px-4 sm:px-6 md:px-10 py-4 flex items-center justify-between gap-3 max-w-4xl mx-auto w-full">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <button
-              onClick={handleBack}
-              className="w-11 h-11 shrink-0 bg-white/[0.05] hover:bg-white/[0.1] rounded-2xl transition-all text-white active:scale-90 border border-white/[0.07] flex items-center justify-center group"
-              aria-label="Back"
-            >
-              <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform" />
-            </button>
-            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-b from-orange-400/25 to-orange-600/10 border border-orange-400/25 flex items-center justify-center shadow-[0_10px_28px_rgba(249,115,22,0.25)]">
-              <Cpu size={22} className="text-orange-300" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-black tracking-tight leading-tight truncate">
-                {t('settings.aiConfig')}
-              </h1>
-              <p className="text-[9px] text-white/30 uppercase font-black tracking-[0.28em] mt-0.5">{t('aiConfig.tagline')}</p>
-            </div>
-          </div>
-
-          <div className={cn(
-            "inline-flex items-center gap-2 px-3.5 py-2 rounded-full border shrink-0 transition-colors",
-            isDirty ? "bg-amber-500/10 border-amber-500/25" : "bg-emerald-500/10 border-emerald-500/25"
-          )}>
-            <span className={cn(
-              "w-1.5 h-1.5 rounded-full",
-              isDirty ? "bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]" : "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-            )} />
-            <span className={cn(
-              "text-[9px] font-black uppercase tracking-[0.18em] leading-none",
-              isDirty ? "text-amber-300" : "text-emerald-300"
-            )}>
-              {isDirty ? t('aiConfig.unsaved') : t('aiConfig.synced')}
-            </span>
-          </div>
-        </div>
-      </header>
+      <Navigation2 onBack={handleBack} />
 
       <main className="relative flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-10 py-6 md:py-10 space-y-8 pb-52">
         {/* Summary strip */}
@@ -374,26 +343,6 @@ const AIConfigurationPage: React.FC = () => {
                   <label htmlFor="ai-api-key" className="text-[10px] font-black text-white/35 uppercase tracking-[0.22em] flex items-center gap-2">
                     <KeyRound size={13} className="text-orange-300" /> {t('aiConfig.accessKey')}
                   </label>
-                  {provider === 'gemini' && (
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-bold text-orange-300 hover:text-orange-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
-                    >
-                      {t('aiConfig.getGeminiKey')} <ExternalLink size={11} />
-                    </a>
-                  )}
-                  {provider === 'openrouter' && (
-                    <a
-                      href="https://openrouter.ai/keys"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-bold text-orange-300 hover:text-orange-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
-                    >
-                      {t('aiConfig.getOpenRouterKey')} <ExternalLink size={11} />
-                    </a>
-                  )}
                 </div>
 
                 <div className="relative rounded-2xl border border-white/[0.09] bg-black/30 transition-all focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-orange-500/[0.04]">
@@ -416,12 +365,6 @@ const AIConfigurationPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-orange-500/[0.06] border border-orange-500/[0.14] text-[11px] text-white/45 leading-relaxed">
-                  <Info size={14} className="shrink-0 text-orange-300 mt-0.5" />
-                  <span>
-                    <strong className="text-white/75">{t('aiConfig.githubPagesTitle')}</strong> {t('aiConfig.githubPagesBody')}
-                  </span>
-                </div>
               </div>
 
               <div className="h-px bg-white/[0.06]" />
@@ -497,35 +440,6 @@ const AIConfigurationPage: React.FC = () => {
             </div>
           </motion.section>
         </AnimatePresence>
-
-        {/* System Prompt */}
-        <section className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-6 sm:p-7 space-y-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-300">
-                <MessageSquare size={17} />
-              </div>
-              <h3 className="text-[10px] font-black text-white/45 uppercase tracking-[0.22em]">
-                {t('aiConfig.systemPrompt')}
-              </h3>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-              {t('aiConfig.builtIn')}
-            </span>
-          </div>
-
-          <div className="p-4 sm:p-5 bg-black/30 border border-white/[0.07] rounded-2xl text-xs text-white/55 leading-relaxed">
-            <p className="font-semibold text-white/85 mb-1.5 flex items-center gap-1.5">
-              <CircleCheck size={13} className="text-emerald-400" /> {t('aiConfig.autoPromptTitle')}
-            </p>
-            <p>{t('aiConfig.autoPromptBody')}</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-            <p className="text-[10px] text-white/35 font-medium">{t('aiConfig.promptEngineNote')}</p>
-          </div>
-        </section>
 
         {/* Privacy note */}
         <p className="text-[11px] text-white/25 px-4 leading-relaxed font-medium text-center flex items-start justify-center gap-2">
@@ -637,8 +551,8 @@ const AIConfigurationPage: React.FC = () => {
                 <h3 id="exit-warning-title" className="text-xl font-black tracking-tight text-center mb-2">{t('aiConfig.unsavedTitle')}</h3>
                 <p className="text-sm text-white/40 text-center mb-7 leading-relaxed">{t('aiConfig.unsavedBody')}</p>
                 <div className="flex flex-col gap-2.5">
+                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/25 active:scale-[0.98]">{t('aiConfig.goBack')}</button>
                   <button onClick={handleConfirmExit} className="w-full py-3.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">{t('aiConfig.yesLeave')}</button>
-                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-white/[0.06] hover:bg-white/[0.1] text-white/80 font-bold rounded-2xl transition-all active:scale-[0.98]">{t('aiConfig.goBack')}</button>
                 </div>
               </motion.div>
             </div>

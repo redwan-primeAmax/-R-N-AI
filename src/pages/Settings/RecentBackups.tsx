@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { t as tr } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, Trash2, Download, 
@@ -66,18 +67,7 @@ export default function RecentBackups() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white p-6 pb-40">
-      <header className="flex items-center gap-4 mb-10">
-        <button 
-          onClick={() => navigate(-1)}
-          className="w-11 h-11 flex items-center justify-center bg-white/5 rounded-full hover:bg-white/10 transition-all active:scale-90"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <div>
-          <h1 className="text-xl font-black tracking-tight uppercase">{tr('backups.title')}</h1>
-          <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mt-1">Previous Data Backups</p>
-        </div>
-      </header>
+      <div className="-mx-6 -mt-6 mb-8"><Navigation2 backTo="/settings" /></div>
 
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="p-6 bg-blue-500/5 rounded-[32px] border border-blue-500/10 flex gap-4">

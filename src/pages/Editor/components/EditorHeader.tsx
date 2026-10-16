@@ -13,7 +13,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Search, ChevronLeft, ChevronRight, Slash, X,
-  RefreshCw, AlertCircle, FileText, Plus, Link2, Palette, Tag, Share2, Trash2
+  RefreshCw, AlertCircle, FileText, Plus, Link2, MoreVertical
 } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
 import { PageIcon } from '../../../components/PageIcon';
@@ -47,13 +47,11 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     currentSubPages,
     handleAddSubPage,
     setSubPageMode,
-    setShowThemeSelector,
-    setShowTagPrompt,
-    setShowExportModal,
-    setShowDeleteConfirm,
+    setShowActionSheet,
   } = useEditorModal();
 
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [activeSub, setActiveSub] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchState, setSearchState] = useState({ results: 0, currentIndex: 0 });
 
@@ -279,7 +277,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                 {subPages.map((sub) => (
                   <button
                     key={sub.id}
-                    onClick={() => onNavigateToNote?.(sub.id)}
+                    onClick={() => setActiveSub(sub)}
                     className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.12] border border-black/[0.04] dark:border-white/[0.06] text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-all active:scale-95 shrink-0 max-w-[150px]"
                     title={sub.title || t('nav.untitled')}
                   >
@@ -308,29 +306,70 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                 </button>
               </div>
 
-              {/* Page actions that used to hide behind the three-dot menu,
-                  now direct icon buttons in the header. */}
-              <div className="flex items-center gap-0.5 shrink-0 pl-1 border-l border-black/[0.06] dark:border-white/[0.08]">
-                <button onClick={() => setShowThemeSelector(true)} className={headerActionClass} title={t('editor.theme')} aria-label={t('editor.theme')}>
-                  <Palette size={16} />
-                </button>
-                <button onClick={() => setShowTagPrompt(true)} className={headerActionClass} title={t('editor.tags')} aria-label={t('editor.tags')}>
-                  <Tag size={16} />
-                </button>
-                <button onClick={() => setShowExportModal(true)} className={headerActionClass} title={t('editor.export')} aria-label={t('editor.export')}>
-                  <Share2 size={16} />
-                </button>
+              {/* Three-dots menu — page actions live in the action sheet. */}
+              <div className="flex items-center shrink-0 pl-1 border-l border-black/[0.06] dark:border-white/[0.08]">
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className={cn(headerActionClass, "hover:!text-red-500 hover:!bg-red-500/10")}
-                  title={t('editor.delete')}
-                  aria-label={t('editor.delete')}
+                  onClick={() => setShowActionSheet(true)}
+                  className={headerActionClass}
+                  title={t('editor.moreActions')}
+                  aria-label={t('editor.moreActions')}
                 >
-                  <Trash2 size={16} />
+                  <MoreVertical size={17} />
                 </button>
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Sub-page overlay: partial-screen sheet opened from a chip.
+          The editor stays mounted underneath — no full navigation. */}
+      <AnimatePresence>
+        {activeSub && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setActiveSub(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[110]"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 34 }}
+              className="fixed inset-x-0 bottom-0 z-[111] max-h-[55vh] overflow-y-auto no-scrollbar rounded-t-[28px] border-t border-white/10 bg-[#171717] p-6 pb-8 shadow-2xl transform-gpu"
+              role="dialog"
+              aria-label={activeSub.title || t('nav.untitled')}
+            >
+              <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-white/15" />
+              <div className="flex items-center gap-4">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.05] text-3xl">
+                  {activeSub.emoji || '📄'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-lg font-black tracking-tight text-white">{activeSub.title || t('nav.untitled')}</h3>
+                  <p className="mt-0.5 text-[11px] font-medium text-white/30">
+                    {new Date(activeSub.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveSub(null)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-white/50 transition hover:bg-white/10 hover:text-white active:scale-90"
+                  aria-label={t('nav.close')}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+              <button
+                onClick={() => { const id = activeSub.id; setActiveSub(null); onNavigateToNote?.(id); }}
+                className="mt-6 w-full rounded-2xl bg-gradient-to-r from-cyan-300 to-violet-500 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-[#05070D] shadow-lg transition hover:brightness-110 active:scale-[0.99]"
+              >
+                {t('editor.openPage')}
+              </button>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </header>
