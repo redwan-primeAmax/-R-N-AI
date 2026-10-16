@@ -92,6 +92,11 @@ const en = {
   'settings.deleteFinalMessage': 'Local storage, database and settings will all be permanently deleted. Are you ready?',
   'settings.deleteConfirm': 'Delete Everything',
   'settings.deleteGoBack': 'No, Go Back',
+  'settings.overview': 'Overview',
+  'settings.storageUsed': 'Storage Used',
+  'settings.storageOf': '{used} of {quota}',
+  'settings.workspaces': 'Workspaces',
+  'settings.localNote': 'All your data stays locally on this device',
 
   // AI / Agent
   'ai.title': 'Agent',
@@ -214,6 +219,11 @@ const bn: Record<TranslationKey, string> = {
   'settings.deleteFinalMessage': 'লোকাল স্টোরেজ, ডাটাবেজ এবং সেটিংস সবকিছু চিরতরে মুছে যাবে। আপনি কি প্রস্তুত?',
   'settings.deleteConfirm': 'সব মুছুন',
   'settings.deleteGoBack': 'না, ফিরে যান',
+  'settings.overview': 'ওভারভিউ',
+  'settings.storageUsed': 'ব্যবহৃত স্টোরেজ',
+  'settings.storageOf': '{quota} এর মধ্যে {used}',
+  'settings.workspaces': 'ওয়ার্কস্পেসসমূহ',
+  'settings.localNote': 'আপনার সব ডেটা এই ডিভাইসেই লোকালভাবে থাকে',
 
   // AI / Agent
   'ai.title': 'Agent',

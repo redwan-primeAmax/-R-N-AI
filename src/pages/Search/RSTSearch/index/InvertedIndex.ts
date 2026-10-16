@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { tokenize } from '../core/Tokenizer';
+import { tokenizeAll } from '../core/Tokenizer';
 import { StorageBuffer } from '../core/StorageBuffer';
 
 const EMPTY_SET = new Set<number>();
@@ -23,8 +23,10 @@ export class InvertedIndex {
     const size = storage.size;
     for (let i = 0; i < size; i++) {
       const text = storage.getRawText(i);
-      const tokens = tokenize(text);
-      
+      // tokenizeAll keeps repeats so frequencies below are real counts
+      // (the de-duplicated tokenize() would flatten every TF to 1).
+      const tokens = tokenizeAll(text);
+
       // Count token frequencies for doc i in a single pass
       const docTokenFreqs = new Map<string, number>();
       for (const t of tokens) {
