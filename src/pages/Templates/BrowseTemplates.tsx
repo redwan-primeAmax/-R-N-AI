@@ -43,13 +43,13 @@ const TemplateCard = memo(forwardRef<HTMLDivElement, { template: Template; onUse
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94 }}
-      className="bg-white/[0.03] border border-white/[0.07] rounded-[26px] p-5 sm:p-6 flex flex-col gap-5 hover:bg-white/[0.05] hover:border-amber-400/30 transition-all group shadow-xl"
+      className="bg-white/[0.04] border border-white/[0.09] rounded-[28px] p-5 sm:p-6 flex flex-col gap-5 backdrop-blur-xl hover:bg-white/[0.06] hover:border-cyan-300/30 transition-all group shadow-2xl"
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="w-13 h-13 min-w-[52px] min-h-[52px] bg-amber-400/10 rounded-2xl flex items-center justify-center border border-amber-400/15">
-          <template.icon size={26} className="text-amber-300" />
+        <span className="w-13 h-13 min-w-[52px] min-h-[52px] bg-gradient-to-br from-cyan-300/20 to-violet-500/20 rounded-[20px] flex items-center justify-center border border-cyan-300/20">
+          <template.icon size={26} className="text-cyan-300" />
         </span>
-        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-300/80 bg-amber-400/[0.07] px-3 py-1.5 rounded-full border border-amber-400/15 whitespace-nowrap">
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/90 bg-cyan-300/[0.08] px-3 py-1.5 rounded-full border border-cyan-300/20 whitespace-nowrap">
           {categoryText}
         </span>
       </div>
@@ -57,14 +57,14 @@ const TemplateCard = memo(forwardRef<HTMLDivElement, { template: Template; onUse
       <div className="space-y-1.5 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-xl leading-none">{template.emoji}</span>
-          <h3 className="font-bold text-lg text-white tracking-tight group-hover:text-amber-300 transition-colors truncate">{displayTitle}</h3>
+          <h3 className="font-bold text-lg text-white tracking-tight group-hover:text-cyan-200 transition-colors truncate">{displayTitle}</h3>
         </div>
         <p className="text-xs text-white/40 leading-relaxed line-clamp-2 font-medium">{displayDescription}</p>
       </div>
 
       <button
         onClick={() => onUse(template)}
-        className="w-full py-3.5 bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-amber-950 rounded-2xl font-black text-[11px] uppercase tracking-[0.18em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] shadow-lg shadow-amber-500/20"
+        className="w-full py-3.5 bg-gradient-to-r from-cyan-300 via-sky-400 to-violet-500 hover:brightness-110 text-[#05070D] rounded-2xl font-black text-[11px] uppercase tracking-[0.18em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] shadow-lg shadow-violet-500/20"
       >
         <Plus size={16} strokeWidth={3} />
         {useLabel}
@@ -126,11 +126,11 @@ export default function BrowseTemplates() {
   }, [navigate, language]);
 
   return (
-    <div className="min-h-screen bg-[#0E0D0B] text-white flex flex-col font-sans overflow-x-hidden">
-      <div className="pointer-events-none fixed top-0 right-0 w-[420px] h-[420px] bg-amber-500/[0.06] blur-[120px] rounded-full -translate-y-1/3 translate-x-1/4" />
+    <div className="relative min-h-screen bg-[#05070D] text-white flex flex-col font-sans overflow-x-hidden">
+      <div className="pointer-events-none fixed inset-0"><div className="absolute -top-40 left-1/3 w-[720px] h-[420px] bg-violet-600/[0.14] blur-[140px] rounded-full" /><div className="absolute top-40 -left-40 w-[360px] h-[360px] bg-cyan-500/[0.11] blur-[120px] rounded-full" /><div className="absolute -right-40 bottom-0 w-[360px] h-[360px] bg-fuchsia-600/[0.09] blur-[130px] rounded-full" /></div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0E0D0B]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
+      <header className="sticky top-0 z-40 bg-[#05070D]/75 backdrop-blur-2xl border-b border-white/[0.07] px-5 sm:px-8 py-4">
         <div className="max-w-6xl mx-auto flex items-center gap-4">
           <button
             onClick={() => navigate('/tools')}
@@ -142,12 +142,12 @@ export default function BrowseTemplates() {
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Zap size={11} className="text-amber-300" />
+              <Zap size={11} className="text-cyan-300" />
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('templates.eyebrow')}</span>
             </div>
             <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">{t('templates.title')}</h1>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-400/10 border border-amber-400/20 rounded-full text-[10px] font-black uppercase tracking-wider text-amber-300 shrink-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-300/10 border border-cyan-300/20 rounded-full text-[10px] font-black uppercase tracking-wider text-cyan-200 shrink-0">
             <Layout size={12} />
             {t('templates.count', { count: TEMPLATES.length })}
           </span>
@@ -166,7 +166,7 @@ export default function BrowseTemplates() {
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all border whitespace-nowrap active:scale-95",
                 activeCategory === cat.id
-                  ? "bg-amber-400 border-amber-300 text-amber-950 shadow-lg shadow-amber-500/25"
+                  ? "bg-gradient-to-r from-cyan-300 to-violet-500 border-transparent text-[#05070D] shadow-lg shadow-violet-500/25"
                   : "bg-white/[0.03] border-white/[0.07] text-white/45 hover:bg-white/[0.08] hover:text-white"
               )}
             >
@@ -194,7 +194,7 @@ export default function BrowseTemplates() {
             </AnimatePresence>
           </div>
         ) : (
-          <div className="mt-14 rounded-[26px] border border-dashed border-white/[0.09] py-14 flex flex-col items-center text-center px-6">
+          <div className="mt-14 rounded-[28px] border border-dashed border-white/[0.13] bg-white/[0.02] backdrop-blur-xl py-14 flex flex-col items-center text-center px-6">
             <span className="text-3xl mb-3">🗂️</span>
             <p className="text-sm text-white/35 font-medium">{t('templates.empty')}</p>
           </div>
