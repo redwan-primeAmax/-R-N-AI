@@ -6,28 +6,47 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { 
-  ChevronLeft, 
-  Key, 
-  Check, 
-  AlertCircle, 
-  Info, 
-  Eye, 
-  EyeOff, 
-  Loader2, 
+import {
+  ChevronLeft,
+  KeyRound,
+  Check,
+  AlertCircle,
+  Info,
+  Eye,
+  EyeOff,
   RefreshCw,
   X,
   MessageSquare,
-  Globe,
-  Flame,
   Plus,
   Trash2,
   Sparkles,
   Rocket,
-  Zap
+  Zap,
+  Cpu,
+  Bot,
+  ExternalLink,
+  ShieldCheck,
+  RotateCcw,
+  CircleCheck,
 } from 'lucide-react';
 import { DataManager, AISettings } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
+
+const PROVIDERS = [
+  { id: 'gemini', name: 'Gemini', tagline: 'Google AI', iconBg: 'bg-sky-500/15 border-sky-500/25', glow: 'shadow-[0_12px_36px_rgba(56,189,248,0.18)]' },
+  { id: 'openrouter', name: 'OpenRouter', tagline: 'Multi-model gateway', iconBg: 'bg-violet-500/15 border-violet-500/25', glow: 'shadow-[0_12px_36px_rgba(139,92,246,0.18)]' },
+  { id: 'fireworks', name: 'Fireworks', tagline: 'Fast inference', iconBg: 'bg-orange-500/15 border-orange-500/25', glow: 'shadow-[0_12px_36px_rgba(249,115,22,0.18)]' },
+  { id: 'together', name: 'Together', tagline: 'Open models', iconBg: 'bg-amber-500/15 border-amber-500/25', glow: 'shadow-[0_12px_36px_rgba(245,158,11,0.18)]' },
+] as const;
+
+const ProviderIcon = ({ id }: { id: string }) => {
+  if (id === 'gemini') {
+    return <img src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.png" className="w-6 h-6 object-contain" alt="Gemini" />;
+  }
+  if (id === 'openrouter') return <Sparkles size={22} className="text-violet-400" />;
+  if (id === 'fireworks') return <Rocket size={22} className="text-orange-400" />;
+  return <Zap size={22} className="text-amber-400" />;
+};
 
 const AIConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,10 +56,11 @@ const AIConfigurationPage: React.FC = () => {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [isRevealed, setIsRevealed] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [newModel, setNewModel] = useState('');
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; showUndo?: boolean } | null>(null);
-  
+
   const isDirty = settings && draftSettings && JSON.stringify(settings) !== JSON.stringify(draftSettings);
-  
+
   useEffect(() => {
     DataManager.getAISettings().then(s => {
       setSettings(s);
@@ -76,6 +96,7 @@ const AIConfigurationPage: React.FC = () => {
   const handleCancelEdit = () => {
     if (!settings) return;
     setDraftSettings(JSON.parse(JSON.stringify(settings)));
+    setNewModel('');
     setStatus({ type: 'info', message: 'পরিবর্তন বাতিল করা হয়েছে।' });
   };
 
@@ -103,7 +124,7 @@ const AIConfigurationPage: React.FC = () => {
 
   const handleManualSave = async () => {
     if (!draftSettings || !settings) return;
-    
+
     // Clean up restricted fields before saving to ensure strict AI-only configuration
     const cleanedSettings: AISettings = {
       ...draftSettings,
@@ -121,8 +142,8 @@ const AIConfigurationPage: React.FC = () => {
       const savedCopy = JSON.parse(JSON.stringify(cleanedSettings));
       setSettings(savedCopy);
       setDraftSettings(savedCopy);
-      setStatus({ 
-        type: 'success', 
+      setStatus({
+        type: 'success',
         message: 'সেটিংস সফলভাবে সেভ হয়েছে।',
         showUndo: true
       });
@@ -143,331 +164,479 @@ const AIConfigurationPage: React.FC = () => {
   const handleSelectProvider = (p: string) => {
     if (!draftSettings) return;
     updateDraft({ selectedProvider: p as any, enabledProviders: [p] });
+    setNewModel('');
   };
 
-  if (!draftSettings) return null;
+  const handleAddModel = () => {
+    if (!draftSettings) return;
+    const val = newModel.trim();
+    if (!val) return;
+    const provider = draftSettings.selectedProvider;
+    const list = draftSettings.providerModels[provider] || [];
+    if (!list.includes(val)) {
+      updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: [...list, val] } });
+    }
+    setNewModel('');
+  };
+
+  const handleRemoveModel = (index: number) => {
+    if (!draftSettings) return;
+    const provider = draftSettings.selectedProvider;
+    const newList = (draftSettings.providerModels[provider] || []).filter((_, i) => i !== index);
+    updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
+  };
+
+  if (!draftSettings) {
+    return (
+      <div className="min-h-screen bg-[#0c0a12] text-white flex flex-col items-center justify-center gap-4 font-sans">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          className="w-10 h-10 border-2 border-violet-500/15 border-t-violet-400 rounded-full"
+        />
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/25">Loading…</p>
+      </div>
+    );
+  }
+
+  const provider = draftSettings.selectedProvider;
+  const activeProvider = PROVIDERS.find(p => p.id === provider) || PROVIDERS[0];
+  const models = draftSettings.providerModels[provider] || [];
+  const hasKey = !!(draftSettings.apiKeys[provider] || '').trim();
+  const activeModel = draftSettings.selectedModels?.[provider] || '';
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col font-sans selection:bg-blue-500/30">
-      {/* Background Ambient Glow */}
-      <div className="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none" />
-      
-      <header className="px-6 py-8 border-b border-white/5 flex items-center justify-between sticky top-0 bg-[#050505]/60 backdrop-blur-3xl z-[100]">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={handleBack} 
-            className="group p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-white active:scale-90 border border-white/5 flex items-center justify-center"
-          >
-            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-          </button>
-          <div className="space-y-0.5">
-            <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">
-              এআই <span className="text-blue-500">কনফিগারেশন</span>
-            </h1>
-            <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em]">Neural Processing Hub</p>
+    <div className="min-h-screen bg-[#0c0a12] text-white flex flex-col font-sans selection:bg-violet-500/30 relative">
+      {/* Ambient background */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-gradient-to-b from-violet-600/[0.09] via-fuchsia-600/[0.04] to-transparent" />
+      <div className="pointer-events-none fixed -top-24 right-0 w-72 h-72 rounded-full bg-violet-600/10 blur-3xl" />
+
+      {/* Header */}
+      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#0c0a12]/85 backdrop-blur-2xl">
+        <div className="px-4 sm:px-6 md:px-10 py-4 flex items-center justify-between gap-3 max-w-4xl mx-auto w-full">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <button
+              onClick={handleBack}
+              className="w-11 h-11 shrink-0 bg-white/[0.05] hover:bg-white/[0.1] rounded-2xl transition-all text-white active:scale-90 border border-white/[0.07] flex items-center justify-center group"
+              aria-label="Back"
+            >
+              <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform" />
+            </button>
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-b from-violet-400/25 to-violet-600/10 border border-violet-400/25 flex items-center justify-center shadow-[0_10px_28px_rgba(139,92,246,0.25)]">
+              <Cpu size={22} className="text-violet-300" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight leading-tight truncate">
+                এআই <span className="text-violet-400">কনফিগারেশন</span>
+              </h1>
+              <p className="text-[9px] text-white/30 uppercase font-black tracking-[0.28em] mt-0.5">Neural Processing Hub</p>
+            </div>
+          </div>
+
+          <div className={cn(
+            "inline-flex items-center gap-2 px-3.5 py-2 rounded-full border shrink-0 transition-colors",
+            isDirty ? "bg-amber-500/10 border-amber-500/25" : "bg-emerald-500/10 border-emerald-500/25"
+          )}>
+            <span className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              isDirty ? "bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]" : "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+            )} />
+            <span className={cn(
+              "text-[9px] font-black uppercase tracking-[0.18em] leading-none",
+              isDirty ? "text-amber-300" : "text-emerald-300"
+            )}>
+              {isDirty ? 'Unsaved' : 'Synced'}
+            </span>
           </div>
         </div>
-        
-        {!isDirty && (
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/40 leading-none">Synched</span>
-          </div>
-        )}
       </header>
 
-      <main className="flex-1 p-6 md:p-12 max-w-3xl mx-auto w-full space-y-12 pb-48">
+      <main className="relative flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-10 py-6 md:py-10 space-y-8 pb-52">
+        {/* Summary strip */}
+        <section className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Active Provider', value: activeProvider.name },
+            { label: 'Models', value: String(models.length) },
+            { label: 'API Key', value: hasKey ? 'Set ✓' : 'Not set' },
+          ].map((stat) => (
+            <div key={stat.label} className="px-4 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.07] shadow-lg min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25 truncate">{stat.label}</p>
+              <p className="text-sm sm:text-base font-black tracking-tight mt-1 truncate">{stat.value}</p>
+            </div>
+          ))}
+        </section>
+
         {/* Provider Selection */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Select Intelligence Core</h2>
-            <div className="h-px flex-1 bg-white/5 mx-4" />
+        <section className="space-y-4">
+          <div className="flex items-center gap-4 px-1">
+            <h2 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] shrink-0">Select Intelligence Core</h2>
+            <div className="h-px flex-1 bg-white/[0.06]" />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {['gemini', 'openrouter', 'fireworks', 'together'].map(p => (
-              <button
-                key={p}
-                onClick={() => handleSelectProvider(p as any)}
-                className={`group relative flex flex-col items-center justify-center p-5 rounded-[2rem] border transition-all gap-3 overflow-hidden ${
-                  draftSettings.selectedProvider === p 
-                    ? 'bg-blue-600/10 border-blue-500/50 shadow-[0_0_40px_rgba(59,130,246,0.1)] ring-1 ring-blue-500/20' 
-                    : 'bg-white/[0.02] border-white/5 grayscale opacity-60 hover:opacity-100 hover:grayscale-0 hover:bg-white/[0.05]'
-                }`}
-              >
-                {draftSettings.selectedProvider === p && (
-                  <motion.div 
-                    layoutId="active-provider-glow"
-                    className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none"
-                  />
-                )}
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-inner ${
-                  draftSettings.selectedProvider === p ? 'bg-blue-500/20 text-white' : 'bg-white/5 text-white/20'
-                }`}>
-                   {p === 'gemini' ? (
-                     <img src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.png" className="w-6 h-6 object-contain" alt="gemini" />
-                   ) : p === 'openrouter' ? (
-                     <Sparkles size={20} className="text-purple-400" />
-                   ) : p === 'fireworks' ? (
-                     <Rocket size={20} className="text-orange-400" />
-                   ) : (
-                     <Zap size={20} className="text-yellow-400" />
-                   )}
-                </div>
-                <div className="text-center">
-                  <span className={cn(
-                    "text-[10px] font-black uppercase tracking-widest block transition-colors",
-                    draftSettings.selectedProvider === p ? "text-blue-400" : "text-white/20"
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" role="radiogroup" aria-label="Select Intelligence Core">
+            {PROVIDERS.map((p) => {
+              const isActive = provider === p.id;
+              const pModels = draftSettings.providerModels[p.id as keyof typeof draftSettings.providerModels] || [];
+              const pHasKey = !!((draftSettings.apiKeys as Record<string, string>)[p.id] || '').trim();
+              return (
+                <button
+                  key={p.id}
+                  role="radio"
+                  aria-checked={isActive}
+                  onClick={() => handleSelectProvider(p.id)}
+                  className={cn(
+                    "relative flex flex-col items-start p-4 rounded-3xl border text-left transition-all duration-200 active:scale-[0.98] overflow-hidden",
+                    isActive
+                      ? `bg-violet-600/[0.12] border-violet-400/50 ring-1 ring-violet-400/30 ${p.glow}`
+                      : "bg-white/[0.02] border-white/[0.07] hover:bg-white/[0.05] hover:border-white/[0.14]"
+                  )}
+                >
+                  {isActive && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-3 right-3 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center shadow-lg shadow-violet-500/40"
+                    >
+                      <Check size={11} strokeWidth={3.5} />
+                    </motion.span>
+                  )}
+                  <div className={cn(
+                    "w-11 h-11 rounded-2xl border flex items-center justify-center mb-3",
+                    p.iconBg,
+                    !isActive && "opacity-70"
                   )}>
-                    {p === 'gemini' ? 'Gemini' : p === 'openrouter' ? 'OpenRouter' : p === 'fireworks' ? 'Fireworks' : 'Together'}
+                    <ProviderIcon id={p.id} />
+                  </div>
+                  <span className={cn("text-[13px] font-black tracking-tight leading-tight", isActive ? "text-white" : "text-white/70")}>
+                    {p.name}
                   </span>
-                </div>
-              </button>
-            ))}
+                  <span className="text-[10px] font-medium text-white/30 mt-0.5 leading-tight">{p.tagline}</span>
+                  <span className="flex items-center gap-2 mt-3">
+                    <span className={cn(
+                      "flex items-center gap-1 text-[9px] font-black uppercase tracking-wider",
+                      pHasKey ? "text-emerald-400" : "text-white/25"
+                    )}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full", pHasKey ? "bg-emerald-400" : "bg-white/20")} />
+                      {pHasKey ? 'Key set' : 'No key'}
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-white/25">
+                      {pModels.length} model{pModels.length === 1 ? '' : 's'}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        {/* intelligence Configuration Box */}
+        {/* Configuration Card */}
         <AnimatePresence mode="wait">
           <motion.section
-            key={draftSettings.selectedProvider}
-            initial={{ opacity: 0, y: 20 }}
+            key={provider}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="group"
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-[2rem] border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-2xl overflow-hidden"
           >
-            <div className="p-8 md:p-12 bg-white/[0.03] border border-white/5 rounded-[3rem] space-y-10 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            {/* Card header */}
+            <div className="flex items-center gap-4 px-6 sm:px-8 pt-6 sm:pt-8 pb-6 border-b border-white/[0.06]">
+              <div className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0", activeProvider.iconBg)}>
+                <ProviderIcon id={provider} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-black tracking-tight truncate">{activeProvider.name} Configuration</h2>
+                <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.25em] mt-0.5">Credential &amp; Model Core</p>
+              </div>
+              <span className={cn(
+                "hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-wider shrink-0",
+                hasKey
+                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
+                  : "bg-amber-500/10 border-amber-500/25 text-amber-300"
+              )}>
+                {hasKey ? <CircleCheck size={12} /> : <AlertCircle size={12} />}
+                {hasKey ? 'Key ready' : 'Key needed'}
+              </span>
+            </div>
 
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 bg-blue-500/10 rounded-[1.25rem] flex items-center justify-center border border-blue-500/20 text-blue-400">
-                    <Key size={28} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black tracking-tight capitalize">{draftSettings.selectedProvider} Configuration</h2>
-                    <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">Credential & Model Core</p>
-                  </div>
+            <div className="px-6 sm:px-8 py-7 space-y-8">
+              {/* API Key */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <label htmlFor="ai-api-key" className="text-[10px] font-black text-white/35 uppercase tracking-[0.22em] flex items-center gap-2">
+                    <KeyRound size={13} className="text-violet-300" /> Access Secret Key
+                  </label>
+                  {provider === 'gemini' && (
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-bold text-violet-300 hover:text-violet-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
+                    >
+                      বিনামূল্যে Gemini API Key নিন <ExternalLink size={11} />
+                    </a>
+                  )}
+                  {provider === 'openrouter' && (
+                    <a
+                      href="https://openrouter.ai/keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-bold text-violet-300 hover:text-violet-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
+                    >
+                      OpenRouter Key নিন <ExternalLink size={11} />
+                    </a>
+                  )}
                 </div>
 
-                <div className="space-y-6">
-                  {/* API Key Input */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-2">
-                      <label className="text-[10px] font-black text-white/20 uppercase tracking-widest">Access Secret Key</label>
-                      {draftSettings.selectedProvider === 'gemini' && (
-                        <a 
-                          href="https://aistudio.google.com/app/apikey" 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline underline-offset-2 flex items-center gap-1"
-                        >
-                          বিনামূল্যে Gemini API Key নিন ↗
-                        </a>
-                      )}
-                      {draftSettings.selectedProvider === 'openrouter' && (
-                        <a 
-                          href="https://openrouter.ai/keys" 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-[10px] font-bold text-purple-400 hover:text-purple-300 underline underline-offset-2 flex items-center gap-1"
-                        >
-                          OpenRouter Key নিন ↗
-                        </a>
-                      )}
-                    </div>
-                    <div className="relative group/input overflow-hidden rounded-[1.5rem] border border-white/5 bg-white/5 transition-all focus-within:border-blue-500/50 focus-within:bg-blue-500/5 pr-12">
-                      <div className="flex items-center gap-3 px-5 py-4">
-                        <Key size={16} className="text-white/20 group-focus-within/input:text-blue-400 transition-colors" />
-                        <input 
-                          type={isRevealed[draftSettings.selectedProvider] ? 'text' : 'password'}
-                          value={draftSettings.apiKeys[draftSettings.selectedProvider] || ''}
-                          onChange={(e) => handleUpdateAPIKey(draftSettings.selectedProvider, e.target.value)}
-                          placeholder="আপনার এপিআই কী দিন..."
-                          className="flex-1 bg-transparent text-sm font-mono outline-none placeholder:text-white/10"
-                        />
-                      </div>
-                      <button 
-                        onClick={() => setIsRevealed({...isRevealed, [draftSettings.selectedProvider]: !isRevealed[draftSettings.selectedProvider]})}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 hover:bg-white/10 rounded-xl transition-all text-white/20 hover:text-white"
+                <div className="relative rounded-2xl border border-white/[0.09] bg-black/30 transition-all focus-within:border-violet-400/60 focus-within:ring-2 focus-within:ring-violet-500/20 focus-within:bg-violet-500/[0.04]">
+                  <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" />
+                  <input
+                    id="ai-api-key"
+                    type={isRevealed[provider] ? 'text' : 'password'}
+                    value={draftSettings.apiKeys[provider] || ''}
+                    onChange={(e) => handleUpdateAPIKey(provider, e.target.value)}
+                    placeholder="আপনার এপিআই কী দিন..."
+                    autoComplete="off"
+                    className="w-full bg-transparent text-sm font-mono outline-none placeholder:font-sans placeholder:text-white/20 pl-11 pr-12 py-4 rounded-2xl"
+                  />
+                  <button
+                    onClick={() => setIsRevealed({ ...isRevealed, [provider]: !isRevealed[provider] })}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-xl transition-all text-white/30 hover:text-white active:scale-90"
+                    aria-label={isRevealed[provider] ? 'Hide API key' : 'Show API key'}
+                  >
+                    {isRevealed[provider] ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+
+                <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-violet-500/[0.06] border border-violet-500/[0.14] text-[11px] text-white/45 leading-relaxed">
+                  <Info size={14} className="shrink-0 text-violet-300 mt-0.5" />
+                  <span>
+                    <strong className="text-white/75">GitHub Pages ব্যবহারকারীদের জন্য:</strong> GitHub Pages একটি স্ট্যাটিক সাইট (এখানে কোনো ব্যাকএন্ড সার্ভার থাকে না)। তাই AI ব্যবহার করতে এখানে আপনার নিজস্ব বিনামূল্যে পাওয়া Gemini বা OpenRouter API Key সেভ করুন।
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-px bg-white/[0.06]" />
+
+              {/* Models */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="new-model-input" className="text-[10px] font-black text-white/35 uppercase tracking-[0.22em] flex items-center gap-2">
+                    <Bot size={13} className="text-violet-300" /> Configured Models
+                  </label>
+                  <span className="px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[10px] font-black text-white/50">
+                    {models.length}
+                  </span>
+                </div>
+
+                {models.length > 0 ? (
+                  <ul className="space-y-2">
+                    {models.map((model, mIdx) => (
+                      <li
+                        key={`${model}-${mIdx}`}
+                        className="flex items-center gap-3 pl-4 pr-2 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:border-violet-400/25 transition-colors group"
                       >
-                        {isRevealed[draftSettings.selectedProvider] ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-
-                    {/* GitHub Pages / Static hosting hint */}
-                    <div className="px-2 pt-1 flex items-start gap-2 text-[11px] text-white/40 leading-relaxed">
-                      <Info size={14} className="shrink-0 text-blue-400 mt-0.5" />
-                      <span>
-                        <strong className="text-white/70">GitHub Pages ব্যবহারকারীদের জন্য:</strong> GitHub Pages একটি স্ট্যাটিক সাইট (এখানে কোনো ব্যাকএন্ড সার্ভার থাকে না)। তাই AI ব্যবহার করতে এখানে আপনার নিজস্ব বিনামূল্যে পাওয়া Gemini বা OpenRouter API Key সেভ করুন।
-                      </span>
-                    </div>
+                        <Bot size={15} className="text-violet-300/70 shrink-0" />
+                        <span className="flex-1 min-w-0 text-[13px] font-bold font-mono text-white/85 truncate">{model}</span>
+                        {model === activeModel && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[9px] font-black uppercase tracking-wider shrink-0">
+                            Default
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleRemoveModel(mIdx)}
+                          className="p-2.5 rounded-xl text-white/35 hover:text-red-300 hover:bg-red-500/10 transition-all active:scale-90 shrink-0"
+                          aria-label={`Remove ${model}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="py-8 px-4 rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.015] flex flex-col items-center text-center gap-2">
+                    <Bot size={26} className="text-white/15" />
+                    <p className="text-xs font-bold text-white/35">কোনো মডেল যোগ করা হয়নি</p>
+                    <p className="text-[11px] text-white/20">নিচে মডেলের নাম লিখে প্রথম মডেলটি যোগ করুন</p>
                   </div>
+                )}
 
-                  {/* Multi-Model Configuration */}
-                  <div className="space-y-4">
-                     <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-2">Configured Models</label>
-                     <div className="space-y-2">
-                        {(draftSettings.providerModels[draftSettings.selectedProvider] || []).map((model, mIdx) => (
-                          <div key={mIdx} className="flex items-center gap-2 group/model">
-                             <div className="flex-1 bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm font-bold text-white/80">
-                                {model}
-                             </div>
-                             <button 
-                                onClick={() => {
-                                  const provider = draftSettings.selectedProvider;
-                                  const newList = (draftSettings.providerModels[provider] || []).filter((_, i) => i !== mIdx);
-                                  updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
-                                }}
-                                className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all opacity-0 group-hover/model:opacity-100 active:scale-90"
-                             >
-                                <Trash2 size={16} />
-                             </button>
-                          </div>
-                        ))}
-                        <div className="flex gap-2">
-                           <input 
-                             type="text"
-                             id="new-model-input"
-                             placeholder="Add model name..."
-                             className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500 outline-none transition-all"
-                             onKeyDown={(e) => {
-                               if (e.key === 'Enter') {
-                                 const val = (e.target as HTMLInputElement).value.trim();
-                                 if (val) {
-                                    const provider = draftSettings.selectedProvider;
-                                    const newList = [...(draftSettings.providerModels[provider] || []), val];
-                                    updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
-                                    (e.target as HTMLInputElement).value = '';
-                                 }
-                               }
-                             }}
-                           />
-                           <button 
-                             onClick={() => {
-                               const input = document.getElementById('new-model-input') as HTMLInputElement;
-                               const val = input.value.trim();
-                               if (val) {
-                                  const provider = draftSettings.selectedProvider;
-                                  const newList = [...(draftSettings.providerModels[provider] || []), val];
-                                  updateDraft({ providerModels: { ...draftSettings.providerModels, [provider]: newList } });
-                                  input.value = '';
-                               }
-                             }}
-                             className="px-4 bg-blue-600 hover:bg-blue-500 rounded-xl transition-all active:scale-90"
-                           >
-                             <Plus size={18} />
-                           </button>
-                        </div>
-                     </div>
-                  </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    id="new-model-input"
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                    placeholder="Add model name…  (e.g. gemini-1.5-flash)"
+                    className="flex-1 min-w-0 bg-black/30 border border-white/[0.09] rounded-2xl px-4 py-3.5 text-sm font-mono placeholder:font-sans placeholder:text-white/20 focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddModel();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleAddModel}
+                    disabled={!newModel.trim()}
+                    className="px-4 sm:px-5 shrink-0 bg-gradient-to-b from-violet-400 to-violet-600 hover:from-violet-300 hover:to-violet-500 disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-white/25 text-white rounded-2xl transition-all active:scale-95 shadow-[0_10px_24px_rgba(139,92,246,0.3)] disabled:shadow-none flex items-center gap-1.5 text-xs font-black"
+                  >
+                    <Plus size={17} strokeWidth={3} />
+                    <span className="hidden sm:inline">Add</span>
+                  </button>
                 </div>
-
-                {/* Managed System Prompt Display (Setting theke editable na, amora automatic provide kori) */}
-                <div className="space-y-3 p-6 bg-white/[0.02] rounded-[2rem] border border-white/5 transition-all">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><MessageSquare size={16} /></div>
-                      <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Global Instruction Set (System Prompt)</label>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold">
-                      Built-in & Optimized
-                    </span>
-                  </div>
-                  <div className="p-4 bg-black/40 border border-white/5 rounded-2xl text-xs text-white/60 leading-relaxed font-mono">
-                    <p className="font-semibold text-white/80 mb-1">✓ স্বয়ংক্রিয় সিস্টেম প্রম্পট সক্রিয়:</p>
-                    <p>নোট তৈরি/আপডেট কমান্ড, বাংলা ও ইংরেজি ভাষা সমর্থন, রিচ ব্লক সিনট্যাক্স (হেডিং, কালার, কলআউট, টাস্কলিস্ট, টেবিল) এবং অ্যাটাচড নোটস রিকগনিশন ইঞ্জিন স্বয়ংক্রিয়ভাবে সক্রিয় রয়েছে। ম্যানুয়াল কনফিগারেশনের প্রয়োজন নেই।</p>
-                  </div>
-                  <div className="flex items-center gap-2 px-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                    <p className="text-[10px] text-white/40 font-medium">সিস্টেম প্রম্পট অ্যাপের কোর ইঞ্জিন দ্বারা নিয়ন্ত্রিত ও অপ্টিমাইজড।</p>
-                  </div>
-                </div>
+              </div>
             </div>
           </motion.section>
         </AnimatePresence>
 
-        <footer className="pt-12 text-center space-y-10 pb-40 border-t border-white/5">
-          <div className="flex gap-3 h-16 max-w-lg mx-auto">
-            <button
-              onClick={handleManualSave}
-              disabled={isSaving || !isDirty}
-              className={`flex-[3] font-black uppercase tracking-[0.2em] text-[11px] rounded-3xl flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${
-                isDirty 
-                  ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20" 
-                  : "bg-white/5 text-white/20 cursor-default"
-              }`}
-            >
-              {isSaving ? <RefreshCw className="animate-spin" size={18} /> : <Check size={18} strokeWidth={3} />}
-              <span>{isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সেভ করুন'}</span>
-            </button>
-            <button 
-              onClick={handleBack}
-              className="flex-1 bg-white/5 hover:bg-white/10 text-white/40 border border-white/5 rounded-3xl flex items-center justify-center active:scale-90 transition-all"
-              aria-label="Close"
-            >
-              <X size={24} />
-            </button>
+        {/* System Prompt */}
+        <section className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-6 sm:p-7 space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-300">
+                <MessageSquare size={17} />
+              </div>
+              <h3 className="text-[10px] font-black text-white/45 uppercase tracking-[0.22em]">
+                Global Instruction Set (System Prompt)
+              </h3>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+              Built-in &amp; Optimized
+            </span>
           </div>
 
-          <p className="text-xs text-white/20 px-12 leading-relaxed font-medium">
-            আপনার সব ডেটা এবং কীগুলো ব্রাউজারের ইনডেক্স-ডিবিতে (IndexedDB) লোকালভাবে থাকে। রেডওয়ান অ্যাসিস্ট্যান্ট কখনোই আপনার ক্রেডিটেন্সিয়ার বাইরের কোনো সার্ভারে পাঠায় না।
-          </p>
-        </footer>
+          <div className="p-4 sm:p-5 bg-black/30 border border-white/[0.07] rounded-2xl text-xs text-white/55 leading-relaxed">
+            <p className="font-semibold text-white/85 mb-1.5 flex items-center gap-1.5">
+              <CircleCheck size={13} className="text-emerald-400" /> স্বয়ংক্রিয় সিস্টেম প্রম্পট সক্রিয়:
+            </p>
+            <p>নোট তৈরি/আপডেট কমান্ড, বাংলা ও ইংরেজি ভাষা সমর্থন, রিচ ব্লক সিনট্যাক্স (হেডিং, কালার, কলআউট, টাস্কলিস্ট, টেবিল) এবং অ্যাটাচড নোটস রিকগনিশন ইঞ্জিন স্বয়ংক্রিয়ভাবে সক্রিয় রয়েছে। ম্যানুয়াল কনফিগারেশনের প্রয়োজন নেই।</p>
+          </div>
 
-        {/* Status Toast with Undo */}
-        <AnimatePresence>
-          {status && (
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              className={`
-                fixed bottom-8 left-6 right-6 z-[120] p-4 rounded-3xl border flex flex-col sm:flex-row sm:items-center gap-3 shadow-2xl backdrop-blur-xl
-                ${status.type === 'success' ? "bg-green-500 text-white" :
-                  status.type === 'error' ? "bg-red-500 text-white" :
-                  "bg-blue-500 text-white"}
-              `}
-            >
-              <div className="flex items-center gap-2 flex-grow">
-                {status.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
-                <p className="text-sm font-bold">{status.message}</p>
-              </div>
-              <div className="flex items-center gap-2 justify-end">
-                {status.showUndo && prevSettings && (
-                  <button 
-                    onClick={handleUndo}
-                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                  >
-                    আগে ফিরুন
-                  </button>
-                )}
-                <button onClick={() => setStatus(null)} className="p-2 hover:bg-white/10 rounded-full transition-all">
-                  <X size={18} />
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <p className="text-[10px] text-white/35 font-medium">সিস্টেম প্রম্পট অ্যাপের কোর ইঞ্জিন দ্বারা নিয়ন্ত্রিত ও অপ্টিমাইজড।</p>
+          </div>
+        </section>
+
+        {/* Privacy note */}
+        <p className="text-[11px] text-white/25 px-4 leading-relaxed font-medium text-center flex items-start justify-center gap-2">
+          <ShieldCheck size={14} className="text-emerald-400/70 shrink-0 mt-px" />
+          <span>আপনার সব ডেটা এবং কীগুলো ব্রাউজারের ইনডেক্স-ডিবিতে (IndexedDB) লোকালভাবে থাকে। রেডওয়ান অ্যাসিস্ট্যান্ট কখনোই আপনার ক্রেডিটেন্সিয়ার বাইরের কোনো সার্ভারে পাঠায় না।</span>
+        </p>
+      </main>
+
+      {/* Floating save dock — appears only with unsaved changes */}
+      <AnimatePresence>
+        {isDirty && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            className="fixed inset-x-4 bottom-24 z-[110] flex justify-center pointer-events-none"
+          >
+            <div className="pointer-events-auto flex items-center gap-2 p-2 pl-4 rounded-full bg-[#17131f]/95 backdrop-blur-2xl border border-violet-400/25 shadow-[0_20px_50px_rgba(0,0,0,0.6)] max-w-full">
+              <span className="hidden sm:flex items-center gap-2 pr-1 text-[10px] font-black uppercase tracking-wider text-amber-300 whitespace-nowrap">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Unsaved changes
+              </span>
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-white/70 hover:text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+              <button
+                onClick={handleManualSave}
+                disabled={isSaving}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-b from-violet-400 to-violet-600 hover:from-violet-300 hover:to-violet-500 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-[0_8px_20px_rgba(139,92,246,0.4)] flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60"
+              >
+                {isSaving ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} strokeWidth={3} />}
+                {isSaving ? 'সেভ হচ্ছে…' : 'সেভ করুন'}
+              </button>
+              <button
+                onClick={handleBack}
+                className="w-9 h-9 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-white/60 hover:text-white flex items-center justify-center transition-all active:scale-90"
+                aria-label="Close"
+              >
+                <X size={17} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Status Toast with Undo */}
+      <AnimatePresence>
+        {status && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className={cn(
+              "fixed bottom-24 left-4 right-4 sm:left-auto sm:right-8 sm:max-w-md z-[120] p-4 rounded-3xl border flex items-center gap-3 shadow-2xl backdrop-blur-xl",
+              status.type === 'success' ? "bg-emerald-600/95 border-emerald-400/30 text-white" :
+              status.type === 'error' ? "bg-red-600/95 border-red-400/30 text-white" :
+              "bg-violet-600/95 border-violet-400/30 text-white"
+            )}
+            role="status"
+          >
+            <span className="shrink-0">
+              {status.type === 'error' ? <AlertCircle size={19} /> : status.type === 'success' ? <CircleCheck size={19} /> : <Info size={19} />}
+            </span>
+            <p className="text-sm font-bold flex-1 min-w-0">{status.message}</p>
+            <span className="flex items-center gap-1.5 shrink-0">
+              {status.showUndo && prevSettings && (
+                <button
+                  onClick={handleUndo}
+                  className="px-3.5 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                >
+                  আগে ফিরুন
                 </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              )}
+              <button onClick={() => setStatus(null)} className="p-2 hover:bg-white/15 rounded-full transition-all" aria-label="Dismiss">
+                <X size={17} />
+              </button>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Exit Warning Modal */}
-        <AnimatePresence>
-          {showExitWarning && (
-            <>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowExitWarning(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]" />
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-[#1A1A1A] border border-white/10 rounded-[2.5rem] p-8 z-[201] shadow-2xl">
-                <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mb-6 mx-auto">
-                  <AlertCircle size={32} />
+      {/* Exit Warning Modal */}
+      <AnimatePresence>
+        {showExitWarning && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowExitWarning(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200]"
+            />
+            <div className="fixed inset-0 z-[201] flex items-center justify-center p-5 pointer-events-none">
+              <motion.div
+                initial={{ scale: 0.94, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.94, opacity: 0, y: 12 }}
+                className="w-full max-w-sm bg-[#17131f] border border-white/10 rounded-[2rem] p-7 shadow-2xl pointer-events-auto"
+                role="alertdialog"
+                aria-labelledby="exit-warning-title"
+              >
+                <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-400 mb-5 mx-auto">
+                  <AlertCircle size={30} />
                 </div>
-                <h3 className="text-xl font-bold text-center mb-2">সেভ করা হয়নি!</h3>
-                <p className="text-sm text-white/40 text-center mb-8 leading-relaxed">আপনার কিছু পরিবর্তন সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বের হতে চান?</p>
-                <div className="flex flex-col gap-3">
-                  <button onClick={handleConfirmExit} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/20 active:scale-95">হ্যাঁ, বের হয়ে যান</button>
-                  <button onClick={() => setShowExitWarning(false)} className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/80 font-bold rounded-2xl transition-all active:scale-95">ফিরে যান</button>
+                <h3 id="exit-warning-title" className="text-xl font-black tracking-tight text-center mb-2">সেভ করা হয়নি!</h3>
+                <p className="text-sm text-white/40 text-center mb-7 leading-relaxed">আপনার কিছু পরিবর্তন সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বের হতে চান?</p>
+                <div className="flex flex-col gap-2.5">
+                  <button onClick={handleConfirmExit} className="w-full py-3.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">হ্যাঁ, বের হয়ে যান</button>
+                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-white/[0.06] hover:bg-white/[0.1] text-white/80 font-bold rounded-2xl transition-all active:scale-[0.98]">ফিরে যান</button>
                 </div>
               </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </main>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
