@@ -12,172 +12,198 @@
 import { m as motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles, Wrench, ArrowLeft, ArrowRight,
-  Layout, Compass, Wand2, MousePointerClick, FileJson2, Rocket
+  Sparkles, Wrench, ArrowLeft, ArrowRight, Layout, Compass, Wand2,
+  MousePointerClick, FileJson2, Rocket, Layers, Zap, ChevronRight
 } from 'lucide-react';
-import { cn } from '../../utils/cn';
 import { useLanguage } from '../../utils/translator';
 
 /**
- * ToolsPage — full rewrite.
+ * ToolsPage — complete redesign (V2).
  *
- * One design system, shared with the Content Architect page:
- * warm charcoal background, a single amber accent, 24px-radius surface
- * cards with hairline borders, the same sticky glass header, the same
- * eyebrow + title typography, and 8px-rhythm spacing throughout.
+ * "Midnight Aurora" design system, shared with the Content Architect:
+ * deep-space background, aurora gradient glows, glass panels with
+ * hairline borders, gradient primary actions, hero typography and a
+ * bento layout. One visual language across header, hero and cards.
  */
 export default function ToolsPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
-  const steps = [
+  const workflow = [
     { icon: MousePointerClick, label: t('architect.step1') },
     { icon: FileJson2, label: t('architect.step3') },
     { icon: Rocket, label: t('architect.importNew') },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0E0D0B] text-white font-sans overflow-x-hidden flex flex-col">
-      {/* Ambient glow (same warm accent everywhere) */}
-      <div className="pointer-events-none fixed -top-40 right-0 w-[420px] h-[420px] bg-amber-500/[0.07] blur-[120px] rounded-full" />
-      <div className="pointer-events-none fixed bottom-0 -left-32 w-[360px] h-[360px] bg-amber-600/[0.04] blur-[120px] rounded-full" />
+    <div className="relative min-h-screen overflow-x-hidden bg-[#05070D] font-sans text-white">
+      {/* Aurora background */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-44 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-violet-600/[0.16] blur-[140px]" />
+        <div className="absolute top-40 -left-40 h-[380px] w-[380px] rounded-full bg-cyan-500/[0.12] blur-[120px]" />
+        <div className="absolute -right-40 bottom-0 h-[380px] w-[380px] rounded-full bg-fuchsia-600/[0.10] blur-[130px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_45%,#05070D_82%)]" />
+      </div>
 
-      {/* Header — identical pattern to the Architect page header */}
-      <header className="sticky top-0 z-[100] bg-[#0E0D0B]/85 backdrop-blur-2xl border-b border-white/[0.06]">
-        <div className="max-w-5xl mx-auto w-full px-5 sm:px-8 py-4 flex items-center gap-4">
+      {/* Header */}
+      <header className="sticky top-0 z-[100] border-b border-white/[0.07] bg-[#05070D]/75 backdrop-blur-2xl">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-5 py-4 sm:px-8">
           <button
             onClick={() => navigate('/main')}
-            className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] rounded-2xl transition-all active:scale-90"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.09] bg-white/[0.05] transition hover:bg-white/[0.1] active:scale-90"
             aria-label={t('common.back')}
           >
-            <ArrowLeft size={21} className="text-white/85" />
+            <ArrowLeft size={20} className="text-white/85" />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Wrench size={11} className="text-amber-400" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300/70">
-                {t('tools.eyebrow')}
-              </span>
-            </div>
-            <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">
-              {t('tools.title')}
-            </h1>
+            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300/80">
+              <Wrench size={11} /> {t('tools.eyebrow')}
+            </p>
+            <h1 className="truncate text-[22px] font-black leading-tight tracking-tight">{t('tools.title')}</h1>
           </div>
-          <span className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-[10px] font-black uppercase tracking-wider text-amber-300 shrink-0">
-            {t('tools.available', { count: 2 })}
+          <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-cyan-200 sm:inline-flex">
+            <Zap size={11} /> {t('tools.available', { count: 2 })}
           </span>
         </div>
       </header>
 
-      <main className="relative flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 py-7 sm:py-9 pb-28">
-        {/* Intro */}
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
+      <main className="relative mx-auto w-full max-w-6xl px-5 pb-32 pt-8 sm:px-8 sm:pt-12">
+        {/* Hero */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="text-[15px] leading-relaxed text-white/45 font-medium max-w-2xl"
+          transition={{ duration: 0.4 }}
+          className="overflow-hidden rounded-[32px] border border-white/[0.09] bg-white/[0.04] p-7 shadow-2xl backdrop-blur-xl sm:p-10"
         >
-          {t('tools.subtitle')}
-        </motion.p>
-
-        {/* Featured tool — AI Content Architect */}
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.05 }}
-          onClick={() => navigate('/external-ai-import')}
-          className="group w-full text-left mt-7 rounded-3xl border border-amber-400/[0.16] bg-gradient-to-br from-amber-400/[0.09] via-white/[0.03] to-transparent p-6 sm:p-8 shadow-2xl hover:border-amber-400/30 transition-colors active:scale-[0.995]"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-300 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/25 shrink-0">
-              <Sparkles size={26} />
-            </span>
-            <span className="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/25 text-[9px] font-black uppercase tracking-[0.18em] text-amber-300 shrink-0">
-              {t('tools.badgeAi')}
-            </span>
-          </div>
-
-          <h2 className="text-[22px] sm:text-2xl font-black tracking-tight mt-5">
-            {t('tools.architect')}
-          </h2>
-          <p className="text-sm leading-relaxed text-white/45 font-medium mt-2 max-w-xl">
-            {t('tools.architectDesc')}
-          </p>
-
-          {/* Mini workflow */}
-          <div className="flex flex-wrap items-center gap-2 mt-6">
-            {steps.map((step, i) => (
-              <span key={i} className="inline-flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/25 border border-white/[0.07] text-[10px] font-bold text-white/55">
-                  <step.icon size={12} className="text-amber-300" />
-                  {step.label}
-                </span>
-                {i < steps.length - 1 && <ArrowRight size={12} className="text-white/20" />}
-              </span>
-            ))}
-          </div>
-
-          <span className="mt-7 flex items-center justify-between border-t border-white/[0.06] pt-5">
-            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
-              {t('tools.open')}
-            </span>
-            <span className="w-9 h-9 rounded-full bg-amber-400 text-black flex items-center justify-center transition-transform group-hover:translate-x-1">
-              <ArrowRight size={17} strokeWidth={2.5} />
-            </span>
+          <div className="pointer-events-none absolute" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-white/60">
+            <Sparkles size={12} className="text-cyan-300" /> {t('tools.heroBadge')}
           </span>
-        </motion.button>
+          <h2 className="mt-5 max-w-3xl bg-gradient-to-br from-white via-white to-white/50 bg-clip-text text-4xl font-black leading-[1.05] tracking-tight text-transparent sm:text-5xl">
+            {t('tools.heroTitle')}
+          </h2>
+          <p className="mt-4 max-w-2xl text-[15px] font-medium leading-relaxed text-white/45">
+            {t('tools.subtitle')}
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button
+              onClick={() => navigate('/external-ai-import')}
+              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 via-sky-400 to-violet-500 px-6 py-3.5 text-xs font-black uppercase tracking-[0.16em] text-[#05070D] shadow-xl shadow-cyan-500/20 transition hover:brightness-110 active:scale-[0.98]"
+            >
+              {t('tools.startNow')} <ArrowRight size={15} strokeWidth={3} />
+            </button>
+            <button
+              onClick={() => navigate('/template')}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-6 py-3.5 text-xs font-black uppercase tracking-[0.16em] text-white/75 transition hover:bg-white/[0.09] active:scale-[0.98]"
+            >
+              <Layout size={15} /> {t('tools.browseTemplates')}
+            </button>
+          </div>
+        </motion.section>
 
-        {/* Second tool — Templates */}
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.12 }}
-          onClick={() => navigate('/template')}
-          className="group w-full text-left mt-5 rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6 sm:p-7 shadow-xl hover:bg-white/[0.045] hover:border-white/[0.12] transition-colors active:scale-[0.995]"
-        >
-          <div className="flex items-center gap-5">
-            <span className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-amber-300 shrink-0">
-              <Layout size={25} />
+        {/* Bento grid */}
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {/* Featured: Content Architect */}
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.08 }}
+            onClick={() => navigate('/external-ai-import')}
+            className="group relative overflow-hidden rounded-[30px] border border-cyan-300/[0.16] bg-gradient-to-br from-cyan-400/[0.12] via-white/[0.04] to-violet-500/[0.10] p-7 text-left shadow-2xl backdrop-blur-xl transition hover:border-cyan-300/30 active:scale-[0.995] sm:p-8 lg:col-span-2"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-gradient-to-br from-cyan-300 to-violet-500 text-[#05070D] shadow-lg shadow-violet-500/25">
+                <Sparkles size={29} />
+              </span>
+              <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                {t('tools.badgeAi')}
+              </span>
+            </div>
+
+            <h3 className="mt-6 text-[26px] font-black tracking-tight sm:text-3xl">{t('tools.architect')}</h3>
+            <p className="mt-2.5 max-w-xl text-sm font-medium leading-relaxed text-white/45">
+              {t('tools.architectDesc')}
+            </p>
+
+            <p className="mt-7 text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+              {t('tools.workflow')}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {workflow.map((step, i) => (
+                <span key={i} className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.09] bg-black/30 px-3 py-2 text-[10px] font-bold text-white/60">
+                    <step.icon size={12} className="text-cyan-300" /> {step.label}
+                  </span>
+                  {i < workflow.length - 1 && <ChevronRight size={13} className="text-white/20" />}
+                </span>
+              ))}
+            </div>
+
+            <span className="mt-8 flex items-center justify-between border-t border-white/[0.08] pt-5">
+              <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">
+                <Layers size={14} /> {t('tools.bestFor')}
+              </span>
+              <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-white">
+                {t('tools.open')}
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-cyan-300 to-violet-500 text-[#05070D] transition-transform group-hover:translate-x-1">
+                  <ArrowRight size={17} strokeWidth={3} />
+                </span>
+              </span>
             </span>
-            <span className="flex-1 min-w-0">
-              <span className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-lg font-black tracking-tight">{t('tools.templates')}</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[9px] font-black uppercase tracking-[0.18em] text-white/40">
+          </motion.button>
+
+          {/* Right column stack */}
+          <div className="grid gap-5">
+            {/* Templates */}
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              onClick={() => navigate('/template')}
+              className="group rounded-[30px] border border-white/[0.09] bg-white/[0.04] p-7 text-left shadow-xl backdrop-blur-xl transition hover:bg-white/[0.06] active:scale-[0.995]"
+            >
+              <span className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/[0.09] bg-white/[0.06] text-cyan-300">
+                <Layout size={26} />
+              </span>
+              <span className="mt-5 flex flex-wrap items-center gap-2.5">
+                <span className="text-xl font-black tracking-tight">{t('tools.templates')}</span>
+                <span className="rounded-full border border-white/[0.09] bg-white/[0.05] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/40">
                   {t('tools.badgeLibrary')}
                 </span>
               </span>
-              <span className="block text-[13px] leading-relaxed text-white/40 font-medium mt-1.5">
+              <span className="mt-2 block text-[13px] font-medium leading-relaxed text-white/40">
                 {t('tools.templatesDesc')}
               </span>
-            </span>
-            <span className="w-9 h-9 rounded-full bg-white/[0.05] border border-white/[0.08] text-white/60 flex items-center justify-center shrink-0 transition-all group-hover:bg-amber-400 group-hover:text-black group-hover:border-amber-400">
-              <ArrowRight size={17} strokeWidth={2.5} />
-            </span>
-          </div>
-        </motion.button>
+              <span className="mt-5 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">
+                {t('tools.libraryHint')}
+                <ArrowRight size={14} strokeWidth={3} className="transition-transform group-hover:translate-x-1" />
+              </span>
+            </motion.button>
 
-        {/* Coming soon — same card language, dashed border */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.19 }}
-          className="mt-5 rounded-3xl border border-dashed border-white/[0.1] bg-white/[0.015] p-6 sm:p-7 flex items-center gap-5"
-        >
-          <span className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/35 shrink-0">
-            <Compass size={21} />
-          </span>
-          <span className="min-w-0">
-            <span className="flex items-center gap-2 text-sm font-black tracking-wide">
-              <Wand2 size={14} className="text-amber-400/80" />
-              {t('tools.comingSoon')}
-            </span>
-            <span className="block text-xs leading-relaxed text-white/30 font-medium mt-1">
-              {t('tools.comingSoonDesc')}
-            </span>
-          </span>
-        </motion.div>
+            {/* Coming soon */}
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.22 }}
+              className="rounded-[30px] border border-dashed border-white/[0.13] bg-white/[0.02] p-7 backdrop-blur-xl"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-white/[0.08] bg-white/[0.04] text-white/40">
+                <Compass size={21} />
+              </span>
+              <p className="mt-4 flex items-center gap-2 text-sm font-black tracking-wide">
+                <Wand2 size={14} className="text-violet-300" /> {t('tools.comingSoon')}
+              </p>
+              <p className="mt-1.5 text-xs font-medium leading-relaxed text-white/30">
+                {t('tools.comingSoonDesc')}
+              </p>
+              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
+                <Zap size={11} className="text-cyan-300" /> {t('tools.instantSetup')}
+              </p>
+            </motion.div>
+          </div>
+        </div>
       </main>
     </div>
   );

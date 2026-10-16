@@ -14,12 +14,12 @@ import { useNavigate } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { cn } from '../../utils/cn';
-import { 
-  ChevronLeft, 
-  Copy, 
-  Check, 
-  Sparkles, 
-  HardDrive, 
+import {
+  ChevronLeft,
+  Copy,
+  Check,
+  Sparkles,
+  HardDrive,
   Search,
   AlertCircle,
   ArrowRight,
@@ -28,7 +28,11 @@ import {
   X,
   Loader2,
   Zap,
-  Code
+  Code,
+  Braces,
+  CornerDownRight,
+  Layers,
+  Wand2
 } from 'lucide-react';
 import { DataManager } from '../../services/storage/DataManager';
 import { Note } from '../../types';
@@ -270,178 +274,288 @@ const AIContentArchitect: React.FC = () => {
     : recentNotes;
 
   return (
-    <div className="min-h-screen bg-[#0E0D0B] text-white flex flex-col font-sans overflow-x-hidden">
-      <div className="pointer-events-none fixed -top-24 right-0 w-[380px] h-[380px] bg-amber-500/[0.07] blur-[110px] rounded-full" />
-      <header className="sticky top-0 z-40 bg-[#0E0D0B]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <button onClick={() => navigate('/tools')} className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/[0.07] rounded-2xl transition-all active:scale-90" aria-label={t('common.back')}>
-            <ChevronLeft size={22} />
+    <div className="relative min-h-screen overflow-x-hidden bg-[#05070D] font-sans text-white">
+      {/* Aurora background */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-44 left-1/3 h-[440px] w-[760px] rounded-full bg-violet-600/[0.15] blur-[140px]" />
+        <div className="absolute top-52 -left-40 h-[340px] w-[340px] rounded-full bg-cyan-500/[0.11] blur-[120px]" />
+        <div className="absolute -right-40 bottom-0 h-[340px] w-[340px] rounded-full bg-fuchsia-600/[0.09] blur-[130px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_45%,#05070D_85%)]" />
+      </div>
+
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#05070D]/75 backdrop-blur-2xl">
+        <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-5 py-4 sm:px-8">
+          <button
+            onClick={() => navigate('/tools')}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.09] bg-white/[0.05] transition hover:bg-white/[0.1] active:scale-90"
+            aria-label={t('common.back')}
+          >
+            <ChevronLeft size={21} className="text-white/85" />
           </button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-               <Zap size={11} className="text-amber-400 fill-amber-400" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('architect.eyebrow')}</span>
-            </div>
-            <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">
-              {t('architect.title')}
-            </h1>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300/80">
+              <Zap size={11} className="fill-cyan-300" /> {t('architect.eyebrow')}
+            </p>
+            <h1 className="truncate text-[22px] font-black leading-tight tracking-tight">{t('architect.title')}</h1>
           </div>
+          <span className="hidden max-w-[240px] items-center gap-2 truncate rounded-full border border-white/[0.09] bg-white/[0.05] px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 md:inline-flex">
+            <Layers size={12} className="shrink-0 text-cyan-300" />
+            <span className="truncate">
+              {t('architect.selectedTarget')}: {targetId
+                ? (allNotes.find(n => n.id === targetId)?.title || t('architect.untitled'))
+                : parentId
+                  ? (allNotes.find(n => n.id === parentId)?.title || t('architect.untitled'))
+                  : t('architect.newPage')}
+            </span>
+          </span>
         </div>
       </header>
 
-      <main className="relative px-5 sm:px-8 py-8 max-w-7xl mx-auto w-full">
-        <p className="text-sm text-white/40 font-medium leading-relaxed max-w-2xl">{t('architect.subtitle')}</p>
-        {/* Step progress */}
-        <div className="flex items-center gap-2 mt-6 mb-8 flex-wrap">
-          {[t('architect.step1'), t('architect.step2'), t('architect.step3')].map((label, i) => {
-            const stepNo = i + 1;
-            const current = previewData ? 3 : 1;
-            const done = stepNo < current || (stepNo === 1 && copied !== false) || (stepNo === 3 && !!previewData);
-            const active = stepNo === current && !done;
-            return (
-              <span key={label} className="inline-flex items-center gap-2">
-                <span className={cn(
-                  "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider",
-                  done ? "bg-amber-400 text-black border-amber-300" : active ? "bg-amber-400/10 text-amber-300 border-amber-400/40" : "bg-white/[0.03] text-white/35 border-white/[0.08]"
-                )}>
-                  {done ? <Check size={11} strokeWidth={3.5} /> : <span>{stepNo}</span>}
-                  {label}
+      <main className="relative mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
+        {/* Intro + step tracker */}
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="bg-gradient-to-br from-white via-white to-white/50 bg-clip-text text-3xl font-black leading-tight tracking-tight text-transparent sm:text-4xl">
+              {t('architect.title')}
+            </h2>
+            <p className="mt-3 text-sm font-medium leading-relaxed text-white/45">{t('architect.subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-0 overflow-x-auto pb-1">
+            {[t('architect.step1'), t('architect.step2'), t('architect.step3')].map((label, i) => {
+              const stepNo = i + 1;
+              const current = previewData ? 3 : 1;
+              const done = stepNo < current || (stepNo === 1 && copied !== false) || (stepNo === 3 && !!previewData);
+              const active = stepNo === current && !done;
+              return (
+                <span key={label} className="inline-flex shrink-0 items-center">
+                  <span className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[10px] font-black uppercase tracking-wider transition",
+                    done
+                      ? "border-transparent bg-gradient-to-r from-cyan-300 to-violet-500 text-[#05070D]"
+                      : active
+                        ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-200"
+                        : "border-white/[0.09] bg-white/[0.04] text-white/35"
+                  )}>
+                    {done ? <Check size={11} strokeWidth={3.5} /> : <span>{stepNo}</span>}
+                    {label}
+                  </span>
+                  {stepNo < 3 && <span className="mx-1.5 h-px w-5 shrink-0 bg-white/15" />}
                 </span>
-                {stepNo < 3 && <span className="w-4 h-px bg-white/10" />}
-              </span>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Config */}
-        <div className="lg:col-span-5 space-y-6">
-          <section className="bg-white/[0.03] border border-white/[0.07] rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-full bg-amber-400 text-black text-xs font-black flex items-center justify-center shrink-0">1</span>
-              <Code size={17} className="text-amber-300" />
-              <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step1')}</h2>
-            </div>
-            <p className="text-[11px] text-white/30 leading-relaxed font-medium">
-              {t('architect.step1Desc')}
-            </p>
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={handleCopyPrompt}
-                className="w-full py-4.5 bg-white/5 hover:bg-white/10 text-white rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest border border-white/5"
-              >
-                {copied === 'prompt' ? <Check size={16} /> : <Copy size={16} />}
-                {copied === 'prompt' ? t('architect.copied') : t('architect.copyPrompt')}
-              </button>
-              <button
-                onClick={handleCopyFullPrompt}
-                className="w-full py-4 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 text-amber-950 rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-amber-500/20 active:scale-[0.99]"
-              >
-                {copied === 'update' ? <Check size={16} /> : <Sparkles size={16} />}
-                {copied === 'update' ? t('architect.copied') : t('architect.copyFullPrompt')}
-              </button>
-            </div>
-          </section>
 
-          <section className="bg-white/[0.03] border border-white/[0.07] rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-full bg-amber-400 text-black text-xs font-black flex items-center justify-center shrink-0">2</span>
-              <HardDrive size={17} className="text-amber-300" />
-              <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step2')}</h2>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20" size={16} />
-              <input 
-                type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('architect.searchPages')}
-                className="w-full bg-black/30 border border-white/[0.08] rounded-2xl pl-12 pr-5 py-3.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-amber-400/40 transition-all"
-              />
-            </div>
-            <div className="grid gap-2 max-h-[280px] overflow-y-auto no-scrollbar pr-2">
-              <button 
-                onClick={() => { setTargetId(''); setParentId(null); }}
-                className={cn("p-4 rounded-2xl border transition-all flex items-center justify-between", (!targetId && !parentId) ? "bg-amber-400/10 border-amber-400/40" : "bg-white/5 border-white/5")}
-              >
-                <div className="flex items-center gap-3"><Plus size={16} /><span className="font-bold text-[10px] uppercase">{t('architect.newPage')}</span></div>
-                {(!targetId && !parentId) && <Check size={16} className="text-amber-300" />}
-              </button>
-              {listItems.map(note => (
-                <div key={note.id} className="flex gap-2">
-                  <button 
-                    onClick={() => { setTargetId(note.id); setParentId(null); }}
-                    className={cn("flex-1 p-4 rounded-2xl border transition-all flex items-center justify-between text-left min-w-0", targetId === note.id ? "bg-amber-400/[0.08] border-amber-400/30" : "bg-white/5 border-white/5")}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xl shrink-0">{note.emoji || '📄'}</span>
-                      <h4 className="font-bold text-[11px] truncate uppercase tracking-tight">{note.title || t('architect.untitled')}</h4>
-                    </div>
-                  </button>
-                  <button 
-                    onClick={() => { setParentId(note.id); setTargetId(''); }}
-                    className={cn("w-12 rounded-2xl border transition-all flex items-center justify-center", parentId === note.id ? "bg-amber-400/[0.08] border-amber-400/30" : "bg-white/5 border-white/5")}
-                    title={t('architect.makeSubpage')}
-                  >
-                    <ChevronLeft size={16} className={cn("transition-transform", parentId === note.id && "rotate-180 text-amber-300")} />
-                  </button>
+        <div className="mt-9 grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Left: Step 1 + Step 2 */}
+          <div className="space-y-6 lg:col-span-5">
+            {/* Step 1 — Prompt studio */}
+            <motion.section
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35 }}
+              className="rounded-[28px] border border-white/[0.09] bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl sm:p-7"
+            >
+              <div className="flex items-center gap-3.5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-violet-500 text-sm font-black text-[#05070D] shadow-lg shadow-violet-500/25">1</span>
+                <div className="min-w-0">
+                  <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em]">
+                    <Code size={15} className="text-cyan-300" /> {t('architect.step1')}
+                  </h3>
+                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">{t('architect.promptStudio')}</p>
                 </div>
-              ))}
+              </div>
+              <p className="mt-4 text-[12px] font-medium leading-relaxed text-white/35">{t('architect.step1Desc')}</p>
+              <div className="mt-5 flex flex-col gap-3">
+                <button
+                  onClick={handleCopyPrompt}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/[0.09] bg-white/[0.05] py-4 text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-white/[0.09] active:scale-[0.99]"
+                >
+                  {copied === 'prompt' ? <Check size={16} className="text-cyan-300" /> : <Copy size={16} />}
+                  {copied === 'prompt' ? t('architect.copied') : t('architect.copyPrompt')}
+                </button>
+                <button
+                  onClick={handleCopyFullPrompt}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-cyan-300 via-sky-400 to-violet-500 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#05070D] shadow-xl shadow-cyan-500/20 transition hover:brightness-110 active:scale-[0.99]"
+                >
+                  {copied === 'update' ? <Check size={16} /> : <Sparkles size={16} />}
+                  {copied === 'update' ? t('architect.copied') : t('architect.copyFullPrompt')}
+                </button>
+              </div>
+            </motion.section>
+
+            {/* Step 2 — Target studio */}
+            <motion.section
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.07 }}
+              className="rounded-[28px] border border-white/[0.09] bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl sm:p-7"
+            >
+              <div className="flex items-center gap-3.5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-violet-500 text-sm font-black text-[#05070D] shadow-lg shadow-violet-500/25">2</span>
+                <div className="min-w-0">
+                  <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em]">
+                    <HardDrive size={15} className="text-cyan-300" /> {t('architect.step2')}
+                  </h3>
+                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">{t('architect.targetStudio')}</p>
+                </div>
+                <span className="ml-auto shrink-0 rounded-full border border-white/[0.09] bg-white/[0.05] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white/40">
+                  {t('architect.pagesCount', { count: listItems.length })}
+                </span>
+              </div>
+
+              <div className="relative mt-5">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" size={16} />
+                <input
+                  type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('architect.searchPages')}
+                  className="w-full rounded-2xl border border-white/[0.09] bg-black/30 py-3.5 pl-11 pr-4 text-sm text-white placeholder:text-white/25 transition focus:border-cyan-300/50 focus:outline-none"
+                />
+              </div>
+
+              <div className="no-scrollbar mt-4 grid max-h-[290px] gap-2.5 overflow-y-auto pr-1">
+                <button
+                  onClick={() => { setTargetId(''); setParentId(null); }}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition",
+                    (!targetId && !parentId)
+                      ? "border-cyan-300/40 bg-cyan-300/[0.09]"
+                      : "border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.05]"
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border", (!targetId && !parentId) ? "border-cyan-300/30 bg-cyan-300/15 text-cyan-200" : "border-white/[0.08] bg-white/[0.05] text-white/50")}>
+                      <Plus size={16} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[11px] font-black uppercase tracking-wide">{t('architect.newPage')}</span>
+                      <span className="mt-0.5 block truncate text-[11px] font-medium text-white/35">{t('architect.newPageDesc')}</span>
+                    </span>
+                  </span>
+                  {(!targetId && !parentId) && <Check size={17} className="shrink-0 text-cyan-300" />}
+                </button>
+
+                {listItems.map(note => (
+                  <div key={note.id} className="flex gap-2">
+                    <button
+                      onClick={() => { setTargetId(note.id); setParentId(null); }}
+                      className={cn(
+                        "flex min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl border p-4 text-left transition",
+                        targetId === note.id
+                          ? "border-cyan-300/40 bg-cyan-300/[0.09]"
+                          : "border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.05]"
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="shrink-0 text-xl">{note.emoji || '📄'}</span>
+                        <span className="truncate text-[12px] font-bold tracking-tight">{note.title || t('architect.untitled')}</span>
+                      </span>
+                      {targetId === note.id && <Check size={16} className="shrink-0 text-cyan-300" />}
+                    </button>
+                    <button
+                      onClick={() => { setParentId(note.id); setTargetId(''); }}
+                      className={cn(
+                        "flex w-12 shrink-0 items-center justify-center rounded-2xl border transition",
+                        parentId === note.id
+                          ? "border-violet-400/40 bg-violet-400/[0.12] text-violet-200"
+                          : "border-white/[0.07] bg-white/[0.03] text-white/40 hover:bg-white/[0.05]"
+                      )}
+                      title={t('architect.makeSubpage')}
+                      aria-label={t('architect.makeSubpage')}
+                    >
+                      <CornerDownRight size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Instructions — always visible: new page, sub-page and existing page */}
+              <div className="mt-6 space-y-3 border-t border-white/[0.07] pt-5">
+                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/90">
+                  <Wand2 size={13} /> {t('architect.instructionsLabel')}
+                </label>
+                <textarea
+                  value={changeRequest}
+                  onChange={(e) => setChangeRequest(e.target.value)}
+                  placeholder={targetId ? t('architect.changePlaceholder') : t('architect.instructionsPlaceholderNew')}
+                  className="h-28 w-full resize-none rounded-2xl border border-white/[0.09] bg-black/30 p-4 text-sm text-white placeholder:text-white/25 transition focus:border-cyan-300/50 focus:outline-none"
+                />
+              </div>
+            </motion.section>
+          </div>
+
+          {/* Right: Step 3 — Import studio */}
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.12 }}
+            className="h-fit rounded-[28px] border border-white/[0.09] bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl sm:p-7 lg:col-span-7"
+          >
+            <div className="flex flex-wrap items-center gap-3.5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-violet-500 text-sm font-black text-[#05070D] shadow-lg shadow-violet-500/25">3</span>
+              <div className="min-w-0 flex-1">
+                <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em]">
+                  <Braces size={15} className="text-cyan-300" /> {t('architect.step3')}
+                </h3>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">{t('architect.importStudio')} · {t('architect.jsonHint')}</p>
+              </div>
+              <span className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[9px] font-black uppercase tracking-widest",
+                previewData
+                  ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+                  : jsonError
+                    ? "border-red-400/25 bg-red-400/10 text-red-300"
+                    : "border-white/[0.09] bg-white/[0.05] text-white/30"
+              )}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", previewData ? "bg-emerald-400" : jsonError ? "bg-red-400" : "bg-white/30")} />
+                {previewData ? t('architect.valid') : jsonError ? t('architect.invalid') : t('architect.waiting')}
+              </span>
             </div>
 
-            <div className="pt-5 border-t border-white/[0.06] space-y-3">
-              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-amber-300/80">
-                <Sparkles size={12} />
-                {t('architect.instructionsLabel')}
-              </label>
+            {/* JSON terminal */}
+            <div className="mt-6 overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#070B16]">
+              <div className="flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-5 py-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
+                <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">JSON</span>
+              </div>
               <textarea
-                value={changeRequest}
-                onChange={(e) => setChangeRequest(e.target.value)}
-                placeholder={targetId ? t('architect.changePlaceholder') : t('architect.instructionsPlaceholderNew')}
-                className="w-full h-28 bg-black/30 border border-white/[0.08] rounded-2xl p-4 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-amber-400/40 resize-none transition-colors"
+                value={importData} onChange={(e) => setImportData(e.target.value)}
+                placeholder={t('architect.pastePlaceholder')}
+                spellCheck={false}
+                className="h-72 w-full resize-none bg-transparent p-6 font-mono text-xs leading-relaxed text-cyan-100/80 placeholder:text-white/20 focus:outline-none"
               />
             </div>
-          </section>
-        </div>
-
-        {/* Right Column: JSON Input & Preview */}
-        <div className="lg:col-span-7">
-          <section className="bg-white/[0.03] border border-white/[0.07] rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-               <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-full bg-amber-400 text-black text-xs font-black flex items-center justify-center shrink-0">3</span>
-                  <FileText size={17} className="text-amber-300" />
-                  <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step3')}</h2>
-               </div>
-               <div className={cn("px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border", previewData ? "bg-green-500/10 border-green-500/20 text-green-400" : jsonError ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-white/20")}>
-                  {previewData ? t('architect.valid') : jsonError ? t('architect.invalid') : t('architect.waiting')}
-               </div>
-            </div>
-            
-            <textarea 
-              value={importData} onChange={(e) => setImportData(e.target.value)}
-              placeholder={t('architect.pastePlaceholder')}
-              className="w-full h-72 bg-black/30 border border-white/[0.08] rounded-3xl p-6 text-emerald-300/80 font-mono text-xs leading-relaxed focus:outline-none focus:border-amber-400/40 transition-all resize-none"
-            />
 
             {jsonError && (
-              <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-2xl flex items-center gap-3 text-red-400">
-                <AlertCircle size={16} />
-                <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">JSON: {jsonError}</p>
+              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-red-400/15 bg-red-400/[0.06] p-4 text-red-300">
+                <AlertCircle size={16} className="shrink-0" />
+                <p className="text-[10px] font-black uppercase leading-relaxed tracking-widest">JSON: {jsonError}</p>
               </div>
             )}
 
             <AnimatePresence>
               {previewData && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/[0.07] rounded-3xl overflow-hidden">
-                  <div className="px-6 py-4 bg-white/5 border-b border-white/5">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('architect.preview')}</span>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="mt-5 overflow-hidden rounded-[22px] border border-white/[0.09] bg-white/[0.03]"
+                >
+                  <div className="flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-6 py-4">
+                    <FileText size={13} className="text-cyan-300" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{t('architect.preview')}</span>
                   </div>
-                  <div className="p-8 max-h-[400px] overflow-y-auto no-scrollbar">
+                  <div className="no-scrollbar max-h-[420px] overflow-y-auto p-7 sm:p-8">
                     {previewData.map((data: any, idx: number) => (
                       <div key={idx} className="mb-10 last:mb-0">
-                        <div className="flex items-center gap-4 mb-6">
-                          <span className="text-4xl">{data.emoji || '📄'}</span>
-                          <h1 className="text-2xl font-black text-white uppercase">{data.title || t('architect.untitled')}</h1>
+                        <div className="mb-5 flex items-center gap-4">
+                          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-white/[0.08] bg-white/[0.05] text-3xl">{data.emoji || '📄'}</span>
+                          <h4 className="text-2xl font-black tracking-tight text-white">{data.title || t('architect.untitled')}</h4>
                         </div>
-                        <div className="prose prose-invert prose-sm max-w-none text-white/60 preview-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.content) }} />
+                        <div className="preview-content prose prose-invert prose-sm max-w-none text-white/60" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.content) }} />
                       </div>
                     ))}
                   </div>
@@ -451,22 +565,26 @@ const AIContentArchitect: React.FC = () => {
 
             <button
               onClick={handleImport} disabled={!previewData || isImporting}
-              className="w-full py-5 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 disabled:opacity-25 disabled:hover:from-amber-300 disabled:hover:to-amber-500 text-amber-950 font-black text-sm uppercase tracking-[0.25em] rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-amber-500/20 active:scale-[0.99]"
+              className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-300 via-sky-400 to-violet-500 py-5 text-sm font-black uppercase tracking-[0.22em] text-[#05070D] shadow-xl shadow-violet-500/20 transition hover:brightness-110 active:scale-[0.99] disabled:opacity-25 disabled:hover:brightness-100"
             >
-              {isImporting ? <Loader2 size={24} className="animate-spin" /> : <ArrowRight size={24} />}
+              {isImporting ? <Loader2 size={22} className="animate-spin" /> : <ArrowRight size={22} strokeWidth={2.5} />}
               <span>{targetId ? t('architect.importUpdate') : parentId ? t('architect.importSubpages') : t('architect.importNew')}</span>
             </button>
-          </section>
-        </div>
+          </motion.section>
         </div>
       </main>
 
       <AnimatePresence>
         {status && (
-          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl border border-white/10 bg-[#171512]/95 backdrop-blur-xl shadow-2xl flex items-center gap-3 max-w-[92vw]">
-            <div className={cn("w-2 h-2 rounded-full animate-pulse", status.type === 'success' ? "bg-green-500" : "bg-red-500")} />
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/80">{status.message}</p>
-            <button onClick={() => setStatus(null)} className="ml-4 opacity-40 hover:opacity-100"><X size={16} /></button>
+          <motion.div
+            initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
+            className="fixed bottom-24 left-1/2 z-[100] flex w-[92vw] max-w-md -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/10 bg-[#0B1020]/95 px-5 py-4 shadow-2xl backdrop-blur-xl"
+          >
+            <span className={cn("h-2 w-2 shrink-0 animate-pulse rounded-full", status.type === 'success' ? "bg-emerald-400" : "bg-red-400")} />
+            <p className="flex-1 text-[10px] font-black uppercase leading-relaxed tracking-widest text-white/85">{status.message}</p>
+            <button onClick={() => setStatus(null)} className="shrink-0 text-white/40 transition hover:text-white" aria-label={t('common.cancel')}>
+              <X size={16} />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -474,7 +592,7 @@ const AIContentArchitect: React.FC = () => {
       <style>{`
         .preview-content h1 { font-size: 1.5rem; font-weight: 900; margin-bottom: 1rem; color: white; }
         .preview-content p { margin-bottom: 1rem; line-height: 1.7; }
-        .preview-content mark { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 0 2px; }
+        .preview-content mark { background: rgba(103, 232, 249, 0.18); color: #67e8f9; padding: 0 2px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
