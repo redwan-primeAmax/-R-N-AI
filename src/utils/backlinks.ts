@@ -10,6 +10,7 @@
  */
 
 import { Note } from '../types/note';
+import { t as tr } from './translator';
 
 export interface BacklinkItem {
   noteId: string;
@@ -39,7 +40,7 @@ export function findBacklinks(noteId: string, allNotes: Note[]): BacklinkItem[] 
 
     if (isLinked) {
       // Extract a text snippet around the match
-      let snippet = 'সংযুক্ত নোট...';
+      let snippet = tr('backlinks.linked');
       const matchIndex = content.indexOf(noteId);
       if (matchIndex !== -1) {
         const start = Math.max(0, matchIndex - 40);
@@ -50,7 +51,7 @@ export function findBacklinks(noteId: string, allNotes: Note[]): BacklinkItem[] 
 
       backlinks.push({
         noteId: otherNote.id,
-        title: otherNote.title || 'শিরোনামহীন',
+        title: otherNote.title || tr('nav.untitled'),
         emoji: otherNote.emoji || '📄',
         snippet
       });

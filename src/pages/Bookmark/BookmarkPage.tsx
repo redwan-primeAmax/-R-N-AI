@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { t as tr } from '../../utils/translator';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { 
   FolderPlus, ChevronRight, Bookmark, 
@@ -94,7 +95,7 @@ export default function BookmarkPage() {
         const updated = { ...noteToMove, isBookmarked: true, bookmarkFolderId: targetFolder, updatedAt: Date.now() };
         await DataManager.saveNote(updated);
         window.dispatchEvent(new CustomEvent('app-notification', {
-          detail: { message: 'নোটটি ফোল্ডারে সরানো হয়েছে (Note moved successfully)', type: 'success' }
+          detail: { message: tr('bookmark.moved'), type: 'success' }
         }));
       }
     } catch (err) {
@@ -131,10 +132,10 @@ export default function BookmarkPage() {
             <div>
               <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
                 <Bookmark size={20} className="text-blue-500" />
-                {currentFolder ? currentFolder.name : 'বুকমার্ক / ফোল্ডার'}
+                {currentFolder ? currentFolder.name : tr('bookmark.rootLabel')}
               </h1>
               <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold">
-                {moveNoteId ? 'স্থানান্তরের জন্য ফোল্ডার বেছে নিন' : (currentFolder ? 'ফোল্ডার ভিউ' : 'রুট ডিরেক্টরি')}
+                {moveNoteId ? tr('bookmark.pickFolderMove') : (currentFolder ? tr('bookmark.folderView') : tr('dialogs.rootDirectory'))}
               </p>
             </div>
           </div>
@@ -152,7 +153,7 @@ export default function BookmarkPage() {
         {folders.length > 0 && (
           <div className="mb-10">
             <h2 className="text-[10px] uppercase tracking-[0.2em] text-white/20 font-black mb-4 flex items-center gap-2">
-              <Folder size={12} /> ফোল্ডারসমূহ ({folders.length})
+              <Folder size={12} /> {tr('bookmark.folders')} ({folders.length})
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {folders.map(folder => {
@@ -205,7 +206,7 @@ export default function BookmarkPage() {
         {/* Notes Section */}
         <div>
           <h2 className="text-[10px] uppercase tracking-[0.2em] text-white/20 font-black mb-4 flex items-center gap-2">
-             <FileText size={12} /> নোটসমূহ ({notes.length})
+             <FileText size={12} /> {tr('bookmark.notes')} ({notes.length})
           </h2>
           {notes.length > 0 ? (
             <div className="space-y-3">
@@ -225,9 +226,9 @@ export default function BookmarkPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-[15px] truncate">{note.title || 'শিরোনামহীন চিন্তা'}</h3>
+                    <h3 className="font-bold text-[15px] truncate">{note.title || tr('bookmark.untitledThought')}</h3>
                     <p className="text-[11px] text-white/20 font-medium truncate mt-0.5">
-                      {note.content ? note.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) : 'কোনো বর্ণনা নেই'}
+                      {note.content ? note.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) : tr('bookmark.noDescription')}
                     </p>
                   </div>
                   {!moveNoteId && (
@@ -248,7 +249,7 @@ export default function BookmarkPage() {
           ) : (
             <div className="py-20 flex flex-col items-center justify-center text-white/5 border border-dashed border-white/5 rounded-3xl">
               <Bookmark size={48} className="mb-4 opacity-5 rotate-12" />
-              <p className="font-bold italic text-sm">কোনো বুকমার্ক পাওয়া যায়নি</p>
+              <p className="font-bold italic text-sm">{tr('bookmark.noneFound')}</p>
             </div>
           )}
         </div>
@@ -258,9 +259,9 @@ export default function BookmarkPage() {
       {moveNoteId && (
         <div className="fixed bottom-6 left-6 right-6 z-[200] max-w-xl mx-auto bg-[#18181b] border border-blue-500/30 p-4 rounded-3xl shadow-2xl flex items-center justify-between gap-4 backdrop-blur-xl">
           <div className="flex flex-col min-w-0">
-            <span className="font-bold text-xs text-white">ফোল্ডার নির্বাচন করুন (Move To)</span>
+            <span className="font-bold text-xs text-white">{tr('bookmark.selectFolderMoveTo')}</span>
             <span className="text-[10px] text-white/40 truncate">
-              {currentFolder ? `টার্গেট: ${currentFolder.name}` : 'টার্গেট: রুট বুকমার্ক'}
+              {currentFolder ? `${tr('bookmark.target')}: ${currentFolder.name}` : `${tr('bookmark.target')}: ${tr('bookmark.rootBookmark')}`}
             </span>
           </div>
           <button 
@@ -268,7 +269,7 @@ export default function BookmarkPage() {
             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-600/30 shrink-0"
           >
             <Check size={16} strokeWidth={3} />
-            <span>সম্পন্ন (Done)</span>
+            <span>{tr('bookmark.done')}</span>
           </button>
         </div>
       )}
@@ -277,17 +278,17 @@ export default function BookmarkPage() {
       <Modal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)}
-        title="নতুন ফোল্ডার তৈরি করুন"
+        title={tr('bookmark.createFolder')}
       >
         <div className="p-6 space-y-6">
           <div className="space-y-4">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">ফোল্ডারের নাম</label>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">{tr('bookmark.folderNameLabel')}</label>
             <input 
               type="text"
               autoFocus
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="যেমন: পড়াশোনা, প্রজেক্ট..."
+              placeholder={tr('bookmark.folderExample')}
               className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-blue-500/50 transition-all font-bold text-white placeholder:text-white/10"
             />
           </div>
@@ -296,7 +297,7 @@ export default function BookmarkPage() {
             disabled={!newFolderName.trim()}
             className="w-full py-4 bg-blue-600 disabled:opacity-50 disabled:bg-white/10 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
           >
-            তৈরি করুন
+            {tr('bookmark.createCta')}
           </button>
         </div>
       </Modal>
@@ -305,10 +306,10 @@ export default function BookmarkPage() {
         isOpen={!!folderToDelete}
         onClose={() => setFolderToDelete(null)}
         onConfirm={handleDeleteFolder}
-        title="ফোল্ডার মুছুন"
-        message={`আপনি কি "${folderToDelete?.name}" ফোল্ডারটি মুছে ফেলতে চান? এর ভেতরের সব সাব-ফোল্ডার এবং নোটের লিংক মুছে যাবে।`}
+        title={tr('bookmark.deleteFolder')}
+        message={`${tr('bookmark.deleteFolderMsg')} "${folderToDelete?.name}"`}
         variant="danger"
-        confirmText="হ্যাঁ, মুছুন"
+        confirmText={tr('bookmark.yesDelete')}
       />
     </div>
   );

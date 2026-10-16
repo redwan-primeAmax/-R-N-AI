@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { t as tr } from '../../utils/translator';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search as SearchIcon, X, ChevronRight, Hash, Tag as TagIcon } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
@@ -260,7 +261,7 @@ export default function SearchPage() {
             >
               <TagIcon size={18} className="text-blue-400" />
               <span className="text-[9px] font-black tracking-widest uppercase truncate max-w-full">
-                {selectedTags.length > 0 ? `ট্যাগ (${selectedTags.length})` : 'ফিল্টার'}
+                {selectedTags.length > 0 ? `${tr('search.tagsLabel')} (${selectedTags.length})` : tr('search.filterLabel')}
               </span>
             </button>
           </div>
@@ -280,7 +281,7 @@ export default function SearchPage() {
             >
               <div className="flex-shrink-0 w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-3xl"><PageIcon emoji={note.emoji} className="text-3xl" fallback="📄" /></div>
               <div className="flex-grow min-w-0 font-sans">
-                <h3 className="font-bold text-[14px] text-white/90 truncate">{highlightText(note.title || 'শিরোনামহীন', query.split(' '))}</h3>
+                <h3 className="font-bold text-[14px] text-white/90 truncate">{highlightText(note.title || tr('nav.untitled'), query.split(' '))}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] text-white/60 font-black uppercase tracking-widest">{new Date(note.updatedAt).toLocaleDateString()}</span>
                   {note.tags && note.tags.length > 0 && <span className="text-[9px] text-blue-400 font-bold">#{note.tags[0]}</span>}

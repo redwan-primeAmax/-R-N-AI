@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { t as tr } from '../../../utils/translator';
 import { m as motion } from 'framer-motion';
 import { Check, FileText, MoreVertical, Lock, Radio } from 'lucide-react';
 import { PageIcon } from '../../../components/PageIcon';
@@ -34,11 +35,11 @@ function formatRelativeTime(timestamp: number): string {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (minutes < 1) return 'এইমাত্র';
-  if (minutes < 60) return `${minutes}মি আগে`;
-  if (hours < 24) return `${hours}ঘ আগে`;
-  if (days === 1) return 'গতকাল';
-  if (days < 7) return `${days}দিন আগে`;
+  if (minutes < 1) return tr('time.justNow');
+  if (minutes < 60) return tr('time.minutesAgo', { count: minutes });
+  if (hours < 24) return tr('time.hoursAgo', { count: hours });
+  if (days === 1) return tr('time.yesterday');
+  if (days < 7) return tr('time.daysAgo', { count: days });
 
   return new Date(timestamp).toLocaleDateString(undefined, { 
     month: 'short', 
@@ -99,7 +100,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
               </div>
             )}
             <h3 className="text-sm font-bold text-white truncate min-w-0 flex-1">
-              {note.title || 'শিরোনামহীন নোট'}
+              {note.title || tr('nav.untitled')}
             </h3>
           </div>
           {!isSelectionMode && (
@@ -172,7 +173,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-[14px] sm:text-[15px] font-medium text-neutral-900 dark:text-neutral-100 truncate">
-              {note.title || 'শিরোনামহীন নোট'}
+              {note.title || tr('nav.untitled')}
             </h3>
             {note.isLocked && (
               <Lock size={12} className="text-amber-500 dark:text-amber-400 shrink-0" />
@@ -218,7 +219,7 @@ export const NoteCard = React.memo<NoteCardProps>(({
             onMoreClick?.(note, e);
           }}
           className="p-1.5 -mr-1 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors shrink-0 active:scale-90"
-          aria-label="আরও অপশন"
+          aria-label={tr('noteCard.moreOptions')}
           title="More actions"
         >
           <MoreVertical size={16} />

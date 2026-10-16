@@ -10,6 +10,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { t as tr } from '../../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { FileText, Search, X, CornerDownRight, SquareArrowOutUpRight } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
@@ -46,7 +47,7 @@ export const LinkPageList: React.FC<LinkPageListProps> = ({ isOpen, onClose, onS
     }
   };
 
-  const filtered = notes.filter(n => (n.title || 'শিরোনামহীন').toLowerCase().includes(search.toLowerCase()));
+  const filtered = notes.filter(n => (n.title || tr('nav.untitled')).toLowerCase().includes(search.toLowerCase()));
 
   return (
     <AnimatePresence>
@@ -79,7 +80,7 @@ export const LinkPageList: React.FC<LinkPageListProps> = ({ isOpen, onClose, onS
                   type="text" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="সার্চ করুন..."
+                  placeholder={tr('link.search')}
                   className="w-full bg-black/40 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold focus:border-blue-500/50 outline-none text-white placeholder:text-white/10"
                  />
                </div>
@@ -87,9 +88,9 @@ export const LinkPageList: React.FC<LinkPageListProps> = ({ isOpen, onClose, onS
 
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
               {loading ? (
-                <div className="p-12 text-center text-white/20 font-black uppercase tracking-widest text-[10px] animate-pulse">লোড হচ্ছে...</div>
+                <div className="p-12 text-center text-white/20 font-black uppercase tracking-widest text-[10px] animate-pulse">{tr('common.loading')}</div>
               ) : filtered.length === 0 ? (
-                <div className="p-12 text-center text-white/20 font-black uppercase tracking-widest text-[10px]">কোনো পেজ পাওয়া যায়নি</div>
+                <div className="p-12 text-center text-white/20 font-black uppercase tracking-widest text-[10px]">{tr('link.none')}</div>
               ) : (
                 <div className="space-y-1.5">
                   {filtered.map(note => (
@@ -103,7 +104,7 @@ export const LinkPageList: React.FC<LinkPageListProps> = ({ isOpen, onClose, onS
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[14px] font-bold text-white group-hover:text-blue-500 transition-colors truncate">
-                          {note.title || 'শিরোনামহীন'}
+                          {note.title || tr('nav.untitled')}
                         </div>
                         <div className="text-[10px] font-black uppercase tracking-tighter text-white/20 truncate">
                           {new Date(note.updatedAt).toLocaleDateString()}

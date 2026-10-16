@@ -31,6 +31,7 @@ import { EditorModalProvider } from './context/EditorModalContext';
 
 import { DataManager } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
+import { useLanguage } from '../../utils/translator';
 
 export default function EditorPageWrapper() {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +39,7 @@ export default function EditorPageWrapper() {
 }
 
 function EditorPage({ id }: { id: string | undefined }) {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -293,7 +295,7 @@ function EditorPage({ id }: { id: string | undefined }) {
                     }}
                     onBlur={() => setIsTitleFocused(false)}
                     onChange={(e) => updateTitle(e.target.value)}
-                    placeholder="শিরোনামহীন"
+                    placeholder={t('nav.untitled')}
                     rows={1}
                     className={cn(
                       "w-full bg-transparent text-4xl sm:text-5xl font-black focus:outline-none border-none ring-0 focus:ring-0 shadow-none tracking-tight resize-none leading-tight transition-colors overflow-hidden",

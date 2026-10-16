@@ -16,6 +16,8 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+import { t as tr } from './translator';
+
 export function formatRelativeTime(timestamp: number): string {
   if (!timestamp) return '';
   const now = Date.now();
@@ -23,10 +25,10 @@ export function formatRelativeTime(timestamp: number): string {
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  if (minutes < 1) return 'এইমাত্র';
-  if (minutes < 60) return `${minutes}মি আগে`;
-  if (hours < 24) return `${hours}ঘ আগে`;
-  if (days === 1) return 'গতকাল';
-  if (days < 7) return `${days}দিন আগে`;
+  if (minutes < 1) return tr('time.justNow');
+  if (minutes < 60) return tr('time.minutesAgo', { count: minutes });
+  if (hours < 24) return tr('time.hoursAgo', { count: hours });
+  if (days === 1) return tr('time.yesterday');
+  if (days < 7) return tr('time.daysAgo', { count: days });
   return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }

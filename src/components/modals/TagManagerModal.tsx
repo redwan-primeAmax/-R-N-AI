@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
 import { Tag as TagIcon, X, Plus } from 'lucide-react';
@@ -76,11 +77,11 @@ export function TagManagerModal({ isOpen, onClose, note, onTagsUpdated }: TagMan
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="ট্যাগ ম্যানেজার (Tags)" maxWidth="max-w-md">
+    <Modal isOpen={isOpen} onClose={onClose} title={tr('dialogs.tagManager')} maxWidth="max-w-md">
       <div className="space-y-8 pt-4 pb-4">
         <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-2xl">
            <p className="text-[11px] text-blue-300/60 font-medium leading-relaxed">
-             এই নোটটিকে বিভিন্ন ক্যাটাগরিতে ভাগ করতে ট্যাগ ব্যবহার করুন। ট্যাগ দিয়ে সার্চ করা আরও সহজ হয়।
+             {tr('dialogs.tagManagerDesc')}
            </p>
         </div>
 
@@ -88,7 +89,7 @@ export function TagManagerModal({ isOpen, onClose, note, onTagsUpdated }: TagMan
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
-              ব্যবহৃত ট্যাগ সমূহ ({currentTags.length})
+              {tr('dialogs.tagsUsed')} ({currentTags.length})
             </h4>
             {currentTags.length > 0 && (
                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
@@ -110,7 +111,7 @@ export function TagManagerModal({ isOpen, onClose, note, onTagsUpdated }: TagMan
                   <button
                     onClick={() => handleRemoveTag(tag)}
                     className="ml-1 p-1 hover:bg-red-500/20 text-white/20 hover:text-red-400 rounded-lg transition-all"
-                    title="মুছুন"
+                    title={tr('dialogs.deleteTag')}
                     type="button"
                   >
                     <X size={12} />
@@ -123,7 +124,7 @@ export function TagManagerModal({ isOpen, onClose, note, onTagsUpdated }: TagMan
                <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-white/10">
                   <TagIcon size={24} />
                </div>
-               <p className="text-[10px] font-black uppercase tracking-widest text-white/20">কোনো ট্যাগ নেই</p>
+               <p className="text-[10px] font-black uppercase tracking-widest text-white/20">{tr('dialogs.noTagsYet')}</p>
             </div>
           )}
         </div>
@@ -131,12 +132,12 @@ export function TagManagerModal({ isOpen, onClose, note, onTagsUpdated }: TagMan
         {/* Adding New Tag form */}
         <div className="space-y-4">
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 px-1">
-            নতুন ট্যাগ যোগ করুন
+            {tr('dialogs.addNewTag')}
           </label>
           <div className="relative group">
             <input
               type="text"
-              placeholder="যেমন: অফিস, পার্সোনাল..."
+              placeholder={tr('dialogs.tagExample')}
               value={newTagInput}
               onChange={(e) => setNewTagInput(e.target.value)}
               onKeyDown={handleKeyDown}

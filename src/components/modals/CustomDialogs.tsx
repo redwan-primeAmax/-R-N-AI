@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
 import { X } from 'lucide-react';
+import { t as tr } from '../../utils/translator';
 
 interface TagManagerDialogProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ export function TagManagerDialog({
   isOpen,
   onClose,
   tags: initialTags = [],
-  placeholder = "নতুন ট্যাগ লিখে এন্টার চাপুন...",
+  placeholder,
   onSave
 }: TagManagerDialogProps) {
   const [currentTags, setCurrentTags] = useState<string[]>(initialTags);
@@ -56,7 +57,7 @@ export function TagManagerDialog({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="ট্যাগ">
+    <Modal isOpen={isOpen} onClose={onClose} title={tr('dialogs.tags')}>
       <div className="space-y-6">
         {/* Existing tags list */}
         <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto p-1 custom-scrollbar border border-white/5 bg-black/25 rounded-2xl min-h-[60px] items-center px-3">
@@ -77,7 +78,7 @@ export function TagManagerDialog({
               </span>
             ))
           ) : (
-            <p className="text-xs text-white/40 italic py-2">কোনো ট্যাগ তৈরি করা হয়নি</p>
+            <p className="text-xs text-white/40 italic py-2">{tr('dialogs.noTags')}</p>
           )}
         </div>
 
@@ -87,7 +88,7 @@ export function TagManagerDialog({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={placeholder}
+            placeholder={placeholder ?? tr('dialogs.tagPlaceholder')}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-blue-500 outline-none text-white font-medium text-sm"
             autoFocus
             onKeyDown={(e) => {
@@ -97,16 +98,16 @@ export function TagManagerDialog({
               }
             }}
           />
-          <p className="text-[10px] text-white/30 px-1 font-bold uppercase tracking-wider">ট্যাগটি লিখে এন্টার চাপুন অথবা নিচে "সেভ করুন" বাটনে ক্লিক করুন</p>
+          <p className="text-[10px] text-white/30 px-1 font-bold uppercase tracking-wider">{tr('dialogs.tagHint')}</p>
         </div>
 
         {/* Buttons */}
         <div className="flex gap-3 pt-2">
           <button onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-[18px] font-bold transition-all text-white/60 text-xs uppercase tracking-wider">
-            বন্ধ করুন (Close)
+            {tr('dialogs.close')}
           </button>
           <button onClick={handleSave} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-[18px] font-bold transition-all text-white text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20">
-            সেভ করুন (Save)
+            {tr('dialogs.save')}
           </button>
         </div>
       </div>
@@ -134,8 +135,8 @@ export function InputDialog({
   placeholder, 
   initialValue = '', 
   type = 'text',
-  confirmText = 'নিশ্চিত করুন',
-  cancelText = 'বাতিল'
+  confirmText,
+  cancelText
 }: InputDialogProps) {
   const [value, setValue] = useState(initialValue);
   const [error, setError] = useState('');
@@ -152,7 +153,7 @@ export function InputDialog({
     if (busy) return;
     setBusy(true);
     try { await onConfirm(value); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : 'আবার চেষ্টা করুন'); }
+    catch (e) { setError(e instanceof Error ? e.message : tr('dialogs.tryAgain')); }
     finally { setBusy(false); }
   };
 
@@ -165,7 +166,7 @@ export function InputDialog({
           disabled={busy}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={placeholder}
+          placeholder={placeholder ?? tr('dialogs.tagPlaceholder')}
           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-blue-500 outline-none text-white font-medium"
           autoFocus
           onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
@@ -173,10 +174,10 @@ export function InputDialog({
         {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-[18px] font-bold transition-all text-white/60">
-            {cancelText}
+            {cancelText ?? tr('dialogs.cancel')}
           </button>
           <button disabled={busy} onClick={handleConfirm} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-[18px] font-bold transition-all text-white">
-            {confirmText}
+            {confirmText ?? tr('dialogs.confirm')}
           </button>
         </div>
       </div>
@@ -201,8 +202,8 @@ export function ConfirmDialog({
   onConfirm, 
   title, 
   message, 
-  confirmText = 'হ্যাঁ', 
-  cancelText = 'না',
+  confirmText, 
+  cancelText,
   variant = 'primary'
 }: ConfirmDialogProps) {
   return (
@@ -211,13 +212,13 @@ export function ConfirmDialog({
         <p className="text-sm text-white/60 leading-relaxed font-medium">{message}</p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-[18px] font-bold transition-all text-white/60">
-            {cancelText}
+            {cancelText ?? tr('dialogs.cancel')}
           </button>
           <button 
             onClick={() => { onConfirm(); onClose(); }} 
             className={`flex-1 py-3 ${variant === 'danger' ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded-[18px] font-bold transition-all text-white`}
           >
-            {confirmText}
+            {confirmText ?? tr('dialogs.confirm')}
           </button>
         </div>
       </div>

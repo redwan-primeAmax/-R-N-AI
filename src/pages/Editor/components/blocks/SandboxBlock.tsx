@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { t as tr } from '../../../../utils/translator';
 import { Code2, Play, RefreshCw, Palette, Terminal, Sparkles, Trash2, FileText } from 'lucide-react';
 import { cn } from '../../../../utils/cn';
 
@@ -116,7 +117,7 @@ export const SandboxBlock = ({ block, handleBlockChange, isReadOnly }: any) => {
     </style>
   </head>
   <body>
-    <div>HTML, CSS, বা JS ট্যাবে কোড লিখলে এখানে লাইভ আউটপুট দেখাবে...</div>
+    <div>{tr('sandbox.empty')}</div>
   </body>
 </html>`;
     }

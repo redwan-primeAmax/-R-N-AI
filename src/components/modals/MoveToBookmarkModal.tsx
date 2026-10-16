@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
 import { DataManager } from '../../services/storage/DataManager';
@@ -55,10 +56,10 @@ export const MoveToBookmarkModal: React.FC<MoveToBookmarkModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="বুকমার্ক নির্বাচন">
+    <Modal isOpen={isOpen} onClose={onClose} title={tr('dialogs.selectBookmark')}>
       <div className="p-6">
         <div className="mb-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-1 mb-2">নোট: {noteTitle}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-1 mb-2">{tr('dialogs.noteLabel')}: {noteTitle}</p>
           <div className="flex items-center justify-between mb-4">
              <div className="flex items-center gap-2">
                 {currentParentId && (
@@ -66,11 +67,11 @@ export const MoveToBookmarkModal: React.FC<MoveToBookmarkModalProps> = ({
                     onClick={handleBack}
                     className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-white/60 hover:text-white"
                   >
-                    পিছনে
+                    {tr('dialogs.back')}
                   </button>
                 )}
                 <span className="text-xs font-bold text-blue-400">
-                  {currentParentId ? 'সাব-ফোল্ডার' : 'রুট ডিরেক্টরি'}
+                  {currentParentId ? tr('dialogs.subFolder') : tr('dialogs.rootDirectory')}
                 </span>
              </div>
              <button 
@@ -92,7 +93,7 @@ export const MoveToBookmarkModal: React.FC<MoveToBookmarkModalProps> = ({
                    <input 
                       autoFocus
                       type="text"
-                      placeholder="ফোল্ডারের নাম..."
+                      placeholder={tr('dialogs.folderName')}
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
@@ -102,7 +103,7 @@ export const MoveToBookmarkModal: React.FC<MoveToBookmarkModalProps> = ({
                       onClick={handleCreateFolder}
                       className="px-4 py-2 bg-blue-600 rounded-xl text-xs font-bold text-white"
                    >
-                      তৈরি
+                      {tr('dialogs.create')}
                    </button>
                 </motion.div>
              )}
@@ -129,14 +130,14 @@ export const MoveToBookmarkModal: React.FC<MoveToBookmarkModalProps> = ({
                     }}
                     className="px-4 py-2 bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-90 transition-all"
                   >
-                    Select
+                    {tr('common.select')}
                   </button>
                   <ChevronRight size={16} className="text-white/10" />
                 </div>
               </div>
             ))
           ) : (
-            <div className="py-10 text-center text-white/10 italic text-xs">এই ডিরেক্টরিতে কোনো ফোল্ডার নেই</div>
+            <div className="py-10 text-center text-white/10 italic text-xs">{tr('dialogs.noFoldersHere')}</div>
           )}
         </div>
 
@@ -145,13 +146,13 @@ export const MoveToBookmarkModal: React.FC<MoveToBookmarkModalProps> = ({
             onClick={() => onMove(currentParentId)}
             className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white/60 transition-all active:scale-95"
           >
-            এখানে সেট করুন
+            {tr('dialogs.setHere')}
           </button>
           <button 
             onClick={onClose}
             className="flex-1 py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest text-red-500 transition-all active:scale-95"
           >
-            বাতিল
+            {tr('dialogs.cancel')}
           </button>
         </div>
       </div>

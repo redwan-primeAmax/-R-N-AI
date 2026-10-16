@@ -2,7 +2,7 @@ import { ThemeConfig } from '../types';
 
 export const DarkGraphiteTheme: ThemeConfig = {
   id: 'dark-graphite',
-  name: 'Midnight Dark (কয়লা কালো)',
+  name: 'Midnight Dark',
   className: 'theme-dark-graphite',
   previewColor: 'bg-[#1a1a1a] border-white/10',
   description: 'Professional dark mode'

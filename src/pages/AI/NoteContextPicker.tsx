@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { t as tr } from '../../utils/translator';
 import { Virtuoso } from 'react-virtuoso';
 import { Check } from 'lucide-react';
 import { Modal } from '../../components/modals/Modal';
@@ -14,8 +15,8 @@ export default function NoteContextPicker({ notes, selectedNotes, onToggle, onCl
 }) {
   const selected = useMemo(() => new Set(selectedNotes.map(n => n.id)), [selectedNotes]);
   return (
-    <Modal isOpen onClose={onClose} title="নোট সিলেক্ট করুন" id="ai-note-context">
-      {notes.length === 0 ? <p className="text-center py-8 text-[#9B9990] text-sm">কোনো নোট পাওয়া যায়নি।</p> : (
+    <Modal isOpen onClose={onClose} title={tr('dialogs.selectNote')} id="ai-note-context">
+      {notes.length === 0 ? <p className="text-center py-8 text-[#9B9990] text-sm">{tr('dialogs.noNotesFound')}</p> : (
         <Virtuoso style={{ height: 'min(45dvh, 360px)' }} data={notes} increaseViewportBy={100}
           computeItemKey={(_, note) => note.id}
           itemContent={(_, note) => (
@@ -24,7 +25,7 @@ export default function NoteContextPicker({ notes, selectedNotes, onToggle, onCl
               selected.has(note.id) ? 'bg-[#D97757]/10 border-[#D97757]/50 text-[#D97757]' : 'bg-[#2B2A27] border-transparent text-[#ECEBE6]/80 hover:border-[#363430]'
             )}>
               <span className="text-lg shrink-0">{note.emoji || '📝'}</span>
-              <span className="flex-1 min-w-0 font-bold text-sm truncate">{note.title || 'শিরোনামহীন'}</span>
+              <span className="flex-1 min-w-0 font-bold text-sm truncate">{note.title || tr('nav.untitled')}</span>
               {selected.has(note.id) && <Check size={18} strokeWidth={3} />}
             </button></div>
           )}

@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { t as tr } from '../../../utils/translator';
 import { db } from '../../../services/storage/DexieDB';
 
 import { DataManager, Note } from '../../../services/storage/DataManager';
@@ -120,7 +121,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       const hasChanges = isContentDiff || isTitleDiff || isEmojiDiff || isThemeDiff || isTagsDiff;
 
       if (hasChanges) {
-        const updatedTitle = titleRef.current || 'শিরোনামহীন';
+        const updatedTitle = titleRef.current || tr('nav.untitled');
         const updatedEmoji = emojiRef.current || '📝';
         
         try {
@@ -271,7 +272,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
         if (hasChanges) {
           const currentNote = noteRef.current;
-          const updatedTitle = titleRef.current || 'শিরোনামহীন';
+          const updatedTitle = titleRef.current || tr('nav.untitled');
           const updatedEmoji = emojiRef.current || '📝';
           
           DataManager.saveNote({
@@ -317,7 +318,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
 
         if (hasChanges) {
           const currentNote = noteRef.current;
-          const updatedTitle = titleRef.current || 'শিরোনামহীন';
+          const updatedTitle = titleRef.current || tr('nav.untitled');
           const updatedEmoji = emojiRef.current || '📝';
           
           DataManager.saveNote({
@@ -441,7 +442,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         }];
         
         setNotification({
-          message: 'বড় নোট সঠিকভাবে লোড হয়নি, সেফ মোডে ওপেন করা হচ্ছে।',
+          message: tr('toast.largeNoteSafeMode'),
           type: 'error'
         });
         setTimeout(() => setNotification(null), 4000);
@@ -466,7 +467,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       }
 
       if (draftRestored) {
-        setNotification({ message: 'অসংরক্ষিত ড্রাফট উদ্ধার করা হয়েছে (Unsaved draft restored!)', type: 'info' });
+        setNotification({ message: tr('toast.draftRestored'), type: 'info' });
         setTimeout(() => setNotification(null), 3000);
       }
     } else {
@@ -495,7 +496,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
       setSaveError(null);
 
       try {
-        const updatedTitle = titleRef.current || 'শিরোনামহীন';
+        const updatedTitle = titleRef.current || tr('nav.untitled');
         const updatedEmoji = emojiRef.current || '📝';
         const updatedNote = await DataManager.saveNote({ 
           ...noteRef.current, 
@@ -515,7 +516,7 @@ export function useEditorState(id: string | undefined, blocksRefs?: React.Mutabl
         setSaveError(null);
       } catch (err) {
         console.error('Save failed:', err);
-        setSaveError('সংরক্ষণ করতে ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ চেক করুন।');
+        setSaveError(tr('toast.saveFailedConn'));
       } finally {
         isSavingRef.current = false;
         setIsSaving(false);

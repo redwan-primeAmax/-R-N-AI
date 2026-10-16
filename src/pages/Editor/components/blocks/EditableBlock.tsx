@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { t as tr } from '../../../../utils/translator';
 import DOMPurify from 'dompurify';
 import { cn } from '../../../../utils/cn';
 import { EditorBlock, cleanBlockHTML } from '../../../../utils/blockParser';
@@ -126,7 +127,7 @@ export const EditableBlock = ({
   };
 
   const isHighlighted = editor?.activeBlockId === block.id;
-  const placeholder = block.type === 'toggle' ? "টগল লিস্ট" : (block.type.startsWith('toggle_h') ? "টগল হেডিং" : "");
+  const placeholder = block.type === 'toggle' ? tr('editable.toggleList') : (block.type.startsWith('toggle_h') ? tr('editable.toggleHeading') : "");
 
   return (
     <div 

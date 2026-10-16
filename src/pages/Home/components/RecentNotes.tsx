@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { t as tr } from '../../../utils/translator';
 import { m as motion } from 'framer-motion';
 import { FileText, Clock } from 'lucide-react';
 import { PageIcon } from '../../../components/PageIcon';
@@ -28,7 +29,7 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({ notes, onNoteClick }) 
       <div className="flex items-center gap-1.5 mb-3 px-5">
         <Clock size={12} className="text-amber-400" />
         <h2 className="text-[11px] font-bold uppercase tracking-wider text-white/50">
-          সাম্প্রতিক নোটস
+          {tr('recent.title')}
         </h2>
       </div>
 
@@ -50,7 +51,7 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({ notes, onNoteClick }) 
                   )}
                 </div>
                 <div className="font-bold text-[12px] truncate w-full text-white/90">
-                  {note.title || 'শিরোনামহীন নোট'}
+                  {note.title || tr('nav.untitled')}
                 </div>
               </div>
             </motion.button>

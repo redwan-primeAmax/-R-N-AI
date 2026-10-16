@@ -23,6 +23,7 @@ import { useVisualViewport } from '../../hooks/useVisualViewport';
 import { notify } from '../../utils/notify';
 import { cn } from '../../utils/cn';
 import { useLanguage } from '../../utils/translator';
+import { t as tr } from '../../utils/translator';
 
 const NoteContextPicker = lazy(() => import('./NoteContextPicker'));
 
@@ -190,7 +191,7 @@ const ChatMessageItem: React.FC<{
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
     processedText = processedText.replace(uuidRegex, (id) => {
       const title = noteTitles.get(id.toLowerCase());
-      return title !== undefined ? `"${title || 'শিরোনামহীন'}"` : id;
+      return title !== undefined ? `"${title || tr('nav.untitled')}"` : id;
     });
 
     // 3. Identify if there are commands (even if unclosed)
@@ -345,7 +346,7 @@ const ChatMessageItem: React.FC<{
                 className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95"
               >
                 <Settings size={14} />
-                <span>AI Settings খুলুন (API Key কনফিগার করুন)</span>
+                <span>{tr('chat.openSettings')}</span>
               </button>
             </div>
           )}
@@ -495,7 +496,7 @@ export default function AIChat() {
       return;
     }
     if (!aiSettings || (aiSettings.selectedProvider !== 'local' && !aiSettings.apiKeys[aiSettings.selectedProvider]?.trim())) {
-      notify('AI Settings থেকে নির্বাচিত provider-এর API Key দিন।', 'error');
+      notify(tr('chat.apiKeyNeeded'), 'error');
       return;
     }
     busy.current = true; // React state alone cannot prevent two same-frame clicks.
@@ -595,7 +596,7 @@ export default function AIChat() {
         if (!currentTags.includes(tag)) {
           await DataManager.updateNote(noteId, { tags: [...currentTags, tag] });
           window.dispatchEvent(new CustomEvent('app-notification', { 
-            detail: { message: `ট্যাগ যোগ করা হয়েছে: ${tag}`, type: 'success' } 
+            detail: { message: `${tr('chat.tagAdded')}: ${tag}`, type: 'success' } 
           }));
         }
       }

@@ -10,6 +10,7 @@
  */
 
 import { initializeApp, getApps, getApp } from '@firebase/app';
+import { t as tr } from '../utils/translator';
 import { 
   getAuth, 
   signInWithPopup, 
@@ -61,14 +62,14 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     console.error('Google Sign In failed:', err);
     if (err?.code === 'auth/unauthorized-domain') {
       throw new Error(
-        `বর্তমান ডোমেইন (${window.location.hostname}) Firebase এ অনুমোদিত নয়। Firebase Console > Authentication > Settings > Authorized Domains-এ '${window.location.hostname}' ডোমেইনটি যোগ করুন।`
+        tr('auth.domain', { host: window.location.hostname })
       );
     } else if (err?.code === 'auth/popup-blocked') {
-      throw new Error('ব্রাউজারে পপ-আপ উইন্ডো ব্লক করা আছে। অনুগ্রহ করে পপ-আপ অনুমতি দিয়ে আবার চেষ্টা করুন।');
+      throw new Error(tr('auth.popupBlocked'));
     } else if (err?.code === 'auth/popup-closed-by-user') {
-      throw new Error('সাইন-ইন পপ-আপ উইন্ডোটি সময়মতো শেষ করার আগেই বন্ধ করা হয়েছে।');
+      throw new Error(tr('auth.popupClosed'));
     }
-    throw new Error(err?.message || 'গুগল সাইন-ইন করতে ব্যর্থ হয়েছে।');
+    throw new Error(err?.message || tr('auth.signInFailed'));
   } finally {
     isSigningIn = false;
   }

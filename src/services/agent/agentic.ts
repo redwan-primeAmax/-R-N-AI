@@ -10,6 +10,7 @@
  */
 
 import { DataManager, ChatMessage, Note } from '../storage/DataManager';
+import { t as tr } from '../../utils/translator';
 import { AIService, AIServiceOptions } from './AIService';
 import { executeAICommands } from './AICommandExecutor';
 import type { Dispatch, SetStateAction } from 'react';
@@ -189,7 +190,7 @@ async function callDirectAI(
     });
   }
 
-  throw new Error(`সাপোর্ট না করা AI প্রোভাইডার: ${provider}`);
+  throw new Error(tr('agent.unsupportedProvider', { provider }));
 }
 
 export class AgenticAIService extends AIService {
@@ -250,7 +251,7 @@ export class AgenticAIService extends AIService {
       if (isStaticHost) {
         if (!effectiveApiKey) {
           throw new Error(
-            "GitHub Pages একটি স্ট্যাটিক সাইট হওয়ায় কোনো ব্যাকএন্ড সার্ভার নেই। সরাসরি AI ব্যবহারের জন্য সেটিংস (AI Settings) এ গিয়ে আপনার Gemini বা OpenRouter API Key দিন।"
+            tr('agent.staticSite')
           );
         }
         response = await callDirectAI(provider, model, contents, finalSystemPrompt, effectiveApiKey, controller.signal);
@@ -277,7 +278,7 @@ export class AgenticAIService extends AIService {
               response = await callDirectAI(provider, model, contents, finalSystemPrompt, effectiveApiKey, controller.signal);
             } else {
               throw new Error(
-                `সার্ভার প্রক্সি পাওয়া যায়নি (HTTP ${response.status})। সরাসরি ব্রাউজার থেকে AI চালাতে AI Settings এ গিয়ে আপনার API Key দিন।`
+                tr('agent.proxyMissing', { status: response.status })
               );
             }
           }

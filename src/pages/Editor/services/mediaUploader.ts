@@ -10,6 +10,7 @@
  */
 
 import { operationRunner } from '../../../services/storage/OperationRunner';
+import { t as tr } from '../../../utils/translator';
 
 export interface UploadOptions {
   file: File;
@@ -38,7 +39,7 @@ export async function uploadAndInsertMedia({
 
   // Limit size to 50MB
   if (file.size > 50 * 1024 * 1024) {
-    alert("ফাইলটি অত্যন্ত বড় (সর্বোচ্চ ৫০ এমবি গ্রহণযোগ্য)!");
+    alert(tr('media.fileTooLarge'));
     return;
   }
 
@@ -91,6 +92,6 @@ export async function uploadAndInsertMedia({
     if (onError) {
       onError(err);
     }
-    alert('ফাইল আপলোড শুরু করতে ব্যর্থ হয়েছে!');
+    alert(tr('media.uploadFailed'));
   }
 }

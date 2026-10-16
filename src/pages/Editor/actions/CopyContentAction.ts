@@ -11,11 +11,12 @@
 
 import { ClipboardCopy, Check } from 'lucide-react';
 import { EditorBlock, blocksToHtml } from '../../../utils/blockParser';
+import { t as tr } from '../../../utils/translator';
 
 export const copyContentAction = {
   icon: (isCopied: boolean) => isCopied ? Check : ClipboardCopy,
-  label: "কপি পেজ কন্টেন্ট (Copy Content)",
-  subtitle: "পুরো পেজের টেক্সট কপি করুন",
+  get label() { return tr('actions.copyContent'); },
+  get subtitle() { return tr('actions.copyContentSub'); },
   onClick: async (blocks: EditorBlock[], setCopied: (v: boolean) => void) => {
     const text = blocks.map(b => {
       // Strip HTML

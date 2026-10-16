@@ -116,7 +116,7 @@ export default function Sidebar({
             <button 
               onClick={(e) => toggleExpand(e, note.id)}
               className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white"
-              aria-label="টগল সাব-পেজ"
+              aria-label={t('nav.toggleSubpages')}
             >
               <motion.div animate={{ rotate: isExpanded ? 90 : 0 }}>
                 <ChevronRight size={13} />
@@ -295,7 +295,7 @@ export default function Sidebar({
                               setShowMoveTo(note);
                             }}
                             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-all"
-                            title="মোভ করুন (Move To)"
+                            title={t('nav.moveTo')}
                           >
                             <MoreHorizontal size={14} />
                           </button>

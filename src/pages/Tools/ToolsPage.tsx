@@ -12,117 +12,172 @@
 import { m as motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles, Wrench, ArrowLeft,
-  Layout, Compass, ArrowRight, Wand2
+  Sparkles, Wrench, ArrowLeft, ArrowRight,
+  Layout, Compass, Wand2, MousePointerClick, FileJson2, Rocket
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useLanguage } from '../../utils/translator';
 
+/**
+ * ToolsPage — full rewrite.
+ *
+ * One design system, shared with the Content Architect page:
+ * warm charcoal background, a single amber accent, 24px-radius surface
+ * cards with hairline borders, the same sticky glass header, the same
+ * eyebrow + title typography, and 8px-rhythm spacing throughout.
+ */
 export default function ToolsPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
-  const tools = [
-    {
-      title: t('tools.architect'),
-      description: t('tools.architectDesc'),
-      icon: <Sparkles className="w-6 h-6" />,
-      path: '/external-ai-import',
-      gradient: 'from-amber-400 to-orange-600',
-      glow: 'group-hover:border-amber-400/40',
-      badge: t('tools.badgeAi'),
-    },
-    {
-      title: t('tools.templates'),
-      description: t('tools.templatesDesc'),
-      icon: <Layout className="w-6 h-6" />,
-      path: '/template',
-      gradient: 'from-teal-400 to-emerald-600',
-      glow: 'group-hover:border-teal-400/40',
-      badge: t('tools.badgeLibrary'),
-    }
+  const steps = [
+    { icon: MousePointerClick, label: t('architect.step1') },
+    { icon: FileJson2, label: t('architect.step3') },
+    { icon: Rocket, label: t('architect.importNew') },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0c0a09] text-white flex flex-col font-sans overflow-x-hidden">
-      {/* Ambient background */}
-      <div className="pointer-events-none fixed -top-32 right-0 w-[420px] h-[420px] bg-amber-500/[0.07] blur-[110px] rounded-full" />
-      <div className="pointer-events-none fixed bottom-0 -left-24 w-[380px] h-[380px] bg-teal-500/[0.05] blur-[110px] rounded-full" />
+    <div className="min-h-screen bg-[#0E0D0B] text-white font-sans overflow-x-hidden flex flex-col">
+      {/* Ambient glow (same warm accent everywhere) */}
+      <div className="pointer-events-none fixed -top-40 right-0 w-[420px] h-[420px] bg-amber-500/[0.07] blur-[120px] rounded-full" />
+      <div className="pointer-events-none fixed bottom-0 -left-32 w-[360px] h-[360px] bg-amber-600/[0.04] blur-[120px] rounded-full" />
 
-      <header className="relative px-5 sm:px-8 pt-6 pb-5 flex items-center gap-4 sticky top-0 bg-[#0c0a09]/85 backdrop-blur-2xl z-[100] border-b border-white/[0.06]">
-        <button
-          onClick={() => navigate('/main')}
-          className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/[0.07] rounded-2xl transition-all active:scale-90"
-          title={t('tools.backToMain')}
-          aria-label={t('common.back')}
-        >
-          <ArrowLeft size={21} className="text-white/80" />
-        </button>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Wrench size={11} className="text-amber-400" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('tools.eyebrow')}</span>
+      {/* Header — identical pattern to the Architect page header */}
+      <header className="sticky top-0 z-[100] bg-[#0E0D0B]/85 backdrop-blur-2xl border-b border-white/[0.06]">
+        <div className="max-w-5xl mx-auto w-full px-5 sm:px-8 py-4 flex items-center gap-4">
+          <button
+            onClick={() => navigate('/main')}
+            className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] rounded-2xl transition-all active:scale-90"
+            aria-label={t('common.back')}
+          >
+            <ArrowLeft size={21} className="text-white/85" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Wrench size={11} className="text-amber-400" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300/70">
+                {t('tools.eyebrow')}
+              </span>
+            </div>
+            <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">
+              {t('tools.title')}
+            </h1>
           </div>
-          <h1 className="text-[26px] font-black tracking-tight leading-tight truncate">
-            {t('tools.title')}
-          </h1>
+          <span className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-[10px] font-black uppercase tracking-wider text-amber-300 shrink-0">
+            {t('tools.available', { count: 2 })}
+          </span>
         </div>
       </header>
 
-      <main className="relative flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 py-8 pb-32">
-        <p className="text-sm text-white/40 font-medium leading-relaxed max-w-xl">
+      <main className="relative flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 py-7 sm:py-9 pb-28">
+        {/* Intro */}
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="text-[15px] leading-relaxed text-white/45 font-medium max-w-2xl"
+        >
           {t('tools.subtitle')}
-        </p>
+        </motion.p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
-          {tools.map((tool, idx) => (
-            <motion.button
-              key={tool.path}
-              type="button"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.08, duration: 0.4 }}
-              onClick={() => navigate(tool.path)}
-              className={cn(
-                "group text-left p-6 sm:p-7 rounded-[28px] bg-white/[0.03] border border-white/[0.07]",
-                "hover:bg-white/[0.05] transition-all cursor-pointer relative overflow-hidden shadow-xl active:scale-[0.99]",
-                tool.glow
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span className={cn(
-                  "w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-105 duration-300",
-                  tool.gradient
-                )}>
-                  {tool.icon}
+        {/* Featured tool — AI Content Architect */}
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.05 }}
+          onClick={() => navigate('/external-ai-import')}
+          className="group w-full text-left mt-7 rounded-3xl border border-amber-400/[0.16] bg-gradient-to-br from-amber-400/[0.09] via-white/[0.03] to-transparent p-6 sm:p-8 shadow-2xl hover:border-amber-400/30 transition-colors active:scale-[0.995]"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-300 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/25 shrink-0">
+              <Sparkles size={26} />
+            </span>
+            <span className="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/25 text-[9px] font-black uppercase tracking-[0.18em] text-amber-300 shrink-0">
+              {t('tools.badgeAi')}
+            </span>
+          </div>
+
+          <h2 className="text-[22px] sm:text-2xl font-black tracking-tight mt-5">
+            {t('tools.architect')}
+          </h2>
+          <p className="text-sm leading-relaxed text-white/45 font-medium mt-2 max-w-xl">
+            {t('tools.architectDesc')}
+          </p>
+
+          {/* Mini workflow */}
+          <div className="flex flex-wrap items-center gap-2 mt-6">
+            {steps.map((step, i) => (
+              <span key={i} className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/25 border border-white/[0.07] text-[10px] font-bold text-white/55">
+                  <step.icon size={12} className="text-amber-300" />
+                  {step.label}
                 </span>
-                <span className="px-3 py-1 bg-white/[0.05] rounded-full border border-white/[0.07] text-[9px] font-black uppercase tracking-[0.18em] text-white/40">
-                  {tool.badge}
-                </span>
-              </div>
-
-              <h3 className="text-xl font-black tracking-tight mt-5">{tool.title}</h3>
-              <p className="text-[13px] text-white/40 leading-relaxed font-medium mt-2">{tool.description}</p>
-
-              <span className="mt-6 flex items-center justify-between text-white/30 group-hover:text-amber-300 transition-colors">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t('tools.open')}</span>
-                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1.5" />
+                {i < steps.length - 1 && <ArrowRight size={12} className="text-white/20" />}
               </span>
-            </motion.button>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Coming soon */}
-        <div className="mt-12 rounded-[28px] border border-dashed border-white/[0.09] bg-white/[0.015] px-6 py-10 flex flex-col items-center text-center">
-          <span className="w-12 h-12 rounded-full bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/35">
-            <Compass size={20} />
+          <span className="mt-7 flex items-center justify-between border-t border-white/[0.06] pt-5">
+            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
+              {t('tools.open')}
+            </span>
+            <span className="w-9 h-9 rounded-full bg-amber-400 text-black flex items-center justify-center transition-transform group-hover:translate-x-1">
+              <ArrowRight size={17} strokeWidth={2.5} />
+            </span>
           </span>
-          <h4 className="text-sm font-black tracking-wide mt-4 flex items-center gap-2">
-            <Wand2 size={14} className="text-amber-400/70" />
-            {t('tools.comingSoon')}
-          </h4>
-          <p className="text-xs text-white/30 font-medium mt-1.5 max-w-xs leading-relaxed">{t('tools.comingSoonDesc')}</p>
-        </div>
+        </motion.button>
+
+        {/* Second tool — Templates */}
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.12 }}
+          onClick={() => navigate('/template')}
+          className="group w-full text-left mt-5 rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6 sm:p-7 shadow-xl hover:bg-white/[0.045] hover:border-white/[0.12] transition-colors active:scale-[0.995]"
+        >
+          <div className="flex items-center gap-5">
+            <span className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-amber-300 shrink-0">
+              <Layout size={25} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-lg font-black tracking-tight">{t('tools.templates')}</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[9px] font-black uppercase tracking-[0.18em] text-white/40">
+                  {t('tools.badgeLibrary')}
+                </span>
+              </span>
+              <span className="block text-[13px] leading-relaxed text-white/40 font-medium mt-1.5">
+                {t('tools.templatesDesc')}
+              </span>
+            </span>
+            <span className="w-9 h-9 rounded-full bg-white/[0.05] border border-white/[0.08] text-white/60 flex items-center justify-center shrink-0 transition-all group-hover:bg-amber-400 group-hover:text-black group-hover:border-amber-400">
+              <ArrowRight size={17} strokeWidth={2.5} />
+            </span>
+          </div>
+        </motion.button>
+
+        {/* Coming soon — same card language, dashed border */}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.19 }}
+          className="mt-5 rounded-3xl border border-dashed border-white/[0.1] bg-white/[0.015] p-6 sm:p-7 flex items-center gap-5"
+        >
+          <span className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/35 shrink-0">
+            <Compass size={21} />
+          </span>
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 text-sm font-black tracking-wide">
+              <Wand2 size={14} className="text-amber-400/80" />
+              {t('tools.comingSoon')}
+            </span>
+            <span className="block text-xs leading-relaxed text-white/30 font-medium mt-1">
+              {t('tools.comingSoonDesc')}
+            </span>
+          </span>
+        </motion.div>
       </main>
     </div>
   );

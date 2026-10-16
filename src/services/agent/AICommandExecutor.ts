@@ -1,4 +1,5 @@
 import { DataManager } from '../storage/DataManager';
+import { t as tr } from '../../utils/translator';
 import { Note } from '../../types/note';
 import { AgentService } from './AgentService';
 
@@ -69,7 +70,7 @@ export const executeAICommands = async (text: string) => {
         };
         await DataManager.saveNote(newNote);
         window.dispatchEvent(new CustomEvent('app-notification', { 
-          detail: { message: `AI: নতুন পেজ তৈরি করা হয়েছে "${title}"`, type: 'success' } 
+          detail: { message: tr('aiCmd.created', { title }), type: 'success' } 
         }));
         results.push({ type: 'create_page', status: 'success', id, title });
       }
@@ -91,7 +92,7 @@ export const executeAICommands = async (text: string) => {
           existing.updatedAt = Date.now();
           await DataManager.saveNote(existing);
           window.dispatchEvent(new CustomEvent('app-notification', { 
-            detail: { message: `AI: আপডেটেড পেজ "${existing.title}"`, type: 'success' } 
+            detail: { message: tr('aiCmd.updated', { title: existing.title }), type: 'success' } 
           }));
           results.push({ type: 'update_page', status: 'success', id, title: existing.title });
         }
@@ -113,7 +114,7 @@ export const executeAICommands = async (text: string) => {
           existing.updatedAt = Date.now();
           await DataManager.saveNote(existing);
           window.dispatchEvent(new CustomEvent('app-notification', { 
-            detail: { message: `AI: পেজ এডিট সম্পন্ন হয়েছে "${existing.title}"`, type: 'success' } 
+            detail: { message: tr('aiCmd.edited', { title: existing.title }), type: 'success' } 
           }));
           results.push({ type: 'replace_content', status: 'success', id, title: existing.title });
         }
@@ -130,7 +131,7 @@ export const executeAICommands = async (text: string) => {
         if (existing) {
           await DataManager.deleteNote(id);
           window.dispatchEvent(new CustomEvent('app-notification', { 
-            detail: { message: `AI: পেজ মুছে ফেলা হয়েছে (রিসাইকেল বিনে পাঠানো হয়েছে) "${existing.title}"`, type: 'info' } 
+            detail: { message: tr('aiCmd.deleted', { title: existing.title }), type: 'info' } 
           }));
           results.push({ type: 'delete_page', status: 'success', id, title: existing.title });
         }
@@ -176,7 +177,7 @@ export const executeAICommands = async (text: string) => {
   } catch (err) {
     console.error('[AICommandExecutor] Failed to parse/execute AI tags:', err);
     window.dispatchEvent(new CustomEvent('app-notification', { 
-      detail: { message: `AI: কমান্ড কার্যকর করতে সমস্যা হয়েছে।`, type: 'error' } 
+      detail: { message: tr('aiCmd.failed'), type: 'error' } 
     }));
   }
 

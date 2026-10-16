@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { t as tr } from '../../../utils/translator';
 import { Menu, Search, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../utils/cn';
@@ -57,7 +58,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
           onClick={onOpenMenu}
           id="android-menu-drawer-btn"
           className="w-9 h-9 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 active:scale-90 transition-all shrink-0"
-          aria-label="মেইন ড্রয়ার খুলুন"
+          aria-label={tr('header.openDrawer')}
         >
           <Menu size={19} strokeWidth={2.2} />
         </button>
@@ -109,7 +110,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             onClick={onOpenWorkspace}
             id="android-workspace-chip"
             className="flex items-center gap-1.5 p-1 pr-2.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 active:scale-90 transition-all"
-            title="ওয়ার্কস্পেস পরিবর্তন"
+            title={tr('header.switchWorkspace')}
           >
             <div 
               className="w-7 h-7 text-white font-black text-[11px] rounded-full flex items-center justify-center shadow-sm"
@@ -118,7 +119,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
               {currentWorkspaceName?.substring(0, 1) || 'W'}
             </div>
             <span className="text-[11px] font-bold text-white/90 max-w-[70px] truncate hidden xs:inline">
-              {currentWorkspaceName || 'নোটস'}
+              {currentWorkspaceName || tr('header.defaultWorkspace')}
             </span>
           </button>
         </div>

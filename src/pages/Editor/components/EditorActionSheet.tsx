@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { t as tr } from '../../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { FileText, ChevronRight, Plus, Box, Tag, FolderInput, Copy, Download, CopyPlus, Lock, Unlock } from 'lucide-react';
 import { Note } from '../../../services/storage/DataManager';
@@ -126,9 +127,9 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                   {note.emoji || '📄'}
                </div>
                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-base text-white/90 truncate">{note.title || 'শিরোনামহীন'}</h3>
+                  <h3 className="font-bold text-base text-white/90 truncate">{note.title || tr('nav.untitled')}</h3>
                   <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-0.5">
-                     {new Date(note.updatedAt).toLocaleDateString()} • {subPages.length} Subpages
+                     {new Date(note.updatedAt).toLocaleDateString()} • {subPages.length} {tr('sheet.subpages')}
                   </p>
                </div>
             </div>
@@ -137,7 +138,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
               {viewMode === 'subpages' ? (
                 <div className="animate-fade-in space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">অনুষঙ্গিক পাতা সমূহ</h4>
+                    <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">{tr('sheet.subpagesHeader')}</h4>
                     <button 
                       onClick={onAddSubPage}
                       className="p-2 bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 rounded-xl border border-blue-500/10 transition-all"
@@ -160,14 +161,14 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                           <div className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center text-white/20 shrink-0">
                             <FileText size={18} />
                           </div>
-                          <span className="font-bold text-xs text-white/70 truncate flex-1">{sub.title || 'শিরোনামহীন'}</span>
+                          <span className="font-bold text-xs text-white/70 truncate flex-1">{sub.title || tr('nav.untitled')}</span>
                           <ChevronRight size={16} className="text-white/10" />
                         </button>
                       ))
                     ) : (
                       <div className="p-10 border border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center opacity-30 my-3">
                         <FileText size={28} className="mb-2 text-white/40" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">কোন অনুষঙ্গিক পাতা নেই</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{tr('sheet.noSubpages')}</span>
                       </div>
                     )}
                   </div>
@@ -176,14 +177,14 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                 <div className="flex flex-col space-y-[2px]">
                   <MenuAction 
                     icon={Box} 
-                    label="অনুষঙ্গিক পাতা (Sub Pages)" 
-                    subtitle={`${subPages.length}টি অনুষঙ্গিক পাতা ব্যবস্থাপনা`}
+                    label={tr('sheet.subpages')} 
+                    subtitle={tr('sheet.subpagesManage', { count: subPages.length })}
                     onClick={() => setViewMode('subpages')} 
                   />
                   <MenuAction 
                     icon={Tag} 
-                    label="ট্যাগ ম্যানেজ (Manage Tags)" 
-                    subtitle="নোটের ট্যাগ পরিবর্তন বা যোগ করুন"
+                    label={tr('sheet.manageTags')} 
+                    subtitle={tr('sheet.manageTagsSub')}
                     onClick={() => {
                       onClose();
                       tagAction.onClick(onTag);
@@ -191,38 +192,38 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                   />
                   {!note.isLocked && <MenuAction
                     icon={Lock}
-                    label="Lock Page"
-                    subtitle="নোটের লেখা পাসওয়ার্ড দিয়ে এনক্রিপ্ট করুন"
+                    label={tr('sheet.lockPage')}
+                    subtitle={tr('sheet.lockSub')}
                     onClick={() => { onClose(); onLock(); }}
                   />}
                   <MenuAction 
                     icon={isReadOnly ? Unlock : Lock} 
-                    label="Toggle Read-Only" 
-                    subtitle={isReadOnly ? "নোট সম্পাদনা চালু করুন (Edit Mode)" : "নোট ভুলবশত পরিবর্তন রোধ করতে লক করুন"}
+                    label={tr('sheet.toggleReadonly')} 
+                    subtitle={isReadOnly ? tr('sheet.editMode') : tr('sheet.lockMode')}
                     onClick={() => readOnlyToggleAction.onClick(onToggleReadOnly)} 
                   />
                   <MenuAction 
                     icon={Copy} 
-                    label="Copy Content" 
-                    subtitle="নোটের সমস্ত টেক্সট ক্লিপবোর্ডে কপি করুন"
+                    label={tr('sheet.copyContent')} 
+                    subtitle={tr('sheet.copySub')}
                     onClick={() => copyContentAction.onClick(blocks, setIsCopied)} 
                   />
                   <MenuAction 
                     icon={Download} 
-                    label="Export Notes" 
-                    subtitle="পিডিএফ বা অন্য ফরম্যাটে ডাউনলোড করুন"
+                    label={tr('sheet.exportNotes')} 
+                    subtitle={tr('sheet.exportSub')}
                     onClick={() => exportNoteAction.onClick(onExport)} 
                   />
                   <MenuAction 
                     icon={CopyPlus} 
-                    label="Duplicate Page" 
-                    subtitle="একটি হুবহু নতুন অনুলিপি তৈরি করুন"
+                    label={tr('sheet.duplicatePage')} 
+                    subtitle={tr('sheet.duplicateSub')}
                     onClick={() => { onCopy(); onClose(); }} 
                   />
                   <MenuAction 
                     icon={FolderInput} 
-                    label="Move To" 
-                    subtitle="অন্য ফোল্ডার বা ডিরেক্টরিতে স্থানান্তর করুন"
+                    label={tr('sheet.moveTo')} 
+                    subtitle={tr('sheet.moveSub')}
                     onClick={handleMoveTo} 
                   />
                 </div>
@@ -234,7 +235,7 @@ export const EditorActionSheet: React.FC<EditorActionSheetProps> = ({
                 onClick={viewMode === 'subpages' ? () => setViewMode('main') : onClose}
                 className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all text-white/40 border border-white/5 active:scale-[0.98]"
               >
-                {viewMode === 'subpages' ? "ফিরে যান (Back)" : "বন্ধ করুন (Close)"}
+                {viewMode === 'subpages' ? tr('common.back') : tr('dialogs.close')}
               </button>
             </div>
           </motion.div>

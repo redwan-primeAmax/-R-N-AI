@@ -105,7 +105,7 @@ const AIConfigurationPage: React.FC = () => {
     if (!settings) return;
     setDraftSettings(JSON.parse(JSON.stringify(settings)));
     setNewModel('');
-    setStatus({ type: 'info', message: 'পরিবর্তন বাতিল করা হয়েছে।' });
+    setStatus({ type: 'info', message: t('aiConfig.changesDiscarded') });
   };
 
   const handleUndo = async () => {
@@ -115,9 +115,9 @@ const AIConfigurationPage: React.FC = () => {
       await DataManager.saveAISettings(prevSettings);
       setSettings(prevSettings);
       setDraftSettings(JSON.parse(JSON.stringify(prevSettings)));
-      setStatus({ type: 'success', message: 'আগের অবস্থায় ফিরে যাওয়া হয়েছে।' });
+      setStatus({ type: 'success', message: t('aiConfig.reverted') });
     } catch (err: any) {
-      setStatus({ type: 'error', message: 'ত্রুটি: ' + err.message });
+      setStatus({ type: 'error', message: t('aiConfig.errorPrefix') + err.message });
     } finally {
       setIsSaving(false);
     }
@@ -143,7 +143,7 @@ const AIConfigurationPage: React.FC = () => {
     };
 
     setIsSaving(true);
-    setStatus({ type: 'info', message: 'সেটিংস সেভ হচ্ছে...' });
+    setStatus({ type: 'info', message: t('aiConfig.savingSettings') });
     try {
       setPrevSettings(JSON.parse(JSON.stringify(settings)));
       await DataManager.saveAISettings(cleanedSettings);
@@ -152,11 +152,11 @@ const AIConfigurationPage: React.FC = () => {
       setDraftSettings(savedCopy);
       setStatus({
         type: 'success',
-        message: 'সেটিংস সফলভাবে সেভ হয়েছে।',
+        message: t('aiConfig.savedSettings'),
         showUndo: true
       });
     } catch (err: any) {
-      setStatus({ type: 'error', message: 'সেভ করতে ব্যর্থ হয়েছে: ' + (err.message || 'অজানা ত্রুটি') });
+      setStatus({ type: 'error', message: t('aiConfig.saveFailed') + (err.message || t('aiConfig.unknownError')) });
     } finally {
       setIsSaving(false);
     }
@@ -253,7 +253,7 @@ const AIConfigurationPage: React.FC = () => {
               "text-[9px] font-black uppercase tracking-[0.18em] leading-none",
               isDirty ? "text-amber-300" : "text-emerald-300"
             )}>
-              {isDirty ? t('aiConfig.unsaved') : (language === 'bn' ? 'সিঙ্ক হয়েছে' : 'Synced')}
+              {isDirty ? t('aiConfig.unsaved') : t('aiConfig.synced')}
             </span>
           </div>
         </div>
@@ -354,7 +354,7 @@ const AIConfigurationPage: React.FC = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-black tracking-tight truncate">{activeProvider.name} {t('aiConfig.configuration')}</h2>
-                <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.25em] mt-0.5">{language === 'bn' ? 'ক্রেডেনশিয়াল ও মডেল' : 'Credentials & Models'}</p>
+                <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.25em] mt-0.5">{t('aiConfig.credentialsModels')}</p>
               </div>
               <span className={cn(
                 "hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-wider shrink-0",
@@ -363,7 +363,7 @@ const AIConfigurationPage: React.FC = () => {
                   : "bg-amber-500/10 border-amber-500/25 text-amber-300"
               )}>
                 {hasKey ? <CircleCheck size={12} /> : <AlertCircle size={12} />}
-                {hasKey ? 'Key ready' : 'Key needed'}
+                {hasKey ? t('aiConfig.keyReady') : t('aiConfig.keyNeeded')}
               </span>
             </div>
 
@@ -381,7 +381,7 @@ const AIConfigurationPage: React.FC = () => {
                       rel="noreferrer"
                       className="text-[11px] font-bold text-orange-300 hover:text-orange-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
                     >
-                      বিনামূল্যে Gemini API Key নিন <ExternalLink size={11} />
+                      {t('aiConfig.getGeminiKey')} <ExternalLink size={11} />
                     </a>
                   )}
                   {provider === 'openrouter' && (
@@ -391,7 +391,7 @@ const AIConfigurationPage: React.FC = () => {
                       rel="noreferrer"
                       className="text-[11px] font-bold text-orange-300 hover:text-orange-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
                     >
-                      OpenRouter Key নিন <ExternalLink size={11} />
+                      {t('aiConfig.getOpenRouterKey')} <ExternalLink size={11} />
                     </a>
                   )}
                 </div>
@@ -403,14 +403,14 @@ const AIConfigurationPage: React.FC = () => {
                     type={isRevealed[provider] ? 'text' : 'password'}
                     value={draftSettings.apiKeys[provider] || ''}
                     onChange={(e) => handleUpdateAPIKey(provider, e.target.value)}
-                    placeholder={language === 'bn' ? 'আপনার API কী দিন...' : 'Paste your API key...'}
+                    placeholder={t('aiConfig.apiKeyPlaceholder')}
                     autoComplete="off"
                     className="w-full bg-transparent text-sm font-mono outline-none placeholder:font-sans placeholder:text-white/20 pl-11 pr-12 py-4 rounded-2xl"
                   />
                   <button
                     onClick={() => setIsRevealed({ ...isRevealed, [provider]: !isRevealed[provider] })}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-xl transition-all text-white/30 hover:text-white active:scale-90"
-                    aria-label={isRevealed[provider] ? 'Hide API key' : 'Show API key'}
+                    aria-label={isRevealed[provider] ? t('aiConfig.hideKey') : t('aiConfig.showKey')}
                   >
                     {isRevealed[provider] ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -419,7 +419,7 @@ const AIConfigurationPage: React.FC = () => {
                 <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-orange-500/[0.06] border border-orange-500/[0.14] text-[11px] text-white/45 leading-relaxed">
                   <Info size={14} className="shrink-0 text-orange-300 mt-0.5" />
                   <span>
-                    <strong className="text-white/75">GitHub Pages ব্যবহারকারীদের জন্য:</strong> GitHub Pages একটি স্ট্যাটিক সাইট (এখানে কোনো ব্যাকএন্ড সার্ভার থাকে না)। তাই AI ব্যবহার করতে এখানে আপনার নিজস্ব বিনামূল্যে পাওয়া Gemini বা OpenRouter API Key সেভ করুন।
+                    <strong className="text-white/75">{t('aiConfig.githubPagesTitle')}</strong> {t('aiConfig.githubPagesBody')}
                   </span>
                 </div>
               </div>
@@ -516,21 +516,21 @@ const AIConfigurationPage: React.FC = () => {
 
           <div className="p-4 sm:p-5 bg-black/30 border border-white/[0.07] rounded-2xl text-xs text-white/55 leading-relaxed">
             <p className="font-semibold text-white/85 mb-1.5 flex items-center gap-1.5">
-              <CircleCheck size={13} className="text-emerald-400" /> স্বয়ংক্রিয় সিস্টেম প্রম্পট সক্রিয়:
+              <CircleCheck size={13} className="text-emerald-400" /> {t('aiConfig.autoPromptTitle')}
             </p>
-            <p>নোট তৈরি/আপডেট কমান্ড, বাংলা ও ইংরেজি ভাষা সমর্থন, রিচ ব্লক সিনট্যাক্স (হেডিং, কালার, কলআউট, টাস্কলিস্ট, টেবিল) এবং অ্যাটাচড নোটস রিকগনিশন ইঞ্জিন স্বয়ংক্রিয়ভাবে সক্রিয় রয়েছে। ম্যানুয়াল কনফিগারেশনের প্রয়োজন নেই।</p>
+            <p>{t('aiConfig.autoPromptBody')}</p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-            <p className="text-[10px] text-white/35 font-medium">সিস্টেম প্রম্পট অ্যাপের কোর ইঞ্জিন দ্বারা নিয়ন্ত্রিত ও অপ্টিমাইজড।</p>
+            <p className="text-[10px] text-white/35 font-medium">{t('aiConfig.promptEngineNote')}</p>
           </div>
         </section>
 
         {/* Privacy note */}
         <p className="text-[11px] text-white/25 px-4 leading-relaxed font-medium text-center flex items-start justify-center gap-2">
           <ShieldCheck size={14} className="text-emerald-400/70 shrink-0 mt-px" />
-          <span>আপনার সব ডেটা এবং কীগুলো ব্রাউজারের ইনডেক্স-ডিবিতে (IndexedDB) লোকালভাবে থাকে। রেডওয়ান অ্যাসিস্ট্যান্ট কখনোই আপনার ক্রেডিটেন্সিয়ার বাইরের কোনো সার্ভারে পাঠায় না।</span>
+          <span>{t('aiConfig.privacyNote')}</span>
         </p>
       </main>
 
@@ -561,7 +561,7 @@ const AIConfigurationPage: React.FC = () => {
                 className="px-5 py-2.5 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-300 hover:to-orange-500 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-[0_8px_20px_rgba(249,115,22,0.4)] flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60"
               >
                 {isSaving ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} strokeWidth={3} />}
-                {isSaving ? (language === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (language === 'bn' ? 'সেভ করুন' : 'Save')}
+                {isSaving ? t('aiConfig.saving') : t('common.save')}
               </button>
               <button
                 onClick={handleBack}
@@ -600,7 +600,7 @@ const AIConfigurationPage: React.FC = () => {
                   onClick={handleUndo}
                   className="px-3.5 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
                 >
-                  {language === 'bn' ? 'আগে ফিরুন' : 'Undo'}
+                  {t('aiConfig.undo')}
                 </button>
               )}
               <button onClick={() => setStatus(null)} className="p-2 hover:bg-white/15 rounded-full transition-all" aria-label="Dismiss">
@@ -634,11 +634,11 @@ const AIConfigurationPage: React.FC = () => {
                 <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-400 mb-5 mx-auto">
                   <AlertCircle size={30} />
                 </div>
-                <h3 id="exit-warning-title" className="text-xl font-black tracking-tight text-center mb-2">{language === 'bn' ? 'সেভ করা হয়নি!' : 'Unsaved Changes!'}</h3>
-                <p className="text-sm text-white/40 text-center mb-7 leading-relaxed">{language === 'bn' ? 'আপনার কিছু পরিবর্তন সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বের হতে চান?' : 'Some changes have not been saved. Do you really want to leave?'}</p>
+                <h3 id="exit-warning-title" className="text-xl font-black tracking-tight text-center mb-2">{t('aiConfig.unsavedTitle')}</h3>
+                <p className="text-sm text-white/40 text-center mb-7 leading-relaxed">{t('aiConfig.unsavedBody')}</p>
                 <div className="flex flex-col gap-2.5">
-                  <button onClick={handleConfirmExit} className="w-full py-3.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">{language === 'bn' ? 'হ্যাঁ, বের হয়ে যান' : 'Yes, Leave'}</button>
-                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-white/[0.06] hover:bg-white/[0.1] text-white/80 font-bold rounded-2xl transition-all active:scale-[0.98]">{language === 'bn' ? 'ফিরে যান' : 'Go Back'}</button>
+                  <button onClick={handleConfirmExit} className="w-full py-3.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">{t('aiConfig.yesLeave')}</button>
+                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-white/[0.06] hover:bg-white/[0.1] text-white/80 font-bold rounded-2xl transition-all active:scale-[0.98]">{t('aiConfig.goBack')}</button>
                 </div>
               </motion.div>
             </div>

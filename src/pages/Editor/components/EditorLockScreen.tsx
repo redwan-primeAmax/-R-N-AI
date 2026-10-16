@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { t as tr } from '../../../utils/translator';
 import { m as motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import { cn } from '../../../utils/cn';
@@ -46,10 +47,10 @@ export const EditorLockScreen: React.FC<EditorLockScreenProps> = ({
         setIsUnlocked(true);
         setPasswordInput('');
       } else {
-        setNotification({ message: 'ভুল পাসওয়ার্ড!', type: 'error' });
+        setNotification({ message: tr('lock.wrong'), type: 'error' });
       }
     } catch {
-      setNotification({ message: 'নোট আনলক করা যায়নি। আবার চেষ্টা করুন।', type: 'error' });
+      setNotification({ message: tr('lock.failed'), type: 'error' });
     }
 
   };
@@ -65,16 +66,16 @@ export const EditorLockScreen: React.FC<EditorLockScreenProps> = ({
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-black font-display tracking-tight text-white animate-fade-in">নোটটি লক করা আছে (Locked Node)</h2>
-          <p className="text-xs text-white/40 font-bold uppercase tracking-wider">এই নোটের বিষয়বস্তু দেখতে পাসওয়ার্ড প্রবেশ করুন</p>
+          <h2 className="text-2xl font-black font-display tracking-tight text-white animate-fade-in">{tr('lock.title')}</h2>
+          <p className="text-xs text-white/40 font-bold uppercase tracking-wider">{tr('lock.desc')}</p>
         </div>
 
         <div className="space-y-4 text-left">
           <input
-            type="password" aria-label="নোটের পাসওয়ার্ড"
+            type="password" aria-label={tr('lock.passwordLabel')}
             value={passwordInput}
             onChange={(e) => setPasswordInput(e.target.value)}
-            placeholder="পাসওয়ার্ড লিখুন..."
+            placeholder={tr('dialogs.passwordPlaceholder')}
             onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()}
             className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-sm font-mono focus:border-blue-500 outline-none placeholder:text-white/20 text-center text-white"
             autoFocus
@@ -85,13 +86,13 @@ export const EditorLockScreen: React.FC<EditorLockScreenProps> = ({
               onClick={() => navigate(-1)}
               className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all text-white/80 active:scale-95"
             >
-              ফিরে যান (Back)
+              {tr('common.back')}
             </button>
             <button
               onClick={handleAuthSubmit}
               className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all text-white active:scale-95 shadow-lg shadow-blue-500/20"
             >
-              আনলক (Unlock)
+              {tr('dialogs.unlock')}
             </button>
           </div>
         </div>

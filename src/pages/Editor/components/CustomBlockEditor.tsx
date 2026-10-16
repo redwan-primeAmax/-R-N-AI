@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
+import { t as tr } from '../../../utils/translator';
 import { useNavigate } from 'react-router-dom';
 import { 
   CheckSquare, Square, MessageSquare, ChevronRight, Layout, Columns, Table as TableIcon, Bookmark, Plus
@@ -68,7 +69,7 @@ interface CustomBlockEditorProps {
 }
 
 const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isReadOnly: boolean }> = ({ subPageId, defaultTitle, isReadOnly }) => {
-  const [title, setTitle] = useState(defaultTitle || 'শিরোনামহীন');
+  const [title, setTitle] = useState(defaultTitle || tr('nav.untitled'));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -77,7 +78,7 @@ const DynamicPageLink: React.FC<{ subPageId: string; defaultTitle: string; isRea
       try {
         const note = await DataManager.getNoteById(subPageId);
         if (note && active) {
-          setTitle(note.title || 'শিরোনামহীন');
+          setTitle(note.title || tr('nav.untitled'));
         }
       } catch (err) {
         console.error('Failed to resolve subpage title:', err);
@@ -345,7 +346,7 @@ const MemoizedBlockRow = React.memo(({
           onClick={() => addBlockAfter(block.id, 'paragraph', (block.indent || 0) + 1)}
         >
           <div className="text-xs text-white/40 font-medium pl-4">
-            টগল খালি। নতুন কিছু লিখতে এখানে ক্লিক করুন...
+            {tr('editor.emptyToggle')}
           </div>
         </div>
       )}

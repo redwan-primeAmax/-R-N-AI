@@ -23,7 +23,7 @@ import { UserNamePopup } from './components/modals/UserNamePopup';
 import { Loader2, Check, AlertCircle, X } from 'lucide-react';
 import { cn } from './utils/cn';
 import { useNoteLimit } from './hooks/useNoteLimit';
-import { getStoredLanguage, isAppLanguage, setStoredLanguage } from './utils/translator';
+import { getStoredLanguage, isAppLanguage, setStoredLanguage, useLanguage } from './utils/translator';
 
 // Helper to retry lazy loading modules when dynamic import fails (e.g. on new PWA builds/deployments)
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -101,6 +101,7 @@ function ScrollToTopOnRouteChange() {
 }
 
 function AppContent() {
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const isEditorPage = location.pathname.startsWith('/editor/');
@@ -349,15 +350,15 @@ function AppContent() {
       <AndroidStatusBar />
       <AnimatePresence mode="sync">
         {showPopup && <UserNamePopup onSave={handleSaveName} key="popup" />}
-        <Modal key="limit-warning-modal" id="limit-warning-modal" isOpen={Boolean(isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning)} onClose={() => setHasDismissedLimitWarning(true)} title="একটি সতর্কতা (Note Limit Reached)">
+        <Modal key="limit-warning-modal" id="limit-warning-modal" isOpen={Boolean(isOverLimit && !isWorkspacePage && !hasDismissedLimitWarning)} onClose={() => setHasDismissedLimitWarning(true)} title={t('app.limitTitle')}>
             <div className="flex flex-col items-center text-center p-6 gap-6 relative">
               <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center animate-bounce">
                 <AlertCircle size={32} />
               </div>
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-white">আপনি ১০,০০০ এর লিমিট সম্পূর্ণ করে ফেলেছেন।</h2>
+                <h2 className="text-xl font-bold text-white">{t('app.limitHeading')}</h2>
                 <p className="text-sm text-white/60">
-                  আপনার বর্তমান ওয়ার্কস্পেসে ১০,০০০ বা এর বেশি নোট রয়েছে। ডিভাইস স্ট্যাবিলিটি অক্ষুণ্ণ রাখতে লিমিট বাড়ানোর সুযোগ নেই। অনুগ্রহ করে অন্য ওয়ার্কস্পেস ব্যবহার করুন।
+                  {t('app.limitBody')}
                 </p>
               </div>
               <button
@@ -366,7 +367,7 @@ function AppContent() {
                 }}
                 className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-600/20 active:scale-95"
               >
-                নতুন নোট ক্রিয়েট করতে এখানে ক্লিক করুন (ওয়ার্কস্পেস পরিবর্তন)
+                {t('app.limitCta')}
               </button>
             </div>
           </Modal>
@@ -383,19 +384,19 @@ function AppContent() {
               <Check size={22} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-bold text-xs text-white leading-tight">অ্যাপটি ইনস্টল করুন</p>
-              <p className="text-[10px] text-white/70 truncate mt-0.5">দ্রুত এক্সেস এবং অফলাইন ব্যবহারের জন্য</p>
+              <p className="font-bold text-xs text-white leading-tight">{t('app.installTitle')}</p>
+              <p className="text-[10px] text-white/70 truncate mt-0.5">{t('app.installDesc')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-             <button onClick={handleDismissInstall} className="p-2 text-white/60 hover:text-white shrink-0" aria-label="Dismiss">
+             <button onClick={handleDismissInstall} className="p-2 text-white/60 hover:text-white shrink-0" aria-label={t('app.dismiss')}>
                 <X size={18} />
              </button>
              <button 
               onClick={handleInstall}
               className="bg-white text-blue-600 px-5 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition-transform active:scale-90 shrink-0 flex items-center justify-center text-center"
             >
-              ইন্সটল
+              {t('app.install')}
             </button>
           </div>
         </motion.div>
@@ -424,7 +425,7 @@ function AppContent() {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm leading-tight truncate">{notification.message}</p>
                   {notification.severity === 'warning' && (
-                    <p className="text-[10px] mt-1 opacity-60">সঞ্চয়স্থান পূর্ণ হলে ডাটা হারিয়ে যেতে পারে।</p>
+                    <p className="text-[10px] mt-1 opacity-60">{t('app.storageWarning')}</p>
                   )}
                 </div>
                 {notification.action && (

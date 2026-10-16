@@ -35,21 +35,21 @@ const categoryLabel = (category: string, t: (k: TranslationKey) => string) => {
   }
 };
 
-const TemplateCard = memo(forwardRef<HTMLDivElement, { template: Template; onUse: (t: Template) => void; useLabel: string; categoryText: string }>(
-  ({ template, onUse, useLabel, categoryText }, ref) => (
+const TemplateCard = memo(forwardRef<HTMLDivElement, { template: Template; onUse: (t: Template) => void; useLabel: string; categoryText: string; displayTitle: string; displayDescription: string }>(
+  ({ template, onUse, useLabel, categoryText, displayTitle, displayDescription }, ref) => (
     <motion.div
       ref={ref}
       layout
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94 }}
-      className="bg-white/[0.03] border border-white/[0.07] rounded-[26px] p-5 sm:p-6 flex flex-col gap-5 hover:bg-white/[0.05] hover:border-teal-400/30 transition-all group shadow-xl"
+      className="bg-white/[0.03] border border-white/[0.07] rounded-[26px] p-5 sm:p-6 flex flex-col gap-5 hover:bg-white/[0.05] hover:border-amber-400/30 transition-all group shadow-xl"
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="w-13 h-13 min-w-[52px] min-h-[52px] bg-teal-400/10 rounded-2xl flex items-center justify-center border border-teal-400/15">
-          <template.icon size={26} className="text-teal-300" />
+        <span className="w-13 h-13 min-w-[52px] min-h-[52px] bg-amber-400/10 rounded-2xl flex items-center justify-center border border-amber-400/15">
+          <template.icon size={26} className="text-amber-300" />
         </span>
-        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-teal-300/80 bg-teal-400/[0.07] px-3 py-1.5 rounded-full border border-teal-400/15 whitespace-nowrap">
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-300/80 bg-amber-400/[0.07] px-3 py-1.5 rounded-full border border-amber-400/15 whitespace-nowrap">
           {categoryText}
         </span>
       </div>
@@ -57,14 +57,14 @@ const TemplateCard = memo(forwardRef<HTMLDivElement, { template: Template; onUse
       <div className="space-y-1.5 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-xl leading-none">{template.emoji}</span>
-          <h3 className="font-bold text-lg text-white tracking-tight group-hover:text-teal-300 transition-colors truncate">{template.title}</h3>
+          <h3 className="font-bold text-lg text-white tracking-tight group-hover:text-amber-300 transition-colors truncate">{displayTitle}</h3>
         </div>
-        <p className="text-xs text-white/40 leading-relaxed line-clamp-2 font-medium">{template.description}</p>
+        <p className="text-xs text-white/40 leading-relaxed line-clamp-2 font-medium">{displayDescription}</p>
       </div>
 
       <button
         onClick={() => onUse(template)}
-        className="w-full py-3.5 bg-gradient-to-b from-teal-400 to-teal-600 hover:from-teal-300 hover:to-teal-500 text-teal-950 rounded-2xl font-black text-[11px] uppercase tracking-[0.18em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] shadow-lg shadow-teal-500/20"
+        className="w-full py-3.5 bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-amber-950 rounded-2xl font-black text-[11px] uppercase tracking-[0.18em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] shadow-lg shadow-amber-500/20"
       >
         <Plus size={16} strokeWidth={3} />
         {useLabel}
@@ -77,7 +77,7 @@ TemplateCard.displayName = 'TemplateCard';
 
 export default function BrowseTemplates() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [activeCategory, setActiveCategory] = useState('All');
 
   const categories = useMemo(
@@ -92,7 +92,8 @@ export default function BrowseTemplates() {
   , [activeCategory]);
 
   const handleUseTemplate = useCallback(async (template: Template) => {
-    let content = template.content || `<h1>${template.title}</h1><p>Start your ${template.title.toLowerCase()} here...</p>`;
+    const displayTitle = language === 'bn' ? template.titleBn : template.title;
+    let content = template.content || `<h1>${displayTitle}</h1><p>Start your ${displayTitle.toLowerCase()} here...</p>`;
 
     // Professional Template Parsing: Replace [Tags] with real values or clean placeholders
     const now = new Date();
@@ -100,7 +101,7 @@ export default function BrowseTemplates() {
 
     content = content
       .replace(/\[Date\]/g, dateStr)
-      .replace(/\[Title\]/g, template.title)
+      .replace(/\[Title\]/g, displayTitle)
       .replace(/\[Name\]/g, 'User')
       .replace(/\[Count\]/g, '0')
       .replace(/\[Type\]/g, 'General')
@@ -112,7 +113,7 @@ export default function BrowseTemplates() {
 
     const newNote: Note = {
       id: `note-${Date.now()}`,
-      title: template.title,
+      title: displayTitle,
       content: content,
       emoji: template.emoji,
       createdAt: Date.now(),
@@ -122,14 +123,14 @@ export default function BrowseTemplates() {
 
     await DataManager.saveNote(newNote);
     navigate(`/editor/${newNote.id}`);
-  }, [navigate]);
+  }, [navigate, language]);
 
   return (
-    <div className="min-h-screen bg-[#0a0f0e] text-white flex flex-col font-sans overflow-x-hidden">
-      <div className="pointer-events-none fixed top-0 right-0 w-[420px] h-[420px] bg-teal-500/[0.06] blur-[120px] rounded-full -translate-y-1/3 translate-x-1/4" />
+    <div className="min-h-screen bg-[#0E0D0B] text-white flex flex-col font-sans overflow-x-hidden">
+      <div className="pointer-events-none fixed top-0 right-0 w-[420px] h-[420px] bg-amber-500/[0.06] blur-[120px] rounded-full -translate-y-1/3 translate-x-1/4" />
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0a0f0e]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
+      <header className="sticky top-0 z-40 bg-[#0E0D0B]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
         <div className="max-w-6xl mx-auto flex items-center gap-4">
           <button
             onClick={() => navigate('/tools')}
@@ -141,12 +142,12 @@ export default function BrowseTemplates() {
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Zap size={11} className="text-teal-300" />
+              <Zap size={11} className="text-amber-300" />
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('templates.eyebrow')}</span>
             </div>
             <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">{t('templates.title')}</h1>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-400/10 border border-teal-400/20 rounded-full text-[10px] font-black uppercase tracking-wider text-teal-300 shrink-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-400/10 border border-amber-400/20 rounded-full text-[10px] font-black uppercase tracking-wider text-amber-300 shrink-0">
             <Layout size={12} />
             {t('templates.count', { count: TEMPLATES.length })}
           </span>
@@ -165,7 +166,7 @@ export default function BrowseTemplates() {
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all border whitespace-nowrap active:scale-95",
                 activeCategory === cat.id
-                  ? "bg-teal-400 border-teal-300 text-teal-950 shadow-lg shadow-teal-500/25"
+                  ? "bg-amber-400 border-amber-300 text-amber-950 shadow-lg shadow-amber-500/25"
                   : "bg-white/[0.03] border-white/[0.07] text-white/45 hover:bg-white/[0.08] hover:text-white"
               )}
             >
@@ -185,6 +186,8 @@ export default function BrowseTemplates() {
                   template={template}
                   onUse={handleUseTemplate}
                   useLabel={t('templates.use')}
+                  displayTitle={language === 'bn' ? template.titleBn : template.title}
+                  displayDescription={language === 'bn' ? template.descriptionBn : template.description}
                   categoryText={categoryLabel(template.category, t)}
                 />
               ))}

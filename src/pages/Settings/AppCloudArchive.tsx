@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   Download, Upload, ChevronLeft, Loader2, 
@@ -47,7 +48,7 @@ export default function AppCloudArchive() {
       setTimeout(() => setStatus('idle'), 3000);
     } catch (err) {
       console.error('Export failed:', err);
-      setError('ব্যাকআপ ফাইল তৈরি করতে সমস্যা হয়েছে।');
+      setError(tr('cloud.errCreate'));
       setStatus('error');
     }
   };
@@ -69,7 +70,7 @@ export default function AppCloudArchive() {
       reader.readAsText(file);
     } catch (err) {
       console.error('Import failed:', err);
-      setError('ব্যাকআপ ফাইলটি সঠিক নয় অথবা নষ্ট হয়ে গেছে।');
+      setError(tr('cloud.errInvalid'));
       setStatus('error');
     }
   };
@@ -84,7 +85,7 @@ export default function AppCloudArchive() {
       setTimeout(() => navigate('/main'), 1500);
     } catch (err) {
       console.error('Restore failed:', err);
-      setError('রিস্টোর করতে সমস্যা হয়েছে।');
+      setError(tr('cloud.errRestore'));
       setStatus('error');
     }
   };
@@ -99,7 +100,7 @@ export default function AppCloudArchive() {
           <ChevronLeft size={24} />
         </button>
         <div>
-          <h1 className="text-3xl font-black tracking-tight">অ্যাপ ক্লাউড আর্কাইভ</h1>
+          <h1 className="text-3xl font-black tracking-tight">{tr('cloud.title')}</h1>
           <p className="text-[10px] text-white/40 uppercase font-black tracking-[0.2em]">Cloud Backup & Storage</p>
         </div>
       </header>
@@ -113,7 +114,7 @@ export default function AppCloudArchive() {
               mode === 'local' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-white/40 hover:text-white'
             }`}
           >
-            <HardDrive size={16} /> লোকাল ব্যাকআপ
+            <HardDrive size={16} /> {tr('cloud.localBackup')}
           </button>
           <button 
             onClick={() => setMode('drive')}
@@ -121,7 +122,7 @@ export default function AppCloudArchive() {
               mode === 'drive' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-white/40 hover:text-white'
             }`}
           >
-            <Cloud size={16} /> গুগল ড্রাইভ
+            <Cloud size={16} /> {tr('cloud.googleDrive')}
             <span className="px-1.5 py-0.5 bg-amber-500 text-black text-[9px] font-black rounded-md tracking-normal">
               SOON
             </span>
@@ -147,11 +148,11 @@ export default function AppCloudArchive() {
 
                 <div className="space-y-3">
                   <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-xs font-black uppercase tracking-widest">
-                    <Sparkles size={14} /> শীঘ্রই আসছে (Coming Soon)
+                    <Sparkles size={14} /> {tr('cloud.comingSoon')}
                   </div>
-                  <h2 className="text-xl font-bold">গুগল ড্রাইভ ক্লাউড সিঙ্ক</h2>
+                  <h2 className="text-xl font-bold">{tr('cloud.driveTitle')}</h2>
                   <p className="text-xs text-white/50 leading-relaxed max-w-md mx-auto">
-                    গুগল ড্রাইভের সাথে সরাসরি ক্লাউড অটো-সিঙ্ক ফিচারটি নিয়ে কাজ চলছে। এটি পরবর্তী আপডেটেই চলে আসবে!
+                    {tr('cloud.driveDesc')}
                   </p>
                 </div>
 
@@ -160,7 +161,7 @@ export default function AppCloudArchive() {
                     onClick={() => setMode('local')}
                     className="px-6 py-3.5 bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all active:scale-95 border border-white/10"
                   >
-                    লোকাল ব্যাকআপ ব্যবহার করুন
+                    {tr('cloud.useLocal')}
                   </button>
                 </div>
               </motion.div>
@@ -177,9 +178,9 @@ export default function AppCloudArchive() {
                     <HardDrive size={32} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold mb-2">অফলাইন লোকাল ব্যাকআপ</h2>
+                    <h2 className="text-xl font-bold mb-2">{tr('cloud.offlineTitle')}</h2>
                     <p className="text-xs text-white/40 leading-relaxed max-w-sm mx-auto">
-                      আপনার নোটস ও ডাটাবেজ ব্যাকআপ ফাইল ম্যানুয়ালি ডাউনলোড বা রিস্টোর করতে নিচের অপশন ব্যবহার করুন।
+                      {tr('cloud.offlineDesc')}
                     </p>
                   </div>
 
@@ -190,7 +191,7 @@ export default function AppCloudArchive() {
                       className="py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/20"
                     >
                       {status === 'preparing' ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                      ডাউনলোড ফাইল
+                      {tr('cloud.downloadFile')}
                     </button>
 
                     <div className="relative group">
@@ -203,7 +204,7 @@ export default function AppCloudArchive() {
                       />
                       <div className="py-4 bg-white/5 border border-white/10 group-hover:border-blue-500/50 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-white/80">
                         {status === 'preparing' ? <Loader2 className="animate-spin" size={16} /> : <Package size={16} />}
-                        ফাইল রিস্টোর
+                        {tr('cloud.restoreFile')}
                       </div>
                     </div>
                   </div>
@@ -218,7 +219,7 @@ export default function AppCloudArchive() {
               animate={{ opacity: 1, scale: 1 }}
               className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-3 text-green-400 font-bold justify-center text-xs"
             >
-              <CheckCircle2 size={18} /> ব্যাকআপ কাজ সফলভাবে সম্পন্ন হয়েছে!
+              <CheckCircle2 size={18} /> {tr('cloud.success')}
             </motion.div>
           )}
 
@@ -239,11 +240,11 @@ export default function AppCloudArchive() {
         isOpen={importData !== null}
         onClose={() => { setImportData(null); setStatus('idle'); }}
         onConfirm={confirmLocalRestore}
-        title="লোকাল ব্যাকআপ রিস্টোর"
-        message="সাবধান: এটি আপনার বর্তমান সব ডেটা প্রতিস্থাপন করবে। আপনি কি নিশ্চিত?"
+        title={tr('cloud.restoreTitle')}
+        message={tr('cloud.restoreMsg')}
         variant="danger"
-        confirmText="হ্যাঁ, রিস্টোর করুন"
-        cancelText="বাতিল"
+        confirmText={tr('cloud.yesRestore')}
+        cancelText={tr('dialogs.cancel')}
       />
     </div>
   );

@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { t as tr } from '../../../utils/translator';
 import { AnimatePresence } from 'framer-motion';
 import { BlockMenu } from './BlockMenu';
 import { LinkPageList } from './LinkPageList';
@@ -129,21 +130,21 @@ export const EditorModals: React.FC = () => {
         isOpen={showDeleteConfirm} 
         onClose={() => setShowDeleteConfirm(false)} 
         onConfirm={handleDelete} 
-        title="মুছে ফেলুন" 
-        message="আপনি কি এই নোটটি রিসাইকেল বিনে পাঠাতে চান?" 
+        title={tr('editorModals.deleteTitle')} 
+        message={tr('editorModals.deleteMsg')} 
         variant="danger"
-        confirmText="হ্যাঁ, ডিলেট করুন"
-        cancelText="বাতিল"
+        confirmText={tr('recycle.yesDelete')}
+        cancelText={tr('dialogs.cancel')}
       />
 
       <InputDialog 
         isOpen={showLockPrompt} 
         onClose={() => setShowLockPrompt(false)} 
         onConfirm={handleLock} 
-        title="পাসওয়ার্ড সেট করুন" 
-        placeholder="সিক্রেট পাসওয়ার্ড..." 
+        title={tr('editorModals.setPassword')} 
+        placeholder={tr('editorModals.secretPlaceholder')} 
         type="password"
-        confirmText="লক করুন"
+        confirmText={tr('editorModals.lock')}
       />
 
       <TagManagerModal 
