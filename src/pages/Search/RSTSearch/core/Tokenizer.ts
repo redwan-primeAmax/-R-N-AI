@@ -74,27 +74,30 @@ export function getPhoneticKey(word: string): string {
 }
 
 /**
- * Strips formatting and breaks text into unique searchable tokens.
+ * Strips formatting and breaks text into searchable tokens, KEEPING
+ * repeated occurrences. Use this when term frequency matters (BM25);
+ * `tokenize()` below is the de-duplicated variant.
  * Optimized with fast-path for ASCII / simple scripts.
  */
-export function tokenize(text: string, includePhonetics: boolean = false): string[] {
+export function tokenizeAll(text: string, includePhonetics: boolean = false): string[] {
   const normalized = normalizeText(stripHtml(text));
   if (!normalized) return [];
 
   // Fast path for pure ASCII or simple space-separated words (skip Segmenter allocation)
   const isSimpleAscii = /^[\x00-\x7F]+$/.test(normalized);
-  const tokenSet = new Set<string>();
+  const tokens: string[] = [];
+  const push = (w: string) => {
+    tokens.push(w);
+    if (includePhonetics) {
+      const p = getPhoneticKey(w);
+      if (p) tokens.push(p);
+    }
+  };
 
   if (isSimpleAscii) {
     const words = normalized.split(/[^a-z0-9\-]+/).filter(w => w.length > 1);
-    for (const w of words) {
-      tokenSet.add(w);
-      if (includePhonetics) {
-        const p = getPhoneticKey(w);
-        if (p) tokenSet.add(p);
-      }
-    }
-    return Array.from(tokenSet);
+    for (const w of words) push(w);
+    return tokens;
   }
 
   // Segmenter or regex split for complex scripts (Bengali, combined glyphs)
@@ -103,25 +106,20 @@ export function tokenize(text: string, includePhonetics: boolean = false): strin
     for (const segment of segments) {
       if (segment.isWordLike) {
         const word = segment.segment.trim();
-        if (word.length > 1) {
-          tokenSet.add(word);
-          if (includePhonetics) {
-            const p = getPhoneticKey(word);
-            if (p) tokenSet.add(p);
-          }
-        }
+        if (word.length > 1) push(word);
       }
     }
   } else {
     const words = normalized.split(/[^a-z0-9\-\u0980-\u09FF]+/).filter(w => w.length > 1);
-    for (const w of words) {
-      tokenSet.add(w);
-      if (includePhonetics) {
-        const p = getPhoneticKey(w);
-        if (p) tokenSet.add(p);
-      }
-    }
+    for (const w of words) push(w);
   }
 
-  return Array.from(tokenSet);
+  return tokens;
+}
+
+/**
+ * Strips formatting and breaks text into UNIQUE searchable tokens.
+ */
+export function tokenize(text: string, includePhonetics: boolean = false): string[] {
+  return Array.from(new Set(tokenizeAll(text, includePhonetics)));
 }
