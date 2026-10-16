@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { t as tr } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search as SearchIcon, X, ChevronRight, Hash, Tag as TagIcon } from 'lucide-react';
 import { DataManager, Note } from '../../services/storage/DataManager';
@@ -213,14 +214,14 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-white">
-      <div className="max-w-2xl mx-auto px-6 pt-16 pb-36">
+      <Navigation2 />
+      <div className="max-w-2xl mx-auto px-6 pt-8 pb-36">
         <header className="mb-6 space-y-4">
-          <div className="flex items-center justify-between px-2">
-             <h1 className="text-2xl font-black tracking-tighter text-white/90">Search</h1>
-             {isSearching && (
-               <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-white/10 border-t-blue-500 rounded-full" />
-             )}
-          </div>
+          {isSearching && (
+            <div className="flex justify-end px-2">
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-4 h-4 border-2 border-white/10 border-t-blue-500 rounded-full" />
+            </div>
+          )}
 
           <div className="flex gap-3">
             <div className="relative group flex-grow">

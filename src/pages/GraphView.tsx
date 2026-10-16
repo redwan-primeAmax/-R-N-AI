@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t as tr } from '../utils/translator';
+import Navigation2 from '../components/Navigation2';
 import { m as motion } from 'framer-motion';
 import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Search, Share2, Tag, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -173,35 +174,19 @@ export const GraphView: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-[#0d0d0e] text-white flex flex-col select-none overflow-hidden">
-      {/* Top Bar */}
-      <header className="h-14 px-4 bg-[#141415] border-b border-white/10 flex items-center justify-between z-20">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/main')}
-            className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors cursor-pointer"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div className="flex items-center gap-2">
-            <Share2 className="text-purple-400 w-5 h-5" />
-            <h1 className="font-bold text-sm">{tr('graph.title')}</h1>
-          </div>
-        </div>
+      <Navigation2 backTo="/main" />
 
-        {/* Search Input */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs">
-            <Search size={14} className="text-white/40 mr-2" />
-            <input
-              type="text"
-              placeholder={tr('graph.searchNode')}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-white placeholder:text-white/30 w-32 sm:w-48"
-            />
-          </div>
-        </div>
-      </header>
+      {/* Floating node search */}
+      <div className="absolute top-[76px] right-4 z-20 flex items-center bg-[#1a1a1b]/95 backdrop-blur border border-white/10 rounded-xl px-3 py-2 text-xs shadow-2xl">
+        <Search size={14} className="text-white/40 mr-2" />
+        <input
+          type="text"
+          placeholder={tr('graph.searchNode')}
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="bg-transparent border-none outline-none text-white placeholder:text-white/30 w-36 sm:w-52"
+        />
+      </div>
 
       {/* Floating Controls */}
       <div className="absolute bottom-6 right-6 z-20 flex flex-col gap-2 bg-[#1a1a1b] p-2 rounded-2xl border border-white/10 shadow-2xl">

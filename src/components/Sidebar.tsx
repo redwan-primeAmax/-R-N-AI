@@ -184,8 +184,8 @@ export default function Sidebar({
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
-            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.22 }}
-            className="fixed top-0 left-0 bottom-0 w-[80%] max-w-[280px] bg-[var(--bg-main)] border-r border-white/5 z-[101] flex flex-col pt-6 overflow-hidden rounded-r-[32px]"
+            transition={{ type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.26 }}
+            className="fixed top-0 left-0 bottom-0 w-[80%] max-w-[280px] bg-[var(--bg-main)] border-r border-white/5 z-[101] flex flex-col pt-6 overflow-hidden rounded-r-[32px] transform-gpu [will-change:transform] [backface-visibility:hidden]"
           >
             {/* Loading Overlay */}
             <AnimatePresence>

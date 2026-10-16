@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { t as tr } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { 
   FolderPlus, ChevronRight, Bookmark, 
   FileText, Trash2, Folder, 
-  ArrowLeft, Check
+  Check
 } from 'lucide-react';
 import { m as motion } from 'framer-motion';
 import { DataManager, Note } from '../../services/storage/DataManager';
@@ -119,16 +120,11 @@ export default function BookmarkPage() {
     <div className="min-h-screen bg-[var(--bg-main)] text-white pb-36 select-none relative">
       {isLoading && <LoadingScreen />}
 
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-[var(--bg-main)]/80 backdrop-blur-3xl border-b border-white/5 px-6 py-4">
+      <Navigation2 onBack={goBack} />
+      {/* Folder bar */}
+      <div className="sticky top-[65px] z-40 bg-[var(--bg-main)]/80 backdrop-blur-3xl border-b border-white/5 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={goBack}
-              className="w-10 h-10 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/5 transition-all active:scale-90"
-            >
-              <ArrowLeft size={20} />
-            </button>
             <div>
               <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
                 <Bookmark size={20} className="text-blue-500" />

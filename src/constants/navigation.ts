@@ -22,6 +22,6 @@ export const SIDEBAR_MENU_ITEMS = [
   { icon: Bookmark, labelKey: 'nav.bookmarks' as TranslationKey, label: 'Bookmarks', path: '/bookmarks' },
   { icon: Lock, labelKey: 'nav.vault' as TranslationKey, label: 'Secure Vault', path: '/vault' },
   { icon: Wrench, labelKey: 'nav.tools' as TranslationKey, label: 'Tools', path: '/tools' },
-  { icon: Settings, labelKey: 'nav.settings' as TranslationKey, label: 'Settings', path: '/settings' },
+  { icon: Settings, labelKey: 'nav.settings' as TranslationKey, label: 'Advanced Control', path: '/settings' },
   { icon: Trash2, labelKey: 'nav.recycleBin' as TranslationKey, label: 'Recycle Bin', path: '/recycle-bin' },
 ] as const;

@@ -19,7 +19,6 @@ import {
   HardDrive,
   Cloud,
   History,
-  Trash2,
   AlertTriangle,
   Globe,
   Check,
@@ -87,7 +86,6 @@ const SettingsPage: React.FC = () => {
   const usagePercent = storage
     ? Math.min(100, Math.max(0, (storage.used / (storage.quota || 1)) * 100))
     : 0;
-  const activeLanguage = LANGUAGE_OPTIONS.find(o => o.value === language);
 
   const dataTiles = [
     {
@@ -111,13 +109,6 @@ const SettingsPage: React.FC = () => {
       path: "/cloud-archive",
       classes: "bg-sky-500/10 border-sky-500/20 text-sky-300",
     },
-    {
-      icon: Trash2,
-      title: t('settings.recycleBin'),
-      description: t('settings.recycleBinDesc'),
-      path: "/recycle-bin",
-      classes: "bg-red-500/10 border-red-500/20 text-red-300",
-    },
   ];
 
   return (
@@ -126,7 +117,7 @@ const SettingsPage: React.FC = () => {
       <div className="pointer-events-none fixed -top-28 left-1/4 w-80 h-80 rounded-full bg-cyan-500/[0.06] blur-3xl" />
       <div className="pointer-events-none fixed top-40 -right-24 w-72 h-72 rounded-full bg-indigo-500/[0.05] blur-3xl" />
 
-      {/* Header — single clean "Settings" heading */}
+      {/* Header — Advanced Control root header (kept) */}
       <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#0a0c10]/85 backdrop-blur-2xl shrink-0">
         <div className="px-4 sm:px-6 py-4 flex items-center gap-3.5 max-w-3xl mx-auto w-full">
           <button
@@ -142,12 +133,6 @@ const SettingsPage: React.FC = () => {
           <h1 className="text-xl font-black tracking-tight leading-none flex-1 min-w-0 truncate">
             {t('settings.title')}
           </h1>
-          {activeLanguage && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[10px] font-black uppercase tracking-wider text-white/50 shrink-0">
-              <Globe size={12} className="text-cyan-300" />
-              {activeLanguage.nativeLabel}
-            </span>
-          )}
         </div>
       </header>
 
@@ -199,7 +184,7 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* Mini stats */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-black/25 border border-white/[0.06]">
               <span className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                 <LayoutGrid size={17} className="text-indigo-300" />
@@ -210,19 +195,6 @@ const SettingsPage: React.FC = () => {
                 </span>
                 <span className="block text-base font-black leading-tight mt-0.5">
                   {workspaceCount ?? '—'}
-                </span>
-              </span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-black/25 border border-white/[0.06]">
-              <span className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
-                <Globe size={17} className="text-cyan-300" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/30 truncate">
-                  {t('settings.language')}
-                </span>
-                <span className="block text-base font-black leading-tight mt-0.5 truncate">
-                  {activeLanguage?.nativeLabel ?? '—'}
                 </span>
               </span>
             </div>

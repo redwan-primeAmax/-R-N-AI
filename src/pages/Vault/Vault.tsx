@@ -21,6 +21,7 @@ import { DataManager, Note } from '../../services/storage/DataManager';
 import { PasswordTakeCare } from './PasswordTakeCare';
 import { cn } from '../../utils/cn';
 import { useLanguage } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 
 function passwordStrength(password: string): number {
   if (!password) return 0;
@@ -163,19 +164,11 @@ export default function Vault() {
             </div>
           </div>
 
-          {/* Security indicators */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            {[
-              { icon: Lock, label: t('vault.encryptedBadge') },
-              { icon: Fingerprint, label: t('vault.pinProtected') },
-              { icon: HardDrive, label: t('vault.storageLocal') },
-            ].map(({ icon: Icon, label }) => (
-              <span key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-white/50">
-                <Icon size={12} className="text-emerald-400" />
-                {label}
-              </span>
-            ))}
-          </div>
+          {/* Security status — single clean line */}
+          <p className="flex items-center justify-center gap-2 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300/80">
+            <Lock size={12} className="text-emerald-400" />
+            {t('vault.statusLine')}
+          </p>
 
           <div className="bg-white/[0.03] border border-white/[0.08] rounded-[2rem] p-6 sm:p-8 space-y-5 shadow-2xl backdrop-blur-xl">
             <div className="space-y-2">
@@ -307,35 +300,22 @@ export default function Vault() {
     <div className="min-h-screen bg-[#0b0f0d] text-white flex flex-col font-sans overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500/60 via-amber-400/60 to-emerald-500/60 z-[1001]" />
 
-      <header className="px-6 py-6 md:px-12 flex items-center justify-between sticky top-0 bg-[#0b0f0d]/85 backdrop-blur-2xl z-[1000] border-b border-white/5">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/main')}
-            className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/[0.08] rounded-2xl transition-all active:scale-90"
-            aria-label={t('common.back')}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck size={13} className="text-emerald-400" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400/70">{t('vault.secureEnvironment')}</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-none">{t('vault.title')}</h1>
-            <p className="text-xs text-white/30 font-medium mt-1.5">{t('vault.subtitle')}</p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleLockVault}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-300 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
-        >
-          <Lock size={14} />
-          <span className="hidden sm:inline">{t('vault.lockNow')}</span>
-        </button>
-      </header>
+      <Navigation2 backTo="/main" />
 
       <main className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full space-y-8 pb-24">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300/80">
+            <Lock size={12} className="text-emerald-400" />
+            {t('vault.statusLine')}
+          </p>
+          <button
+            onClick={handleLockVault}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-300 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
+          >
+            <Lock size={14} />
+            <span className="hidden sm:inline">{t('vault.lockNow')}</span>
+          </button>
+        </div>
         {error && (
           <div className="flex items-center gap-3 text-red-300 bg-red-500/[0.08] p-4 rounded-2xl border border-red-500/20" role="alert">
             <AlertCircle size={16} className="shrink-0" />
@@ -350,8 +330,6 @@ export default function Vault() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { icon: FileLock2, label: t('vault.totalLocked'), value: String(lockedNotes.length), accent: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-            { icon: Fingerprint, label: t('vault.protection'), value: t('vault.protectionOn'), accent: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-            { icon: HardDrive, label: t('vault.storage'), value: t('vault.storageLocal'), accent: "text-sky-400 bg-sky-500/10 border-sky-500/20" },
           ].map(({ icon: Icon, label, value, accent }) => (
             <div key={label} className="flex items-center gap-4 p-5 rounded-3xl bg-white/[0.03] border border-white/[0.07] shadow-lg">
               <div className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0", accent)}>

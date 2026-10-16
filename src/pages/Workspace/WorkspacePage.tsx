@@ -13,7 +13,7 @@ import React, { useState } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { 
-  ArrowLeft, Plus, Check, X, Search, 
+  Plus, Check, X, Search, 
   Folder, Briefcase, Rocket, Sparkles, Copy, Download, 
   Trash2, Edit3, Eraser, Info, Palette, MoreHorizontal
 } from 'lucide-react';
@@ -25,6 +25,7 @@ import { Modal } from '../../components/modals/Modal';
 import { useWorkspaceLogic } from './useWorkspaceLogic';
 import { cn } from '../../utils/cn';
 import { useLanguage } from '../../utils/translator';
+import Navigation2 from '../../components/Navigation2';
 
 export default function WorkspacePage() {
   const { t, language } = useLanguage();
@@ -128,40 +129,7 @@ export default function WorkspacePage() {
         </div>
       )}
 
-      {/* Modern Sticky Top App Bar */}
-      <header className="sticky top-0 z-40 bg-[var(--bg-main)]/95 backdrop-blur-xl border-b border-white/[0.08] px-4 py-3 sm:px-8">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/main')}
-              className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-90 border border-white/5 cursor-pointer"
-              title={t('common.back')}
-            >
-              <ArrowLeft size={20} />
-            </button>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight">{t('workspace.title')}</h1>
-                <span className="px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 font-mono text-xs font-bold">
-                  {workspaces.length}
-                </span>
-              </div>
-              <p className="text-[11px] font-bold text-white/40 uppercase tracking-widest hidden sm:block">
-                {t('workspace.eyebrow')}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsCreating(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 rounded-2xl text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-teal-600/20 transition-all active:scale-95 cursor-pointer"
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>{t('workspace.createNew')}</span>
-          </button>
-        </div>
-      </header>
+      <Navigation2 backTo="/main" />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 pb-32 space-y-6">
@@ -188,6 +156,14 @@ export default function WorkspacePage() {
           </div>
 
           <button
+            onClick={() => setIsCreating(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-500 rounded-2xl text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-teal-600/20 transition-all active:scale-95 cursor-pointer self-start sm:self-auto"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            <span>{t('workspace.createNew')}</span>
+          </button>
+
+          <button
             onClick={() => setShowLimitNoticeModal(true)}
             className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 text-xs text-white/50 hover:text-white transition-all self-start sm:self-auto cursor-pointer"
           >
@@ -200,10 +176,11 @@ export default function WorkspacePage() {
         <AnimatePresence>
           {isCreating && (
             <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              className="p-5 sm:p-6 bg-gradient-to-br from-teal-950/40 via-[#161618] to-[#121214] border-2 border-teal-500/40 rounded-[32px] shadow-2xl flex flex-col gap-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="p-5 sm:p-6 bg-gradient-to-br from-teal-950/40 via-[#161618] to-[#121214] border-2 border-teal-500/40 rounded-[32px] shadow-2xl flex flex-col gap-4 transform-gpu"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-widest text-teal-400 flex items-center gap-1.5">
@@ -306,7 +283,6 @@ export default function WorkspacePage() {
               return (
                 <motion.div
                   key={ws.id}
-                  layout
                   className={cn(
                     "group p-5 rounded-[32px] border transition-all duration-300 flex flex-col justify-between relative overflow-hidden",
                     isActive 

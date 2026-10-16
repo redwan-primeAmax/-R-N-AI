@@ -232,10 +232,10 @@ export const SettingsService = {
     const settings = record ? record.value as AISettings : null;
     const defaultSettings: AISettings = {
       selectedProvider: 'gemini',
-      // No model is pre-configured: users add models themselves, and the
-      // Agent surface shows "No model configured" until they do.
+      // A default Gemini model is pre-loaded so the Agent works out of
+      // the box; users can add or remove models at any time.
       selectedModels: {
-        gemini: '',
+        gemini: 'gemini-3.5-flash-lite',
         openrouter: '',
         fireworks: '',
         local: ''
@@ -248,7 +248,7 @@ export const SettingsService = {
       selectedAppID: 'threat-all',
       customAppIDs: [],
       providerModels: {
-        gemini: [],
+        gemini: ['gemini-3.5-flash-lite'],
         openrouter: [],
         fireworks: [],
         local: []
@@ -319,6 +319,21 @@ export const SettingsService = {
       }
     }
     mergedSettings.selectedModels = selectedModels as AISettings['selectedModels'];
+
+    // Pre-load the default Gemini model for installs that have none yet.
+    const geminiList = mergedSettings.providerModels?.gemini;
+    if (!Array.isArray(geminiList) || geminiList.length === 0) {
+      mergedSettings.providerModels = {
+        ...mergedSettings.providerModels,
+        gemini: ['gemini-3.5-flash-lite'],
+      };
+      if (!mergedSettings.selectedModels.gemini) {
+        mergedSettings.selectedModels = {
+          ...mergedSettings.selectedModels,
+          gemini: 'gemini-3.5-flash-lite',
+        };
+      }
+    }
 
     cachedSettings = mergedSettings;
     return mergedSettings;
