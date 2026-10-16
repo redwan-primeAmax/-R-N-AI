@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { t as tr } from '../../../../utils/translator';
 import { Mic, Play, Pause, Loader2, RotateCcw } from 'lucide-react';
 import { AudioProcessor } from '../../services/audio_processor';
 import { cn } from '../../../../utils/cn';
@@ -21,7 +22,7 @@ interface AudioGeneratorBlockProps {
 }
 
 export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block, setBlocks, isReadOnly }) => {
-  const [title, setTitle] = useState(block.meta?.title || 'শিরোনামহীন অডিও');
+  const [title, setTitle] = useState(block.meta?.title || tr('audio.untitled'));
   const [text, setText] = useState(block.meta?.text || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -181,7 +182,7 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
                 setTitle(val);
                 setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? { ...b, meta: { ...b.meta, title: val } } : b));
               }}
-              placeholder="শিরোনামহীন অডিও"
+              placeholder={tr('audio.untitled')}
               className="w-full bg-transparent border-none text-xs font-black uppercase tracking-wider text-[#37352F]/80 dark:text-white/80 focus:outline-none focus:ring-0 placeholder:opacity-30"
             />
           </div>
@@ -196,7 +197,7 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
               setText(val);
               setBlocks((prev: any[]) => prev.map(b => b.id === block.id ? { ...b, meta: { ...b.meta, text: val } } : b));
             }}
-            placeholder="এখানে অডিওর জন্য আপনার টেক্সটটি লিখুন..."
+            placeholder={tr('audio.textPlaceholder')}
             disabled={isReadOnly || isGenerating}
             className="w-full bg-gray-50/50 dark:bg-black/15 border border-gray-100 dark:border-white/5 rounded-2xl p-4 text-xs font-medium focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/25 min-h-[95px] resize-none leading-relaxed text-[#37352F] dark:text-white/90"
           />
@@ -246,9 +247,9 @@ export const AudioGeneratorBlock: React.FC<AudioGeneratorBlockProps> = ({ block,
 
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold text-[#37352F]/70 dark:text-white/70">
-                    {isGenerating ? 'অডিও জেনারেট হচ্ছে...' : (isPlaying ? (isPaused ? 'থমকে আছে' : 'শোনা যাচ্ছে') : 'শুনতে রিড করুন')}
+                    {isGenerating ? tr('audio.generating') : (isPlaying ? (isPaused ? tr('audio.paused') : tr('audio.playing')) : tr('audio.readAloud'))}
                   </span>
-                  <span className="text-[9px] text-[#37352F]/40 dark:text-white/30 font-medium select-none">মেল ভয়েস ইঞ্জিন (Male Voice Engine)</span>
+                  <span className="text-[9px] text-[#37352F]/40 dark:text-white/30 font-medium select-none">{tr('audio.engine')}</span>
                 </div>
               </div>
 

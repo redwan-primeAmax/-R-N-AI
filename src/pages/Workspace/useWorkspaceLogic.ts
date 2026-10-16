@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DataManager } from '../../services/storage/DataManager';
 import { Workspace } from '../../types';
+import { t as tr } from '../../utils/translator';
 
 export function useWorkspaceLogic() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -131,7 +132,7 @@ export function useWorkspaceLogic() {
       setIsCreating(false);
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: `নতুন ওয়ার্কস্পেস তৈরি হয়েছে "${newWs.name}"`, type: 'success' }
+        detail: { message: tr('toast.wsCreated', { name: newWs.name }), type: 'success' }
       }));
 
       // Auto-switch to newly created workspace
@@ -139,7 +140,7 @@ export function useWorkspaceLogic() {
     } catch (err: any) {
       console.error('[useWorkspaceLogic] Workspace creation failed:', err);
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: err?.message || 'ওয়ার্কস্পেস তৈরি ব্যর্থ হয়েছে', type: 'error' }
+        detail: { message: err?.message || tr('toast.wsCreateFailed'), type: 'error' }
       }));
     } finally {
       setIsLoading(false);
@@ -160,12 +161,12 @@ export function useWorkspaceLogic() {
       await loadData();
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: `ওয়ার্কস্পেসের নাম পরিবর্তন করা হয়েছে`, type: 'success' }
+        detail: { message: tr('toast.wsRenamed'), type: 'success' }
       }));
     } catch (err: any) {
       console.error('[useWorkspaceLogic] Workspace rename failed:', err);
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: err?.message || 'নাম পরিবর্তন ব্যর্থ হয়েছে', type: 'error' }
+        detail: { message: err?.message || tr('toast.wsRenameFailed'), type: 'error' }
       }));
     }
   }, [editingWorkspace, editName, loadData]);
@@ -185,12 +186,12 @@ export function useWorkspaceLogic() {
       await loadData();
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: 'ওয়ার্কস্পেস মুছে ফেলা হয়েছে', type: 'info' }
+        detail: { message: tr('toast.wsDeleted'), type: 'info' }
       }));
     } catch (err: any) {
       console.error('[useWorkspaceLogic] Workspace delete failed:', err);
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: err?.message || 'ওয়ার্কস্পেস ডিলিট করা যায়নি', type: 'error' }
+        detail: { message: err?.message || tr('toast.wsDeleteFailed'), type: 'error' }
       }));
     } finally {
       setIsLoading(false);
@@ -212,12 +213,12 @@ export function useWorkspaceLogic() {
       await loadData();
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: 'ওয়ার্কস্পেসের সব নোট মুছে ফেলা হয়েছে', type: 'info' }
+        detail: { message: tr('toast.wsNotesDeleted'), type: 'info' }
       }));
     } catch (err: any) {
       console.error('[useWorkspaceLogic] Clear notes failed:', err);
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: err?.message || 'নোট মুছতে সমস্যা হয়েছে', type: 'error' }
+        detail: { message: err?.message || tr('toast.wsDeleteNotesFailed'), type: 'error' }
       }));
     } finally {
       setIsLoading(false);
@@ -234,12 +235,12 @@ export function useWorkspaceLogic() {
       await loadData();
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: `ওয়ার্কস্পেস ক্লোন করা হয়েছে: "${duplicated.name}"`, type: 'success' }
+        detail: { message: tr('toast.wsCloned', { name: duplicated.name }), type: 'success' }
       }));
     } catch (err: any) {
       console.error('[useWorkspaceLogic] Duplicate failed:', err);
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: err?.message || 'ওয়ার্কস্পেস ডুপ্লিকেট করা যায়নি', type: 'error' }
+        detail: { message: err?.message || tr('toast.wsCloneFailed'), type: 'error' }
       }));
     } finally {
       setIsLoading(false);
@@ -282,7 +283,7 @@ export function useWorkspaceLogic() {
       await loadData();
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: 'ওয়ার্কস্পেস কাস্টমাইজেশন সংরক্ষিত হয়েছে', type: 'success' }
+        detail: { message: tr('toast.wsCustomSaved'), type: 'success' }
       }));
     } catch (err) {
       console.error('[useWorkspaceLogic] Workspace appearance update failed:', err);
@@ -305,7 +306,7 @@ export function useWorkspaceLogic() {
       URL.revokeObjectURL(url);
 
       window.dispatchEvent(new CustomEvent('app-notification', {
-        detail: { message: 'ওয়ার্কস্পেস ব্যাকআপ ডাউনলোড শুরু হয়েছে', type: 'success' }
+        detail: { message: tr('toast.wsBackupStarted'), type: 'success' }
       }));
     } catch (err) {
       console.error('[useWorkspaceLogic] Export failed:', err);

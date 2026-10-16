@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { t as translateText } from '../utils/translator';
 
 interface Props {
   children: ReactNode;
@@ -31,9 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">⚠️</span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">দুঃখিত, কিছু ভুল হয়েছে</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">{translateText('error.title')}</h1>
             <p className="text-white/40 mb-8 text-sm">
-              অ্যাপ্লিকেশনটি একটি অপ্রত্যাশিত ত্রুটির সম্মুখীন হয়েছে। দয়া করে ফেজটি রিফ্রেশ করুন।
+              {translateText('error.desc')}
             </p>
             <div className="bg-black/20 rounded-xl p-3 mb-8 text-left overflow-auto max-h-32">
               <code className="text-[10px] text-red-400 font-mono">
@@ -44,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all active:scale-95"
             >
-              রিফ্রেশ করুন
+              {translateText('error.refresh')}
             </button>
           </div>
         </div>

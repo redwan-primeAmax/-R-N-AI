@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { t as tr } from '../utils/translator';
 import { m as motion } from 'framer-motion';
 import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Search, Share2, Tag, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -60,7 +61,7 @@ export const GraphView: React.FC = () => {
         const radius = 180 + Math.random() * 80;
         return {
           id: note.id,
-          title: note.title || 'শিরোনামহীন',
+          title: note.title || tr('nav.untitled'),
           emoji: note.emoji || '📄',
           x: Math.cos(angle) * radius,
           y: Math.sin(angle) * radius,
@@ -183,7 +184,7 @@ export const GraphView: React.FC = () => {
           </button>
           <div className="flex items-center gap-2">
             <Share2 className="text-purple-400 w-5 h-5" />
-            <h1 className="font-bold text-sm">গ্রাফ ভিউ (Graph View)</h1>
+            <h1 className="font-bold text-sm">{tr('graph.title')}</h1>
           </div>
         </div>
 
@@ -193,7 +194,7 @@ export const GraphView: React.FC = () => {
             <Search size={14} className="text-white/40 mr-2" />
             <input
               type="text"
-              placeholder="নোড খুঁজুন..."
+              placeholder={tr('graph.searchNode')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none text-white placeholder:text-white/30 w-32 sm:w-48"

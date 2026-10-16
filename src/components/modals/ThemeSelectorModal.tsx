@@ -14,6 +14,16 @@ import { X, Check, Palette } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { THEME_METADATA } from '../../pages/Editor/themes/ThemeRegistry';
 import { useEffect, useState } from 'react';
+import { t as tr } from '../../utils/translator';
+
+const themeNameKeys: Record<string, string> = {
+  'default': 'theme.default',
+  'dark-graphite': 'theme.midnight',
+  'snow-white': 'theme.snow',
+  'grid-paper': 'theme.graph',
+  'soft-linen': 'theme.linen',
+  'yellow-ruled': 'theme.yellow',
+};
 
 interface ThemeSelectorModalProps {
   isOpen: boolean;
@@ -50,8 +60,8 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
           >
             <div className="flex justify-between items-center mb-6 sm:mb-8 shrink-0">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">নোট থিম নির্বাচন করুন</h2>
-                <p className="text-white/40 font-black uppercase text-[9px] tracking-[0.2em] mt-1">Select from your installed extension themes</p>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">{tr('dialogs.chooseTheme')}</h2>
+                <p className="text-white/40 font-black uppercase text-[9px] tracking-[0.2em] mt-1">{tr('dialogs.installThemeHint')}</p>
               </div>
               <button 
                 onClick={onClose}
@@ -90,8 +100,8 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
                   
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white text-sm truncate">{theme.name}</h3>
-                      <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mt-0.5 truncate">{theme.description || 'Extension Theme'}</p>
+                      <h3 className="font-bold text-white text-sm truncate">{tr((themeNameKeys[theme.id] ?? theme.name) as any)}</h3>
+                      <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mt-0.5 truncate">{theme.description || tr('dialogs.extensionTheme')}</p>
                     </div>
                     {currentTheme === theme.id && (
                       <div className="ml-2 bg-blue-600 p-1 rounded-lg text-white">
@@ -103,8 +113,8 @@ export function ThemeSelectorModal({ isOpen, onClose, onSelect, currentTheme }: 
               )) : (
                 <div className="col-span-full py-16 flex flex-col items-center justify-center opacity-30 border-2 border-dashed border-white/5 rounded-[2rem]">
                   <Palette size={48} className="mb-4" />
-                  <p className="text-xs font-black uppercase tracking-widest">কোন থিম এক্সটেনশন পাওয়া যায়নি</p>
-                  <p className="text-[10px] mt-2 font-medium opacity-60">এক্সটেনশন স্টোর থেকে থিম ইনস্টল করুন</p>
+                  <p className="text-xs font-black uppercase tracking-widest">{tr('dialogs.noThemeFound')}</p>
+                  <p className="text-[10px] mt-2 font-medium opacity-60">{tr('dialogs.installThemeHint')}</p>
                 </div>
               )}
             </div>

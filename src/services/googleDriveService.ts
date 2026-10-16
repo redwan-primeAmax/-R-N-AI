@@ -10,6 +10,7 @@
  */
 
 import { googleSignIn, googleSignOut, getStoredAccessToken } from './firebaseAuth';
+import { t as tr } from '../utils/translator';
 import { DataManager } from './storage/DataManager';
 
 const BACKUP_FILENAME = 'Redwan_Note_Backup.redwan';
@@ -177,7 +178,7 @@ export class GoogleDriveService {
 
     const file = await this.findBackupFile(token);
     if (!file) {
-      throw new Error('গুগল ড্রাইভে কোনো ব্যাকআপ ফাইল পাওয়া যায়নি।');
+      throw new Error(tr('drive.noBackup'));
     }
 
     const content = await this.downloadFileContent(token, file.id);

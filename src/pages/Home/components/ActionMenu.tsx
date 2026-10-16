@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { t as tr } from '../../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -152,12 +153,12 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     },
     { 
       icon: <Lock size={20} className={note?.isLocked ? "text-amber-500" : "text-white/70"} />, 
-      label: note?.isLocked ? "Unlock Page" : "Lock Page", 
+      label: note?.isLocked ? tr('menu.unlockPage') : tr('sheet.lockPage'), 
       onClick: async () => {
         if (note) {
           const hasMaster = await PasswordTakeCare.hasMasterPassword();
           if (!hasMaster) {
-            alert('আপনার গোপন নোটগুলো সুরক্ষিত রাখতে আগে সিকিউর ভল্টে মাস্টার পাসওয়ার্ড সেটআপ করুন।');
+            alert(tr('menu.setupVault'));
             navigate('/vault');
             onClose();
             return;
@@ -165,24 +166,24 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
 
           try {
             if (note.isLocked) {
-              const pwd = prompt('নোটের পাসওয়ার্ড দিন:');
+              const pwd = prompt(tr('menu.enterPassword'));
               if (pwd === null) return;
-              if (!await DataManager.authorizeNote(note.id, pwd)) throw new Error('ভুল পাসওয়ার্ড');
+              if (!await DataManager.authorizeNote(note.id, pwd)) throw new Error(tr('dialogs.wrongPassword'));
               await DataManager.toggleLock(note.id);
             } else {
-              const pwd = prompt('নোটের জন্য অন্তত ৮ অক্ষরের পাসওয়ার্ড দিন:');
+              const pwd = prompt(tr('menu.setPasswordPrompt'));
               if (pwd === null) return;
               await DataManager.lockNote(note.id, pwd);
             }
             onClose();
-          } catch (error) { alert(error instanceof Error ? error.message : 'নোট লক/আনলক করা যায়নি'); }
+          } catch (error) { alert(error instanceof Error ? error.message : tr('menu.lockFailed')); }
 
         }
       }
     },
     { 
       icon: <Bookmark size={20} className="text-white/70" />, 
-      label: "Add to Bookmark", 
+      label: tr('menu.addBookmark'), 
       onClick: () => setShowBookmarkModal(true)
     },
     { 
@@ -265,11 +266,11 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                       }}
                       className="font-bold text-xl truncate text-white/90 cursor-text hover:text-white"
                     >
-                      {note.title || 'শিরোনামহীন চিন্তা'}
+                      {note.title || tr('bookmark.untitledThought')}
                     </h3>
                   )}
                   <p className="text-[11px] text-white/30 font-medium tracking-tight uppercase">
-                    Modified: {new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {tr('menu.modified')}: {new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-white/30">
@@ -356,9 +357,9 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
             isOpen={showShareError}
             onClose={() => setShowShareError(false)}
             onConfirm={() => setShowShareError(false)}
-            title="শেয়ার তথ্য"
-            message="এই নোটটিতে ফাইল (Images/Files) এটাচড থাকায় শুধুমাত্র টেক্সট হিসেবে মার্কডাউন শেয়ার করা সম্ভব নয়। ফাইল রিমুভ করে পুনরায় চেষ্টা করুন।"
-            confirmText="বুঝেছি"
+            title={tr('menu.shareInfo')}
+            message={tr('menu.shareInfoMsg')}
+            confirmText={tr('menu.gotIt')}
             cancelText=""
             variant="primary"
           />

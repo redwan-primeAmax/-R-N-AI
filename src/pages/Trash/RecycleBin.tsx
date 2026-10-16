@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   Trash2, RotateCcw, X, ArrowLeft, 
@@ -113,7 +114,7 @@ export default function RecycleBin() {
             <ChevronLeft size={24} />
           </button>
           <div>
-            <h1 className="text-3xl font-black tracking-tighter">পুনরুদ্ধার বাক্স</h1>
+            <h1 className="text-3xl font-black tracking-tighter">{tr('recycle.title')}</h1>
             <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em] mt-1">Recycle Bin</p>
           </div>
         </div>
@@ -124,7 +125,7 @@ export default function RecycleBin() {
             className="flex items-center gap-2 px-5 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
           >
             <Trash size={14} />
-            সব মুছুন
+            {tr('recycle.deleteAll')}
           </button>
         )}
       </header>
@@ -133,13 +134,13 @@ export default function RecycleBin() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 grayscale opacity-20">
             <Loader2 size={40} className="animate-spin mb-4" />
-            <p className="font-bold">লোড হচ্ছে...</p>
+            <p className="font-bold">{tr('common.loading')}</p>
           </div>
         ) : trashedNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[60vh] opacity-20">
             <Trash2 size={80} className="mb-6" />
-            <h2 className="text-xl font-bold italic">বক্সটি খালি!</h2>
-            <p className="text-sm">মুছে ফেলা নোটগুলো এখানে জমা হবে</p>
+            <h2 className="text-xl font-bold italic">{tr('recycle.emptyTitle')}</h2>
+            <p className="text-sm">{tr('recycle.emptyDesc')}</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -167,7 +168,7 @@ export default function RecycleBin() {
                       onClick={() => handleRestore(note.id)}
                       className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-500/10 hover:bg-blue-500 rounded-xl text-blue-400 hover:text-white text-xs font-bold transition-all"
                     >
-                      <RotateCcw size={14} /> পুনরুদ্ধার
+                      <RotateCcw size={14} /> {tr('recycle.restore')}
                     </button>
                     <button 
                       onClick={() => setNoteToDelete(note.id)}
@@ -187,7 +188,7 @@ export default function RecycleBin() {
                   onClick={loadMore}
                   className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[24px] text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-105 active:scale-95"
                 >
-                  আরো লোড করুন ({trashedNotes.length - displayedNotes.length} টি বাকি)
+                  {tr('recycle.loadMore')} ({trashedNotes.length - displayedNotes.length} {tr('recycle.remaining')})
                 </button>
               </div>
             )}
@@ -201,7 +202,7 @@ export default function RecycleBin() {
             <AlertCircle size={20} />
           </div>
           <p className="text-xs text-white/40 leading-tight">
-            মুছে ফেলা নোটগুলো এখানে ৩০ দিন পর্যন্ত থাকে। এর পরে সেগুলো স্বয়ংক্রিয়ভাবে চিরতরে মুছে যাবে।
+            {tr('recycle.footer')}
           </p>
         </div>
       </div>
@@ -210,22 +211,22 @@ export default function RecycleBin() {
         isOpen={noteToDelete !== null}
         onClose={() => setNoteToDelete(null)}
         onConfirm={handlePermanentDelete}
-        title="চিরতরে মুছুন"
-        message="এই নোটটি চিরতরে মুছে যাবে। আপনি কি নিশ্চিত?"
+        title={tr('recycle.permDelete')}
+        message={tr('recycle.permDeleteMsg')}
         variant="danger"
-        confirmText="হ্যাঁ, ডিলেট করুন"
-        cancelText="বাতিল"
+        confirmText={tr('recycle.yesDelete')}
+        cancelText={tr('dialogs.cancel')}
       />
 
       <ConfirmDialog
         isOpen={showEmptyConfirm}
         onClose={() => setShowEmptyConfirm(false)}
         onConfirm={handleEmptyTrash}
-        title="রিসাইকেল বিন খালি করুন"
-        message="সব নোট চিরতরে মুছে যাবে। আপনি কি নিশ্চিত?"
+        title={tr('recycle.emptyBin')}
+        message={tr('recycle.emptyBinMsg')}
         variant="danger"
-        confirmText="হ্যাঁ, সব মুছুন"
-        cancelText="বাতিল"
+        confirmText={tr('recycle.yesDeleteAll')}
+        cancelText={tr('dialogs.cancel')}
       />
     </motion.div>
   );

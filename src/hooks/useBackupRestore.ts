@@ -13,6 +13,7 @@ import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { DataManager } from '../services/storage/DataManager';
 import { downloadBlob } from '../utils/downloadBlob';
 import { notify } from '../utils/notify';
+import { t as tr } from '../utils/translator';
 
 export type BackupStatus = 'idle' | 'preparing' | 'success' | 'error';
 
@@ -48,7 +49,7 @@ export function useBackupRestore() {
     } catch (err) {
       if (id !== generation.current) return;
       console.error('Export error:', err);
-      setError('ব্যাকআপ তৈরি করতে সমস্যা হয়েছে।');
+      setError(tr('backup.errCreate'));
       setStatus('error');
     }
   };
@@ -68,7 +69,7 @@ export function useBackupRestore() {
     } catch (err) {
       if (id !== generation.current) return;
       console.error('Import error:', err);
-      setError('ব্যাকআপ ফাইল পড়তে সমস্যা হয়েছে।');
+      setError(tr('backup.errRead'));
       setStatus('error');
     }
   };
@@ -82,11 +83,11 @@ export function useBackupRestore() {
       if (id !== generation.current) return;
       setStatus('success');
       setImportData(null);
-      notify('সফলভাবে রিস্টোর হয়েছে!', 'success');
+      notify(tr('backup.restored'), 'success');
     } catch (err) {
       if (id !== generation.current) return;
       console.error('Restore error:', err);
-      setError('রিস্টোর করতে সমস্যা হয়েছে।');
+      setError(tr('backup.errRestore'));
       setStatus('error');
     }
   };

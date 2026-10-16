@@ -10,11 +10,12 @@
  */
 
 import { FileText } from 'lucide-react';
+import { t as tr } from '../../../utils/translator';
 import { ActionConfig } from '../types/ActionConfig';
 
 export const subPagesNavigation: ActionConfig = {
   icon: FileText,
-  label: 'অনুষঙ্গিক পাতা সমূহ (Sub Pages)',
-  subtitle: (count: number) => `${count}টি অনুষঙ্গিক পাতা সংযুক্ত আছে`,
+  get label() { return tr('sheet.subpagesHeader'); },
+  subtitle: (count: number) => tr('actions.subpagesAttached', { count }),
   onClick: (setViewMode: any) => setViewMode('subpages')
 };

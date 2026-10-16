@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, Trash2, Download, 
@@ -73,7 +74,7 @@ export default function RecentBackups() {
           <ChevronLeft size={24} />
         </button>
         <div>
-          <h1 className="text-xl font-black tracking-tight uppercase">রিসেন্ট ব্যাকআপ</h1>
+          <h1 className="text-xl font-black tracking-tight uppercase">{tr('backups.title')}</h1>
           <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mt-1">Previous Data Backups</p>
         </div>
       </header>
@@ -82,9 +83,9 @@ export default function RecentBackups() {
         <div className="p-6 bg-blue-500/5 rounded-[32px] border border-blue-500/10 flex gap-4">
           <ShieldCheck className="text-blue-400 shrink-0" size={24} />
           <div>
-            <h4 className="text-sm font-bold text-white/80">সুরক্ষিত লোকাল ব্যাকআপ</h4>
+            <h4 className="text-sm font-bold text-white/80">{tr('backups.localTitle')}</h4>
             <p className="text-[11px] text-white/40 leading-relaxed mt-1">
-              আপনার শেষ ১০টি সফল ব্যাকআপ এখানে সংরক্ষিত থাকে। ব্রাউজার ক্যাশ ক্লিয়ার করলে এগুলো মুছে যেতে পারে, তাই নিয়মিত ফাইলটি ডাউনলোড করে রাখা ভালো।
+              {tr('backups.localDesc')}
             </p>
           </div>
         </div>
@@ -93,12 +94,12 @@ export default function RecentBackups() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
               <RefreshCw className="animate-spin" />
-              <p className="text-[10px] font-black uppercase tracking-widest">লোড হচ্ছে...</p>
+              <p className="text-[10px] font-black uppercase tracking-widest">{tr('common.loading')}</p>
             </div>
           ) : backups.length === 0 ? (
             <div className="text-center py-20 space-y-4 bg-white/[0.02] rounded-[40px] border border-dashed border-white/5">
               <Database className="mx-auto text-white/10" size={48} />
-              <p className="text-sm font-bold text-white/20">কোনো ব্যাকআপ রেকর্ড নেই</p>
+              <p className="text-sm font-bold text-white/20">{tr('backups.none')}</p>
             </div>
           ) : (
             backups.map((backup) => (
@@ -115,7 +116,7 @@ export default function RecentBackups() {
                       <Database size={20} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-white/90">ডাটা ব্যাকআপ - {formatSize(backup.size)}</h3>
+                      <h3 className="font-bold text-white/90">{tr('backups.dataBackup')} - {formatSize(backup.size)}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         <Clock size={12} className="text-white/20" />
                         <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
@@ -154,7 +155,7 @@ export default function RecentBackups() {
               exit={{ opacity: 0, y: 50 }}
               className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-green-500 text-white rounded-full font-bold flex items-center gap-2 shadow-2xl z-50"
             >
-              <CheckCircle2 size={18} /> ডাউনলোড শুরু হয়েছে
+              <CheckCircle2 size={18} /> {tr('backups.downloadStarted')}
             </motion.div>
           )}
         </AnimatePresence>

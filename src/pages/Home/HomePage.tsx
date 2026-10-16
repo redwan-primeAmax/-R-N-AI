@@ -168,7 +168,7 @@ export default function HomePage() {
     const newNote = {
       ...note,
       id: crypto.randomUUID(),
-      title: (note.title || 'শিরোনামহীন') + ' (কপি)',
+      title: (note.title || t('nav.untitled')) + t('home.copySuffix'),
       updatedAt: Date.now()
     };
     await DataManager.saveNote(newNote);
@@ -303,11 +303,11 @@ export default function HomePage() {
             loadData();
           }
         }}
-        title="নির্বাচিত অংশ মুছুন"
-        message={`আপনি কি নির্বাচিত ${selectedIds.length}টি নোট রিসাইকেল বিনে পাঠাতে চান?`}
+        title={t('home.deleteSelected')}
+        message={t('home.deleteSelectedMsg', { count: selectedIds.length })}
         variant="danger"
-        confirmText="হ্যাঁ, মুছুন"
-        cancelText="বাতিল"
+        confirmText={t('bookmark.yesDelete')}
+        cancelText={t('dialogs.cancel')}
       />
 
       <AnimatePresence>

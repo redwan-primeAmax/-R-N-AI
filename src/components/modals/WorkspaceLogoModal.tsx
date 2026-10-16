@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { t as tr } from '../../utils/translator';
 import DOMPurify from 'dompurify';
 import { 
   Briefcase, Folder, Home, Rocket, Sparkles, BookOpen, Code, 
@@ -126,7 +127,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
   const SelectedIconComp = WORKSPACE_PRESET_ICONS.find(i => i.id === selectedIcon)?.icon || Briefcase;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="ওয়ার্কস্পেস কাস্টমাইজেশন">
+    <Modal isOpen={isOpen} onClose={onClose} title={tr('dialogs.workspaceCustomize')}>
       <div className="p-5 sm:p-6 space-y-6 max-h-[80vh] overflow-y-auto no-scrollbar text-white">
         
         {/* Live Preview Card */}
@@ -152,7 +153,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
               <h4 className="font-extrabold text-base text-white truncate">{workspaceName}</h4>
               <p className="text-[11px] font-bold text-white/40 uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
                 <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: selectedColor }} />
-                লাইভ প্রিভিউ
+                {tr('dialogs.livePreview')}
               </p>
             </div>
           </div>
@@ -166,7 +167,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
         <div className="space-y-2.5">
           <label className="text-[11px] font-extrabold uppercase tracking-widest text-white/50 flex items-center gap-1.5">
             <Sliders size={13} className="text-white/60" />
-            থিম কালার নির্বাচন করুন
+            {tr('dialogs.pickThemeColor')}
           </label>
           <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
             {WORKSPACE_PRESET_COLORS.map(c => {
@@ -207,7 +208,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
             )}
           >
             <ImageIcon size={14} />
-            আইকন
+            {tr('dialogs.icon')}
           </button>
 
           <button
@@ -225,7 +226,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
             )}
           >
             <Smile size={14} />
-            ইমোজি
+            {tr('dialogs.emoji')}
           </button>
 
           <button
@@ -237,7 +238,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
             )}
           >
             <Code2 size={14} />
-            কাস্টম SVG
+            {tr('dialogs.customSvg')}
           </button>
         </div>
 
@@ -307,7 +308,7 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
               className="w-full h-36 bg-black/50 border border-white/10 rounded-2xl p-3.5 text-xs font-mono outline-none focus:border-blue-500 transition-all resize-none text-white/90 placeholder:text-white/20"
             />
             <p className="text-[11px] text-white/40 leading-relaxed">
-              সতর্কতা: SVG কোড স্বয়ংক্রিয়ভাবে স্যানিটাইজ করা হয় যাতে স্ক্রিপ্ট ও ক্ষতিকর ট্যাগ বাদ পড়ে।
+              {tr('dialogs.svgWarning')}
             </p>
           </div>
         )}
@@ -319,14 +320,14 @@ export const WorkspaceLogoModal: React.FC<WorkspaceLogoModalProps> = ({
             onClick={onClose}
             className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all text-white/60 active:scale-95 cursor-pointer"
           >
-            বাতিল
+            {tr('dialogs.cancel')}
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all text-white shadow-lg shadow-blue-500/25 active:scale-95 cursor-pointer"
           >
-            সংরক্ষণ করুন
+            {tr('dialogs.save')}
           </button>
         </div>
 

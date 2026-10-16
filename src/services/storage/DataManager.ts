@@ -10,6 +10,7 @@
  */
 
 import localforage from 'localforage';
+import { t as tr } from '../../utils/translator';
 import { db, runMigrationFromLocalForage } from './DexieDB';
 import { HistoryManager } from './HistoryManager';
 import { NoteService } from './services/NoteService';
@@ -405,8 +406,8 @@ export const DataManager = {
     const now = Date.now();
     if (usage.used > usage.quota * 0.9 && (now - lastStorageWarningTime > STORAGE_WARNING_COOLDOWN)) {
       const msg = usage.used > usage.quota * 0.98 
-        ? "সঞ্চয়স্থান প্রায় পূর্ণ! দয়া করে কিছু ডাটা ডিলিট করুন অথবা ক্লাউড সংযোগ করুন।"
-        : "সঞ্চয়স্থান পূর্ণ হতে চলেছে।";
+        ? tr('data.storageAlmostFull')
+        : tr('data.storageFilling');
       window.dispatchEvent(new CustomEvent('storage-warning', { detail: { message: msg, severity: usage.used > usage.quota * 0.98 ? 'error' : 'warning' } }));
       lastStorageWarningTime = now;
     }

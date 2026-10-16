@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion } from 'framer-motion';
 import { Modal } from './Modal';
 import { FileText, FileDown, Archive, Image as ImageIcon, CheckCircle2, Loader2, PlaySquare } from 'lucide-react';
@@ -194,13 +195,13 @@ export function NoteExportModal({ isOpen, onClose, note, onPdfExport }: NoteExpo
   ];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="এক্সপোর্ট অপশন (Export)">
+    <Modal isOpen={isOpen} onClose={onClose} title={tr('dialogs.exportOptions')}>
       <div className="p-4 space-y-4">
         {hasMedia && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
             <PlaySquare size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-red-400 leading-relaxed font-bold">
-              নোটের মধ্যে ইমেজ বা ভিডিও থাকায় আপনি শুধুমাত্র জিপ (ZIP) ফরম্যাটে এটি এক্সপোর্ট করতে পারবেন।
+              {tr('dialogs.exportZipOnly')}
             </p>
           </div>
         )}

@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { t as tr } from './translator';
 /**
  * Copyright © 2026 Redwan. All rights reserved.
  *
@@ -445,7 +446,7 @@ export function htmlToBlocks(html: string): EditorBlock[] {
     console.error('CRITICAL: htmlToBlocks failed', err);
     // Return safe fallback for corrupted notes (Requirement 14)
     return [
-      { id: 'recovery-msg', type: 'callout', content: 'ত্রুটি: এই নোটটির কিছু অংশ লোড করা যায়নি। তবে আপনার ডাটা সুরক্ষিত আছে।', emoji: '⚠️' },
+      { id: 'recovery-msg', type: 'callout', content: tr('parser.recovery'), emoji: '⚠️' },
       { id: crypto.randomUUID(), type: 'paragraph', content: html.substring(0, 5000) }
     ];
   }

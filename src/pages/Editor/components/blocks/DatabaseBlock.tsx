@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { t as tr } from '../../../../utils/translator';
 import { 
   Table as TableIcon, 
   Kanban, 
@@ -105,7 +106,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
     return {
       layout: 'table',
       views: [
-        { id: 'view-default', name: 'সব এন্ট্রি (All)', type: 'table', filters: [], sorts: [] }
+        { id: 'view-default', name: tr('db.allEntries'), type: 'table', filters: [], sorts: [] }
       ],
       activeViewId: 'view-default',
       columns: [
@@ -276,7 +277,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
     const newViewId = `view-${Date.now()}`;
     const newView: DatabaseView = {
       id: newViewId,
-      name: `ভিউ ${views.length + 1}`,
+      name: `${tr('db.view')} ${views.length + 1}`,
       type: 'table',
       filters: [],
       sorts: []
@@ -435,7 +436,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
               )}
             >
               <Filter size={13} />
-              <span>ফিল্টার ({activeView?.filters?.length || 0})</span>
+              <span>{tr('db.filter')} ({activeView?.filters?.length || 0})</span>
             </button>
 
             <button
@@ -448,7 +449,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
               )}
             >
               <ArrowUpDown size={13} />
-              <span>সাজান ({activeView?.sorts?.length || 0})</span>
+              <span>{tr('db.sort')} ({activeView?.sorts?.length || 0})</span>
             </button>
           </div>
         </div>
@@ -513,9 +514,9 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
       {showFilterBuilder && (
         <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-white/70">
-            <span>ফিল্টার শর্তসমূহ (Filters)</span>
+            <span>{tr('db.filterConditions')}</span>
             <button onClick={addFilter} className="text-blue-400 hover:underline flex items-center gap-1 cursor-pointer">
-              <Plus size={12} /> শর্ত যোগ করুন
+              <Plus size={12} /> {tr('db.addCondition')}
             </button>
           </div>
           {(activeView?.filters || []).map((f, idx) => (
@@ -545,12 +546,12 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 }}
                 className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none"
               >
-                <option value="contains">থাকে (contains)</option>
-                <option value="=" font-mono>সমান (=)</option>
-                <option value="not-equal">সমান নয় (!=)</option>
-                <option value="greater">বড় (&gt;)</option>
-                <option value="less">ছোট (&lt;)</option>
-                <option value="empty">ফাঁকা (empty)</option>
+                <option value="contains">{tr('db.contains')}</option>
+                <option value="=" font-mono>{tr('db.equals')}</option>
+                <option value="not-equal">{tr('db.notEqual')}</option>
+                <option value="greater">{tr('db.greater')}</option>
+                <option value="less">{tr('db.less')}</option>
+                <option value="empty">{tr('db.empty')}</option>
               </select>
 
               {f.operator !== 'empty' && (
@@ -563,7 +564,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                     const updatedViews = views.map(v => v.id === activeViewId ? { ...v, filters: updated } : v);
                     updateDbData({ ...dbData, views: updatedViews });
                   }}
-                  placeholder="মান লিখুন..."
+                  placeholder={tr('db.valuePlaceholder')}
                   className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none text-xs"
                 />
               )}
@@ -580,9 +581,9 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
       {showSortBuilder && (
         <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-white/70">
-            <span>সাজানোর নিয়ম (Sorts)</span>
+            <span>{tr('db.sortRules')}</span>
             <button onClick={addSort} className="text-purple-400 hover:underline flex items-center gap-1 cursor-pointer">
-              <Plus size={12} /> নিয়ম যোগ করুন
+              <Plus size={12} /> {tr('db.addRule')}
             </button>
           </div>
           {(activeView?.sorts || []).map((s, idx) => (
@@ -612,8 +613,8 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 }}
                 className="bg-[#1a1a1a] border border-white/10 text-white rounded-lg px-2 py-1 outline-none"
               >
-                <option value="asc">ছোট থেকে বড় (Ascending)</option>
-                <option value="desc">বড় থেকে ছোট (Descending)</option>
+                <option value="asc">{tr('db.asc')}</option>
+                <option value="desc">{tr('db.desc')}</option>
               </select>
 
               <button onClick={() => removeSort(idx)} className="text-red-400 hover:text-red-300 p-1 cursor-pointer">
@@ -723,13 +724,13 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                   onClick={addRow}
                   className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
                 >
-                  <Plus size={14} /> রো যোগ করুন
+                  <Plus size={14} /> {tr('db.addRow')}
                 </button>
                 <button
                   onClick={addColumn}
                   className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
                 >
-                  <Plus size={14} /> প্রপার্টি যোগ করুন
+                  <Plus size={14} /> {tr('db.addProperty')}
                 </button>
               </div>
             )}
@@ -739,7 +740,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
         {/* Board / List / Gallery Views fallback */}
         {activeLayout !== 'table' && (
           <div className="p-6 text-center text-white/40 text-xs">
-            ভিউ বাস্তবায়িত হয়েছে ({transformedRows.length} টি সারি প্রদর্শিত)
+            {tr('db.viewApplied')} ({transformedRows.length} {tr('db.rowsShown')})
           </div>
         )}
       </div>
@@ -755,18 +756,18 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
               className="w-full max-w-md bg-[#1c1c1e] rounded-2xl p-5 shadow-2xl border border-white/10 space-y-4 text-white text-xs"
             >
               <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                <h3 className="font-bold text-sm">প্রপার্টি সেটিংস (Property Config)</h3>
+                <h3 className="font-bold text-sm">{tr('db.propertySettings')}</h3>
                 <button 
                   onClick={() => deleteColumn(showConfigCol)}
                   className="px-2.5 py-1 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-lg font-bold transition-colors cursor-pointer"
                 >
-                  মুছে ফেলুন
+                  {tr('db.delete')}
                 </button>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-white/50 mb-1 font-semibold">নাম (Label Name)</label>
+                  <label className="block text-white/50 mb-1 font-semibold">{tr('db.labelName')}</label>
                   <input
                     type="text"
                     value={colNameInput}
@@ -776,25 +777,25 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 </div>
 
                 <div>
-                  <label className="block text-white/50 mb-1 font-semibold">টাইপ (Type)</label>
+                  <label className="block text-white/50 mb-1 font-semibold">{tr('db.type')}</label>
                   <select
                     value={colTypeInput}
                     onChange={(e: any) => setColTypeInput(e.target.value)}
                     className="w-full bg-[#121212] border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
                   >
-                    <option value="text">টেক্সট (Text)</option>
-                    <option value="number">সংখ্যা (Number)</option>
-                    <option value="select">সিলেক্ট (Select)</option>
-                    <option value="date">তারিখ (Date)</option>
-                    <option value="formula">ফর্মুলা (Formula)</option>
-                    <option value="rollup">রোলআপ (Rollup)</option>
-                    <option value="relation">রিলেশন (Relation)</option>
+                    <option value="text">{tr('db.typeText')}</option>
+                    <option value="number">{tr('db.typeNumber')}</option>
+                    <option value="select">{tr('db.typeSelect')}</option>
+                    <option value="date">{tr('db.typeDate')}</option>
+                    <option value="formula">{tr('db.typeFormula')}</option>
+                    <option value="rollup">{tr('db.typeRollup')}</option>
+                    <option value="relation">{tr('db.typeRelation')}</option>
                   </select>
                 </div>
 
                 {colTypeInput === 'select' && (
                   <div>
-                    <label className="block text-white/50 mb-1 font-semibold">অপশনসমূহ (কমা দিয়ে আলাদা করুন)</label>
+                    <label className="block text-white/50 mb-1 font-semibold">{tr('db.optionsLabel')}</label>
                     <input
                       type="text"
                       placeholder="High, Medium, Low"
@@ -807,7 +808,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
 
                 {colTypeInput === 'formula' && (
                   <div>
-                    <label className="block text-white/50 mb-1 font-semibold">ফর্মুলা এক্সপ্রেশন (Mathjs expression e.g. amount * 1.15)</label>
+                    <label className="block text-white/50 mb-1 font-semibold">{tr('db.formulaLabel')}</label>
                     <input
                       type="text"
                       placeholder="amount * 1.15"
@@ -821,7 +822,7 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                 {colTypeInput === 'rollup' && (
                   <div className="space-y-2">
                     <div>
-                      <label className="block text-white/50 mb-1 font-semibold">টার্গেট প্রপার্টি (Target Property)</label>
+                      <label className="block text-white/50 mb-1 font-semibold">{tr('db.targetProperty')}</label>
                       <select
                         value={colRollupInput.targetProperty}
                         onChange={(e) => setColRollupInput({ ...colRollupInput, targetProperty: e.target.value })}
@@ -834,17 +835,17 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                     </div>
 
                     <div>
-                      <label className="block text-white/50 mb-1 font-semibold">অ্যাগ্রিগেশন (Aggregate)</label>
+                      <label className="block text-white/50 mb-1 font-semibold">{tr('db.aggregation')}</label>
                       <select
                         value={colRollupInput.aggregate}
                         onChange={(e: any) => setColRollupInput({ ...colRollupInput, aggregate: e.target.value })}
                         className="w-full bg-[#121212] border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
                       >
-                        <option value="sum">যোগফল (Sum)</option>
-                        <option value="count">সংখ্যা (Count)</option>
-                        <option value="avg">গড় (Average)</option>
-                        <option value="min">সর্বনিম্ন (Min)</option>
-                        <option value="max">সর্বোচ্চ (Max)</option>
+                        <option value="sum">{tr('db.sum')}</option>
+                        <option value="count">{tr('db.count')}</option>
+                        <option value="avg">{tr('db.avg')}</option>
+                        <option value="min">{tr('db.min')}</option>
+                        <option value="max">{tr('db.max')}</option>
                       </select>
                     </div>
                   </div>
@@ -856,13 +857,13 @@ export const DatabaseBlock: React.FC<DatabaseBlockProps> = ({ block, setBlocks, 
                   onClick={() => setShowConfigCol(null)}
                   className="flex-1 py-2 bg-white/10 rounded-xl font-bold cursor-pointer"
                 >
-                  বাতিল
+                  {tr('dialogs.cancel')}
                 </button>
                 <button
                   onClick={() => handleSaveColConfig(showConfigCol)}
                   className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 font-bold rounded-xl cursor-pointer"
                 >
-                  সংরক্ষণ করুন
+                  {tr('dialogs.save')}
                 </button>
               </div>
             </motion.div>

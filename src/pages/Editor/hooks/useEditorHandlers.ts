@@ -15,6 +15,7 @@ import { DataManager, Note } from '../../../services/storage/DataManager';
 import { blocksToHtml } from '../../../utils/blockParser';
 import { loadThemeConfig } from '../themes/ThemeRegistry';
 import { ThemeConfig } from '../themes/types';
+import { t as tr } from '../../../utils/translator';
 
 interface UseEditorHandlersParams {
   id: string | undefined;
@@ -137,7 +138,7 @@ export function useEditorHandlers({
 
   const handleLinkPageSelect = (targetNote: any) => {
     // Requirement 19: Insert link with arrow
-    const linkHtml = `<a href="/editor/${targetNote.id}" class="page-link" data-note-id="${targetNote.id}"><span class="link-arrow">⤴</span> ${targetNote.title || 'শিরোনামহীন'}</a>`;
+    const linkHtml = `<a href="/editor/${targetNote.id}" class="page-link" data-note-id="${targetNote.id}"><span class="link-arrow">⤴</span> ${targetNote.title || tr('nav.untitled')}</a>`;
     document.execCommand('insertHTML', false, linkHtml);
     setShowLinkPanel(false);
   };
@@ -213,15 +214,15 @@ export function useEditorHandlers({
         // Problem 18: Undo Delete
         window.dispatchEvent(new CustomEvent('app-notification', {
           detail: {
-            message: `"${currentNote.title}" রিসাইকেল বিনে পাঠানো হয়েছে।`,
+            message: tr('toast.sentToBin', { title: currentNote.title || tr('nav.untitled') }),
             type: 'info',
             duration: 8000,
             action: {
-              label: 'ফিরিয়ে আনুন (Undo)',
+              label: tr('toast.undo'),
               onClick: async () => {
                 await DataManager.restoreNote(currentNote.id);
                 window.dispatchEvent(new CustomEvent('app-notification', {
-                  detail: { message: 'নোটটি সফলভাবে পুনরুদ্ধার করা হয়েছে।', type: 'success' }
+                  detail: { message: tr('toast.noteRestored'), type: 'success' }
                 }));
               }
             }
@@ -240,7 +241,7 @@ export function useEditorHandlers({
     const newNote = { 
       ...currentNote, 
       id: crypto.randomUUID(), 
-      title: (currentNote.title || 'শিরোনামহীন') + ' (Copy)', 
+      title: (currentNote.title || tr('nav.untitled')) + tr('home.copySuffix'), 
       content: currentContent,
       isLocked: false,
       password: '',
@@ -256,7 +257,7 @@ export function useEditorHandlers({
   };
 
   const handleLock = async (password: string) => {
-    if (password.length < 8) throw new Error('পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে।');
+    if (password.length < 8) throw new Error(tr('toast.passwordShort'));
     const currentNote = noteRef.current || note!;
     await DataManager.saveNote({ ...currentNote, title: titleRef.current, emoji: emojiRef.current, tags, theme: themeRef.current, content: blocksToHtml(editor.blocks) });
     const locked = await DataManager.lockNote(currentNote.id, password);
@@ -277,7 +278,7 @@ export function useEditorHandlers({
   const handleTagSaveSubmit = (updatedTags: string[]) => {
     setTags(updatedTags);
     DataManager.saveNote({ ...note!, tags: updatedTags, updatedAt: Date.now() });
-    setNotification({ message: 'ট্যাগ আপডেট করা হয়েছে', type: 'success' });
+    setNotification({ message: tr('toast.tagsUpdated'), type: 'success' });
     setTimeout(() => setNotification(null), 2000);
   };
 

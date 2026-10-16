@@ -10,11 +10,12 @@
  */
 
 import { Hash } from 'lucide-react';
+import { t as tr } from '../../../utils/translator';
 import { ActionConfig } from '../types/ActionConfig';
 
 export const tagAction: ActionConfig = {
   icon: Hash,
-  label: 'ট্যাগ',
-  subtitle: 'নোটের ট্যাগ সমূহ পরিবর্তন করুন',
+  get label() { return tr('actions.tags'); },
+  get subtitle() { return tr('actions.tagsSub'); },
   onClick: (onTag: () => void) => onTag()
 };

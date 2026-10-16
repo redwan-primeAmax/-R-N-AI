@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion } from 'framer-motion';
 import { Modal } from './Modal';
 import { Loader2 } from 'lucide-react';
@@ -32,12 +33,12 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
     const trimmedWorkspace = workspaceName.trim();
 
     if (!trimmedName || !trimmedWorkspace) {
-      setError('দয়া করে আপনার নাম এবং ওয়ার্কস্পেস নাম দিন।');
+      setError(tr('onboarding.errorRequired'));
       return;
     }
 
     if (trimmedName.length < 2 || trimmedWorkspace.length < 2) {
-      setError('নাম অন্তত ২ অক্ষরের হতে হবে।');
+      setError(tr('onboarding.errorShort'));
       return;
     }
 
@@ -45,7 +46,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
     try {
       await onSave(trimmedName, trimmedWorkspace);
     } catch (err) {
-      setError('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।');
+      setError(tr('onboarding.errorFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -56,7 +57,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-white tracking-tight">Redwan Assistant</h2>
-          <p className="text-white/70 text-xs">অ্যাপটি পার্সোনালাইজ করতে আপনার তথ্য দিন।</p>
+          <p className="text-white/70 text-xs">{tr('onboarding.subtitle')}</p>
         </div>
         
         <div className="space-y-4">
@@ -71,11 +72,11 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
           )}
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-white/70 uppercase ml-4" htmlFor="name-input">আপনার নাম</label>
+            <label className="text-[10px] font-bold text-white/70 uppercase ml-4" htmlFor="name-input">{tr('onboarding.yourName')}</label>
             <input 
               id="name-input"
               type="text"
-              placeholder="আপনার নাম..."
+              placeholder={tr('onboarding.yourNamePlaceholder')}
               value={name}
               maxLength={20}
               onChange={(e) => setName(e.target.value)}
@@ -87,11 +88,11 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-white/70 uppercase ml-4" htmlFor="workspace-input">ওয়ার্কস্পেস নাম</label>
+            <label className="text-[10px] font-bold text-white/70 uppercase ml-4" htmlFor="workspace-input">{tr('onboarding.workspaceName')}</label>
             <input 
               id="workspace-input"
               type="text"
-              placeholder="ওয়ার্কস্পেস নাম..."
+              placeholder={tr('onboarding.workspacePlaceholder')}
               value={workspaceName}
               maxLength={30}
               onChange={(e) => setWorkspaceName(e.target.value)}
@@ -105,7 +106,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
             type="submit"
             disabled={!name.trim() || !workspaceName.trim() || isSubmitting}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
-            aria-label="Get Started (শুরু করুন)"
+            aria-label={tr('onboarding.getStarted')}
             id="start-app-button"
           >
             {isSubmitting ? (
@@ -114,7 +115,7 @@ export const UserNamePopup = React.forwardRef<HTMLDivElement, UserNamePopupProps
                 Processing...
               </>
             ) : (
-              'Get Started (শুরু করুন)'
+              tr('onboarding.getStarted')
             )}
           </button>
           

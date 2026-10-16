@@ -168,23 +168,22 @@ const AIContentArchitect: React.FC = () => {
   };
 
   const handleCopyFullPrompt = async () => {
-    if (!targetId) return;
-    const note = allNotes.find(n => n.id === targetId);
-    if (!note) return;
+    const requirements = changeRequest.trim() || (targetId
+      ? "Improve structure and quality."
+      : "Create the content exactly as described in the target below.");
 
-    const fullPrompt = `${SYSTEM_PROMPT}
-
-EXISTING CONTEXT:
----
-TITLE: ${note.title}
-CONTENT: ${note.content}
-${subPagesContext ? `\nSUB-PAGES CONTEXT:${subPagesContext}` : ""}
----
-
-USER REQUIREMENTS:
-"${changeRequest || "Improve structure and quality."}"
-
-Return the result as a JSON array.`;
+    let fullPrompt: string;
+    if (targetId) {
+      const note = allNotes.find(n => n.id === targetId);
+      if (!note) return;
+      fullPrompt = `${SYSTEM_PROMPT}\n\nEXISTING CONTEXT:\n---\nTITLE: ${note.title}\nCONTENT: ${note.content}\n${subPagesContext ? `\nSUB-PAGES CONTEXT:${subPagesContext}` : ""}\n---\n\nUSER REQUIREMENTS:\n"${requirements}"\n\nReturn the result as a JSON array.`;
+    } else if (parentId) {
+      const parent = allNotes.find(n => n.id === parentId);
+      fullPrompt = `${SYSTEM_PROMPT}\n\nTARGET: Create NEW SUB-PAGES under the existing page "${parent?.title || ''}".\nLink the sub-pages from the parent context where relevant.\n\nUSER REQUIREMENTS:\n"${requirements}"\n\nReturn the result as a JSON array.`;
+    } else {
+      // New Independent Page — previously this path silently did nothing.
+      fullPrompt = `${SYSTEM_PROMPT}\n\nTARGET: Create a BRAND-NEW INDEPENDENT PAGE. There is no existing page context; build the complete page (and any linked sub-pages) from the requirements alone.\n\nUSER REQUIREMENTS:\n"${requirements}"\n\nReturn the result as a JSON array.`;
+    }
 
     navigator.clipboard.writeText(fullPrompt);
     setCopied('update');
@@ -271,16 +270,16 @@ Return the result as a JSON array.`;
     : recentNotes;
 
   return (
-    <div className="min-h-screen bg-[#0e0b09] text-white flex flex-col font-sans overflow-x-hidden">
-      <div className="pointer-events-none fixed -top-24 right-0 w-[380px] h-[380px] bg-orange-500/[0.06] blur-[110px] rounded-full" />
-      <header className="sticky top-0 z-40 bg-[#0e0b09]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
+    <div className="min-h-screen bg-[#0E0D0B] text-white flex flex-col font-sans overflow-x-hidden">
+      <div className="pointer-events-none fixed -top-24 right-0 w-[380px] h-[380px] bg-amber-500/[0.07] blur-[110px] rounded-full" />
+      <header className="sticky top-0 z-40 bg-[#0E0D0B]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
           <button onClick={() => navigate('/tools')} className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/[0.07] rounded-2xl transition-all active:scale-90" aria-label={t('common.back')}>
             <ChevronLeft size={22} />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-               <Zap size={11} className="text-orange-400 fill-orange-400" />
+               <Zap size={11} className="text-amber-400 fill-amber-400" />
                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('architect.eyebrow')}</span>
             </div>
             <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">
@@ -291,13 +290,35 @@ Return the result as a JSON array.`;
       </header>
 
       <main className="relative px-5 sm:px-8 py-8 max-w-7xl mx-auto w-full">
-        <p className="text-sm text-white/40 font-medium leading-relaxed max-w-2xl mb-8">{t('architect.subtitle')}</p>
+        <p className="text-sm text-white/40 font-medium leading-relaxed max-w-2xl">{t('architect.subtitle')}</p>
+        {/* Step progress */}
+        <div className="flex items-center gap-2 mt-6 mb-8 flex-wrap">
+          {[t('architect.step1'), t('architect.step2'), t('architect.step3')].map((label, i) => {
+            const stepNo = i + 1;
+            const current = previewData ? 3 : 1;
+            const done = stepNo < current || (stepNo === 1 && copied !== false) || (stepNo === 3 && !!previewData);
+            const active = stepNo === current && !done;
+            return (
+              <span key={label} className="inline-flex items-center gap-2">
+                <span className={cn(
+                  "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider",
+                  done ? "bg-amber-400 text-black border-amber-300" : active ? "bg-amber-400/10 text-amber-300 border-amber-400/40" : "bg-white/[0.03] text-white/35 border-white/[0.08]"
+                )}>
+                  {done ? <Check size={11} strokeWidth={3.5} /> : <span>{stepNo}</span>}
+                  {label}
+                </span>
+                {stepNo < 3 && <span className="w-4 h-px bg-white/10" />}
+              </span>
+            );
+          })}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Config */}
-        <div className="lg:col-span-5 space-y-10">
-          <section className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Code size={18} className="text-orange-400" />
+        <div className="lg:col-span-5 space-y-6">
+          <section className="bg-white/[0.03] border border-white/[0.07] rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-amber-400 text-black text-xs font-black flex items-center justify-center shrink-0">1</span>
+              <Code size={17} className="text-amber-300" />
               <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step1')}</h2>
             </div>
             <p className="text-[11px] text-white/30 leading-relaxed font-medium">
@@ -311,21 +332,20 @@ Return the result as a JSON array.`;
                 {copied === 'prompt' ? <Check size={16} /> : <Copy size={16} />}
                 {copied === 'prompt' ? t('architect.copied') : t('architect.copyPrompt')}
               </button>
-              {targetId && (
-                <button 
-                  onClick={handleCopyFullPrompt}
-                  className="w-full py-4.5 bg-orange-500 hover:bg-orange-400 text-orange-950 rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-orange-500/20"
-                >
-                  {copied === 'update' ? <Check size={16} /> : <Sparkles size={16} />}
-                  {copied === 'update' ? t('architect.copied') : t('architect.copyContextPrompt')}
-                </button>
-              )}
+              <button
+                onClick={handleCopyFullPrompt}
+                className="w-full py-4 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 text-amber-950 rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-amber-500/20 active:scale-[0.99]"
+              >
+                {copied === 'update' ? <Check size={16} /> : <Sparkles size={16} />}
+                {copied === 'update' ? t('architect.copied') : t('architect.copyFullPrompt')}
+              </button>
             </div>
           </section>
 
-          <section className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
-            <div className="flex items-center gap-3 mb-2">
-              <HardDrive size={18} className="text-amber-400" />
+          <section className="bg-white/[0.03] border border-white/[0.07] rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-amber-400 text-black text-xs font-black flex items-center justify-center shrink-0">2</span>
+              <HardDrive size={17} className="text-amber-300" />
               <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step2')}</h2>
             </div>
             <div className="relative">
@@ -333,22 +353,22 @@ Return the result as a JSON array.`;
               <input 
                 type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('architect.searchPages')}
-                className="w-full bg-black/40 border border-white/5 rounded-2xl pl-12 pr-6 py-4 text-xs text-white focus:outline-none focus:border-purple-500/30 transition-all"
+                className="w-full bg-black/30 border border-white/[0.08] rounded-2xl pl-12 pr-5 py-3.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-amber-400/40 transition-all"
               />
             </div>
             <div className="grid gap-2 max-h-[280px] overflow-y-auto no-scrollbar pr-2">
               <button 
                 onClick={() => { setTargetId(''); setParentId(null); }}
-                className={cn("p-4 rounded-xl border transition-all flex items-center justify-between", (!targetId && !parentId) ? "bg-purple-500/10 border-purple-500/40" : "bg-white/5 border-white/5")}
+                className={cn("p-4 rounded-2xl border transition-all flex items-center justify-between", (!targetId && !parentId) ? "bg-amber-400/10 border-amber-400/40" : "bg-white/5 border-white/5")}
               >
                 <div className="flex items-center gap-3"><Plus size={16} /><span className="font-bold text-[10px] uppercase">{t('architect.newPage')}</span></div>
-                {(!targetId && !parentId) && <Check size={16} className="text-purple-400" />}
+                {(!targetId && !parentId) && <Check size={16} className="text-amber-300" />}
               </button>
               {listItems.map(note => (
                 <div key={note.id} className="flex gap-2">
                   <button 
                     onClick={() => { setTargetId(note.id); setParentId(null); }}
-                    className={cn("flex-1 p-4 rounded-xl border transition-all flex items-center justify-between text-left min-w-0", targetId === note.id ? "bg-green-500/10 border-green-500/40" : "bg-white/5 border-white/5")}
+                    className={cn("flex-1 p-4 rounded-2xl border transition-all flex items-center justify-between text-left min-w-0", targetId === note.id ? "bg-amber-400/[0.08] border-amber-400/30" : "bg-white/5 border-white/5")}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-xl shrink-0">{note.emoji || '📄'}</span>
@@ -357,34 +377,37 @@ Return the result as a JSON array.`;
                   </button>
                   <button 
                     onClick={() => { setParentId(note.id); setTargetId(''); }}
-                    className={cn("w-12 rounded-xl border transition-all flex items-center justify-center", parentId === note.id ? "bg-blue-500/10 border-blue-500/40" : "bg-white/5 border-white/5")}
+                    className={cn("w-12 rounded-2xl border transition-all flex items-center justify-center", parentId === note.id ? "bg-amber-400/[0.08] border-amber-400/30" : "bg-white/5 border-white/5")}
                     title={t('architect.makeSubpage')}
                   >
-                    <ChevronLeft size={16} className={cn("transition-transform", parentId === note.id && "rotate-180 text-blue-400")} />
+                    <ChevronLeft size={16} className={cn("transition-transform", parentId === note.id && "rotate-180 text-amber-300")} />
                   </button>
                 </div>
               ))}
             </div>
 
-            {targetId && (
-              <div className="pt-6 border-t border-white/5 space-y-4 animate-in fade-in duration-500">
-                <textarea 
-                  value={changeRequest}
-                  onChange={(e) => setChangeRequest(e.target.value)}
-                  placeholder={t('architect.changePlaceholder')}
-                  className="w-full h-32 bg-black/40 border border-white/5 rounded-2xl p-4 text-[11px] text-white focus:outline-none focus:border-blue-500/30 resize-none"
-                />
-              </div>
-            )}
+            <div className="pt-5 border-t border-white/[0.06] space-y-3">
+              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-amber-300/80">
+                <Sparkles size={12} />
+                {t('architect.instructionsLabel')}
+              </label>
+              <textarea
+                value={changeRequest}
+                onChange={(e) => setChangeRequest(e.target.value)}
+                placeholder={targetId ? t('architect.changePlaceholder') : t('architect.instructionsPlaceholderNew')}
+                className="w-full h-28 bg-black/30 border border-white/[0.08] rounded-2xl p-4 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-amber-400/40 resize-none transition-colors"
+              />
+            </div>
           </section>
         </div>
 
         {/* Right Column: JSON Input & Preview */}
-        <div className="lg:col-span-7 space-y-10">
-          <section className="space-y-6">
-            <div className="flex items-center justify-between mb-2">
+        <div className="lg:col-span-7">
+          <section className="bg-white/[0.03] border border-white/[0.07] rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
                <div className="flex items-center gap-3">
-                  <FileText size={18} className="text-emerald-400" />
+                  <span className="w-8 h-8 rounded-full bg-amber-400 text-black text-xs font-black flex items-center justify-center shrink-0">3</span>
+                  <FileText size={17} className="text-amber-300" />
                   <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step3')}</h2>
                </div>
                <div className={cn("px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border", previewData ? "bg-green-500/10 border-green-500/20 text-green-400" : jsonError ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-white/20")}>
@@ -395,7 +418,7 @@ Return the result as a JSON array.`;
             <textarea 
               value={importData} onChange={(e) => setImportData(e.target.value)}
               placeholder={t('architect.pastePlaceholder')}
-              className="w-full h-80 bg-black/40 border-2 border-white/5 rounded-[2.5rem] p-8 text-green-400/80 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-green-500/40 transition-all resize-none shadow-inner"
+              className="w-full h-72 bg-black/30 border border-white/[0.08] rounded-3xl p-6 text-emerald-300/80 font-mono text-xs leading-relaxed focus:outline-none focus:border-amber-400/40 transition-all resize-none"
             />
 
             {jsonError && (
@@ -407,7 +430,7 @@ Return the result as a JSON array.`;
 
             <AnimatePresence>
               {previewData && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/[0.07] rounded-3xl overflow-hidden">
                   <div className="px-6 py-4 bg-white/5 border-b border-white/5">
                      <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('architect.preview')}</span>
                   </div>
@@ -428,7 +451,7 @@ Return the result as a JSON array.`;
 
             <button
               onClick={handleImport} disabled={!previewData || isImporting}
-              className="w-full py-6 bg-green-600 hover:bg-green-500 disabled:opacity-20 text-black font-black text-sm uppercase tracking-[0.3em] rounded-[1.5rem] flex items-center justify-center gap-4 transition-all shadow-xl shadow-green-500/20"
+              className="w-full py-5 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 disabled:opacity-25 disabled:hover:from-amber-300 disabled:hover:to-amber-500 text-amber-950 font-black text-sm uppercase tracking-[0.25em] rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-amber-500/20 active:scale-[0.99]"
             >
               {isImporting ? <Loader2 size={24} className="animate-spin" /> : <ArrowRight size={24} />}
               <span>{targetId ? t('architect.importUpdate') : parentId ? t('architect.importSubpages') : t('architect.importNew')}</span>
@@ -440,7 +463,7 @@ Return the result as a JSON array.`;
 
       <AnimatePresence>
         {status && (
-          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] px-8 py-5 rounded-3xl border border-white/10 bg-[#121212] shadow-2xl flex items-center gap-4">
+          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl border border-white/10 bg-[#171512]/95 backdrop-blur-xl shadow-2xl flex items-center gap-3 max-w-[92vw]">
             <div className={cn("w-2 h-2 rounded-full animate-pulse", status.type === 'success' ? "bg-green-500" : "bg-red-500")} />
             <p className="text-[10px] font-black uppercase tracking-widest text-white/80">{status.message}</p>
             <button onClick={() => setStatus(null)} className="ml-4 opacity-40 hover:opacity-100"><X size={16} /></button>

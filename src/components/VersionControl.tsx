@@ -12,10 +12,12 @@
 import React, { useEffect, useState } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, X, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../utils/translator';
 
 const APP_VERSION = `1.0.5-${__BUILD_HASH__}`; // Problem 15: Use build hash for precise versioning
 
 const VersionControl: React.FC = () => {
+  const { t } = useLanguage();
   const [showUpdate, setShowUpdate] = useState(false);
 
   useEffect(() => {
@@ -54,20 +56,20 @@ const VersionControl: React.FC = () => {
               </div>
               <div className="flex-grow">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-bold text-sm text-white">নতুন আপডেট উপলব্ধ!</h3>
+                  <h3 className="font-bold text-sm text-white">{t('update.title')}</h3>
                   <button onClick={() => setShowUpdate(false)} className="text-white/20 hover:text-white">
                     <X size={16} />
                   </button>
                 </div>
                 <p className="text-white/40 text-[11px] leading-relaxed mb-4">
-                  আমরা অ্যাপের পারফরম্যান্স এবং ইউআই-তে বড় কিছু পরিবর্তন করেছি। সেরা অভিজ্ঞতার জন্য রিফ্রেশ করুন।
+                  {t('update.desc')}
                 </p>
                 <button
                   onClick={handleUpdate}
                   className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
                 >
                   <RefreshCw size={14} />
-                  আপডেট করুন
+                  {t('update.cta')}
                 </button>
               </div>
             </div>

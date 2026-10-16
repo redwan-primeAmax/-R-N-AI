@@ -1,8 +1,10 @@
 import React from 'react';
 import { WifiOff, RefreshCw } from 'lucide-react';
 import { m as motion } from 'framer-motion';
+import { useLanguage } from '../../utils/translator';
 
 export const OfflinePage = () => {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-center">
       <motion.div 
@@ -13,9 +15,9 @@ export const OfflinePage = () => {
         <WifiOff size={48} />
       </motion.div>
       
-      <h1 className="text-2xl font-black text-white mb-3">আপনি অফলাইনে আছেন</h1>
+      <h1 className="text-2xl font-black text-white mb-3">{t('offline.title')}</h1>
       <p className="text-white/40 text-sm max-w-xs mb-10 leading-relaxed">
-        ইন্টারনেট সংযোগ বিচ্ছিন্ন হয়েছে। তবে চিন্তার কিছু নেই, আপনি আপনার আগের সংরক্ষিত নোটগুলো অফলাইনেই পড়তে এবং এডিট করতে পারবেন।
+        {t('offline.desc')}
       </p>
 
       <button 
@@ -23,11 +25,11 @@ export const OfflinePage = () => {
         className="flex items-center gap-2 px-8 py-4 bg-white text-black font-black rounded-2xl hover:bg-white/90 transition-all active:scale-95 shadow-xl"
       >
         <RefreshCw size={18} />
-        আবার চেষ্টা করুন
+        {t('offline.retry')}
       </button>
 
       <div className="mt-12 pt-12 border-t border-white/5 w-full max-w-xs">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">Offline Ready Mode enabled</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">{t('offline.ready')}</p>
       </div>
     </div>
   );

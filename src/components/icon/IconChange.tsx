@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useLanguage } from '../../utils/translator';
 import type { Theme, EmojiClickData, EmojiStyle } from 'emoji-picker-react';
 const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
@@ -12,6 +13,7 @@ interface IconChangeProps {
 }
 
 export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconChangeProps) => {
+  const { t } = useLanguage();
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onSelectIcon(emojiData.emoji);
     onClose();
@@ -46,9 +48,9 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
               <div className="flex flex-col">
-                <h3 className="text-xl font-black tracking-tight text-white">ইমোজি নির্বাচন করুন</h3>
+                <h3 className="text-xl font-black tracking-tight text-white">{t('icon.title')}</h3>
                 <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-0.5">
-                  নোট বা ওয়ার্কস্পেসের জন্য একটি ইমোজি বাছুন
+                  {t('icon.desc')}
                 </span>
               </div>
               <button 
@@ -69,11 +71,11 @@ export const IconChange = ({ isOpen, onClose, onSelectIcon, currentIcon }: IconC
                   lazyLoadEmojis={false}
                   emojiStyle={'native' as EmojiStyle}
                   onEmojiClick={handleEmojiClick}
-                  searchPlaceholder="ইমোজি খুঁজুন..."
+                  searchPlaceholder={t('icon.search')}
                   previewConfig={{
                     showPreview: true,
                     defaultEmoji: currentIcon && !currentIcon.startsWith('<svg') ? currentIcon : "📝",
-                    defaultCaption: "নোট সাজানোর জন্য পছন্দসই ইমোজি সিলেক্ট করুন"
+                    defaultCaption: t('icon.caption')
                   }}
                 /></Suspense>
               </div>

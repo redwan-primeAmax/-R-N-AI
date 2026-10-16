@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion } from 'framer-motion';
 import { 
   ChevronLeft, HardDrive, 
@@ -52,11 +53,11 @@ export default function DataMonitor() {
   const usagePercent = storageInfo ? Math.min(100, (storageInfo.used / (storageInfo.quota || 1)) * 100) : 0;
 
   const usageItems = [
-    { label: 'নোটস এবং পেজ', size: stats?.notesSize, count: stats?.notesCount, icon: FileText, color: 'text-blue-400' },
-    { label: 'মিডিয়া এবং ছবি', size: stats?.mediaSize, count: stats?.mediaCount, icon: Database, color: 'text-purple-400' },
-    { label: 'ভার্সন এবং ব্যাকআপ', size: stats?.versionsSize, count: stats?.versionsCount, icon: HistoryIcon, color: 'text-orange-400' },
-    { label: 'চ্যাট হিস্ট্রি', size: stats?.chatSize, count: stats?.chatCount, icon: MessageSquare, color: 'text-emerald-400' },
-    { label: 'সিস্টেম এবং ক্যাশ', size: stats?.systemSize, icon: SettingsIcon, color: 'text-gray-400' },
+    { label: tr('data.notesPages'), size: stats?.notesSize, count: stats?.notesCount, icon: FileText, color: 'text-blue-400' },
+    { label: tr('data.mediaImages'), size: stats?.mediaSize, count: stats?.mediaCount, icon: Database, color: 'text-purple-400' },
+    { label: tr('data.versionsBackups'), size: stats?.versionsSize, count: stats?.versionsCount, icon: HistoryIcon, color: 'text-orange-400' },
+    { label: tr('data.chatHistory'), size: stats?.chatSize, count: stats?.chatCount, icon: MessageSquare, color: 'text-emerald-400' },
+    { label: tr('data.systemCache'), size: stats?.systemSize, icon: SettingsIcon, color: 'text-gray-400' },
   ];
 
   return (
@@ -69,7 +70,7 @@ export default function DataMonitor() {
           <ChevronLeft size={24} />
         </button>
         <div>
-          <h1 className="text-3xl font-black tracking-tight">ডাটা মনিটর</h1>
+          <h1 className="text-3xl font-black tracking-tight">{tr('data.title')}</h1>
           <p className="text-[10px] text-white/40 uppercase font-black tracking-[0.2em]">Data Usage & Management</p>
         </div>
       </header>
@@ -79,7 +80,7 @@ export default function DataMonitor() {
         <div className="p-8 bg-[#151516] rounded-[40px] border border-white/5 space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[.2em] text-white/20">সর্বমোট ব্যবহৃত ডাটা</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[.2em] text-white/20">{tr('data.totalUsed')}</h4>
               <p className="text-4xl font-black text-blue-400 mt-1">{formatSize(storageInfo?.used || 0)}</p>
             </div>
             <div className="w-16 h-16 bg-blue-500/10 rounded-3xl flex items-center justify-center text-blue-400 shadow-inner">

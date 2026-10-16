@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { t as tr } from '../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './Modal';
 import { Lock, FileText, X } from 'lucide-react';
@@ -44,19 +45,19 @@ export function VaultModal({ isOpen, onClose }: VaultModalProps) {
       onClose();
       navigate(`/editor/${selectedNote.id}`, { state: { authorized: true } });
     } else {
-      throw new Error('ভুল পাসওয়ার্ড (Incorrect password)');
+      throw new Error(tr('dialogs.wrongPassword'));
     }
   };
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="নিরাপদ ভল্ট (Secure Vault)" className="p-0">
+      <Modal isOpen={isOpen} onClose={onClose} title={tr('dialogs.secureVault')} className="p-0">
         <div className="min-h-[40vh] py-6 px-4">
           <div className="space-y-4">
              {lockedNotes.length === 0 ? (
                <div className="text-center py-12">
                  <Lock className="mx-auto text-white/10 mb-4" size={48} />
-                 <p className="text-white/40 font-bold">কোনো লক করা নোট পাওয়া যায়নি</p>
+                 <p className="text-white/40 font-bold">{tr('dialogs.noLockedNotes')}</p>
                </div>
              ) : (
                lockedNotes.map(note => (
@@ -67,7 +68,7 @@ export function VaultModal({ isOpen, onClose }: VaultModalProps) {
                  >
                     <div className="text-3xl bg-black/20 p-2 rounded-xl group-hover:scale-110 transition-transform">{note.emoji || '📄'}</div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-lg truncate group-hover:text-blue-400 transition-colors">{note.title || 'শিরোনামহীন'}</h4>
+                      <h4 className="font-bold text-lg truncate group-hover:text-blue-400 transition-colors">{note.title || tr('nav.untitled')}</h4>
                       <p className="text-xs text-white/40">{new Date(note.updatedAt).toLocaleDateString()}</p>
                     </div>
                     <Lock size={16} className="text-white/20 group-hover:text-blue-500" />
@@ -82,10 +83,10 @@ export function VaultModal({ isOpen, onClose }: VaultModalProps) {
         isOpen={showPasswordPrompt}
         onClose={() => setShowPasswordPrompt(false)}
         onConfirm={handleUnlock}
-        title="নোট আনলক করুন"
-        placeholder="পাসওয়ার্ড লিখুন..."
+        title={tr('dialogs.unlockNote')}
+        placeholder={tr('dialogs.passwordPlaceholder')}
         type="password"
-        confirmText="আনলক"
+        confirmText={tr('dialogs.unlock')}
       />
       
       {/* Error notification */}
