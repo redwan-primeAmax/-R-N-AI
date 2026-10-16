@@ -1,16 +1,23 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import React, { useState } from 'react';
-import { 
-  Underline, Strikethrough, Highlighter, 
-  Undo2, Redo2, Plus, 
-  Link2, ArrowLeft, Palette, 
+import {
+  Underline, Strikethrough, Highlighter, Code, Ban,
+  Undo2, Redo2, Plus,
+  Link2, ArrowLeft, Palette,
   Keyboard
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
+import { useLanguage } from '../../../utils/translator';
 import { m as motion, AnimatePresence } from 'framer-motion';
 
 interface EditorToolbarProps {
@@ -30,6 +37,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 }) => {
   const [currentMenu, setCurrentMenu] = useState<'main' | 'formatting' | 'colors'>('main');
   const [, forceUpdate] = useState({});
+  const { t } = useLanguage();
 
   React.useEffect(() => {
     const handleSelectionChange = () => {
@@ -133,15 +141,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     { name: 'Orange', value: '#f97316' }
   ];
 
+  // Deep, solid marker colors: with the dark text that <mark> forces,
+  // these stay crisp and legible on light and dark pages alike. Kept
+  // deliberately separate from the (lighter) text color palette above.
   const bgColors = [
-    { name: 'Clear', value: 'transparent' },
-    { name: 'Red Highlight', value: 'rgba(239, 68, 68, 0.25)' },
-    { name: 'Blue Highlight', value: 'rgba(59, 130, 246, 0.25)' },
-    { name: 'Green Highlight', value: 'rgba(34, 197, 94, 0.25)' },
-    { name: 'Yellow Highlight', value: 'rgba(234, 179, 8, 0.25)' },
-    { name: 'Purple Highlight', value: 'rgba(168, 85, 247, 0.25)' },
-    { name: 'Orange Highlight', value: 'rgba(249, 115, 22, 0.25)' }
+    { name: 'Yellow Highlight', value: '#FACC15' },
+    { name: 'Orange Highlight', value: '#FB923C' },
+    { name: 'Green Highlight', value: '#4ADE80' },
+    { name: 'Teal Highlight', value: '#2DD4BF' },
+    { name: 'Blue Highlight', value: '#60A5FA' },
+    { name: 'Purple Highlight', value: '#C084FC' },
+    { name: 'Pink Highlight', value: '#F472B6' },
+    { name: 'Red Highlight', value: '#F87171' }
   ];
+  const DEFAULT_HIGHLIGHT = '#FACC15';
 
   const ToolbarButton = ({ 
     onClick, 
@@ -296,9 +309,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                     <Strikethrough size={18} />
                   </ToolbarButton>
 
-                  <ToolbarButton 
-                    onClick={() => editor.chain().focus().toggleCode().run()} 
+                  <ToolbarButton
+                    onClick={() => editor.chain().focus().toggleCode().run()}
                     isActive={editor.isActive('code')}
+                    className="flex-shrink-0"
+                  >
+                    <Code size={18} />
+                  </ToolbarButton>
+
+                  {/* Highlighter: a real <mark> highlight (applies to the
+                      selection, or to the next typed text at the caret).
+                      Completely separate from inline code / text color. */}
+                  <ToolbarButton
+                    onClick={() => editor.chain().focus().toggleHighlight(DEFAULT_HIGHLIGHT).run()}
+                    isActive={editor.isActive('highlight')}
                     className="flex-shrink-0"
                   >
                     <Highlighter size={18} />
@@ -329,8 +353,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                     <span className="font-extrabold text-[15px]">✕</span>
                   </ToolbarButton>
 
-                  {/* Text Colors Panel */}
-                  <span className={cn("text-[10px] font-black uppercase tracking-wider select-none flex-shrink-0", isLight ? "text-gray-500" : "text-white/40")}>রং:</span>
+                  {/* Text Color — independent section: changes only the
+                      letter color, never the highlight behind it. */}
+                  <span className={cn("text-[10px] font-black uppercase tracking-wider select-none flex-shrink-0", isLight ? "text-gray-500" : "text-white/40")}>
+                    {t('format.textColor')}
+                  </span>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {textColors.map(tc => (
                       <button
@@ -338,30 +365,43 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                         title={tc.name}
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => editor.chain().focus().setTextColor(tc.value).run()}
-                        className="w-5 h-5 rounded-full border border-white/20 flex-shrink-0 transition-transform active:scale-75 shadow-sm hover:scale-105"
-                        style={{ backgroundColor: tc.value }}
-                      />
+                        className="w-7 h-7 rounded-full border border-white/20 flex-shrink-0 transition-transform active:scale-75 shadow-sm hover:scale-105 flex items-center justify-center font-black text-[13px]"
+                        style={{ color: tc.value, backgroundColor: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)' }}
+                      >
+                        A
+                      </button>
                     ))}
                   </div>
 
                   <div className={cn("w-[1px] h-6 flex-shrink-0 mx-1", isLight ? "bg-gray-200" : "bg-white/10")} />
 
-                  {/* Highlights Background Colors Panel */}
-                  <span className={cn("text-[10px] font-black uppercase tracking-wider select-none flex-shrink-0", isLight ? "text-gray-500" : "text-white/40")}>ব্যাকগ্রাউন্ড:</span>
+                  {/* Highlighter — deep marker colors in their own section.
+                      First swatch clears the highlight entirely. */}
+                  <span className={cn("text-[10px] font-black uppercase tracking-wider select-none flex-shrink-0 flex items-center gap-1", isLight ? "text-gray-500" : "text-white/40")}>
+                    <Highlighter size={11} />
+                    {t('format.highlight')}
+                  </span>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      title={t('format.highlightOff')}
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => editor.chain().focus().setHighlight(null).run()}
+                      className={cn(
+                        "w-7 h-7 rounded-lg border flex-shrink-0 transition-transform active:scale-75 hover:scale-105 flex items-center justify-center",
+                        isLight ? "border-gray-300 text-gray-400" : "border-white/15 text-white/40"
+                      )}
+                    >
+                      <Ban size={13} />
+                    </button>
                     {bgColors.map(bc => (
                       <button
                         key={bc.name}
                         title={bc.name}
                         onMouseDown={e => e.preventDefault()}
-                        onClick={() => editor.chain().focus().setBackgroundColor(bc.value).run()}
-                        className="w-5 h-5 rounded border border-white/10 flex-shrink-0 transition-transform active:scale-75 shadow-sm hover:scale-105 relative overflow-hidden"
-                        style={{ backgroundColor: bc.value === 'transparent' ? 'transparent' : bc.value }}
-                      >
-                        {bc.value === 'transparent' && (
-                          <div className="absolute inset-0 bg-red-500 rotate-45 h-[1.5px] mt-2 w-full scale-125" />
-                        )}
-                      </button>
+                        onClick={() => editor.chain().focus().setHighlight(bc.value).run()}
+                        className="w-7 h-7 rounded-lg border border-black/20 flex-shrink-0 transition-transform active:scale-75 shadow-sm hover:scale-105"
+                        style={{ backgroundColor: bc.value }}
+                      />
                     ))}
                   </div>
                 </motion.div>

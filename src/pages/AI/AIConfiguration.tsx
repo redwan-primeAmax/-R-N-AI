@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -31,10 +37,11 @@ import {
 } from 'lucide-react';
 import { DataManager, AISettings } from '../../services/storage/DataManager';
 import { cn } from '../../utils/cn';
+import { useLanguage } from '../../utils/translator';
 
 const PROVIDERS = [
   { id: 'gemini', name: 'Gemini', tagline: 'Google AI', iconBg: 'bg-sky-500/15 border-sky-500/25', glow: 'shadow-[0_12px_36px_rgba(56,189,248,0.18)]' },
-  { id: 'openrouter', name: 'OpenRouter', tagline: 'Multi-model gateway', iconBg: 'bg-violet-500/15 border-violet-500/25', glow: 'shadow-[0_12px_36px_rgba(139,92,246,0.18)]' },
+  { id: 'openrouter', name: 'OpenRouter', tagline: 'Multi-model gateway', iconBg: 'bg-orange-500/15 border-orange-500/25', glow: 'shadow-[0_12px_36px_rgba(249,115,22,0.18)]' },
   { id: 'fireworks', name: 'Fireworks', tagline: 'Fast inference', iconBg: 'bg-orange-500/15 border-orange-500/25', glow: 'shadow-[0_12px_36px_rgba(249,115,22,0.18)]' },
   { id: 'together', name: 'Together', tagline: 'Open models', iconBg: 'bg-amber-500/15 border-amber-500/25', glow: 'shadow-[0_12px_36px_rgba(245,158,11,0.18)]' },
 ] as const;
@@ -43,13 +50,14 @@ const ProviderIcon = ({ id }: { id: string }) => {
   if (id === 'gemini') {
     return <img src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-gemini-icon.png" className="w-6 h-6 object-contain" alt="Gemini" />;
   }
-  if (id === 'openrouter') return <Sparkles size={22} className="text-violet-400" />;
+  if (id === 'openrouter') return <Sparkles size={22} className="text-orange-400" />;
   if (id === 'fireworks') return <Rocket size={22} className="text-orange-400" />;
   return <Zap size={22} className="text-amber-400" />;
 };
 
 const AIConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [draftSettings, setDraftSettings] = useState<AISettings | null>(null);
   const [prevSettings, setPrevSettings] = useState<AISettings | null>(null);
@@ -68,7 +76,7 @@ const AIConfigurationPage: React.FC = () => {
     });
   }, []);
 
-  // Unsaved changes warning
+  // {t('aiConfig.unsaved')} warning
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -188,11 +196,11 @@ const AIConfigurationPage: React.FC = () => {
 
   if (!draftSettings) {
     return (
-      <div className="min-h-screen bg-[#0c0a12] text-white flex flex-col items-center justify-center gap-4 font-sans">
+      <div className="min-h-screen bg-[#120e0c] text-white flex flex-col items-center justify-center gap-4 font-sans">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-10 h-10 border-2 border-violet-500/15 border-t-violet-400 rounded-full"
+          className="w-10 h-10 border-2 border-orange-500/15 border-t-orange-400 rounded-full"
         />
         <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/25">Loading…</p>
       </div>
@@ -206,13 +214,13 @@ const AIConfigurationPage: React.FC = () => {
   const activeModel = draftSettings.selectedModels?.[provider] || '';
 
   return (
-    <div className="min-h-screen bg-[#0c0a12] text-white flex flex-col font-sans selection:bg-violet-500/30 relative">
+    <div className="min-h-screen bg-[#120e0c] text-white flex flex-col font-sans selection:bg-orange-500/30 relative">
       {/* Ambient background */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-gradient-to-b from-violet-600/[0.09] via-fuchsia-600/[0.04] to-transparent" />
-      <div className="pointer-events-none fixed -top-24 right-0 w-72 h-72 rounded-full bg-violet-600/10 blur-3xl" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-gradient-to-b from-orange-600/[0.10] via-amber-600/[0.04] to-transparent" />
+      <div className="pointer-events-none fixed -top-24 right-0 w-72 h-72 rounded-full bg-orange-600/10 blur-3xl" />
 
       {/* Header */}
-      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#0c0a12]/85 backdrop-blur-2xl">
+      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#120e0c]/85 backdrop-blur-2xl">
         <div className="px-4 sm:px-6 md:px-10 py-4 flex items-center justify-between gap-3 max-w-4xl mx-auto w-full">
           <div className="flex items-center gap-3.5 min-w-0">
             <button
@@ -222,14 +230,14 @@ const AIConfigurationPage: React.FC = () => {
             >
               <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform" />
             </button>
-            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-b from-violet-400/25 to-violet-600/10 border border-violet-400/25 flex items-center justify-center shadow-[0_10px_28px_rgba(139,92,246,0.25)]">
-              <Cpu size={22} className="text-violet-300" />
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-b from-orange-400/25 to-orange-600/10 border border-orange-400/25 flex items-center justify-center shadow-[0_10px_28px_rgba(249,115,22,0.25)]">
+              <Cpu size={22} className="text-orange-300" />
             </div>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-black tracking-tight leading-tight truncate">
-                এআই <span className="text-violet-400">কনফিগারেশন</span>
+                {t('settings.aiConfig')}
               </h1>
-              <p className="text-[9px] text-white/30 uppercase font-black tracking-[0.28em] mt-0.5">Neural Processing Hub</p>
+              <p className="text-[9px] text-white/30 uppercase font-black tracking-[0.28em] mt-0.5">{t('aiConfig.tagline')}</p>
             </div>
           </div>
 
@@ -245,7 +253,7 @@ const AIConfigurationPage: React.FC = () => {
               "text-[9px] font-black uppercase tracking-[0.18em] leading-none",
               isDirty ? "text-amber-300" : "text-emerald-300"
             )}>
-              {isDirty ? 'Unsaved' : 'Synced'}
+              {isDirty ? t('aiConfig.unsaved') : (language === 'bn' ? 'সিঙ্ক হয়েছে' : 'Synced')}
             </span>
           </div>
         </div>
@@ -255,9 +263,9 @@ const AIConfigurationPage: React.FC = () => {
         {/* Summary strip */}
         <section className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Active Provider', value: activeProvider.name },
-            { label: 'Models', value: String(models.length) },
-            { label: 'API Key', value: hasKey ? 'Set ✓' : 'Not set' },
+            { label: t('aiConfig.statsProvider'), value: activeProvider.name },
+            { label: t('aiConfig.statsModels'), value: String(models.length) },
+            { label: t('aiConfig.statsKey'), value: hasKey ? t('aiConfig.keySet') : t('aiConfig.keyMissing') },
           ].map((stat) => (
             <div key={stat.label} className="px-4 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.07] shadow-lg min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25 truncate">{stat.label}</p>
@@ -269,11 +277,11 @@ const AIConfigurationPage: React.FC = () => {
         {/* Provider Selection */}
         <section className="space-y-4">
           <div className="flex items-center gap-4 px-1">
-            <h2 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] shrink-0">Select Intelligence Core</h2>
+            <h2 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] shrink-0">{t('aiConfig.selectCore')}</h2>
             <div className="h-px flex-1 bg-white/[0.06]" />
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" role="radiogroup" aria-label="Select Intelligence Core">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" role="radiogroup" aria-label={t('aiConfig.selectCore')}>
             {PROVIDERS.map((p) => {
               const isActive = provider === p.id;
               const pModels = draftSettings.providerModels[p.id as keyof typeof draftSettings.providerModels] || [];
@@ -287,7 +295,7 @@ const AIConfigurationPage: React.FC = () => {
                   className={cn(
                     "relative flex flex-col items-start p-4 rounded-3xl border text-left transition-all duration-200 active:scale-[0.98] overflow-hidden",
                     isActive
-                      ? `bg-violet-600/[0.12] border-violet-400/50 ring-1 ring-violet-400/30 ${p.glow}`
+                      ? `bg-orange-600/[0.12] border-orange-400/50 ring-1 ring-orange-400/30 ${p.glow}`
                       : "bg-white/[0.02] border-white/[0.07] hover:bg-white/[0.05] hover:border-white/[0.14]"
                   )}
                 >
@@ -295,7 +303,7 @@ const AIConfigurationPage: React.FC = () => {
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute top-3 right-3 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center shadow-lg shadow-violet-500/40"
+                      className="absolute top-3 right-3 w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/40"
                     >
                       <Check size={11} strokeWidth={3.5} />
                     </motion.span>
@@ -345,8 +353,8 @@ const AIConfigurationPage: React.FC = () => {
                 <ProviderIcon id={provider} />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-black tracking-tight truncate">{activeProvider.name} Configuration</h2>
-                <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.25em] mt-0.5">Credential &amp; Model Core</p>
+                <h2 className="text-lg font-black tracking-tight truncate">{activeProvider.name} {t('aiConfig.configuration')}</h2>
+                <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.25em] mt-0.5">{language === 'bn' ? 'ক্রেডেনশিয়াল ও মডেল' : 'Credentials & Models'}</p>
               </div>
               <span className={cn(
                 "hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-wider shrink-0",
@@ -364,14 +372,14 @@ const AIConfigurationPage: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <label htmlFor="ai-api-key" className="text-[10px] font-black text-white/35 uppercase tracking-[0.22em] flex items-center gap-2">
-                    <KeyRound size={13} className="text-violet-300" /> Access Secret Key
+                    <KeyRound size={13} className="text-orange-300" /> {t('aiConfig.accessKey')}
                   </label>
                   {provider === 'gemini' && (
                     <a
                       href="https://aistudio.google.com/app/apikey"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] font-bold text-violet-300 hover:text-violet-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
+                      className="text-[11px] font-bold text-orange-300 hover:text-orange-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
                     >
                       বিনামূল্যে Gemini API Key নিন <ExternalLink size={11} />
                     </a>
@@ -381,21 +389,21 @@ const AIConfigurationPage: React.FC = () => {
                       href="https://openrouter.ai/keys"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] font-bold text-violet-300 hover:text-violet-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
+                      className="text-[11px] font-bold text-orange-300 hover:text-orange-200 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
                     >
                       OpenRouter Key নিন <ExternalLink size={11} />
                     </a>
                   )}
                 </div>
 
-                <div className="relative rounded-2xl border border-white/[0.09] bg-black/30 transition-all focus-within:border-violet-400/60 focus-within:ring-2 focus-within:ring-violet-500/20 focus-within:bg-violet-500/[0.04]">
+                <div className="relative rounded-2xl border border-white/[0.09] bg-black/30 transition-all focus-within:border-orange-400/60 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-orange-500/[0.04]">
                   <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" />
                   <input
                     id="ai-api-key"
                     type={isRevealed[provider] ? 'text' : 'password'}
                     value={draftSettings.apiKeys[provider] || ''}
                     onChange={(e) => handleUpdateAPIKey(provider, e.target.value)}
-                    placeholder="আপনার এপিআই কী দিন..."
+                    placeholder={language === 'bn' ? 'আপনার API কী দিন...' : 'Paste your API key...'}
                     autoComplete="off"
                     className="w-full bg-transparent text-sm font-mono outline-none placeholder:font-sans placeholder:text-white/20 pl-11 pr-12 py-4 rounded-2xl"
                   />
@@ -408,8 +416,8 @@ const AIConfigurationPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-violet-500/[0.06] border border-violet-500/[0.14] text-[11px] text-white/45 leading-relaxed">
-                  <Info size={14} className="shrink-0 text-violet-300 mt-0.5" />
+                <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-orange-500/[0.06] border border-orange-500/[0.14] text-[11px] text-white/45 leading-relaxed">
+                  <Info size={14} className="shrink-0 text-orange-300 mt-0.5" />
                   <span>
                     <strong className="text-white/75">GitHub Pages ব্যবহারকারীদের জন্য:</strong> GitHub Pages একটি স্ট্যাটিক সাইট (এখানে কোনো ব্যাকএন্ড সার্ভার থাকে না)। তাই AI ব্যবহার করতে এখানে আপনার নিজস্ব বিনামূল্যে পাওয়া Gemini বা OpenRouter API Key সেভ করুন।
                   </span>
@@ -422,7 +430,7 @@ const AIConfigurationPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label htmlFor="new-model-input" className="text-[10px] font-black text-white/35 uppercase tracking-[0.22em] flex items-center gap-2">
-                    <Bot size={13} className="text-violet-300" /> Configured Models
+                    <Bot size={13} className="text-orange-300" /> {t('aiConfig.configuredModels')}
                   </label>
                   <span className="px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[10px] font-black text-white/50">
                     {models.length}
@@ -434,9 +442,9 @@ const AIConfigurationPage: React.FC = () => {
                     {models.map((model, mIdx) => (
                       <li
                         key={`${model}-${mIdx}`}
-                        className="flex items-center gap-3 pl-4 pr-2 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:border-violet-400/25 transition-colors group"
+                        className="flex items-center gap-3 pl-4 pr-2 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:border-orange-400/25 transition-colors group"
                       >
-                        <Bot size={15} className="text-violet-300/70 shrink-0" />
+                        <Bot size={15} className="text-orange-300/70 shrink-0" />
                         <span className="flex-1 min-w-0 text-[13px] font-bold font-mono text-white/85 truncate">{model}</span>
                         {model === activeModel && (
                           <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[9px] font-black uppercase tracking-wider shrink-0">
@@ -456,8 +464,8 @@ const AIConfigurationPage: React.FC = () => {
                 ) : (
                   <div className="py-8 px-4 rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.015] flex flex-col items-center text-center gap-2">
                     <Bot size={26} className="text-white/15" />
-                    <p className="text-xs font-bold text-white/35">কোনো মডেল যোগ করা হয়নি</p>
-                    <p className="text-[11px] text-white/20">নিচে মডেলের নাম লিখে প্রথম মডেলটি যোগ করুন</p>
+                    <p className="text-xs font-bold text-white/35">{t('aiConfig.noModels')}</p>
+                    <p className="text-[11px] text-white/20">{t('aiConfig.noModelsDesc')}</p>
                   </div>
                 )}
 
@@ -467,8 +475,8 @@ const AIConfigurationPage: React.FC = () => {
                     id="new-model-input"
                     value={newModel}
                     onChange={(e) => setNewModel(e.target.value)}
-                    placeholder="Add model name…  (e.g. gemini-1.5-flash)"
-                    className="flex-1 min-w-0 bg-black/30 border border-white/[0.09] rounded-2xl px-4 py-3.5 text-sm font-mono placeholder:font-sans placeholder:text-white/20 focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all"
+                    placeholder={t('aiConfig.addModelPlaceholder')}
+                    className="flex-1 min-w-0 bg-black/30 border border-white/[0.09] rounded-2xl px-4 py-3.5 text-sm font-mono placeholder:font-sans placeholder:text-white/20 focus:border-orange-400/60 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -479,10 +487,10 @@ const AIConfigurationPage: React.FC = () => {
                   <button
                     onClick={handleAddModel}
                     disabled={!newModel.trim()}
-                    className="px-4 sm:px-5 shrink-0 bg-gradient-to-b from-violet-400 to-violet-600 hover:from-violet-300 hover:to-violet-500 disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-white/25 text-white rounded-2xl transition-all active:scale-95 shadow-[0_10px_24px_rgba(139,92,246,0.3)] disabled:shadow-none flex items-center gap-1.5 text-xs font-black"
+                    className="px-4 sm:px-5 shrink-0 bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-300 hover:to-orange-500 disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-white/25 text-white rounded-2xl transition-all active:scale-95 shadow-[0_10px_24px_rgba(249,115,22,0.3)] disabled:shadow-none flex items-center gap-1.5 text-xs font-black"
                   >
                     <Plus size={17} strokeWidth={3} />
-                    <span className="hidden sm:inline">Add</span>
+                    <span className="hidden sm:inline">{t('aiConfig.add')}</span>
                   </button>
                 </div>
               </div>
@@ -494,15 +502,15 @@ const AIConfigurationPage: React.FC = () => {
         <section className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-6 sm:p-7 space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-300">
+              <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-300">
                 <MessageSquare size={17} />
               </div>
               <h3 className="text-[10px] font-black text-white/45 uppercase tracking-[0.22em]">
-                Global Instruction Set (System Prompt)
+                {t('aiConfig.systemPrompt')}
               </h3>
             </div>
             <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-              Built-in &amp; Optimized
+              {t('aiConfig.builtIn')}
             </span>
           </div>
 
@@ -536,24 +544,24 @@ const AIConfigurationPage: React.FC = () => {
             transition={{ type: 'spring', stiffness: 320, damping: 30 }}
             className="fixed inset-x-4 bottom-24 z-[110] flex justify-center pointer-events-none"
           >
-            <div className="pointer-events-auto flex items-center gap-2 p-2 pl-4 rounded-full bg-[#17131f]/95 backdrop-blur-2xl border border-violet-400/25 shadow-[0_20px_50px_rgba(0,0,0,0.6)] max-w-full">
+            <div className="pointer-events-auto flex items-center gap-2 p-2 pl-4 rounded-full bg-[#17131f]/95 backdrop-blur-2xl border border-orange-400/25 shadow-[0_20px_50px_rgba(0,0,0,0.6)] max-w-full">
               <span className="hidden sm:flex items-center gap-2 pr-1 text-[10px] font-black uppercase tracking-wider text-amber-300 whitespace-nowrap">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                Unsaved changes
+                {t('aiConfig.unsaved')}
               </span>
               <button
                 onClick={handleCancelEdit}
                 className="px-4 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-white/70 hover:text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
               >
-                <RotateCcw size={13} /> Reset
+                <RotateCcw size={13} /> {t('aiConfig.reset')}
               </button>
               <button
                 onClick={handleManualSave}
                 disabled={isSaving}
-                className="px-5 py-2.5 rounded-full bg-gradient-to-b from-violet-400 to-violet-600 hover:from-violet-300 hover:to-violet-500 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-[0_8px_20px_rgba(139,92,246,0.4)] flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60"
+                className="px-5 py-2.5 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-300 hover:to-orange-500 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-[0_8px_20px_rgba(249,115,22,0.4)] flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60"
               >
                 {isSaving ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} strokeWidth={3} />}
-                {isSaving ? 'সেভ হচ্ছে…' : 'সেভ করুন'}
+                {isSaving ? (language === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (language === 'bn' ? 'সেভ করুন' : 'Save')}
               </button>
               <button
                 onClick={handleBack}
@@ -578,7 +586,7 @@ const AIConfigurationPage: React.FC = () => {
               "fixed bottom-24 left-4 right-4 sm:left-auto sm:right-8 sm:max-w-md z-[120] p-4 rounded-3xl border flex items-center gap-3 shadow-2xl backdrop-blur-xl",
               status.type === 'success' ? "bg-emerald-600/95 border-emerald-400/30 text-white" :
               status.type === 'error' ? "bg-red-600/95 border-red-400/30 text-white" :
-              "bg-violet-600/95 border-violet-400/30 text-white"
+              "bg-orange-600/95 border-orange-400/30 text-white"
             )}
             role="status"
           >
@@ -592,7 +600,7 @@ const AIConfigurationPage: React.FC = () => {
                   onClick={handleUndo}
                   className="px-3.5 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
                 >
-                  আগে ফিরুন
+                  {language === 'bn' ? 'আগে ফিরুন' : 'Undo'}
                 </button>
               )}
               <button onClick={() => setStatus(null)} className="p-2 hover:bg-white/15 rounded-full transition-all" aria-label="Dismiss">
@@ -626,11 +634,11 @@ const AIConfigurationPage: React.FC = () => {
                 <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-red-400 mb-5 mx-auto">
                   <AlertCircle size={30} />
                 </div>
-                <h3 id="exit-warning-title" className="text-xl font-black tracking-tight text-center mb-2">সেভ করা হয়নি!</h3>
-                <p className="text-sm text-white/40 text-center mb-7 leading-relaxed">আপনার কিছু পরিবর্তন সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বের হতে চান?</p>
+                <h3 id="exit-warning-title" className="text-xl font-black tracking-tight text-center mb-2">{language === 'bn' ? 'সেভ করা হয়নি!' : 'Unsaved Changes!'}</h3>
+                <p className="text-sm text-white/40 text-center mb-7 leading-relaxed">{language === 'bn' ? 'আপনার কিছু পরিবর্তন সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বের হতে চান?' : 'Some changes have not been saved. Do you really want to leave?'}</p>
                 <div className="flex flex-col gap-2.5">
-                  <button onClick={handleConfirmExit} className="w-full py-3.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">হ্যাঁ, বের হয়ে যান</button>
-                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-white/[0.06] hover:bg-white/[0.1] text-white/80 font-bold rounded-2xl transition-all active:scale-[0.98]">ফিরে যান</button>
+                  <button onClick={handleConfirmExit} className="w-full py-3.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">{language === 'bn' ? 'হ্যাঁ, বের হয়ে যান' : 'Yes, Leave'}</button>
+                  <button onClick={() => setShowExitWarning(false)} className="w-full py-3.5 bg-white/[0.06] hover:bg-white/[0.1] text-white/80 font-bold rounded-2xl transition-all active:scale-[0.98]">{language === 'bn' ? 'ফিরে যান' : 'Go Back'}</button>
                 </div>
               </motion.div>
             </div>

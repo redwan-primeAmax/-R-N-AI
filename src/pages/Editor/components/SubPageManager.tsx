@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -9,6 +15,7 @@ import { Search, X, FileText, ChevronRight, Plus } from 'lucide-react';
 import { DataManager, Note } from '../../../services/storage/DataManager';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../utils/cn';
+import { useLanguage } from '../../../utils/translator';
 
 interface SubPageManagerProps {
   currentNote: Note;
@@ -19,6 +26,7 @@ interface SubPageManagerProps {
 
 export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onClose, type, editor }) => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [search, setSearch] = useState('');
   const [availableNotes, setAvailableNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,7 +142,7 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
                 <Plus size={22} />
              </div>
              <div>
-                <h2 className="text-xl font-black tracking-tight text-white/95">পেজ সংযুক্ত করুন</h2>
+                <h2 className="text-xl font-black tracking-tight text-white/95">{language === 'bn' ? 'পেজ সংযুক্ত করুন' : 'Attach a Page'}</h2>
                 <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Connect existing workspace pages</p>
              </div>
           </div>
@@ -152,7 +160,7 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="সার্চ করে পেজটি খুঁজুন..."
+              placeholder={language === 'bn' ? 'সার্চ করে পেজটি খুঁজুন...' : 'Search pages...'}
               className="w-full bg-white/[0.02] border border-white/[0.05] focus:border-blue-500/30 rounded-[2rem] py-5 pl-14 pr-6 text-sm focus:bg-white/[0.04] transition-all font-bold placeholder:text-white/5"
             />
           </div>
@@ -162,7 +170,7 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
           {loading ? (
             <div className="py-24 flex flex-col items-center gap-4">
               <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">নোটগুলো খোঁজা হচ্ছে...</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">{language === 'bn' ? 'নোটগুলো খোঁজা হচ্ছে...' : 'Loading notes...'}</p>
             </div>
           ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 gap-1">
@@ -176,7 +184,7 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
                     {note.emoji || '📄'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-black text-white/80 group-hover:text-white transition-colors truncate">{note.title || 'শিরোনামহীন'}</div>
+                    <div className="font-black text-white/80 group-hover:text-white transition-colors truncate">{note.title || (language === 'bn' ? 'শিরোনামহীন' : 'Untitled')}</div>
                     <div className="flex items-center gap-2 mt-1">
                        <span className="text-[9px] text-white/20 uppercase font-black tracking-widest bg-white/5 px-2 py-0.5 rounded-md">Updated</span>
                        <span className="text-[9px] text-white/30 font-bold">{new Date(note.updatedAt).toLocaleDateString()}</span>
@@ -193,7 +201,7 @@ export const SubPageManager: React.FC<SubPageManagerProps> = ({ currentNote, onC
               <div className="w-20 h-20 bg-white/5 rounded-[2.5rem] flex items-center justify-center mx-auto opacity-10">
                  <FileText size={40} />
               </div>
-              <p className="text-xs text-white/20 font-bold uppercase tracking-widest">কোথাও কোনো পেজ খুঁজে পাওয়া যায়নি</p>
+              <p className="text-xs text-white/20 font-bold uppercase tracking-widest">{language === 'bn' ? 'কোথাও কোনো পেজ খুঁজে পাওয়া যায়নি' : 'No pages found'}</p>
             </div>
           )}
         </div>

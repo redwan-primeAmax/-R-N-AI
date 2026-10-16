@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import { useEffect, useRef, useMemo } from 'react';
@@ -224,13 +230,12 @@ function EditorPage({ id }: { id: string | undefined }) {
         "min-h-screen selection:bg-blue-500/30 font-sans transition-colors duration-300",
         isLight ? "bg-[#F1F1EF] text-[#37352F]" : "bg-[#1a1a1a] text-white"
       )}>
-        <EditorHeader 
+        <EditorHeader
           onBack={handleBack}
           workspaceName={workspaceName}
           parentNote={parentNote}
           title={title}
           activeTasksCount={activeTasksCount}
-          onShowMenu={() => setShowActionSheet(true)}
           editor={editor}
           isSaving={isSaving}
           saveError={saveError}

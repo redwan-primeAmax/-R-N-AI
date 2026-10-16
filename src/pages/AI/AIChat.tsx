@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
@@ -16,7 +22,7 @@ import { handleAgenticSendMessage } from '../../services/agent/agentic';
 import { useVisualViewport } from '../../hooks/useVisualViewport';
 import { notify } from '../../utils/notify';
 import { cn } from '../../utils/cn';
-import { DEFAULT_MODEL_ID, useLanguage } from '../../utils/translator';
+import { useLanguage } from '../../utils/translator';
 
 const NoteContextPicker = lazy(() => import('./NoteContextPicker'));
 
@@ -432,16 +438,14 @@ export default function AIChat() {
     const models = settings.providerModels?.[provider] || [];
     setAvailableModels(models);
 
-    // Default to Gemini 1.5 Flash on open: keep an explicit saved choice
-    // when it is still configured, otherwise prefer Gemini 1.5 Flash,
-    // then the first configured model. With nothing configured the
-    // header shows the "Add Model" action instead (see render below).
+    // No model is ever pre-selected for the user: keep an explicit saved
+    // choice only when that model is still in the user's own list,
+    // otherwise fall back to the first model THEY added. With nothing
+    // configured, the header shows "No model configured" (see render).
     const savedModel = settings.selectedModels?.[provider];
     const currentModel =
-      (savedModel && (models.length === 0 || models.includes(savedModel)) ? savedModel : '') ||
-      (provider === 'gemini'
-        ? (models.includes(DEFAULT_MODEL_ID) ? DEFAULT_MODEL_ID : (models[0] || DEFAULT_MODEL_ID))
-        : (models[0] || ''));
+      (savedModel && models.includes(savedModel) ? savedModel : '') ||
+      (models[0] || '');
     setSelectedModel(currentModel);
   }, []);
 
@@ -485,6 +489,11 @@ export default function AIChat() {
 
   const handleSend = async () => {
     if (busy.current || (!input.trim() && selectedNotes.length === 0)) return;
+    if (!selectedModel) {
+      notify(t('ai.noModelsConfigured'), 'error');
+      navigate('/ai/settings');
+      return;
+    }
     if (!aiSettings || (aiSettings.selectedProvider !== 'local' && !aiSettings.apiKeys[aiSettings.selectedProvider]?.trim())) {
       notify('AI Settings থেকে নির্বাচিত provider-এর API Key দিন।', 'error');
       return;
@@ -617,13 +626,13 @@ export default function AIChat() {
           
           <div className="relative">
             {aiSettings && availableModels.length === 0 ? (
-              /* No model configured yet — "Add Model" + button goes
-                 straight to the model configuration page */
+              /* No model configured yet — the user must add one
+                 themselves; tapping goes to model configuration. */
               <button
                 onClick={() => navigate('/ai/settings')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#D97757] text-black text-sm font-bold hover:bg-[#c56647] active:scale-95 transition-all shadow-lg shadow-[#D97757]/20"
               >
-                <span>{t('ai.addModel')}</span>
+                <span>{t('ai.noModelsConfigured')}</span>
                 <Plus size={15} strokeWidth={3} />
               </button>
             ) : (

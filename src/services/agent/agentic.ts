@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import { DataManager, ChatMessage, Note } from '../storage/DataManager';
@@ -124,7 +130,8 @@ async function callDirectAI(
   signal: AbortSignal
 ): Promise<Response> {
   if (provider === 'gemini') {
-    let targetModel = model || 'gemini-1.5-flash';
+    if (!model) throw new Error('No model configured. Add a model in AI Configuration first.');
+    let targetModel = model;
     if (targetModel === 'gemini-flash-latest') targetModel = 'gemini-1.5-flash';
     if (!targetModel.startsWith('models/')) targetModel = `models/${targetModel}`;
 
@@ -192,7 +199,11 @@ export class AgenticAIService extends AIService {
     const { settings, onToken, systemPrompt, history = [], attachedNotes = [] } = options;
     const finalSystemPrompt = systemPrompt || AGENTIC_SYSTEM_PROMPT;
     const provider = settings.selectedProvider;
-    const model = settings.selectedModels[provider] || (provider === 'gemini' ? 'gemini-1.5-flash' : '');
+    // No built-in default model: only models the user added themselves.
+    const model = settings.selectedModels[provider] || settings.providerModels?.[provider]?.[0] || '';
+    if (!model) {
+      throw new Error('No model configured. Add a model in AI Configuration first.');
+    }
     const userApiKey = settings.apiKeys[provider];
 
     const contents: any[] = [];

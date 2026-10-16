@@ -804,6 +804,31 @@
   height: 0;
 }
 
+/*
+ * Text highlight (<mark class="hl">, created by the editor's highlight
+ * command). Deep, solid marker colors with dark text stay legible on
+ * both light and dark page themes. box-decoration-break keeps the
+ * rounded padding intact when a highlight wraps across lines.
+ */
+[contenteditable] mark.hl,
+.markdown-content mark.hl,
+.prose mark.hl {
+  color: #191407;
+  border-radius: 4px;
+  padding: 0.05em 0.18em;
+  margin: 0 0.02em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Plain <mark> (e.g. preview surfaces) follows the same legible style. */
+.markdown-content mark:not(.search-result-current):not(.search-result) {
+  border-radius: 4px;
+  padding: 0.05em 0.18em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .light-theme [contenteditable][data-placeholder]:empty::before {
   color: rgba(0, 0, 0, 0.35);
 }

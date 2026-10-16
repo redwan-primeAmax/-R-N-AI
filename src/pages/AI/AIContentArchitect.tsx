@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,6 +32,7 @@ import {
 } from 'lucide-react';
 import { DataManager } from '../../services/storage/DataManager';
 import { Note } from '../../types';
+import { useLanguage } from '../../utils/translator';
 
 const SYSTEM_PROMPT = `You are a World-Class Master Content Architect and Senior Bengali Editorial Specialist. 
 Your primary directive is to transform scattered data or brief concepts into elite, high-fidelity, deeply structured JSON architectures optimized for a Notion-style interface.
@@ -62,6 +69,7 @@ Return a single JSON ARRAY of objects. Even for single-page topics, return an ar
 
 const AIContentArchitect: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [displayNotes, setDisplayNotes] = useState<Note[]>([]);
   const [recentNotes, setRecentNotes] = useState<Note[]>([]);
@@ -235,7 +243,7 @@ Return the result as a JSON array.`;
         } else {
           await DataManager.saveNote({
             id: data.realId,
-            title: data.title || 'Untitled',
+            title: data.title || t('architect.untitled'),
             content: content,
             emoji: data.emoji || (currentParent ? '' : '📄'),
             parentId: currentParent,
@@ -246,13 +254,13 @@ Return the result as a JSON array.`;
         }
       }
 
-      setStatus({ type: 'success', message: 'Content architected successfully!' });
+      setStatus({ type: 'success', message: t('architect.success') });
       setImportData('');
       setTargetId('');
       setParentId(null);
       loadNotes();
     } catch (err) {
-      setStatus({ type: 'error', message: 'Architecting failed.' });
+      setStatus({ type: 'error', message: t('architect.failed') });
     } finally {
       setIsImporting(false);
     }
@@ -263,34 +271,37 @@ Return the result as a JSON array.`;
     : recentNotes;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col font-sans overflow-x-hidden">
-      <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-2xl border-b border-white/5 px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <button onClick={() => navigate('/tools')} className="w-12 h-12 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all">
-            <ChevronLeft size={24} />
+    <div className="min-h-screen bg-[#0e0b09] text-white flex flex-col font-sans overflow-x-hidden">
+      <div className="pointer-events-none fixed -top-24 right-0 w-[380px] h-[380px] bg-orange-500/[0.06] blur-[110px] rounded-full" />
+      <header className="sticky top-0 z-40 bg-[#0e0b09]/85 backdrop-blur-2xl border-b border-white/[0.06] px-5 sm:px-8 py-5">
+        <div className="max-w-7xl mx-auto flex items-center gap-4">
+          <button onClick={() => navigate('/tools')} className="w-11 h-11 shrink-0 flex items-center justify-center bg-white/[0.05] hover:bg-white/10 border border-white/[0.07] rounded-2xl transition-all active:scale-90" aria-label={t('common.back')}>
+            <ChevronLeft size={22} />
           </button>
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-               <Zap size={12} className="text-blue-500 fill-blue-500" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">System Architect</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+               <Zap size={11} className="text-orange-400 fill-orange-400" />
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">{t('architect.eyebrow')}</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">
-              Content <span className="text-blue-500">Architect</span>
+            <h1 className="text-[24px] font-black tracking-tight leading-tight truncate">
+              {t('architect.title')}
             </h1>
           </div>
         </div>
       </header>
 
-      <main className="px-6 py-12 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <main className="relative px-5 sm:px-8 py-8 max-w-7xl mx-auto w-full">
+        <p className="text-sm text-white/40 font-medium leading-relaxed max-w-2xl mb-8">{t('architect.subtitle')}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Config */}
         <div className="lg:col-span-5 space-y-10">
           <section className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
             <div className="flex items-center gap-3 mb-2">
-              <Code size={18} className="text-blue-400" />
-              <h2 className="text-xs font-black uppercase tracking-[0.2em]">Step 1: Get Prompt</h2>
+              <Code size={18} className="text-orange-400" />
+              <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step1')}</h2>
             </div>
             <p className="text-[11px] text-white/30 leading-relaxed font-medium">
-              Use this prompt to generate structured JSON content from your favorite AI model.
+              {t('architect.step1Desc')}
             </p>
             <div className="flex flex-col gap-3">
               <button 
@@ -298,15 +309,15 @@ Return the result as a JSON array.`;
                 className="w-full py-4.5 bg-white/5 hover:bg-white/10 text-white rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest border border-white/5"
               >
                 {copied === 'prompt' ? <Check size={16} /> : <Copy size={16} />}
-                {copied === 'prompt' ? 'Copied' : 'Copy System Prompt'}
+                {copied === 'prompt' ? t('architect.copied') : t('architect.copyPrompt')}
               </button>
               {targetId && (
                 <button 
                   onClick={handleCopyFullPrompt}
-                  className="w-full py-4.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-600/20"
+                  className="w-full py-4.5 bg-orange-500 hover:bg-orange-400 text-orange-950 rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-orange-500/20"
                 >
                   {copied === 'update' ? <Check size={16} /> : <Sparkles size={16} />}
-                  {copied === 'update' ? 'Full Prompt Copied' : 'Copy Contextual Prompt'}
+                  {copied === 'update' ? t('architect.copied') : t('architect.copyContextPrompt')}
                 </button>
               )}
             </div>
@@ -314,14 +325,14 @@ Return the result as a JSON array.`;
 
           <section className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
             <div className="flex items-center gap-3 mb-2">
-              <HardDrive size={18} className="text-purple-400" />
-              <h2 className="text-xs font-black uppercase tracking-[0.2em]">Step 2: Target Selection</h2>
+              <HardDrive size={18} className="text-amber-400" />
+              <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step2')}</h2>
             </div>
             <div className="relative">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20" size={16} />
               <input 
                 type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search pages..."
+                placeholder={t('architect.searchPages')}
                 className="w-full bg-black/40 border border-white/5 rounded-2xl pl-12 pr-6 py-4 text-xs text-white focus:outline-none focus:border-purple-500/30 transition-all"
               />
             </div>
@@ -330,7 +341,7 @@ Return the result as a JSON array.`;
                 onClick={() => { setTargetId(''); setParentId(null); }}
                 className={cn("p-4 rounded-xl border transition-all flex items-center justify-between", (!targetId && !parentId) ? "bg-purple-500/10 border-purple-500/40" : "bg-white/5 border-white/5")}
               >
-                <div className="flex items-center gap-3"><Plus size={16} /><span className="font-bold text-[10px] uppercase">New Independent Page</span></div>
+                <div className="flex items-center gap-3"><Plus size={16} /><span className="font-bold text-[10px] uppercase">{t('architect.newPage')}</span></div>
                 {(!targetId && !parentId) && <Check size={16} className="text-purple-400" />}
               </button>
               {listItems.map(note => (
@@ -341,13 +352,13 @@ Return the result as a JSON array.`;
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-xl shrink-0">{note.emoji || '📄'}</span>
-                      <h4 className="font-bold text-[11px] truncate uppercase tracking-tight">{note.title || 'Untitled'}</h4>
+                      <h4 className="font-bold text-[11px] truncate uppercase tracking-tight">{note.title || t('architect.untitled')}</h4>
                     </div>
                   </button>
                   <button 
                     onClick={() => { setParentId(note.id); setTargetId(''); }}
                     className={cn("w-12 rounded-xl border transition-all flex items-center justify-center", parentId === note.id ? "bg-blue-500/10 border-blue-500/40" : "bg-white/5 border-white/5")}
-                    title="Make Sub-page of this"
+                    title={t('architect.makeSubpage')}
                   >
                     <ChevronLeft size={16} className={cn("transition-transform", parentId === note.id && "rotate-180 text-blue-400")} />
                   </button>
@@ -360,7 +371,7 @@ Return the result as a JSON array.`;
                 <textarea 
                   value={changeRequest}
                   onChange={(e) => setChangeRequest(e.target.value)}
-                  placeholder="What changes do you want?"
+                  placeholder={t('architect.changePlaceholder')}
                   className="w-full h-32 bg-black/40 border border-white/5 rounded-2xl p-4 text-[11px] text-white focus:outline-none focus:border-blue-500/30 resize-none"
                 />
               </div>
@@ -373,24 +384,24 @@ Return the result as a JSON array.`;
           <section className="space-y-6">
             <div className="flex items-center justify-between mb-2">
                <div className="flex items-center gap-3">
-                  <FileText size={18} className="text-green-400" />
-                  <h2 className="text-xs font-black uppercase tracking-[0.2em]">Step 3: Import JSON</h2>
+                  <FileText size={18} className="text-emerald-400" />
+                  <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('architect.step3')}</h2>
                </div>
                <div className={cn("px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border", previewData ? "bg-green-500/10 border-green-500/20 text-green-400" : jsonError ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-white/20")}>
-                  {previewData ? 'Structure Valid' : jsonError ? 'Parsing Error' : 'Waiting...'}
+                  {previewData ? t('architect.valid') : jsonError ? t('architect.invalid') : t('architect.waiting')}
                </div>
             </div>
             
             <textarea 
               value={importData} onChange={(e) => setImportData(e.target.value)}
-              placeholder="Paste JSON array here..."
+              placeholder={t('architect.pastePlaceholder')}
               className="w-full h-80 bg-black/40 border-2 border-white/5 rounded-[2.5rem] p-8 text-green-400/80 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-green-500/40 transition-all resize-none shadow-inner"
             />
 
             {jsonError && (
               <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-2xl flex items-center gap-3 text-red-400">
                 <AlertCircle size={16} />
-                <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">JSON Glitch: ${jsonError}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">JSON: {jsonError}</p>
               </div>
             )}
 
@@ -398,14 +409,14 @@ Return the result as a JSON array.`;
               {previewData && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
                   <div className="px-6 py-4 bg-white/5 border-b border-white/5">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Architectural Preview</span>
+                     <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t('architect.preview')}</span>
                   </div>
                   <div className="p-8 max-h-[400px] overflow-y-auto no-scrollbar">
                     {previewData.map((data: any, idx: number) => (
                       <div key={idx} className="mb-10 last:mb-0">
                         <div className="flex items-center gap-4 mb-6">
                           <span className="text-4xl">{data.emoji || '📄'}</span>
-                          <h1 className="text-2xl font-black text-white uppercase">{data.title || 'Untitled'}</h1>
+                          <h1 className="text-2xl font-black text-white uppercase">{data.title || t('architect.untitled')}</h1>
                         </div>
                         <div className="prose prose-invert prose-sm max-w-none text-white/60 preview-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.content) }} />
                       </div>
@@ -415,14 +426,15 @@ Return the result as a JSON array.`;
               )}
             </AnimatePresence>
 
-            <button 
+            <button
               onClick={handleImport} disabled={!previewData || isImporting}
               className="w-full py-6 bg-green-600 hover:bg-green-500 disabled:opacity-20 text-black font-black text-sm uppercase tracking-[0.3em] rounded-[1.5rem] flex items-center justify-center gap-4 transition-all shadow-xl shadow-green-500/20"
             >
               {isImporting ? <Loader2 size={24} className="animate-spin" /> : <ArrowRight size={24} />}
-              <span>{targetId ? 'Update Existing' : parentId ? 'Architect Sub-pages' : 'Architect Content'}</span>
+              <span>{targetId ? t('architect.importUpdate') : parentId ? t('architect.importSubpages') : t('architect.importNew')}</span>
             </button>
           </section>
+        </div>
         </div>
       </main>
 

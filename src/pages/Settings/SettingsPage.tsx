@@ -1,6 +1,12 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright © 2026 Redwan. All rights reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -27,71 +33,13 @@ import { ConfirmDialog } from '../../components/modals/CustomDialogs';
 import { LANGUAGE_OPTIONS, useLanguage, type AppLanguage } from '../../utils/translator';
 import { formatSize } from '../../utils/formatSize';
 
-/** One row inside a grouped settings card. */
-const SettingsRow = ({
-  icon: Icon,
-  title,
-  description,
-  onClick,
-  iconClasses = "bg-white/[0.06] border-white/[0.08] text-white/60",
-  danger = false,
-  last = false,
-}: {
-  icon: any;
-  title: string;
-  description: string;
-  onClick: () => void;
-  iconClasses?: string;
-  danger?: boolean;
-  last?: boolean;
-}) => (
-  <motion.button
-    whileTap={{ scale: 0.99 }}
-    onClick={onClick}
-    className={cn(
-      "w-full flex items-center gap-4 px-5 py-4 text-left transition-colors group active:bg-white/[0.04]",
-      "hover:bg-white/[0.03]",
-      !last && "border-b border-white/[0.05]"
-    )}
-  >
-    <span className={cn(
-      "w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
-      iconClasses
-    )}>
-      <Icon size={21} />
-    </span>
-    <span className="flex-1 min-w-0">
-      <span className={cn(
-        "block text-[15px] font-bold tracking-tight truncate",
-        danger ? "text-red-300" : "text-white/90"
-      )}>
-        {title}
-      </span>
-      <span className="block text-[11px] text-white/30 leading-relaxed font-medium mt-0.5 line-clamp-2">
-        {description}
-      </span>
-    </span>
-    <ChevronRight
-      size={17}
-      className={cn(
-        "shrink-0 transition-all group-hover:translate-x-0.5",
-        danger ? "text-red-400/40 group-hover:text-red-300" : "text-white/20 group-hover:text-amber-300"
-      )}
-    />
-  </motion.button>
-);
-
 const SectionHeading = ({ label, danger = false }: { label: string; danger?: boolean }) => (
-  <div className="flex items-center gap-3.5 px-1.5">
-    <span className={cn("h-px w-6 rounded-full", danger ? "bg-red-500/40" : "bg-amber-400/40")} />
-    <h2 className={cn(
-      "text-[10px] font-black uppercase tracking-[0.32em]",
-      danger ? "text-red-400/60" : "text-white/30"
-    )}>
-      {label}
-    </h2>
-    <span className="h-px flex-1 bg-white/[0.05]" />
-  </div>
+  <h2 className={cn(
+    "text-[10px] font-black uppercase tracking-[0.32em] px-1",
+    danger ? "text-red-400/70" : "text-white/30"
+  )}>
+    {label}
+  </h2>
 );
 
 const SettingsPage: React.FC = () => {
@@ -114,7 +62,7 @@ const SettingsPage: React.FC = () => {
         setStorage(usage);
         setWorkspaceCount(workspaces.length);
       } catch {
-        /* overview is informational only — the page works without it */
+        /* Overview is informational only — the page works without it */
       }
     })();
     return () => { cancelled = true; };
@@ -147,39 +95,39 @@ const SettingsPage: React.FC = () => {
       title: t('settings.dataMonitor'),
       description: t('settings.dataMonitorDesc'),
       path: "/data-monitor",
-      iconClasses: "bg-orange-500/10 border-orange-500/20 text-orange-400",
+      classes: "bg-orange-500/10 border-orange-500/20 text-orange-300",
     },
     {
       icon: History,
       title: t('settings.recentBackups'),
       description: t('settings.recentBackupsDesc'),
       path: "/recent-backups",
-      iconClasses: "bg-teal-500/10 border-teal-500/20 text-teal-400",
+      classes: "bg-teal-500/10 border-teal-500/20 text-teal-300",
     },
     {
       icon: Cloud,
       title: t('settings.cloudArchive'),
       description: t('settings.cloudArchiveDesc'),
       path: "/cloud-archive",
-      iconClasses: "bg-sky-500/10 border-sky-500/20 text-sky-400",
+      classes: "bg-sky-500/10 border-sky-500/20 text-sky-300",
     },
     {
       icon: Trash2,
       title: t('settings.recycleBin'),
       description: t('settings.recycleBinDesc'),
       path: "/recycle-bin",
-      iconClasses: "bg-red-500/10 border-red-500/20 text-red-400",
+      classes: "bg-red-500/10 border-red-500/20 text-red-300",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0b0b10] text-white flex flex-col font-sans relative">
+    <div className="min-h-screen bg-[#0a0c10] text-white flex flex-col font-sans relative">
       {/* Ambient background */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-[380px] bg-gradient-to-b from-amber-500/[0.06] via-violet-600/[0.05] to-transparent" />
-      <div className="pointer-events-none fixed -top-24 left-1/3 w-72 h-72 rounded-full bg-violet-600/[0.07] blur-3xl" />
+      <div className="pointer-events-none fixed -top-28 left-1/4 w-80 h-80 rounded-full bg-cyan-500/[0.06] blur-3xl" />
+      <div className="pointer-events-none fixed top-40 -right-24 w-72 h-72 rounded-full bg-indigo-500/[0.05] blur-3xl" />
 
-      {/* Header */}
-      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#0b0b10]/85 backdrop-blur-2xl shrink-0">
+      {/* Header — single clean "Settings" heading */}
+      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#0a0c10]/85 backdrop-blur-2xl shrink-0">
         <div className="px-4 sm:px-6 py-4 flex items-center gap-3.5 max-w-3xl mx-auto w-full">
           <button
             onClick={() => navigate('/main')}
@@ -188,78 +136,76 @@ const SettingsPage: React.FC = () => {
           >
             <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform" />
           </button>
-          <span className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-b from-amber-300/25 to-amber-500/10 border border-amber-400/25 flex items-center justify-center shadow-[0_10px_28px_rgba(245,158,11,0.22)]">
-            <Settings2 size={22} className="text-amber-300" />
+          <span className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-b from-cyan-300/25 to-cyan-500/10 border border-cyan-300/25 flex items-center justify-center">
+            <Settings2 size={22} className="text-cyan-300" />
           </span>
-          {/* Single clean heading — the page is simply "Settings" everywhere */}
           <h1 className="text-xl font-black tracking-tight leading-none flex-1 min-w-0 truncate">
             {t('settings.title')}
           </h1>
           {activeLanguage && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[10px] font-black uppercase tracking-wider text-white/50 shrink-0">
-              <Globe size={12} className="text-emerald-400" />
+              <Globe size={12} className="text-cyan-300" />
               {activeLanguage.nativeLabel}
             </span>
           )}
         </div>
       </header>
 
-      <main className="relative flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-9 pb-28">
-        {/* Overview card */}
+      <main className="relative flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 md:py-9 space-y-8 pb-28">
+        {/* Overview banner */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
-          className="rounded-[1.75rem] border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-2xl p-5 sm:p-6 space-y-5 overflow-hidden relative"
+          className="rounded-[26px] border border-cyan-300/[0.14] bg-gradient-to-br from-cyan-400/[0.10] via-white/[0.03] to-indigo-500/[0.07] shadow-2xl p-5 sm:p-6 space-y-5 overflow-hidden relative"
         >
-          <div className="pointer-events-none absolute -top-16 -right-16 w-44 h-44 rounded-full bg-amber-500/[0.08] blur-3xl" />
-          <div className="flex items-center justify-between gap-3 relative">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200/60">
               {t('settings.overview')}
             </h2>
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300/80">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300/85">
               <ShieldCheck size={13} className="text-emerald-400" />
               {t('settings.localNote')}
             </span>
           </div>
 
           {/* Storage meter */}
-          <div className="space-y-2.5 relative">
-            <div className="flex items-end justify-between gap-3">
-              <span className="flex items-center gap-2 text-sm font-bold text-white/80">
-                <HardDrive size={16} className="text-amber-300" />
+          <div className="space-y-2.5">
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <span className="flex items-center gap-2 text-sm font-bold text-white/85">
+                <HardDrive size={16} className="text-cyan-300" />
                 {t('settings.storageUsed')}
               </span>
               {storage ? (
-                <span className="text-[11px] font-bold text-white/35">
+                <span className="text-[11px] font-bold text-white/40">
                   {t('settings.storageOf', { used: formatSize(storage.used), quota: formatSize(storage.quota || 0) })}
-                  <span className="text-amber-300 ml-1.5">{usagePercent.toFixed(1)}%</span>
+                  <span className="text-cyan-300 ml-1.5">{usagePercent.toFixed(1)}%</span>
                 </span>
               ) : (
-                <span className="h-3.5 w-24 rounded-full bg-white/[0.06] animate-pulse" />
+                <span className="h-3.5 w-24 rounded-full bg-white/[0.07] animate-pulse" />
               )}
             </div>
-            <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+            <div className="h-2.5 rounded-full bg-black/30 overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: storage ? `${Math.max(1.5, usagePercent)}%` : '0%' }}
                 transition={{ duration: 0.7, ease: 'easeOut' }}
                 className={cn(
-                  "h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.45)]",
-                  usagePercent > 90 && "from-red-400 to-red-500 shadow-[0_0_12px_rgba(239,68,68,0.45)]"
+                  "h-full rounded-full bg-gradient-to-r from-cyan-300 to-cyan-500",
+                  usagePercent > 90 && "from-red-400 to-red-500"
                 )}
               />
             </div>
           </div>
 
           {/* Mini stats */}
-          <div className="grid grid-cols-2 gap-3 relative">
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-black/25 border border-white/[0.06]">
-              <span className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                <LayoutGrid size={17} className="text-violet-300" />
+              <span className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <LayoutGrid size={17} className="text-indigo-300" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/25 truncate">
+                <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/30 truncate">
                   {t('settings.workspaces')}
                 </span>
                 <span className="block text-base font-black leading-tight mt-0.5">
@@ -268,11 +214,11 @@ const SettingsPage: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-black/25 border border-white/[0.06]">
-              <span className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Globe size={17} className="text-emerald-300" />
+              <span className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                <Globe size={17} className="text-cyan-300" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/25 truncate">
+                <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/30 truncate">
                   {t('settings.language')}
                 </span>
                 <span className="block text-base font-black leading-tight mt-0.5 truncate">
@@ -283,7 +229,7 @@ const SettingsPage: React.FC = () => {
           </div>
         </motion.section>
 
-        {/* AI & Intelligence */}
+        {/* AI feature card */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
@@ -291,19 +237,23 @@ const SettingsPage: React.FC = () => {
           className="space-y-3.5"
         >
           <SectionHeading label={t('settings.aiSection')} />
-          <div className="rounded-[1.75rem] border border-white/[0.07] bg-white/[0.02] shadow-xl overflow-hidden">
-            <SettingsRow
-              icon={Cpu}
-              title={t('settings.aiConfig')}
-              description={t('settings.aiConfigDesc')}
-              onClick={() => navigate('/ai/settings')}
-              iconClasses="bg-violet-500/10 border-violet-500/20 text-violet-300"
-              last
-            />
-          </div>
+          <motion.button
+            whileTap={{ scale: 0.99 }}
+            onClick={() => navigate('/ai/settings')}
+            className="w-full text-left rounded-[26px] border border-orange-400/[0.18] bg-gradient-to-br from-orange-400/[0.10] via-white/[0.03] to-transparent p-5 sm:p-6 flex items-center gap-4 group hover:border-orange-400/30 transition-colors"
+          >
+            <span className="w-13 h-13 min-w-[52px] min-h-[52px] rounded-2xl bg-gradient-to-b from-orange-300/30 to-orange-500/10 border border-orange-300/25 flex items-center justify-center shrink-0">
+              <Cpu size={24} className="text-orange-300" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[16px] font-black tracking-tight text-white/95">{t('settings.aiConfig')}</span>
+              <span className="block text-xs text-white/35 leading-relaxed font-medium mt-1">{t('settings.aiConfigDesc')}</span>
+            </span>
+            <ChevronRight size={19} className="text-orange-300/50 group-hover:text-orange-300 group-hover:translate-x-0.5 transition-all shrink-0" />
+          </motion.button>
         </motion.section>
 
-        {/* Data & Storage */}
+        {/* Data & Storage — tile grid */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
@@ -311,17 +261,20 @@ const SettingsPage: React.FC = () => {
           className="space-y-3.5"
         >
           <SectionHeading label={t('settings.dataSection')} />
-          <div className="rounded-[1.75rem] border border-white/[0.07] bg-white/[0.02] shadow-xl overflow-hidden">
-            {dataTiles.map((tile, i) => (
-              <SettingsRow
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3">
+            {dataTiles.map((tile) => (
+              <motion.button
                 key={tile.path}
-                icon={tile.icon}
-                title={tile.title}
-                description={tile.description}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => navigate(tile.path)}
-                iconClasses={tile.iconClasses}
-                last={i === dataTiles.length - 1}
-              />
+                className="text-left rounded-[22px] border border-white/[0.07] bg-white/[0.025] hover:bg-white/[0.045] transition-colors p-5 group"
+              >
+                <span className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center", tile.classes)}>
+                  <tile.icon size={20} />
+                </span>
+                <span className="block text-[15px] font-bold tracking-tight text-white/90 mt-3.5">{tile.title}</span>
+                <span className="block text-[11px] text-white/30 leading-relaxed font-medium mt-1 line-clamp-2">{tile.description}</span>
+              </motion.button>
             ))}
           </div>
         </motion.section>
@@ -334,10 +287,10 @@ const SettingsPage: React.FC = () => {
           className="space-y-3.5"
         >
           <SectionHeading label={t('settings.preferencesSection')} />
-          <div className="rounded-[1.75rem] border border-white/[0.07] bg-white/[0.02] shadow-xl p-5 space-y-5">
+          <div className="rounded-[26px] border border-white/[0.07] bg-white/[0.02] shadow-xl p-5 sm:p-6 space-y-5">
             <div className="flex items-center gap-4">
-              <span className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Globe size={21} className="text-emerald-300" />
+              <span className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                <Globe size={21} className="text-cyan-300" />
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block text-[15px] font-bold tracking-tight text-white/90">
@@ -361,7 +314,7 @@ const SettingsPage: React.FC = () => {
                     className={cn(
                       "relative px-4 py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all active:scale-[0.98]",
                       isActive
-                        ? "bg-gradient-to-b from-emerald-400 to-emerald-600 text-emerald-950 shadow-[0_8px_20px_rgba(16,185,129,0.35)]"
+                        ? "bg-gradient-to-b from-cyan-300 to-cyan-500 text-cyan-950 shadow-[0_8px_20px_rgba(34,211,238,0.30)]"
                         : "text-white/50 hover:text-white hover:bg-white/[0.05]"
                     )}
                   >
@@ -382,17 +335,20 @@ const SettingsPage: React.FC = () => {
           className="space-y-3.5"
         >
           <SectionHeading label={t('settings.dangerZone')} danger />
-          <div className="rounded-[1.75rem] border border-red-500/[0.16] bg-red-500/[0.03] shadow-xl overflow-hidden">
-            <SettingsRow
-              icon={AlertTriangle}
-              title={t('settings.deleteAll')}
-              description={t('settings.deleteAllDesc')}
-              onClick={() => setShowConfirm1(true)}
-              iconClasses="bg-red-500/10 border-red-500/25 text-red-400"
-              danger
-              last
-            />
-          </div>
+          <motion.button
+            whileTap={{ scale: 0.99 }}
+            onClick={() => setShowConfirm1(true)}
+            className="w-full flex items-center gap-4 px-5 py-5 rounded-[26px] border border-red-500/[0.18] bg-red-500/[0.04] hover:bg-red-500/[0.07] text-left transition-colors group"
+          >
+            <span className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-center shrink-0">
+              <AlertTriangle size={21} className="text-red-400" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[15px] font-bold tracking-tight text-red-300">{t('settings.deleteAll')}</span>
+              <span className="block text-[11px] text-white/30 leading-relaxed font-medium mt-0.5 line-clamp-2">{t('settings.deleteAllDesc')}</span>
+            </span>
+            <ChevronRight size={17} className="text-red-400/40 group-hover:text-red-300 transition-all shrink-0" />
+          </motion.button>
         </motion.section>
       </main>
 
