@@ -1,9 +1,12 @@
 /**
  * Copyright © 2026 Redwan. All rights reserved.
  *
- * This source code is proprietary and confidential. No part of this
- * project may be copied, modified, distributed, or used in any form
- * without the prior written permission of the copyright holder.
+ * PROPRIETARY AND CONFIDENTIAL — NO LICENSE IS GRANTED.
+ * This work is the exclusive property of Redwan. Copying, reproducing,
+ * reusing, modifying, distributing, publishing, selling, sublicensing,
+ * reverse-engineering, rebranding, removing this notice, or claiming
+ * this work, in whole or in part, as anyone else's own is strictly
+ * prohibited without Redwan's prior written permission.
  */
 import 'dotenv/config';
 import express from 'express';

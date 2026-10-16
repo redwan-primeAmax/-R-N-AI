@@ -48,3 +48,12 @@
 
 ---
 Developed by **Redwan** ❤️
+
+## Copyright and Use Restrictions
+
+Copyright © 2026 Redwan. All rights reserved.
+
+This is proprietary and confidential work. No license is granted to copy,
+reuse, modify, distribute, publish, rebrand, or claim this project or any
+part of it as anyone else's own work. See the [LICENSE](LICENSE) file for
+the full restrictions.
